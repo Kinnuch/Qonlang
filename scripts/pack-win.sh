@@ -5,7 +5,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 npx electron-vite build
-OUT=dist/win-unpacked
+# 输出目录可用环境变量覆盖：OUT=dist/other bash scripts/pack-win.sh
+OUT="${OUT:-dist/win-unpacked}"
 rm -rf "$OUT" dist/app-stage
 mkdir -p "$OUT" dist/app-stage/node_modules/@electron-toolkit dist/app-stage/resources
 cp -r node_modules/electron/dist/. "$OUT/"
