@@ -36,6 +36,28 @@
 
   let inspectorTitle = $state('')
 
+  // 拖动分隔条调整检视器宽度
+  const MIN_W = 280
+  const MAX_W = 900
+  let dragging = $state(false)
+  function startDrag(e: PointerEvent): void {
+    e.preventDefault()
+    dragging = true
+    const startX = e.clientX
+    const startW = ui.prefs.inspectorWidth
+    const move = (ev: PointerEvent): void => {
+      ui.prefs.inspectorWidth = Math.min(MAX_W, Math.max(MIN_W, startW + (startX - ev.clientX)))
+    }
+    const up = (): void => {
+      dragging = false
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      void ui.savePrefs()
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
   function closeProject(): void {
     if (projectState.dirty) {
       ui.toast(t('dialog.unsavedBody'), {
@@ -52,7 +74,7 @@
   }
 </script>
 
-<div class="shell" class:no-inspector={!ui.inspectorOpen}>
+<div class="shell" class:no-inspector={!ui.inspectorOpen} class:dragging style:--inspector-w={`${ui.prefs.inspectorWidth}px`}>
   <nav class="nav">
     <div class="nav-logo" title={t('app.name')}>千</div>
     {#each SECTIONS.filter((s) => s !== 'settings') as s (s)}
@@ -109,6 +131,7 @@
   </main>
 
   <aside class="inspector" hidden={!ui.inspectorOpen}>
+    <div class="resizer" role="separator" aria-orientation="vertical" onpointerdown={startDrag}></div>
     <div class="inspector-head">
       <h3>{inspectorTitle || t('nav.inspector')}</h3>
     </div>
@@ -201,12 +224,30 @@
   }
   .inspector {
     grid-area: insp;
+    position: relative;
     border-left: 1px solid var(--border);
     background: var(--bg-elev);
     display: flex;
     flex-direction: column;
     min-width: 0;
     overflow: hidden;
+  }
+  .resizer {
+    position: absolute;
+    left: -3px;
+    top: 0;
+    bottom: 0;
+    width: 7px;
+    cursor: col-resize;
+    z-index: 5;
+  }
+  .resizer:hover,
+  .dragging .resizer {
+    background: var(--accent-soft);
+  }
+  .dragging {
+    user-select: none;
+    cursor: col-resize;
   }
   .inspector[hidden] {
     display: none;

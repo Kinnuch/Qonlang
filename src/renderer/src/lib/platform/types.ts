@@ -31,6 +31,8 @@ export interface Prefs {
   backupCount: number
   /** 上次打开的项目，启动时自动恢复 */
   reopenLast: boolean
+  /** 右侧检视器宽度（px） */
+  inspectorWidth: number
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -38,7 +40,8 @@ export const DEFAULT_PREFS: Prefs = {
   theme: 'system',
   autosaveSeconds: 30,
   backupCount: 20,
-  reopenLast: true
+  reopenLast: true,
+  inspectorWidth: 360
 }
 
 export interface AppInfo {

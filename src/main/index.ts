@@ -13,8 +13,9 @@ interface Prefs {
   autosaveSeconds: number
   backupCount: number
   reopenLast: boolean
+  inspectorWidth: number
 }
-const DEFAULT_PREFS: Prefs = { locale: 'zh', theme: 'system', autosaveSeconds: 30, backupCount: 20, reopenLast: true }
+const DEFAULT_PREFS: Prefs = { locale: 'zh', theme: 'system', autosaveSeconds: 30, backupCount: 20, reopenLast: true, inspectorWidth: 360 }
 
 interface RecentEntry {
   name: string

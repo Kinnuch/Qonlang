@@ -8,7 +8,8 @@
   import { parseRuleText, runRules, fromYinbianji, fromLexicanter, fromSca2, type RuleProgram, type RunResult } from '$lib/engine/sca'
   import Portal from '$lib/ui/Portal.svelte'
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
-  import { Plus, Trash2, Download, Upload, Copy, BookOpen } from '@lucide/svelte'
+  import RuleList from '$lib/ui/RuleList.svelte'
+  import { Plus, Trash2, Download, Upload, Copy, BookOpen, List, Code } from '@lucide/svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -59,6 +60,21 @@
   const warnCount = $derived(program?.diagnostics.filter((d) => d.severity === 'warning').length ?? 0)
 
   let editor = $state<RuleEditor | null>(null)
+  let view = $state<'list' | 'source'>('list')
+
+  /** 每条规则在测试词上的命中次数 */
+  const hits = $derived.by(() => {
+    const m = new Map<number, number>()
+    for (const r of results) for (const e of r.trace) m.set(e.line, (m.get(e.line) ?? 0) + 1)
+    return m
+  })
+
+  function jump(line: number): void {
+    if (view !== 'source') {
+      view = 'source'
+      setTimeout(() => editor?.goToLine(line), 30)
+    } else editor?.goToLine(line)
+  }
 
   function touch(rs: RuleSet): void {
     rs.updatedAt = now()
@@ -170,10 +186,20 @@
   {:else}
     {@const rs = active}
     <div class="workspace">
-      <div class="editor-wrap">
-        <RuleEditor bind:this={editor} bind:value={rs.text} diagnostics={program?.diagnostics ?? []} placeholder={t('soundChanges.editorPlaceholder')} oninput={() => touch(rs)} />
-      </div>
+      {#if view === 'source'}
+        <div class="editor-wrap">
+          <RuleEditor bind:this={editor} bind:value={rs.text} diagnostics={program?.diagnostics ?? []} placeholder={t('soundChanges.editorPlaceholder')} oninput={() => touch(rs)} />
+        </div>
+      {:else}
+        <div class="list-wrap">
+          <RuleList bind:text={rs.text} {program} {hits} onchange={() => touch(rs)} />
+        </div>
+      {/if}
       <div class="status row">
+        <div class="seg">
+          <button class:active={view === 'list'} onclick={() => (view = 'list')}><List size={14} />{t('soundChanges.viewList')}</button>
+          <button class:active={view === 'source'} onclick={() => (view = 'source')}><Code size={14} />{t('soundChanges.viewSource')}</button>
+        </div>
         <span class="small muted grow">
           {#if program}
             {t('soundChanges.stats', { rules: program.steps.filter((s) => s.kind === 'rule').length, stages: program.markers.length, classes: program.classes.size })}
@@ -189,7 +215,7 @@
         <ul class="diags">
           {#each program.diagnostics as d (d.line + d.message)}
             <li class:err={d.severity === 'error'}>
-              <button class="link" onclick={() => editor?.goToLine(d.line)}>{t('soundChanges.lineN', { n: d.line })}</button>
+              <button class="link" onclick={() => jump(d.line)}>{t('soundChanges.lineN', { n: d.line })}</button>
               {d.message}
             </li>
           {/each}
@@ -243,7 +269,7 @@
         <ol class="trace">
           {#each selected.trace as e, i (i)}
             <li>
-              <button class="link mono" onclick={() => editor?.goToLine(e.line)}>{e.line}</button>
+              <button class="link mono" onclick={() => jump(e.line)}>{e.line}</button>
               <span class="data">{e.before}</span>
               <span class="muted">→</span>
               <span class="data">{e.after}</span>
@@ -355,6 +381,33 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
+  }
+  .list-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding-right: 4px;
+  }
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .seg button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 0;
+    background: var(--bg-elev);
+    padding: 3px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text-2);
+  }
+  .seg button.active {
+    background: var(--accent-soft);
+    color: var(--accent-text);
   }
   .badge.err {
     background: var(--danger-soft);

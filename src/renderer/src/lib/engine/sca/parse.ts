@@ -29,6 +29,8 @@ export interface ParsedRule {
   kind: 'rule'
   line: number
   raw: string
+  /** 行尾 ; 之后的注释 */
+  comment: string
   target: string
   replacement: string
   contexts: Context[]
@@ -48,6 +50,7 @@ export interface MarkerLine {
   kind: 'marker'
   line: number
   raw: string
+  comment: string
   name: string
 }
 
@@ -55,7 +58,71 @@ export interface OtherLine {
   kind: 'blank' | 'comment' | 'class' | 'replacement' | 'error'
   line: number
   raw: string
+  comment: string
   message?: string
+}
+
+/** 规则的可编辑表示（列表视图用） */
+export interface RuleDraft {
+  target: string
+  replacement: string
+  contexts: Context[]
+  exception: Context | null
+  comment: string
+}
+
+export function formatRule(d: RuleDraft): string {
+  let s = `${d.target.trim()} > ${d.replacement.trim()}`.trimEnd()
+  const ctxs = d.contexts.filter((c) => c.left.trim() || c.right.trim())
+  if (ctxs.length) s += ' / ' + ctxs.map((c) => `${c.left.trim()}_${c.right.trim()}`).join(' , ')
+  if (d.exception && (d.exception.left.trim() || d.exception.right.trim())) {
+    if (!ctxs.length) s += ' / _'
+    s += ` - ${d.exception.left.trim()}_${d.exception.right.trim()}`
+  }
+  if (d.comment.trim()) s += `  ; ${d.comment.trim()}`
+  return s
+}
+
+export function formatMarker(name: string, comment = ''): string {
+  return `-* ${name.trim()}` + (comment.trim() ? `  ; ${comment.trim()}` : '')
+}
+
+export function formatClassLine(name: string, members: string[]): string {
+  const key = name.length === 1 ? name : `{${name.replace(/^\{|\}$/g, '')}}`
+  const multi = members.some((m) => Array.from(m).length > 1)
+  return `${key}=${multi ? members.join(' ') : members.join('')}`
+}
+
+export function formatReplacementLine(from: string, to: string): string {
+  return `${from.trim()}|${to.trim()}`
+}
+
+/** 解析音类声明行；不是则返回 null */
+export function parseClassLine(raw: string): { name: string; members: string[] } | null {
+  const content = stripComment(raw)
+  const m = CLASS_LINE.exec(content)
+  if (!m) return null
+  const key = m[1]
+  const members = key.length === 1 ? dedupe(Array.from(m[2].replace(/\s+/g, ''))) : dedupe(splitMembers(m[2]))
+  return { name: key.replace(/^\{|\}$/g, ''), members }
+}
+
+/** 解析多合字母声明行；不是则返回 null */
+export function parseReplacementLine(raw: string): { from: string; to: string } | null {
+  const content = stripComment(raw)
+  if (content.includes('>')) return null
+  const m = REPL_LINE.exec(content)
+  return m ? { from: m[1], to: m[2] } : null
+}
+
+function stripComment(raw: string): string {
+  const semi = raw.indexOf(';')
+  return (semi >= 0 ? raw.slice(0, semi) : raw).trim()
+}
+
+function commentOf(raw: string): string {
+  const semi = raw.indexOf(';')
+  return semi >= 0 ? raw.slice(semi + 1).trim() : ''
 }
 
 export type ParsedLine = ParsedRule | MarkerLine | OtherLine
@@ -298,13 +365,14 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     const line = idx + 1
     const kind = kinds[idx]
     const content = contents[idx]
+    const comment = commentOf(raw)
     if (kind === 'blank' || kind === 'comment' || kind === 'class' || kind === 'replacement') {
-      lines.push({ kind, line, raw })
+      lines.push({ kind, line, raw, comment })
       return
     }
     if (kind === 'marker') {
       const name = content.slice(2).trim()
-      const m: MarkerLine = { kind: 'marker', line, raw, name }
+      const m: MarkerLine = { kind: 'marker', line, raw, comment, name }
       lines.push(m)
       steps.push(m)
       if (!markers.includes(name)) markers.push(name)
@@ -315,7 +383,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     }
     const fail = (message: string): void => {
       diagnostics.push({ line, severity: 'error', message })
-      lines.push({ kind: 'error', line, raw, message })
+      lines.push({ kind: 'error', line, raw, comment, message })
     }
 
     // 目标 > 替换 / 环境 - 排除
@@ -375,6 +443,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
       kind: 'rule',
       line,
       raw,
+      comment,
       target,
       replacement,
       contexts,
