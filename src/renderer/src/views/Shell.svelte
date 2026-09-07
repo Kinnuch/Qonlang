@@ -212,6 +212,15 @@
     padding: 12px 16px;
     border-bottom: 1px solid var(--border);
   }
+  .inspector-head h3 {
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 14px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .inspector-body {
     flex: 1;
     overflow: auto;
