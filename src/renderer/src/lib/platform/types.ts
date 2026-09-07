@@ -45,6 +45,8 @@ export interface AppInfo {
   version: string
   platform: 'electron' | 'web'
   userDataPath: string | null
+  /** 开发用：启动后直接进入的页面（环境变量 QIANYUJI_SECTION） */
+  initialSection?: string | null
 }
 
 export interface PlatformAPI {
@@ -59,6 +61,10 @@ export interface PlatformAPI {
   saveProject(target: SaveTarget | null, content: string, suggestedName: string): Promise<SaveTarget | null>
   /** 导出为文件夹格式；用户取消返回 false */
   exportFolder(files: Record<string, string>, suggestedName: string): Promise<boolean>
+  /** 让用户选若干文本文件并读出内容（导入用） */
+  readTextFiles(opts: { multiple: boolean; extensions: string[] }): Promise<{ name: string; content: string }[]>
+  /** 把文本存成文件；用户取消返回 false */
+  saveTextFile(suggestedName: string, content: string): Promise<boolean>
 
   getRecent(): Promise<RecentEntry[]>
   addRecent(entry: RecentEntry): Promise<void>

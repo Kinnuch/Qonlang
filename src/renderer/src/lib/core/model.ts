@@ -20,7 +20,7 @@ export interface Project {
   schemaVersion: number
   meta: ProjectMeta
   languages: Language[]
-  soundChanges: SoundChangeRule[]
+  ruleSets: RuleSet[]
   categories: GrammaticalCategory[]
   posList: PartOfSpeech[]
   morphemes: Morpheme[]
@@ -179,18 +179,21 @@ export interface Dialect {
 
 // ───────────────────────── 音变 ─────────────────────────
 
-export interface SoundChangeRule {
+/**
+ * 一套规则文本：音类声明、多合字母声明、`-* 阶段` 标记和规则行混写在一个文本里，
+ * 语法见 docs/rules.md。文本本身是唯一真值，界面只是编辑器。
+ * 一个项目可以有多套（例如同一祖语通往不同子语言的两条链）。
+ */
+export interface RuleSet {
   id: Id
-  /** 规则原文，一行一条，语法见 docs/rules.md */
+  name: string
+  notes: string
   text: string
-  note: string
-  enabled: boolean
-  /** 分组名（对应规则文件里的 -* 阶段标题） */
-  group: string
-  /** 从哪种语言到哪种语言；共时规则可两端相同或为 null */
-  fromLanguageId: Id | null
-  toLanguageId: Id | null
-  order: number
+  /** `-* 阶段` 标记名 → 该阶段对应的语言；未绑定为 null */
+  stageLanguages: Record<string, Id | null>
+  /** 测试台里的词，随项目保存 */
+  testWords: string
+  updatedAt: string
 }
 
 // ───────────────────────── 语法维度与词类 ─────────────────────────
@@ -331,7 +334,7 @@ export type SlotGenerator =
   | { kind: 'none' }
   | { kind: 'table' }
   | { kind: 'affix'; stem: string; prefix: string; suffix: string; infix: string; infixAt: string }
-  | { kind: 'affix-sca'; stem: string; prefix: string; suffix: string; fromGroup: string }
+  | { kind: 'affix-sca'; stem: string; prefix: string; suffix: string; ruleSetId: Id | null; fromStage: string; toStage: string }
   | { kind: 'pattern'; stem: string; pattern: string }
   | { kind: 'reduplication'; stem: string; scope: 'full' | 'initial' | 'final'; length: number }
 

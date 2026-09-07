@@ -11,6 +11,7 @@ import {
   type Orthography,
   type Project,
   type ProjectTemplate,
+  type RuleSet,
   type Sentence,
   type Sense
 } from './model'
@@ -148,6 +149,10 @@ export function createSentence(languageId: Id): Sentence {
   }
 }
 
+export function createRuleSet(name: string, text = ''): RuleSet {
+  return { id: newId(), name, notes: '', text, stageLanguages: {}, testWords: '', updatedAt: now() }
+}
+
 export interface CreateProjectOptions {
   name: string
   template: ProjectTemplate
@@ -191,7 +196,7 @@ export function createProject(opts: CreateProjectOptions): Project {
       appVersion: opts.appVersion
     },
     languages,
-    soundChanges: [],
+    ruleSets: [],
     categories: [],
     posList: [],
     morphemes: [],

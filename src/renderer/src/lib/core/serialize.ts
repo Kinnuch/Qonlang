@@ -56,7 +56,7 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
   }
   for (const key of [
     'languages',
-    'soundChanges',
+    'ruleSets',
     'categories',
     'posList',
     'morphemes',
@@ -81,7 +81,7 @@ export function projectToFolder(p: Project): Record<string, string> {
   const files: Record<string, string> = {
     'project.json': j({ schemaVersion: p.schemaVersion, meta: p.meta, settings: p.settings }),
     'languages.json': j(p.languages),
-    'sound-changes.json': j(p.soundChanges),
+    'rule-sets.json': j(p.ruleSets.map((r) => ({ ...r, text: undefined }))),
     'categories.json': j(p.categories),
     'parts-of-speech.json': j(p.posList),
     'morphemes.json': j(p.morphemes),
@@ -91,15 +91,8 @@ export function projectToFolder(p: Project): Record<string, string> {
     'phrasebook.json': j(p.phrasebook),
     'abbreviations.json': j(p.abbreviations)
   }
-  // 规则纯文本：按分组输出 -* 标题
-  const groups = new Map<string, string[]>()
-  for (const r of [...p.soundChanges].sort((a, b) => a.order - b.order)) {
-    if (!groups.has(r.group)) groups.set(r.group, [])
-    groups.get(r.group)!.push((r.enabled ? '' : '; ') + r.text + (r.note ? `  ; ${r.note}` : ''))
-  }
-  let rules = ''
-  for (const [g, lines] of groups) rules += `-* ${g}\n${lines.join('\n')}\n`
-  files['rules.txt'] = rules
+  // 规则文本各自一份，可直接喂给引擎或其他工具
+  for (const r of p.ruleSets) files[`rules/${safeName(r.name || r.id)}.txt`] = r.text.endsWith('\n') ? r.text : r.text + '\n'
   for (const d of p.docs) files[`docs/${safeName(d.title || d.id)}.md`] = d.markdown
   return files
 }
@@ -119,12 +112,16 @@ export function projectFromFolder(files: Record<string, string>): Project {
     'project.json',
     { schemaVersion: SCHEMA_VERSION, meta: undefined as never, settings: undefined as never }
   )
+  const ruleSets = read<Project['ruleSets']>('rule-sets.json', []).map((r) => {
+    const text = files[`rules/${safeName(r.name || r.id)}.txt`] ?? ''
+    return { ...r, text: text.replace(/\n$/, '') }
+  })
   const obj: Partial<Project> & { schemaVersion: number } = {
     schemaVersion: head.schemaVersion,
     meta: head.meta,
     settings: head.settings,
     languages: read('languages.json', []),
-    soundChanges: read('sound-changes.json', []),
+    ruleSets,
     categories: read('categories.json', []),
     posList: read('parts-of-speech.json', []),
     morphemes: read('morphemes.json', []),

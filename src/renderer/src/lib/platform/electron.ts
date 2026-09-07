@@ -46,6 +46,13 @@ export const electronPlatform: PlatformAPI = {
     return (await bridge().invoke('project:exportFolder', files, suggestedName)) as boolean
   },
 
+  async readTextFiles(opts) {
+    return (await bridge().invoke('file:readText', opts)) as { name: string; content: string }[]
+  },
+  async saveTextFile(suggestedName, content) {
+    return (await bridge().invoke('file:saveText', suggestedName, content)) as boolean
+  },
+
   async getRecent() {
     return (await bridge().invoke('recent:get')) as RecentEntry[]
   },

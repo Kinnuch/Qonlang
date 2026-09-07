@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createProject, createLanguage, createLexeme } from '$lib/core/factory'
+import { createProject, createLanguage, createLexeme, createRuleSet } from '$lib/core/factory'
 import { parseProject, serializeProject, projectToFolder, projectFromFolder, ProjectParseError } from '$lib/core/serialize'
 import { SCHEMA_VERSION } from '$lib/core/model'
 
@@ -39,10 +39,9 @@ describe('serialize', () => {
 
   it('folder export roundtrips', () => {
     const p = sample()
-    p.soundChanges.push({ id: 'r1', text: 'a > e / _i', note: 'umlaut', enabled: true, group: 'Stage 1', fromLanguageId: null, toLanguageId: null, order: 0 })
-    p.soundChanges.push({ id: 'r2', text: 'k > c', note: '', enabled: false, group: 'Stage 1', fromLanguageId: null, toLanguageId: null, order: 1 })
+    p.ruleSets.push(createRuleSet('Main', '-* Stage 1\na > e / _i  ; umlaut\n; k > c'))
     const files = projectToFolder(p)
-    expect(files['rules.txt']).toBe('-* Stage 1\na > e / _i  ; umlaut\n; k > c\n')
+    expect(files['rules/Main.txt']).toBe('-* Stage 1\na > e / _i  ; umlaut\n; k > c\n')
     const back = projectFromFolder(files)
     expect({ ...back, docs: p.docs }).toEqual(p)
   })

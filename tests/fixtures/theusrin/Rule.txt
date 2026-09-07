@@ -1,0 +1,237 @@
+-* PSkr
+e > a / _h , h_
+kw > p / ?p_
+gw > b / ?b_
+w > / [kg]_
+c > s / _
+ss > s / #_
+j > z / _
+> e / #|C_[nm]C
+l > al / #|C_C
+r > ur / #|C_C
+h > a / #_ - #_V
+Dh > L / _
+Sh > L / _
+[hx] > / L_
+-* PTsr
+bh > w / _
+dh > ð / _
+gh > ħ / _
+wh > x / _
+sh > rh / _
+> h / Q_ - Q_h
+Z > Q / _
+[mn] > / _Z - #_Z
+h­­ > / Q_s , sQ_ , ht_
+h > / Q_Q(h)
+bm > \ / _
+dn > \ / _
+[yw] > / #C(h)L_#
+y > i / _#
+w > u / _#
+n > l / #_?m
+l > r / _#
+m > n / _#
+h > s / _s - Q_s
+ħ > h / _Q , _s
+ħ > g / l_
+L > D / _CC|QhC - _QhV|Qh#
+h > x / _t - Q_t
+h > / _ - Q_
+km > \ / _
+ng > ŋ / _
+[nŋ] > m / _[pb]
+[mŋ] > n / _[tdð]
+[mn] > ŋ / _[kgħ]
+[ŋħ] > g / ŋ_
+ŋ > n / _s
+w > p / p_
+w > ph / ph_
+s > z / _Z
+[eao] > / _#
+i > e / _#
+u > o / _#
+ó > a / w_
+[td] > s / _t
+th > s / _t
+d > z / _d
+t > k / _k
+Z > Q / _Q , Q(h)_ , _s
+r > l / l_
+y > i / V_C
+w > u / V_C
+-* ATsr
+D > / Q(h)_RS, Z_RS
+y > / t(h)_ , d_ , n_ , l_
+n > l / l_
+[ptks] > / V_# - #(C)(h)V_#
+[mn] > s / _s
+i > ī / V_# - #(C)(h)V_#
+b > u / V_Z
+g > i / V_Z
+ħ > g / _A
+[ħh] > / #_ - #_V(V)(C)(C)#
+y > / #k(h)_ , #g_
+m > n / _[yw]
+w > m / m_#
+m > b / #_R
+Q > Z / _[mn]
+m > w / Qh_
+thn > tth / _
+Dd > L / _#
+Sd > L / _#
+d > / V_#
+h > / t_#
+sy > þ / _
+sw > x / _
+sA > Ah / #_
+L > D / _#
+Dz > L / _d
+Sz > L / _d
+z > / V_d
+e > a / s(t)_#
+Q > F / #s_ - #s_h
+> h / QQ_ , AQ_ , ŋQ_ - _h
+Qh > F / _
+s > þ / #V_V
+ā > ō / _
+au > ō / _
+y > i / V_
+œ > eu / _
+æ > ī / _
+ou > ū / _
+oi > ui / _
+ōi > oi / _
+s > m / _m - #_m
+s > n / _n - #_n
+s > h / V_V , V_#
+r > l / _l
+y > / _(u)i
+w > / _u , u_
+b > m / _m
+d > n / _n
+-* OTsr
+m > / #_b
+n > / #_d
+ŋ > / #_g
+[mnŋ] > / C_#
+s > / #_F
+b > w / R|V_
+d > ð / R|V_
+g > ħ / R|V_
+zb > ðw / _
+zg > ðħ / _
+z > ð / #_
+z > r / _
+[uw] > gw / #_
+i > e / _C(C)a#
+u > o / _C(C)a#
+ø > f / _
+y > i / C_V
+e > i / _C(C)i#
+o > u / _C(C)i#
+a > e / _C(C)i#
+ħ > i / V_A
+x > i / V_þ
+f > u / V_þ
+[iy]u > ū / _
+u > o / _ - _C(h)[uw]|[mnŋ]
+o > u / V_
+m > w / [nŋ]_
+Dŋ > L / _[nw]
+Sŋ > L / _[nw]
+ŋ > / V_[nw]
+ō > au / _
+ē > ai / _
+[eao] > / _#
+Qhi > iQh / V_#
+Ci > \ / V_#
+xw > ux / _#
+x > h / #_
+xR > Rh / #_
+Q > Z / V_ - V_h|F|f
+p > b / s_V
+k > g / s_V
+D > L / #(C)(h)_(C)(h)#
+ħ > a / C_#
+ħi > ī / C_#
+ħ > i / [lrð]_V
+ħ > / _
+w > u / _i#
+h > / V_
+e > i / _n#
+[iu] > / _# - uC|uQh_#
+ī > i / _#
+D¢ > / C_C
+i > e / [ao]_
+e > a / _i(C)#|iQh#
+n > ð / _r
+s > þ / l_
+þ > s / [þð](C)(h)V(V)(C)(h)_
+r > s / _s
+f > p / m_#
+þ > t / [nl]_#
+x > k / ŋ_#
+[mnŋ] > / _[fþxs]R
+[mnŋ]¢ > / _[fþxsmnŋl]
+ð¢ > / _[mnŋ]
+¢ > / _
+[wu] > b / [mnŋ]_
+ð > d / [mnŋ]_
+ħ > g / [mnŋ]_
+f > m / m_
+þ > n / n_
+x > g / ŋ_
+þ > l / l_
+h > / [mn]_
+h > / #_C
+L > D / _CC|QhC - _QhV|Qh#
+ī > i / _ - #(C)(h)_(C)(h)#
+ū > u / _ - #(C)(h)_(C)(h)#
+wa > u / a_
+ð > l / l_
+n > l / _l
+b > m / m_
+d > n / n_
+C > / C_C - C_h
+s > þ / V_R
+w > / _o
+n > m / _[mb]
+l > / l_#
+n > / n_#
+s > / s_#
+[gsþ] > / #ŋ_ , ŋ_#
+ŋ > n / _[tdn]
+ŋ > m / _[pbm]
+m > w / V|R_ - _[mbp]
+nn > n / _
+mm > m / _
+w > / u_#
+o > a / _u
+þþ > þ / _
+xx > x / _
+> e / C_A#
+> e / #k_Q|F|f
+g > e / #_Q|F|f
+w > u / _(n)# , V_C
+rr > r / _#
+w[hx] > f / _
+ð[hx] > þ / _
+s > / _þ , þ_
+þ > s / [þð](C)(h)V(V)(C)(h)_ , t_
+s > t / [ðþ]?R_
+s > þ / R_
+u > i / Cu_
+u > / Vu_
+u > w / V_V
+-* Tsr
+k > c / _
+ŋ > ñ / _
+þ > th / _
+ð > dh / _
+x > ch / _
+L > O / _
+aa > â / _
+ii > î / _
+O > D / _CC , _V , V_
+-* Orthography

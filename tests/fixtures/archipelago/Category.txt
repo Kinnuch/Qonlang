@@ -1,0 +1,15 @@
+C=ptkbdgfsmnlr5jh123wxŋzþðħvũ
+R=mnlr
+T=ptkbdg
+V=aeiouāēīōūáéíóúɤɯ89
+D=aeiou
+S=áéíóú
+L=āēīōū
+N=123
+M=mn
+G=iíīuúū
+A=aáāoóō
+Q=ptkf
+P=iíīeéē
+F=ptksþxf
+Z=bdgzðħv

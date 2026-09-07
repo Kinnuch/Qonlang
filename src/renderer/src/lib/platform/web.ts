@@ -208,6 +208,35 @@ export const webPlatform: PlatformAPI = {
     return true
   },
 
+  async readTextFiles(opts) {
+    const files = await new Promise<File[]>((resolve) => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.multiple = opts.multiple
+      input.accept = opts.extensions.map((e) => '.' + e).join(',')
+      input.onchange = () => resolve(Array.from(input.files ?? []))
+      input.oncancel = () => resolve([])
+      input.click()
+    })
+    return Promise.all(files.map(async (f) => ({ name: f.name, content: await f.text() })))
+  },
+  async saveTextFile(suggestedName, content) {
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({ suggestedName })
+        const w = await handle.createWritable()
+        await w.write(content)
+        await w.close()
+        return true
+      } catch (e) {
+        if ((e as DOMException).name === 'AbortError') return false
+        throw e
+      }
+    }
+    download(suggestedName, content)
+    return true
+  },
+
   async getRecent() {
     return lsGet<RecentEntry[]>(LS_RECENT, [])
   },

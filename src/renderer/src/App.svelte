@@ -5,6 +5,7 @@
   import { projectState } from '$lib/state/project.svelte'
   import { t } from '$lib/i18n/index.svelte'
   import { parseProject } from '$lib/core/serialize'
+  import { SECTIONS, type Section } from '$lib/state/ui.svelte'
   import Welcome from './views/Welcome.svelte'
   import Shell from './views/Shell.svelte'
   import Toasts from '$lib/ui/Toasts.svelte'
@@ -24,6 +25,8 @@
           if (r) {
             try {
               projectState.load(parseProject(r.content), r.target)
+              const initial = (await platform.info()).initialSection
+              if (initial && SECTIONS.includes(initial as Section)) ui.section = initial as Section
             } catch {
               /* 留在欢迎页 */
             }

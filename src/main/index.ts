@@ -136,7 +136,12 @@ function createWindow(): void {
 }
 
 function registerIpc(): void {
-  ipcMain.handle('app:info', () => ({ version: app.getVersion(), platform: 'electron', userDataPath: userData() }))
+  ipcMain.handle('app:info', () => ({
+    version: app.getVersion(),
+    platform: 'electron',
+    userDataPath: userData(),
+    initialSection: process.env['QIANYUJI_SECTION'] ?? null
+  }))
   ipcMain.handle('app:setDirty', (_e, d: boolean) => {
     dirty = d
   })
@@ -192,6 +197,27 @@ function registerIpc(): void {
       await fs.mkdir(dirname(target), { recursive: true })
       await fs.writeFile(target, content, 'utf8')
     }
+    return true
+  })
+
+  ipcMain.handle('file:readText', async (_e, opts: { multiple: boolean; extensions: string[] }) => {
+    const r = await dialog.showOpenDialog(mainWindow!, {
+      properties: opts.multiple ? ['openFile', 'multiSelections'] : ['openFile'],
+      filters: [
+        { name: 'Text', extensions: opts.extensions.length ? opts.extensions : ['*'] },
+        { name: 'All files', extensions: ['*'] }
+      ]
+    })
+    if (r.canceled) return []
+    const out: { name: string; content: string }[] = []
+    for (const p of r.filePaths) out.push({ name: basename(p), content: await fs.readFile(p, 'utf8') })
+    return out
+  })
+
+  ipcMain.handle('file:saveText', async (_e, suggestedName: string, content: string) => {
+    const r = await dialog.showSaveDialog(mainWindow!, { defaultPath: join(app.getPath('documents'), suggestedName) })
+    if (r.canceled || !r.filePath) return false
+    await fs.writeFile(r.filePath, content, 'utf8')
     return true
   })
 

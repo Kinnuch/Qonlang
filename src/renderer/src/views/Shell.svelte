@@ -18,6 +18,7 @@
     X
   } from '@lucide/svelte'
   import Languages from './Languages.svelte'
+  import SoundChanges from './SoundChanges.svelte'
   import SettingsView from './Settings.svelte'
   import Placeholder from './Placeholder.svelte'
 
@@ -98,6 +99,8 @@
   <main class="main">
     {#if ui.section === 'languages'}
       <Languages bind:inspectorTitle />
+    {:else if ui.section === 'soundChanges'}
+      <SoundChanges bind:inspectorTitle />
     {:else if ui.section === 'settings'}
       <SettingsView bind:inspectorTitle />
     {:else}

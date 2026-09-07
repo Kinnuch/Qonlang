@@ -1,0 +1,11 @@
+C=ptkbdgmnwlryszħðxþŋøfh
+D=aeiou
+V=aeiouœæāēīōūáéíóú
+L=āēīōū
+S=áéíóú
+O=âêîôû
+Q=ptk
+Z=bdg
+R=lr
+A=mnlr
+F=øþx
