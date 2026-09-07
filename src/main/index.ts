@@ -1,0 +1,250 @@
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { join, basename, dirname } from 'path'
+import { promises as fs } from 'fs'
+import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import icon from '../../resources/icon.png?asset'
+
+const APP_ID = 'io.github.kinnuch.qianyuji'
+const RECENT_MAX = 10
+
+interface Prefs {
+  locale: string
+  theme: 'system' | 'light' | 'dark'
+  autosaveSeconds: number
+  backupCount: number
+  reopenLast: boolean
+}
+const DEFAULT_PREFS: Prefs = { locale: 'zh', theme: 'system', autosaveSeconds: 30, backupCount: 20, reopenLast: true }
+
+interface RecentEntry {
+  name: string
+  path: string | null
+  handleKey: string | null
+  openedAt: string
+}
+
+const userData = (): string => app.getPath('userData')
+const prefsFile = (): string => join(userData(), 'prefs.json')
+const recentFile = (): string => join(userData(), 'recent.json')
+const snapshotFile = (): string => join(userData(), 'snapshot.laim.json')
+const backupsDir = (): string => join(userData(), 'Backups')
+
+async function readJson<T>(file: string, fallback: T): Promise<T> {
+  try {
+    return JSON.parse(await fs.readFile(file, 'utf8')) as T
+  } catch {
+    return fallback
+  }
+}
+
+async function writeJson(file: string, v: unknown): Promise<void> {
+  await fs.mkdir(dirname(file), { recursive: true })
+  await fs.writeFile(file, JSON.stringify(v, null, 2), 'utf8')
+}
+
+async function getPrefs(): Promise<Prefs> {
+  return { ...DEFAULT_PREFS, ...(await readJson<Partial<Prefs>>(prefsFile(), {})) }
+}
+
+/** 原子写入：先写临时文件再改名 */
+async function atomicWrite(file: string, content: string): Promise<void> {
+  const tmp = file + '.tmp'
+  await fs.writeFile(tmp, content, 'utf8')
+  await fs.rename(tmp, file)
+}
+
+async function backup(file: string): Promise<void> {
+  try {
+    await fs.access(file)
+  } catch {
+    return
+  }
+  const prefs = await getPrefs()
+  if (prefs.backupCount <= 0) return
+  await fs.mkdir(backupsDir(), { recursive: true })
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  const base = basename(file).replace(/\.laim\.json$|\.json$/, '')
+  await fs.copyFile(file, join(backupsDir(), `${base}@${stamp}.laim.json`))
+  // 只保留同名项目的最近 N 份
+  const entries = (await fs.readdir(backupsDir())).filter((f) => f.startsWith(base + '@')).sort()
+  for (const old of entries.slice(0, Math.max(0, entries.length - prefs.backupCount))) {
+    await fs.unlink(join(backupsDir(), old)).catch(() => {})
+  }
+}
+
+let dirty = false
+let forceClose = false
+let mainWindow: BrowserWindow | null = null
+
+const dialogText = {
+  zh: { title: '有未保存的改动', body: '要在关闭前保存吗？', save: '保存并关闭', discard: '不保存', cancel: '取消' },
+  en: { title: 'Unsaved changes', body: 'Save before closing?', save: 'Save and close', discard: "Don't save", cancel: 'Cancel' }
+}
+
+function createWindow(): void {
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 820,
+    minWidth: 900,
+    minHeight: 600,
+    show: false,
+    autoHideMenuBar: true,
+    title: '千语集',
+    backgroundColor: '#fafaf7',
+    ...(process.platform === 'linux' ? { icon } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false
+    }
+  })
+
+  mainWindow.on('ready-to-show', () => mainWindow?.show())
+
+  mainWindow.on('close', (e) => {
+    if (!dirty || forceClose) return
+    e.preventDefault()
+    void (async () => {
+      const prefs = await getPrefs()
+      const tx = dialogText[prefs.locale.startsWith('zh') ? 'zh' : 'en']
+      const r = await dialog.showMessageBox(mainWindow!, {
+        type: 'question',
+        title: tx.title,
+        message: tx.body,
+        buttons: [tx.save, tx.discard, tx.cancel],
+        defaultId: 0,
+        cancelId: 2,
+        noLink: true
+      })
+      if (r.response === 0) mainWindow?.webContents.send('app:save-and-close')
+      else if (r.response === 1) {
+        forceClose = true
+        mainWindow?.close()
+      }
+    })()
+  })
+
+  mainWindow.webContents.setWindowOpenHandler((details) => {
+    void shell.openExternal(details.url)
+    return { action: 'deny' }
+  })
+
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+  } else {
+    void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+  }
+}
+
+function registerIpc(): void {
+  ipcMain.handle('app:info', () => ({ version: app.getVersion(), platform: 'electron', userDataPath: userData() }))
+  ipcMain.handle('app:setDirty', (_e, d: boolean) => {
+    dirty = d
+  })
+  ipcMain.handle('app:closeNow', () => {
+    forceClose = true
+    dirty = false
+    mainWindow?.close()
+  })
+
+  ipcMain.handle('project:open', async () => {
+    const r = await dialog.showOpenDialog(mainWindow!, {
+      properties: ['openFile'],
+      filters: [
+        { name: 'Qianyuji project', extensions: ['json'] },
+        { name: 'All files', extensions: ['*'] }
+      ]
+    })
+    if (r.canceled || !r.filePaths[0]) return null
+    const path = r.filePaths[0]
+    return { path, content: await fs.readFile(path, 'utf8') }
+  })
+
+  ipcMain.handle('project:read', async (_e, path: string) => {
+    try {
+      return { content: await fs.readFile(path, 'utf8') }
+    } catch {
+      return null
+    }
+  })
+
+  ipcMain.handle('project:saveAs', async (_e, suggestedName: string) => {
+    const r = await dialog.showSaveDialog(mainWindow!, {
+      defaultPath: join(app.getPath('documents'), suggestedName),
+      filters: [{ name: 'Qianyuji project', extensions: ['json'] }]
+    })
+    return r.canceled || !r.filePath ? null : r.filePath
+  })
+
+  ipcMain.handle('project:write', async (_e, path: string, content: string) => {
+    await backup(path)
+    await atomicWrite(path, content)
+  })
+
+  ipcMain.handle('project:exportFolder', async (_e, files: Record<string, string>) => {
+    const r = await dialog.showOpenDialog(mainWindow!, {
+      properties: ['openDirectory', 'createDirectory'],
+      defaultPath: app.getPath('documents')
+    })
+    if (r.canceled || !r.filePaths[0]) return false
+    const root = r.filePaths[0]
+    for (const [rel, content] of Object.entries(files)) {
+      const target = join(root, ...rel.split('/'))
+      await fs.mkdir(dirname(target), { recursive: true })
+      await fs.writeFile(target, content, 'utf8')
+    }
+    return true
+  })
+
+  ipcMain.handle('recent:get', async () => {
+    const list = await readJson<RecentEntry[]>(recentFile(), [])
+    const alive: RecentEntry[] = []
+    for (const r of list) {
+      if (!r.path) continue
+      try {
+        await fs.access(r.path)
+        alive.push(r)
+      } catch {
+        /* 文件已不存在，丢弃 */
+      }
+    }
+    return alive
+  })
+  ipcMain.handle('recent:add', async (_e, entry: RecentEntry) => {
+    const list = (await readJson<RecentEntry[]>(recentFile(), [])).filter((r) => r.path !== entry.path)
+    list.unshift(entry)
+    await writeJson(recentFile(), list.slice(0, RECENT_MAX))
+  })
+  ipcMain.handle('recent:clear', async () => writeJson(recentFile(), []))
+
+  ipcMain.handle('prefs:get', () => getPrefs())
+  ipcMain.handle('prefs:set', (_e, p: Prefs) => writeJson(prefsFile(), p))
+
+  ipcMain.handle('snapshot:load', async () => {
+    try {
+      return await fs.readFile(snapshotFile(), 'utf8')
+    } catch {
+      return null
+    }
+  })
+  ipcMain.handle('snapshot:save', async (_e, content: string | null) => {
+    if (content == null) await fs.unlink(snapshotFile()).catch(() => {})
+    else await atomicWrite(snapshotFile(), content)
+  })
+
+  ipcMain.handle('shell:showInFolder', (_e, path: string) => shell.showItemInFolder(path))
+  ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
+}
+
+app.whenReady().then(() => {
+  electronApp.setAppUserModelId(APP_ID)
+  app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
+  registerIpc()
+  createWindow()
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  })
+})
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit()
+})

@@ -1,0 +1,42 @@
+appId: io.github.kinnuch.qianyuji
+productName: 千语集
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!tests/*'
+  - '!docs/*'
+  - '!dist/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!vite.web.config.ts'
+  - '!vitest.config.ts'
+  - '!svelte.config.mjs'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+asarUnpack:
+  - resources/**
+win:
+  executableName: qianyuji
+nsis:
+  artifactName: qianyuji-${version}-setup.${ext}
+  shortcutName: 千语集
+  uninstallDisplayName: 千语集
+  createDesktopShortcut: always
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+mac:
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: false
+dmg:
+  artifactName: qianyuji-${version}.${ext}
+linux:
+  target:
+    - AppImage
+    - deb
+  maintainer: Kinnuch
+  category: Utility
+appImage:
+  artifactName: qianyuji-${version}.${ext}
+npmRebuild: false

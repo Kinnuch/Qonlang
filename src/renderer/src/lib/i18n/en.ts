@@ -1,0 +1,152 @@
+import type zh from './zh'
+
+type Dict = typeof zh
+
+const en: Dict = {
+  app: {
+    name: 'Qianyuji',
+    tagline: 'A workbench for every conlanger',
+    untitled: 'Untitled project',
+    untitledLanguage: 'Untitled language'
+  },
+  common: {
+    save: 'Save',
+    saveAs: 'Save as…',
+    open: 'Open…',
+    new: 'New',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    undo: 'Undo',
+    close: 'Close',
+    ok: 'OK',
+    add: 'Add',
+    edit: 'Edit',
+    name: 'Name',
+    abbr: 'Abbreviation',
+    color: 'Color',
+    notes: 'Notes',
+    none: 'None',
+    search: 'Search',
+    unsaved: 'Unsaved',
+    saved: 'Saved',
+    saving: 'Saving…',
+    export: 'Export',
+    back: 'Back',
+    yes: 'Yes',
+    no: 'No',
+    loading: 'Loading…'
+  },
+  nav: {
+    languages: 'Languages',
+    phonology: 'Phonology',
+    soundChanges: 'Sound changes',
+    morphemes: 'Morphemes',
+    lexicon: 'Lexicon',
+    paradigms: 'Paradigms',
+    corpus: 'Corpus',
+    docs: 'Docs',
+    settings: 'Settings',
+    inspector: 'Inspector'
+  },
+  welcome: {
+    title: 'Start',
+    newProject: 'New project',
+    openProject: 'Open project',
+    recent: 'Recent',
+    noRecent: 'No projects opened yet.',
+    clearRecent: 'Clear list',
+    restoreSnapshot: 'Unsaved work from the last session was found. Restore it?',
+    restore: 'Restore',
+    discard: 'Discard',
+    recentMissing: 'The file is missing or inaccessible; removed from the list.',
+    templates: {
+      title: 'Starter templates',
+      blank: 'Blank, single language',
+      blankDesc: 'One language from scratch. The default for a priori and single-language projects.',
+      family: 'Language family',
+      familyDesc: 'A proto-language plus daughters; derive words with sound changes.',
+      lexicanter: 'Import from Lexicanter',
+      lexicanterDesc: 'Read a .lexc file: lexicon, pronunciation rules, phrasebook. (M2)',
+      csv: 'Import from CSV',
+      csvDesc: 'Map an existing spreadsheet into the lexicon. (M2)'
+    },
+    projectName: 'Project name',
+    protoName: 'Proto-language name',
+    daughterNames: 'Daughter languages (one per line)',
+    create: 'Create'
+  },
+  languages: {
+    title: 'Languages',
+    empty: 'This project has no languages yet.',
+    addLanguage: 'Add language',
+    addChild: 'Add daughter',
+    parent: 'Parent language',
+    noParent: '(none, root language)',
+    setDefault: 'Set as default',
+    isDefault: 'default',
+    deleted: 'Deleted language “{name}”',
+    deleteConfirmChildren: 'This language has daughters; they will become root languages.',
+    cycle: 'A language cannot be placed under its own descendant.',
+    counts: '{lexemes} lexemes · {morphemes} morphemes · {sentences} sentences',
+    orthographies: 'Orthographies',
+    dialects: 'Dialects',
+    lineage: 'Lineage'
+  },
+  placeholder: {
+    title: 'This page arrives in a later milestone',
+    phonology: 'Phoneme chart, features, orthography transcription, syllables, prosody, phonotactics, IPA picker.',
+    soundChanges: 'Rule editor, test bench with per-rule trace, batch derivation and reconciliation.',
+    morphemes: 'One table for roots, affixes, clitics and particles.',
+    lexicon: 'Entry list and inspector, inflection panel, CSV import wizard.',
+    paradigms: 'Grammatical dimensions, slots, five generators, paradigm test bench.',
+    corpus: 'Sentence entry, automatic gloss drafts, correction and export.',
+    docs: 'Markdown documentation pages inside the project.'
+  },
+  settings: {
+    title: 'Settings',
+    app: 'Application',
+    project: 'Project',
+    uiLanguage: 'Interface language',
+    theme: 'Theme',
+    themeSystem: 'Follow system',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    autosave: 'Autosave interval (seconds, 0 = off)',
+    backupCount: 'Backups to keep',
+    reopenLast: 'Reopen last project on launch',
+    projectName: 'Project name',
+    author: 'Author',
+    description: 'Description',
+    glossLanguages: 'Definition languages (comma-separated)',
+    morphemeBoundaries: 'Morpheme boundary symbols (space-separated)',
+    dataFont: 'Font for language data (blank = default)',
+    defaultLanguage: 'Default language',
+    exportFolder: 'Export as folder',
+    exportFolderDesc: 'One JSON per collection plus a plain-text rules file, for version control.',
+    about: 'About',
+    version: 'Version',
+    userData: 'Data directory',
+    license: 'MIT licensed'
+  },
+  topbar: {
+    currentLanguage: 'Current language',
+    allLanguages: 'All languages',
+    saveShortcut: 'Save (Ctrl+S)'
+  },
+  errors: {
+    invalidJson: 'The file is not valid JSON.',
+    notAProject: 'The file is not a Qianyuji project.',
+    newerSchema: 'This file was created by a newer Qianyuji; please update.',
+    saveFailed: 'Save failed: {msg}',
+    openFailed: 'Open failed: {msg}'
+  },
+  dialog: {
+    unsavedTitle: 'Unsaved changes',
+    unsavedBody: 'Save before closing?',
+    saveAndClose: 'Save and close',
+    discardAndClose: "Don't save",
+    closeProject: 'Close project'
+  }
+}
+
+export default en
