@@ -14,8 +14,19 @@ interface Prefs {
   backupCount: number
   reopenLast: boolean
   inspectorWidth: number
+  recentSymbols: string[]
+  savedSymbols: string[]
 }
-const DEFAULT_PREFS: Prefs = { locale: 'zh', theme: 'system', autosaveSeconds: 30, backupCount: 20, reopenLast: true, inspectorWidth: 360 }
+const DEFAULT_PREFS: Prefs = {
+  locale: 'zh',
+  theme: 'system',
+  autosaveSeconds: 30,
+  backupCount: 20,
+  reopenLast: true,
+  inspectorWidth: 360,
+  recentSymbols: [],
+  savedSymbols: []
+}
 
 interface RecentEntry {
   name: string

@@ -6,6 +6,7 @@
   import { t } from '$lib/i18n/index.svelte'
   import { parseProject } from '$lib/core/serialize'
   import { SECTIONS, type Section } from '$lib/state/ui.svelte'
+  import { chars } from '$lib/state/chars.svelte'
   import Welcome from './views/Welcome.svelte'
   import Shell from './views/Shell.svelte'
   import Toasts from '$lib/ui/Toasts.svelte'
@@ -15,6 +16,7 @@
 
   onMount(() => {
     const stopTheme = ui.watchSystemTheme()
+    const stopChars = chars.install()
     void (async () => {
       await ui.loadPrefs()
       snapshot = await platform.loadSnapshot()
@@ -40,7 +42,10 @@
       if (await projectState.save()) platform.closeNow()
     })
 
-    return stopTheme
+    return () => {
+      stopTheme()
+      stopChars()
+    }
   })
 
   // 标题栏
@@ -78,6 +83,9 @@
     } else if (e.key === '\\') {
       e.preventDefault()
       ui.inspectorOpen = !ui.inspectorOpen
+    } else if (e.key === 'i' || e.key === 'I') {
+      e.preventDefault()
+      chars.toggle()
     }
   }
 </script>

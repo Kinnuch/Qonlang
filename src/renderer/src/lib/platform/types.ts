@@ -33,6 +33,10 @@ export interface Prefs {
   reopenLast: boolean
   /** 右侧检视器宽度（px） */
   inspectorWidth: number
+  /** 字符面板：最近插入的符号 */
+  recentSymbols: string[]
+  /** 字符面板：用户收藏的符号或组合 */
+  savedSymbols: string[]
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -41,7 +45,9 @@ export const DEFAULT_PREFS: Prefs = {
   autosaveSeconds: 30,
   backupCount: 20,
   reopenLast: true,
-  inspectorWidth: 360
+  inspectorWidth: 360,
+  recentSymbols: [],
+  savedSymbols: []
 }
 
 export interface AppInfo {

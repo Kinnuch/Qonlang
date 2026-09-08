@@ -15,8 +15,11 @@
     Settings,
     Save,
     PanelRight,
-    X
+    X,
+    Keyboard
   } from '@lucide/svelte'
+  import { chars } from '$lib/state/chars.svelte'
+  import CharPanel from '$lib/ui/CharPanel.svelte'
   import Languages from './Languages.svelte'
   import SoundChanges from './SoundChanges.svelte'
   import SettingsView from './Settings.svelte'
@@ -85,6 +88,10 @@
       </button>
     {/each}
     <div class="grow"></div>
+    <button class="nav-btn" class:active={chars.open} title={t('chars.tooltip')} onmousedown={(e) => e.preventDefault()} onclick={() => chars.toggle()}>
+      <Keyboard size={20} />
+      <span class="nav-label">{t('chars.title')}</span>
+    </button>
     <button class="nav-btn" class:active={ui.section === 'settings'} title={t('nav.settings')} onclick={() => (ui.section = 'settings')}>
       <Settings size={20} />
       <span class="nav-label">{t('nav.settings')}</span>
@@ -138,6 +145,7 @@
     <div class="inspector-body" id="inspector-slot"></div>
   </aside>
 </div>
+<CharPanel />
 
 <style>
   .shell {
