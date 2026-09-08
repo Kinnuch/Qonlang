@@ -145,9 +145,13 @@ export interface SyllableSettings {
 
 export type ProsodyType = 'none' | 'stress' | 'pitch' | 'tone'
 
+export type StressPosition = 'initial' | 'second' | 'final' | 'penult' | 'antepenult' | 'weight' | 'manual'
+
 export interface ProsodySettings {
   type: ProsodyType
-  /** 重音 / 音高：规则文本或类别表 */
+  /** 重音位置（type 为 stress / pitch 时） */
+  stressPosition: StressPosition
+  /** 重音 / 音高的补充说明或例外表 */
   rules: string
   /** 声调：声调清单（名称、标记、数字） */
   tones: Tone[]

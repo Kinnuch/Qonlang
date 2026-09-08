@@ -13,6 +13,7 @@ import { serializeProject } from '$lib/core/serialize'
 import { parseCsv } from '$lib/core/csv'
 import { applyCsvImport, defaultMapping, type CsvMapping, type FieldSpec } from '$lib/importers/csvImport'
 import { fromYinbianji } from '$lib/engine/sca'
+import { inferFeatures } from '$lib/ipa/features'
 import type { GrammaticalCategory, Id, PartOfSpeech, Project } from '$lib/core/model'
 
 const root = process.cwd()
@@ -45,7 +46,7 @@ function makeAelith(): void {
   L.abbr = 'ae'
   L.notes = '虚构的黏着语测试夹具：前后元音和谐，名词后缀链 词根-数-格-领属，动词 词根-否定-时-人称。'
   L.alphabet = 'a b d e g i j k l m n o ö p r s t u ü v w'.split(' ')
-  L.phonemes = 'p t k b d g m n s v r l j w a e i o u ö ü'.split(' ').map((s) => ({ id: newId(), symbol: s, features: {}, graphemes: {}, notes: '' }))
+  L.phonemes = 'p t k b d g m n s v r l j w a e i o u ö ü'.split(' ').map((s) => ({ id: newId(), symbol: s, features: inferFeatures(s), graphemes: {}, notes: '' }))
   L.classes = [
     { id: newId(), name: 'C', members: 'p t k b d g m n s v r l j w'.split(' '), featureQuery: null },
     { id: newId(), name: 'V', members: 'a e i o u ö ü'.split(' '), featureQuery: null },
@@ -53,7 +54,7 @@ function makeAelith(): void {
     { id: newId(), name: 'Front', members: ['e', 'ö', 'ü'], featureQuery: null }
   ]
   L.syllable = { enabled: true, template: '(C)V(C)', strategy: 'template' }
-  L.prosody = { type: 'stress', rules: '; 重音固定在第一音节', tones: [] }
+  L.prosody = { type: 'stress', stressPosition: 'initial', rules: '', tones: [] }
   L.phonotactics = { onsets: 'p t k b d g m n s v r l j w'.split(' '), nuclei: 'a e i o u ö ü'.split(' '), codas: 'n l r s t k m'.split(' '), illegal: ['jj', 'ww'], weights: {}, minSyllables: 1, maxSyllables: 3 }
 
   const N = pos(p, '名词', 'noun', 'n.')
@@ -193,7 +194,7 @@ function makeTsahun(): void {
     rulesFromIpa: ['t͡s > ц', 'ŋ > ң', 'w > в', 'j > й', 'h > х', 'k > к', 'p > п', 't > т', 'm > м', 'n > н', 's > с', 'l > л', 'a > а', 'i > и', 'u > у', 'e > е', 'o > о', '˥ > ⁵⁵', '˧˥ > ³⁵', '˨˩ > ²¹', '˥˩ > ⁵¹', '˧ > ³³'].join('\n'),
     isPrimary: false
   })
-  L.phonemes = 'p t k t͡s m n ŋ s h l w j a i u e o'.split(' ').map((s) => ({ id: newId(), symbol: s, features: {}, graphemes: {}, notes: '' }))
+  L.phonemes = 'p t k t͡s m n ŋ s h l w j a i u e o'.split(' ').map((s) => ({ id: newId(), symbol: s, features: s === 't͡s' ? { type: 'consonant', voice: 'voiceless', place: 'alveolar', manner: 'affricate', syllabic: 'no' } : inferFeatures(s), graphemes: {}, notes: '' }))
   L.classes = [
     { id: newId(), name: 'C', members: 'p t k ts m n ng s h l w j'.split(' '), featureQuery: null },
     { id: newId(), name: 'V', members: 'a i u e o'.split(' '), featureQuery: null }
@@ -201,6 +202,7 @@ function makeTsahun(): void {
   L.syllable = { enabled: true, template: '(C)V(C)', strategy: 'template' }
   L.prosody = {
     type: 'tone',
+    stressPosition: 'initial',
     rules: '',
     tones: [
       { id: newId(), name: '高平', letter: '˥', digits: '55' },
@@ -210,7 +212,9 @@ function makeTsahun(): void {
       { id: newId(), name: '中平', letter: '˧', digits: '33' }
     ]
   }
-  L.phonotactics = { onsets: 'p t k ts m n ng s h l w j'.split(' '), nuclei: 'a i u e o'.split(' '), codas: ['n', 'ng', 'k', 'p', 't'], illegal: [], weights: {}, minSyllables: 1, maxSyllables: 1 }
+  // 配列表用 IPA 写（检查与造词都在 IPA 上进行），造出的词经罗马化的「IPA → 正字法」规则转回
+  L.phonotactics = { onsets: 'p t k t͡s m n ŋ s h l w j kw'.split(' '), nuclei: 'a i u e o ai'.split(' '), codas: ['n', 'ŋ', 'm', 'k', 'p', 't'], illegal: [], weights: {}, minSyllables: 1, maxSyllables: 1 }
+  rom.rulesFromIpa = ['t͡s > ts', 'ŋ > ng', '˧˥ > 35', '˨˩ > 21', '˥˩ > 51', '˥ > 55', '˧ > 33'].join('\n')
 
   const N = pos(p, '名词', 'noun', 'n.')
   const V = pos(p, '动词', 'verb', 'v.')

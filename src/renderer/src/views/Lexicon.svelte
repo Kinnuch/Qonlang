@@ -8,6 +8,7 @@
   import { toCsv } from '$lib/core/csv'
   import { lexemesToRows, morphemesToRows } from '$lib/importers/csvImport'
   import { parseLexc, mergeLexicanter } from '$lib/importers/lexicanter'
+  import { derivePronunciations } from '$lib/core/pronounce'
   import type { EtymologySource, Id, Lexeme } from '$lib/core/model'
   import Portal from '$lib/ui/Portal.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
@@ -132,7 +133,11 @@
     return p ? p.abbr || pickText(p.name, glossLangs) : ''
   }
   function touch(l?: Lexeme): void {
-    if (l) l.updatedAt = now()
+    if (l) {
+      l.updatedAt = now()
+      const lg = project.languages.find((x) => x.id === l.languageId)
+      if (lg) derivePronunciations(lg, l)
+    }
     projectState.touch()
   }
 

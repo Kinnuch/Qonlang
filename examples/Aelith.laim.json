@@ -1,174 +1,291 @@
 {
   "schemaVersion": 1,
   "meta": {
-    "id": "84e8d5a5-c55e-42ec-a111-5afadfa70666",
+    "id": "f1f706c8-21f8-4fa5-9557-e992d27258f3",
     "name": "Aelith",
     "description": "黏着先验语测试夹具（虚构）：元音和谐、多槽位后缀、异体形环境。",
     "author": "",
-    "createdAt": "2026-09-08T02:34:28.739Z",
-    "updatedAt": "2026-09-08T02:34:28.739Z",
+    "createdAt": "2026-09-08T04:20:32.697Z",
+    "updatedAt": "2026-09-08T04:20:32.697Z",
     "template": "blank",
     "appVersion": "0.1.0"
   },
   "languages": [
     {
-      "id": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "abbr": "ae",
       "color": "#0E9F8A",
       "parentId": null,
       "notes": "虚构的黏着语测试夹具：前后元音和谐，名词后缀链 词根-数-格-领属，动词 词根-否定-时-人称。",
       "phonemes": [
         {
-          "id": "7cb13a75-17a3-4280-ab2c-af086d27a2e0",
+          "id": "95cc2d61-27ff-43e3-8ff3-f6b93374ed65",
           "symbol": "p",
-          "features": {},
+          "features": {
+            "type": "consonant",
+            "voice": "voiceless",
+            "place": "bilabial",
+            "manner": "plosive",
+            "syllabic": "no"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "b12faa97-15f1-4f64-9e4c-629376bd3127",
+          "id": "7a3fdac2-fa87-4aa8-beff-0cbda945930b",
           "symbol": "t",
-          "features": {},
+          "features": {
+            "type": "consonant",
+            "voice": "voiceless",
+            "place": "alveolar",
+            "manner": "plosive",
+            "syllabic": "no"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "85ef816c-5934-4544-ac3d-500cc9d51deb",
+          "id": "c30388ad-5929-4985-bb51-90f00fa46155",
           "symbol": "k",
-          "features": {},
+          "features": {
+            "type": "consonant",
+            "voice": "voiceless",
+            "place": "velar",
+            "manner": "plosive",
+            "syllabic": "no"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "5dc3dc0a-8c64-4cd1-a9a9-13f2ddfdab12",
+          "id": "3abac948-83c1-4725-978b-93ab4ea61841",
           "symbol": "b",
-          "features": {},
+          "features": {
+            "type": "consonant",
+            "voice": "voiced",
+            "place": "bilabial",
+            "manner": "plosive",
+            "syllabic": "no"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "acccfea1-040b-4898-979f-d2d2e3dc501c",
+          "id": "439a2600-a660-4a9a-9a10-fbe20792d58b",
           "symbol": "d",
-          "features": {},
+          "features": {
+            "type": "consonant",
+            "voice": "voiced",
+            "place": "alveolar",
+            "manner": "plosive",
+            "syllabic": "no"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "f4f737c7-19e9-40a3-9e71-7b1fafb023ce",
+          "id": "ab5de8ed-0994-4ac2-a67c-2569a4886d2f",
           "symbol": "g",
           "features": {},
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "5581831c-81c3-4cab-aa16-eb5e57e7de7e",
+          "id": "bc4aed2d-8fea-498e-9fcc-a4fff5037fc2",
           "symbol": "m",
-          "features": {},
+          "features": {
+            "type": "consonant",
+            "voice": "voiced",
+            "place": "bilabial",
+            "manner": "nasal",
+            "syllabic": "no"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "8609ed29-6fde-485f-8dc9-5fcb1e12f0c9",
+          "id": "cd04d617-a0e8-4645-a85e-1d962020b13a",
           "symbol": "n",
-          "features": {},
+          "features": {
+            "type": "consonant",
+            "voice": "voiced",
+            "place": "alveolar",
+            "manner": "nasal",
+            "syllabic": "no"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "4e5c4183-a3da-492d-8aff-eeae602fda12",
+          "id": "52cd6b8b-789f-4d07-9174-e53a69defef8",
           "symbol": "s",
-          "features": {},
+          "features": {
+            "type": "consonant",
+            "voice": "voiceless",
+            "place": "alveolar",
+            "manner": "fricative",
+            "syllabic": "no"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "dc88dcc7-48d0-43b3-bb6f-c9d3bdb8743c",
+          "id": "2a4fb7a2-8e21-4c81-b497-b8a6def8d8c0",
           "symbol": "v",
-          "features": {},
+          "features": {
+            "type": "consonant",
+            "voice": "voiced",
+            "place": "labiodental",
+            "manner": "fricative",
+            "syllabic": "no"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "a4d7e014-bbea-4e08-8c8f-aed079ad9380",
+          "id": "5b37a485-b034-4053-8e91-f708812207bc",
           "symbol": "r",
-          "features": {},
+          "features": {
+            "type": "consonant",
+            "voice": "voiced",
+            "place": "alveolar",
+            "manner": "trill",
+            "syllabic": "no"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "52983f02-ccf7-4dbd-9ee6-44391cc222a2",
+          "id": "5da68366-003a-4ddb-a8a0-4c60bd0d5c08",
           "symbol": "l",
-          "features": {},
+          "features": {
+            "type": "consonant",
+            "voice": "voiced",
+            "place": "alveolar",
+            "manner": "lateral approximant",
+            "syllabic": "no"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "6eb10112-70cd-4b97-bbde-2301a823b306",
+          "id": "c8f6116e-4ee3-4972-bf50-d2c9db6302eb",
           "symbol": "j",
-          "features": {},
+          "features": {
+            "type": "consonant",
+            "voice": "voiced",
+            "place": "palatal",
+            "manner": "approximant",
+            "syllabic": "no"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "ab4f8da4-bee0-4e16-993f-922ca0b54c1d",
+          "id": "f229703e-b692-4b68-a7dd-a41064503ed5",
           "symbol": "w",
-          "features": {},
+          "features": {
+            "type": "consonant",
+            "syllabic": "no"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "e81f0678-4e9c-4df3-9fa6-8c9a8971d234",
+          "id": "1614bde9-f794-4695-a872-04b85013cb4e",
           "symbol": "a",
-          "features": {},
+          "features": {
+            "type": "vowel",
+            "height": "open",
+            "backness": "front",
+            "round": "no",
+            "syllabic": "yes"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "d36fd6f2-dad1-4dfc-9a9c-24c54221c4eb",
+          "id": "c6e9524d-3074-4ec8-8de8-266c91bacc99",
           "symbol": "e",
-          "features": {},
+          "features": {
+            "type": "vowel",
+            "height": "close-mid",
+            "backness": "front",
+            "round": "no",
+            "syllabic": "yes"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "9334cb48-00b5-4e47-a64f-d5e476002793",
+          "id": "422e7a9f-24c4-4692-98dd-849caf43ff2d",
           "symbol": "i",
-          "features": {},
+          "features": {
+            "type": "vowel",
+            "height": "close",
+            "backness": "front",
+            "round": "no",
+            "syllabic": "yes"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "a6c383c5-0cae-40ba-aae7-bc6ea72b89d0",
+          "id": "65e080f4-9191-4db0-96d0-4090ea398842",
           "symbol": "o",
-          "features": {},
+          "features": {
+            "type": "vowel",
+            "height": "close-mid",
+            "backness": "back",
+            "round": "yes",
+            "syllabic": "yes"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "83cf48a7-686c-44da-b0a4-6daac8af00f4",
+          "id": "af0ce038-f12b-4d8b-8c2f-f968afbb97eb",
           "symbol": "u",
-          "features": {},
+          "features": {
+            "type": "vowel",
+            "height": "close",
+            "backness": "back",
+            "round": "yes",
+            "syllabic": "yes"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "8b08bea7-3d52-425d-b867-8cd48f0b84c5",
+          "id": "40db4650-bf2a-481f-87f1-eff399df2c8b",
           "symbol": "ö",
-          "features": {},
+          "features": {
+            "type": "vowel",
+            "height": "close-mid",
+            "backness": "back",
+            "round": "yes",
+            "syllabic": "yes"
+          },
           "graphemes": {},
           "notes": ""
         },
         {
-          "id": "7047f4b6-6958-4ac3-9de6-50e300bc7f2e",
+          "id": "19c74079-8570-4129-a0af-f8c62a0c7041",
           "symbol": "ü",
-          "features": {},
+          "features": {
+            "type": "vowel",
+            "height": "close",
+            "backness": "back",
+            "round": "yes",
+            "syllabic": "yes"
+          },
           "graphemes": {},
           "notes": ""
         }
       ],
       "classes": [
         {
-          "id": "7f064d27-5a63-4d02-997f-b281ec465815",
+          "id": "c267b4a3-6742-47d5-8283-234077a616aa",
           "name": "C",
           "members": [
             "p",
@@ -189,7 +306,7 @@
           "featureQuery": null
         },
         {
-          "id": "a82daa0c-7808-49bc-b0d7-56d14e9f217c",
+          "id": "b7a1ab72-aa71-4952-820b-d04b7d52b1e4",
           "name": "V",
           "members": [
             "a",
@@ -203,7 +320,7 @@
           "featureQuery": null
         },
         {
-          "id": "62a0d22b-526f-45b9-8586-65db26ffc6d6",
+          "id": "dcd2a055-510f-4ce1-b82f-54d0548214e1",
           "name": "Back",
           "members": [
             "a",
@@ -213,7 +330,7 @@
           "featureQuery": null
         },
         {
-          "id": "cb1be345-c35d-4549-8390-6815c5e6711e",
+          "id": "38bacd36-6372-4191-8a37-3d8c490700c4",
           "name": "Front",
           "members": [
             "e",
@@ -226,7 +343,7 @@
       "digraphs": [],
       "orthographies": [
         {
-          "id": "4c43b427-38ea-4464-a56a-cb324ff3fcf6",
+          "id": "4e9b711d-9ffb-4c56-aaf8-37b440395fc2",
           "name": "Romanization",
           "font": "",
           "direction": "ltr",
@@ -242,7 +359,8 @@
       },
       "prosody": {
         "type": "stress",
-        "rules": "; 重音固定在第一音节",
+        "stressPosition": "initial",
+        "rules": "",
         "tones": []
       },
       "phonotactics": {
@@ -317,28 +435,28 @@
   ],
   "ruleSets": [
     {
-      "id": "1bdac277-1317-4757-941d-4a1b2b98e7ef",
+      "id": "fe48cb3a-402c-42ee-bb88-1f8da876fe65",
       "name": "元音和谐",
       "notes": "",
       "text": "; 后缀里的大写 A / U 是原音位，按词内最后一个元音的前后性实现；\n; Ŭ 是连接元音，词干以元音结尾时脱落；语素界写 ¢，最后删掉\nC=ptkbdgmnsvrljw\nV=aeiouöü\n{Back}=a o u\n{Front}=e ö ü\n-* 底层\nA > e / {Front}[^aeouöü]*_\nA > a / _\nU > ü / {Front}[^aeouöü]*_\nU > u / _\nI > i / _\nŬ > / V¢_\nŬ > ü / {Front}[^aeouöü]*_\nŬ > u / _\n¢ > / _\n-* 表层",
       "stageLanguages": {
-        "底层": "d0304a09-380d-425a-9a2a-09ce45677f74",
-        "表层": "d0304a09-380d-425a-9a2a-09ce45677f74"
+        "底层": "5db5ca7a-5d66-414a-8490-fac0560104e7",
+        "表层": "5db5ca7a-5d66-414a-8490-fac0560104e7"
       },
       "testWords": "kaso¢lAr¢Ŭm\nnöl¢dA\nilen¢lAr¢kA\nsör¢mA¢dU¢Ŭm\nkel¢dU¢sAn\nteli¢Ŭm",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "updatedAt": "2026-09-08T04:20:32.701Z"
     }
   ],
   "categories": [
     {
-      "id": "85f2d803-5f61-44e4-a9db-f07bb89150b5",
+      "id": "da413b7a-3f38-4825-99b1-718b34402537",
       "name": {
         "zh": "数",
         "en": "number"
       },
       "values": [
         {
-          "id": "81cf836e-6c3e-4038-a5db-675d1913a56d",
+          "id": "e73779b7-b4c4-4a9f-a9e9-8fc5bdb65190",
           "name": {
             "zh": "单数",
             "en": "singular"
@@ -346,7 +464,7 @@
           "abbr": "SG"
         },
         {
-          "id": "a80e1a0d-b07e-4285-9249-8cba126dd121",
+          "id": "e0e58681-f4f7-476f-86c2-4cdde2bd4877",
           "name": {
             "zh": "复数",
             "en": "plural"
@@ -356,14 +474,14 @@
       ]
     },
     {
-      "id": "f5fc9c5d-a640-401d-a85d-66f4b3de6e9e",
+      "id": "40483258-8c53-427b-88e3-8178e5a53458",
       "name": {
         "zh": "格",
         "en": "case"
       },
       "values": [
         {
-          "id": "ff9641ea-7aea-4475-a9ee-3f132fbe25ce",
+          "id": "305369cc-1404-4261-a174-f49b0a075fd0",
           "name": {
             "zh": "主格",
             "en": "nominative"
@@ -371,7 +489,7 @@
           "abbr": "NOM"
         },
         {
-          "id": "8f70d00b-19cb-4bc4-a01e-a95142f9e372",
+          "id": "5b533b58-643b-47e1-b5a2-9b8ef49b4532",
           "name": {
             "zh": "宾格",
             "en": "accusative"
@@ -379,7 +497,7 @@
           "abbr": "ACC"
         },
         {
-          "id": "084edb5e-ad8a-4010-9653-3bc53ca172a6",
+          "id": "c201b5b9-5683-41e8-b228-ebb15db06639",
           "name": {
             "zh": "位格",
             "en": "locative"
@@ -387,7 +505,7 @@
           "abbr": "LOC"
         },
         {
-          "id": "1a6f785a-d9d2-4564-bc07-3570bca05db2",
+          "id": "d27390eb-01ff-4a6b-92d2-f7cef0ec75af",
           "name": {
             "zh": "与格",
             "en": "dative"
@@ -397,14 +515,14 @@
       ]
     },
     {
-      "id": "f10b7e48-2e9e-4860-86c8-6c0a7f1cb583",
+      "id": "e8bec9f1-26f1-4d1f-ae52-739aa5a38fc7",
       "name": {
         "zh": "人称",
         "en": "person"
       },
       "values": [
         {
-          "id": "b67576e6-7eb3-411f-a2df-db2ca336fcfa",
+          "id": "ecb00a44-a53c-4387-8492-ffe8c2848ffd",
           "name": {
             "zh": "第一人称",
             "en": "first person"
@@ -412,7 +530,7 @@
           "abbr": "1"
         },
         {
-          "id": "6c634a2b-7924-4f73-b6a1-493bb6bfa228",
+          "id": "1f3f6a4d-ddf2-4c65-8990-a7652dfa2ce1",
           "name": {
             "zh": "第二人称",
             "en": "second person"
@@ -420,7 +538,7 @@
           "abbr": "2"
         },
         {
-          "id": "c8f5540d-d0f7-45c0-8860-943a3605c5d3",
+          "id": "7499fd68-db15-41b5-93f0-9e665aec8bb6",
           "name": {
             "zh": "第三人称",
             "en": "third person"
@@ -430,14 +548,14 @@
       ]
     },
     {
-      "id": "e0ccf51a-baba-425a-afb7-0ad645931784",
+      "id": "0825640e-8260-4514-a65a-7496833d0eac",
       "name": {
         "zh": "时",
         "en": "tense"
       },
       "values": [
         {
-          "id": "7e9759b7-2b71-4dd4-8593-7c1afb3b61c7",
+          "id": "ef79a72e-b9a7-4a90-bbd0-bc7876212a96",
           "name": {
             "zh": "现在",
             "en": "present"
@@ -445,7 +563,7 @@
           "abbr": "PRS"
         },
         {
-          "id": "32312e8e-fd53-4b4a-b81a-bfd7d1550ef9",
+          "id": "ed1a0852-e0e8-4744-babc-33b2e3fc3903",
           "name": {
             "zh": "过去",
             "en": "past"
@@ -455,14 +573,14 @@
       ]
     },
     {
-      "id": "4de901d4-cf04-4cd2-8782-4f8b2eff7bb7",
+      "id": "d2f2049f-a87e-4066-a279-b5ad17ce86c9",
       "name": {
         "zh": "极性",
         "en": "polarity"
       },
       "values": [
         {
-          "id": "5cef7224-4a76-4b2a-83a0-5cbee8b070f2",
+          "id": "abc7203b-d2fe-4696-a187-453d726d651d",
           "name": {
             "zh": "肯定",
             "en": "affirmative"
@@ -470,7 +588,7 @@
           "abbr": "AFF"
         },
         {
-          "id": "1c411b38-251a-4034-a6dc-440e389070e8",
+          "id": "0217bc7d-73ae-4ef0-8bc1-046daa232d64",
           "name": {
             "zh": "否定",
             "en": "negative"
@@ -480,14 +598,14 @@
       ]
     },
     {
-      "id": "58da57cb-3484-48c0-a2c2-134e1b11ebdb",
+      "id": "33057bb4-859e-4348-a1be-9ecb3df6bb1c",
       "name": {
         "zh": "和谐类",
         "en": "harmony class"
       },
       "values": [
         {
-          "id": "b2449206-fcf3-4a6c-ad3f-fa9840413510",
+          "id": "1659e8a4-2a63-4c38-93ad-e7ca023bbe2c",
           "name": {
             "zh": "后元音",
             "en": "back"
@@ -495,7 +613,7 @@
           "abbr": "B"
         },
         {
-          "id": "164fee4c-152c-434d-bcb7-4051b5424f22",
+          "id": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9",
           "name": {
             "zh": "前元音",
             "en": "front"
@@ -507,7 +625,7 @@
   ],
   "posList": [
     {
-      "id": "8a19eacf-147e-4bd1-add4-67d7d6cd9fd1",
+      "id": "d7d8ab95-0bbf-4a33-baf2-c03eb7e4c9c4",
       "name": {
         "zh": "名词",
         "en": "noun"
@@ -516,7 +634,7 @@
       "paradigmId": null
     },
     {
-      "id": "53e2dd37-c71d-4af0-9c24-e73e901e5e59",
+      "id": "10c3a501-092c-47bc-ad10-6c4ab17bb97a",
       "name": {
         "zh": "动词",
         "en": "verb"
@@ -525,7 +643,7 @@
       "paradigmId": null
     },
     {
-      "id": "496cf034-b363-4c09-9263-156d7aad5f8e",
+      "id": "2eedfe06-c12c-4ff5-84ee-63327f0091b4",
       "name": {
         "zh": "形容词",
         "en": "adjective"
@@ -534,7 +652,7 @@
       "paradigmId": null
     },
     {
-      "id": "e68c1ab6-e24f-4664-b97d-13bea8926c05",
+      "id": "cac50898-49ad-48bd-ab5d-d52d5ff259f8",
       "name": {
         "zh": "代词",
         "en": "pronoun"
@@ -545,8 +663,8 @@
   ],
   "morphemes": [
     {
-      "id": "ec79e4d8-c110-42d1-b5bb-5606057c07c5",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "375e41ff-c0cf-4690-8a5f-02436eb201a7",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "type": "suffix",
       "form": "-lAr",
       "form2": "",
@@ -566,14 +684,14 @@
         "en": "plural"
       },
       "features": {
-        "85f2d803-5f61-44e4-a9db-f07bb89150b5": "a80e1a0d-b07e-4285-9249-8cba126dd121"
+        "da413b7a-3f38-4825-99b1-718b34402537": "e0e58681-f4f7-476f-86c2-4cdde2bd4877"
       },
       "tags": [],
       "notes": ""
     },
     {
-      "id": "d9ff8873-56ce-4e0c-a94d-92f57f8498ba",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "049021d8-3918-4dec-99fe-250acbbcde40",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "type": "suffix",
       "form": "-(U)m",
       "form2": "",
@@ -597,14 +715,14 @@
         "en": "accusative"
       },
       "features": {
-        "f5fc9c5d-a640-401d-a85d-66f4b3de6e9e": "8f70d00b-19cb-4bc4-a01e-a95142f9e372"
+        "40483258-8c53-427b-88e3-8178e5a53458": "5b533b58-643b-47e1-b5a2-9b8ef49b4532"
       },
       "tags": [],
       "notes": ""
     },
     {
-      "id": "fb52a1ef-d0cf-422a-8f5d-d5e498e967b3",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "bed75e90-eb83-4656-932d-4e8039524aba",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "type": "suffix",
       "form": "-dA",
       "form2": "",
@@ -624,14 +742,14 @@
         "en": "locative"
       },
       "features": {
-        "f5fc9c5d-a640-401d-a85d-66f4b3de6e9e": "084edb5e-ad8a-4010-9653-3bc53ca172a6"
+        "40483258-8c53-427b-88e3-8178e5a53458": "c201b5b9-5683-41e8-b228-ebb15db06639"
       },
       "tags": [],
       "notes": ""
     },
     {
-      "id": "724d367e-c20b-4e48-b416-f2e4c3b3c838",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "e4f67126-b6f0-4cbe-bce1-5744d254b13a",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "type": "suffix",
       "form": "-kA",
       "form2": "",
@@ -651,14 +769,14 @@
         "en": "dative"
       },
       "features": {
-        "f5fc9c5d-a640-401d-a85d-66f4b3de6e9e": "1a6f785a-d9d2-4564-bc07-3570bca05db2"
+        "40483258-8c53-427b-88e3-8178e5a53458": "d27390eb-01ff-4a6b-92d2-f7cef0ec75af"
       },
       "tags": [],
       "notes": ""
     },
     {
-      "id": "31a73b65-3786-44b0-8da7-3fe879edb86e",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "c5e97515-787f-4a24-bb51-efbbd8875242",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "type": "suffix",
       "form": "-(U)m",
       "form2": "",
@@ -682,14 +800,14 @@
         "en": "my"
       },
       "features": {
-        "f10b7e48-2e9e-4860-86c8-6c0a7f1cb583": "b67576e6-7eb3-411f-a2df-db2ca336fcfa"
+        "e8bec9f1-26f1-4d1f-ae52-739aa5a38fc7": "ecb00a44-a53c-4387-8492-ffe8c2848ffd"
       },
       "tags": [],
       "notes": ""
     },
     {
-      "id": "007db7ac-afe3-4a40-8fc2-b99b47a3880c",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "f1d9cb45-3a6c-4a94-b0a5-70e23d24f877",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "type": "suffix",
       "form": "-(U)n",
       "form2": "",
@@ -713,14 +831,14 @@
         "en": "your"
       },
       "features": {
-        "f10b7e48-2e9e-4860-86c8-6c0a7f1cb583": "6c634a2b-7924-4f73-b6a1-493bb6bfa228"
+        "e8bec9f1-26f1-4d1f-ae52-739aa5a38fc7": "1f3f6a4d-ddf2-4c65-8990-a7652dfa2ce1"
       },
       "tags": [],
       "notes": ""
     },
     {
-      "id": "35caed45-6d2c-4035-b2eb-235788cc4c8b",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "82fc4ad4-57b7-44e5-b099-4cb45cf379b2",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "type": "suffix",
       "form": "-sI",
       "form2": "",
@@ -736,14 +854,14 @@
         "en": "his/her"
       },
       "features": {
-        "f10b7e48-2e9e-4860-86c8-6c0a7f1cb583": "c8f5540d-d0f7-45c0-8860-943a3605c5d3"
+        "e8bec9f1-26f1-4d1f-ae52-739aa5a38fc7": "7499fd68-db15-41b5-93f0-9e665aec8bb6"
       },
       "tags": [],
       "notes": ""
     },
     {
-      "id": "10ad4478-08d6-4fc9-8112-6f4dcf2eb269",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "f389174b-c6cf-4da2-9365-b7d51ae8cc1f",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "type": "suffix",
       "form": "-mA",
       "form2": "",
@@ -763,14 +881,14 @@
         "en": "negative"
       },
       "features": {
-        "4de901d4-cf04-4cd2-8782-4f8b2eff7bb7": "1c411b38-251a-4034-a6dc-440e389070e8"
+        "d2f2049f-a87e-4066-a279-b5ad17ce86c9": "0217bc7d-73ae-4ef0-8bc1-046daa232d64"
       },
       "tags": [],
       "notes": ""
     },
     {
-      "id": "6ee1d7fa-733d-46f9-b611-cbbbc5f5f849",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "971152f9-e4fa-47b8-b76a-1cac3a46735e",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "type": "suffix",
       "form": "-dU",
       "form2": "",
@@ -790,14 +908,14 @@
         "en": "past"
       },
       "features": {
-        "e0ccf51a-baba-425a-afb7-0ad645931784": "32312e8e-fd53-4b4a-b81a-bfd7d1550ef9"
+        "0825640e-8260-4514-a65a-7496833d0eac": "ed1a0852-e0e8-4744-babc-33b2e3fc3903"
       },
       "tags": [],
       "notes": ""
     },
     {
-      "id": "2604a757-fcc3-4fb7-8de1-204cfc73f460",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "84332a22-448e-43c9-9e32-c1bc6916d5ca",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "type": "suffix",
       "form": "-(U)m",
       "form2": "",
@@ -821,14 +939,14 @@
         "en": "first singular"
       },
       "features": {
-        "f10b7e48-2e9e-4860-86c8-6c0a7f1cb583": "b67576e6-7eb3-411f-a2df-db2ca336fcfa"
+        "e8bec9f1-26f1-4d1f-ae52-739aa5a38fc7": "ecb00a44-a53c-4387-8492-ffe8c2848ffd"
       },
       "tags": [],
       "notes": ""
     },
     {
-      "id": "6b77feb4-2867-42a2-b6da-b2b54a6e5a01",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "e323d524-5141-4616-9df0-a48926b373cd",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "type": "suffix",
       "form": "-sAn",
       "form2": "",
@@ -848,14 +966,14 @@
         "en": "second singular"
       },
       "features": {
-        "f10b7e48-2e9e-4860-86c8-6c0a7f1cb583": "6c634a2b-7924-4f73-b6a1-493bb6bfa228"
+        "e8bec9f1-26f1-4d1f-ae52-739aa5a38fc7": "1f3f6a4d-ddf2-4c65-8990-a7652dfa2ce1"
       },
       "tags": [],
       "notes": ""
     },
     {
-      "id": "a7f672ad-5b45-468e-b17c-76292b67e5bf",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "92a2d914-97e0-4a65-ae9d-3da8d452e575",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "type": "clitic",
       "form": "=mU",
       "form2": "",
@@ -879,8 +997,8 @@
       "notes": ""
     },
     {
-      "id": "0a2767f3-fbed-4e5f-90d3-d3e5563bc033",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "0f6d3753-fe2e-4b57-be41-68c69c3546b7",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "type": "particle",
       "form": "ve",
       "form2": "",
@@ -897,12 +1015,12 @@
   ],
   "lexemes": [
     {
-      "id": "5c003c74-7f3d-46eb-8d63-e22b9b1ce2a0",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "475d8f40-ddc5-465c-b701-3328c66ff266",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "kaso",
-      "posId": "8a19eacf-147e-4bd1-add4-67d7d6cd9fd1",
+      "posId": "d7d8ab95-0bbf-4a33-baf2-c03eb7e4c9c4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "b2449206-fcf3-4a6c-ad3f-fa9840413510"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "1659e8a4-2a63-4c38-93ad-e7ca023bbe2c"
       },
       "tags": [
         "基础"
@@ -910,7 +1028,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "38f1a325-da2f-4a8b-b3d6-ebb189156b86",
+          "id": "8ad695c3-44f5-46fd-ba48-12d3a9f37f52",
           "definition": {
             "zh": "房子",
             "en": "house"
@@ -932,17 +1050,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "5bece036-dc38-4fe7-9afb-9536dca0e638",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "bfdeebac-e1b0-47f5-bec6-3f0a1c2ae1c6",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "teli",
-      "posId": "8a19eacf-147e-4bd1-add4-67d7d6cd9fd1",
+      "posId": "d7d8ab95-0bbf-4a33-baf2-c03eb7e4c9c4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [
         "基础",
@@ -951,7 +1070,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "feebf972-ed2f-4ebc-8a66-6c681bffca38",
+          "id": "216fb005-9fdc-4440-95f2-86a14a50f8b1",
           "definition": {
             "zh": "水",
             "en": "water"
@@ -973,17 +1092,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "791744f8-2d9b-4271-a234-d2e63a09fb70",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "2103cba9-11ce-40f9-a001-02ad974c2e83",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "nöl",
-      "posId": "8a19eacf-147e-4bd1-add4-67d7d6cd9fd1",
+      "posId": "d7d8ab95-0bbf-4a33-baf2-c03eb7e4c9c4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [
         "自然"
@@ -991,7 +1111,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "7f4f802f-64f0-48c5-b73c-cf8aca4e69fd",
+          "id": "6d0ad936-d3c4-4c9e-90f0-35e4a773daf0",
           "definition": {
             "zh": "太阳",
             "en": "sun"
@@ -1013,17 +1133,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "d4a960af-b3d8-4db8-8f56-6a0fc93e0c62",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "9ece040a-7272-44fd-956c-48d6d758d9f7",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "ura",
-      "posId": "8a19eacf-147e-4bd1-add4-67d7d6cd9fd1",
+      "posId": "d7d8ab95-0bbf-4a33-baf2-c03eb7e4c9c4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "b2449206-fcf3-4a6c-ad3f-fa9840413510"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "1659e8a4-2a63-4c38-93ad-e7ca023bbe2c"
       },
       "tags": [
         "自然"
@@ -1031,7 +1152,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "5a3a619d-fe7e-49f6-8b0a-de8563cef926",
+          "id": "47107bfd-80bd-44b3-be59-b300f1a940cb",
           "definition": {
             "zh": "山",
             "en": "mountain"
@@ -1053,17 +1174,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "4b3a56f5-0852-475b-8022-161094a37079",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "9e239c71-a75b-47fa-93ae-66bae3f23cb8",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "sepe",
-      "posId": "8a19eacf-147e-4bd1-add4-67d7d6cd9fd1",
+      "posId": "d7d8ab95-0bbf-4a33-baf2-c03eb7e4c9c4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [
         "动物"
@@ -1071,7 +1193,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "44c9be14-6144-4e27-9925-f16bca952cdb",
+          "id": "24874ffb-79ef-49c7-909c-633e856fe60e",
           "definition": {
             "zh": "鸟",
             "en": "bird"
@@ -1093,17 +1215,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "1b35fe9b-fadd-4850-88e8-1b662d4af050",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "6348be4f-4908-48f0-8c36-62fa3ca768a1",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "muk",
-      "posId": "8a19eacf-147e-4bd1-add4-67d7d6cd9fd1",
+      "posId": "d7d8ab95-0bbf-4a33-baf2-c03eb7e4c9c4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "b2449206-fcf3-4a6c-ad3f-fa9840413510"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "1659e8a4-2a63-4c38-93ad-e7ca023bbe2c"
       },
       "tags": [
         "自然"
@@ -1111,7 +1234,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "9a1a6bee-58d2-4da1-b7d9-afb1bed7b468",
+          "id": "7ec9b3f2-5d83-4743-b3f8-a874a6b7ab11",
           "definition": {
             "zh": "石头",
             "en": "stone"
@@ -1133,17 +1256,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "a2ac3ab8-b838-493d-aecd-d6a082cf9378",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "e06845ab-49fd-423f-b3e1-92e6a0a42902",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "ilen",
-      "posId": "8a19eacf-147e-4bd1-add4-67d7d6cd9fd1",
+      "posId": "d7d8ab95-0bbf-4a33-baf2-c03eb7e4c9c4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [
         "人"
@@ -1151,7 +1275,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "d1b69314-a55b-4379-bc37-d0ff2e114723",
+          "id": "1c46cd83-bc65-492c-9ad5-4d6e8a4397b4",
           "definition": {
             "zh": "孩子",
             "en": "child"
@@ -1173,17 +1297,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "eae3f2bf-f4c7-4cc0-8690-5e96a2698400",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "33a51e0a-b3f6-49db-9bc4-424ca75b292c",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "tovar",
-      "posId": "8a19eacf-147e-4bd1-add4-67d7d6cd9fd1",
+      "posId": "d7d8ab95-0bbf-4a33-baf2-c03eb7e4c9c4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "b2449206-fcf3-4a6c-ad3f-fa9840413510"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "1659e8a4-2a63-4c38-93ad-e7ca023bbe2c"
       },
       "tags": [
         "人"
@@ -1191,7 +1316,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "e11601a7-8b2c-4f47-a611-2e0f28c3f89e",
+          "id": "d60c63ae-42a6-4483-9630-d3523684de36",
           "definition": {
             "zh": "朋友",
             "en": "friend"
@@ -1213,17 +1338,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "1110a150-e31d-48ad-b372-43a5cf3a791b",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "096e9454-e297-4a86-b83d-4cd5c35f8ae7",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "göl",
-      "posId": "8a19eacf-147e-4bd1-add4-67d7d6cd9fd1",
+      "posId": "d7d8ab95-0bbf-4a33-baf2-c03eb7e4c9c4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [
         "自然"
@@ -1231,7 +1357,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "b1f8830f-4122-437f-9a51-77d468895b89",
+          "id": "f174d88a-a0a6-4c9d-8c48-800d4f6f6db6",
           "definition": {
             "zh": "湖",
             "en": "lake"
@@ -1253,23 +1379,24 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "7bee1404-7a86-4ecd-916a-14300820764b",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "12acc7fe-df76-48a9-bb77-966c6248aba7",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "dünar",
-      "posId": "8a19eacf-147e-4bd1-add4-67d7d6cd9fd1",
+      "posId": "d7d8ab95-0bbf-4a33-baf2-c03eb7e4c9c4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "b2449206-fcf3-4a6c-ad3f-fa9840413510"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "1659e8a4-2a63-4c38-93ad-e7ca023bbe2c"
       },
       "tags": [],
       "dialectIds": [],
       "senses": [
         {
-          "id": "9849b00d-54d9-4392-9bad-3a0e7a119abe",
+          "id": "5b08cd55-e608-48ef-a389-6fa929af67b1",
           "definition": {
             "zh": "世界",
             "en": "world"
@@ -1291,17 +1418,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "afb99971-7557-4db4-ab65-3a5fcc179f67",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "6af9bd1b-3d4e-4b6d-a180-68537989a2ae",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "bura",
-      "posId": "8a19eacf-147e-4bd1-add4-67d7d6cd9fd1",
+      "posId": "d7d8ab95-0bbf-4a33-baf2-c03eb7e4c9c4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "b2449206-fcf3-4a6c-ad3f-fa9840413510"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "1659e8a4-2a63-4c38-93ad-e7ca023bbe2c"
       },
       "tags": [
         "食物"
@@ -1309,7 +1437,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "3e5116a2-98bd-4e7e-80ba-769791afb20f",
+          "id": "f5955b45-513b-481d-990a-d3c01571ecb2",
           "definition": {
             "zh": "面包",
             "en": "bread"
@@ -1331,17 +1459,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "9fa0cb54-d252-4d45-8f03-3250d9860ebb",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "50c109a0-fc27-4909-a834-18fce59e813a",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "kel-",
-      "posId": "53e2dd37-c71d-4af0-9c24-e73e901e5e59",
+      "posId": "10c3a501-092c-47bc-ad10-6c4ab17bb97a",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [
         "运动"
@@ -1349,7 +1478,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "7344dee8-73e9-4e0e-8a8f-dd15b50cb785",
+          "id": "56cd188c-c03c-4bce-ac8a-e79496e2ad8f",
           "definition": {
             "zh": "来",
             "en": "come"
@@ -1371,17 +1500,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "ef09a359-7260-404d-8b90-6496951f78dd",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "c39ecef2-4b75-411e-bfd9-5dfd15b1be4b",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "git-",
-      "posId": "53e2dd37-c71d-4af0-9c24-e73e901e5e59",
+      "posId": "10c3a501-092c-47bc-ad10-6c4ab17bb97a",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [
         "运动"
@@ -1389,7 +1519,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "b2b26d8b-4945-491e-8f40-33693aea27c1",
+          "id": "b6540b1b-3e7d-4282-8cf6-c384de641448",
           "definition": {
             "zh": "去",
             "en": "go"
@@ -1411,17 +1541,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "20fa9dc2-45c4-4ad4-ac2c-641e44e48518",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "3007202d-7f24-4097-aa37-7770dcd23dc4",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "sör-",
-      "posId": "53e2dd37-c71d-4af0-9c24-e73e901e5e59",
+      "posId": "10c3a501-092c-47bc-ad10-6c4ab17bb97a",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [
         "感知"
@@ -1429,7 +1560,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "2484a5cf-977e-4c1c-b79d-4429d6111ba1",
+          "id": "18d0072f-f942-4aae-a0cd-797bfce1ba25",
           "definition": {
             "zh": "看见",
             "en": "see"
@@ -1451,23 +1582,24 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "81584bd3-31fb-4066-80d3-f61cdd281219",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "d3a2e764-3df3-4802-9571-55994a944580",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "al-",
-      "posId": "53e2dd37-c71d-4af0-9c24-e73e901e5e59",
+      "posId": "10c3a501-092c-47bc-ad10-6c4ab17bb97a",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "b2449206-fcf3-4a6c-ad3f-fa9840413510"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "1659e8a4-2a63-4c38-93ad-e7ca023bbe2c"
       },
       "tags": [],
       "dialectIds": [],
       "senses": [
         {
-          "id": "170d32df-a67e-4707-ba48-fc05f04076c7",
+          "id": "70f6706e-e069-41a9-b737-2ebe66105f2b",
           "definition": {
             "zh": "拿；取",
             "en": "take"
@@ -1489,23 +1621,24 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "3ec86ab5-d1e5-4761-bbb0-718afa8e0c7d",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "ae110104-1048-4e46-8221-30966359e69d",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "ver-",
-      "posId": "53e2dd37-c71d-4af0-9c24-e73e901e5e59",
+      "posId": "10c3a501-092c-47bc-ad10-6c4ab17bb97a",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [],
       "dialectIds": [],
       "senses": [
         {
-          "id": "fcd3bc37-6d09-4f28-9be2-ff1c5fcd8d2d",
+          "id": "f7651aff-da73-4189-bc72-b88af591d732",
           "definition": {
             "zh": "给",
             "en": "give"
@@ -1527,23 +1660,24 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "86838601-f901-43b9-88d8-da994fdb4a3f",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "07dfdeca-dea9-4a0f-92a1-81bb360ab1bb",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "ol-",
-      "posId": "53e2dd37-c71d-4af0-9c24-e73e901e5e59",
+      "posId": "10c3a501-092c-47bc-ad10-6c4ab17bb97a",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "b2449206-fcf3-4a6c-ad3f-fa9840413510"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "1659e8a4-2a63-4c38-93ad-e7ca023bbe2c"
       },
       "tags": [],
       "dialectIds": [],
       "senses": [
         {
-          "id": "648cb660-f4cc-4486-8d40-aa538bbd7cdc",
+          "id": "52c11182-00db-4315-b4ec-e7653197c843",
           "definition": {
             "zh": "是；成为",
             "en": "be; become"
@@ -1565,17 +1699,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "dc03768b-0c15-46ed-aba1-eb5c8a58b630",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "bcbc12cd-a087-464f-a97f-5df377dbf80d",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "je-",
-      "posId": "53e2dd37-c71d-4af0-9c24-e73e901e5e59",
+      "posId": "10c3a501-092c-47bc-ad10-6c4ab17bb97a",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [
         "食物"
@@ -1583,7 +1718,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "bd2e040a-dd14-46f9-9695-195d6067e72e",
+          "id": "bd7b0339-481c-4795-be9c-b0a978d6e937",
           "definition": {
             "zh": "吃",
             "en": "eat"
@@ -1605,17 +1740,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "293af25d-c68a-4142-91fd-1e4da5d93bc4",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "e225cd0a-848b-462b-b1d5-d97e32d9fd13",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "bil-",
-      "posId": "53e2dd37-c71d-4af0-9c24-e73e901e5e59",
+      "posId": "10c3a501-092c-47bc-ad10-6c4ab17bb97a",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [
         "认知"
@@ -1623,7 +1759,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "2653a1f2-3ba9-488a-8f92-57a202bc6ab3",
+          "id": "5d69ab50-8574-416a-ad40-8b566bbb87db",
           "definition": {
             "zh": "知道",
             "en": "know"
@@ -1645,23 +1781,24 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "4279bdc7-db77-4e0c-9c63-86fb76caf746",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "9b194995-24f8-4cab-a18e-de8064c41fc7",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "jat-",
-      "posId": "53e2dd37-c71d-4af0-9c24-e73e901e5e59",
+      "posId": "10c3a501-092c-47bc-ad10-6c4ab17bb97a",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "b2449206-fcf3-4a6c-ad3f-fa9840413510"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "1659e8a4-2a63-4c38-93ad-e7ca023bbe2c"
       },
       "tags": [],
       "dialectIds": [],
       "senses": [
         {
-          "id": "c709d4d0-885a-4b0c-b7e0-ce85d33a1ab5",
+          "id": "db01ad8a-2841-4cd8-9715-307df9d93761",
           "definition": {
             "zh": "睡",
             "en": "sleep"
@@ -1683,17 +1820,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "97c7213a-054e-4995-9de1-9b742709174e",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "4bf06b6d-7833-48a3-8476-9078f41c0365",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "kara",
-      "posId": "496cf034-b363-4c09-9263-156d7aad5f8e",
+      "posId": "2eedfe06-c12c-4ff5-84ee-63327f0091b4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "b2449206-fcf3-4a6c-ad3f-fa9840413510"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "1659e8a4-2a63-4c38-93ad-e7ca023bbe2c"
       },
       "tags": [
         "颜色"
@@ -1701,7 +1839,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "1c4a4661-9305-4c36-a818-e1d212aca415",
+          "id": "d9657aa9-893d-4d69-a83e-eaca69085dd8",
           "definition": {
             "zh": "黑的",
             "en": "black"
@@ -1723,17 +1861,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.700Z",
+      "updatedAt": "2026-09-08T04:20:32.700Z"
     },
     {
-      "id": "b969b4c3-003a-4438-b16a-331be3af1492",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "2bc71f79-416b-4bdb-bf2d-b619344483fb",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "pelin",
-      "posId": "496cf034-b363-4c09-9263-156d7aad5f8e",
+      "posId": "2eedfe06-c12c-4ff5-84ee-63327f0091b4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [
         "尺寸"
@@ -1741,7 +1880,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "0be667fe-9ff2-4fb9-971f-8fd53d9d416f",
+          "id": "13f0e140-f7ec-4b2f-ae06-64c67f6d7d63",
           "definition": {
             "zh": "小的",
             "en": "small"
@@ -1763,17 +1902,18 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.701Z",
+      "updatedAt": "2026-09-08T04:20:32.701Z"
     },
     {
-      "id": "39b6dba4-0ed7-4f2e-a1b9-47fa877b9005",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "7677bbe6-3437-4efa-b642-5da050d3ea1c",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "oru",
-      "posId": "496cf034-b363-4c09-9263-156d7aad5f8e",
+      "posId": "2eedfe06-c12c-4ff5-84ee-63327f0091b4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "b2449206-fcf3-4a6c-ad3f-fa9840413510"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "1659e8a4-2a63-4c38-93ad-e7ca023bbe2c"
       },
       "tags": [
         "尺寸"
@@ -1781,7 +1921,7 @@
       "dialectIds": [],
       "senses": [
         {
-          "id": "5ff8017f-9252-4e41-a1d4-637891da82cc",
+          "id": "e71db409-ffe7-4f3a-9c74-574f713168bf",
           "definition": {
             "zh": "大的",
             "en": "big"
@@ -1803,23 +1943,24 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.701Z",
+      "updatedAt": "2026-09-08T04:20:32.701Z"
     },
     {
-      "id": "571c7e19-53a7-413c-8faf-6a232e34ef52",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "10cea8e4-090b-47c7-8cac-fbbb7b393cac",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "sürü",
-      "posId": "496cf034-b363-4c09-9263-156d7aad5f8e",
+      "posId": "2eedfe06-c12c-4ff5-84ee-63327f0091b4",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [],
       "dialectIds": [],
       "senses": [
         {
-          "id": "df68e1c6-74f8-44d0-98ed-be0959168802",
+          "id": "8d4bd0f6-b5e2-4dd5-9a04-6fca33209670",
           "definition": {
             "zh": "快的",
             "en": "fast"
@@ -1841,23 +1982,24 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.701Z",
+      "updatedAt": "2026-09-08T04:20:32.701Z"
     },
     {
-      "id": "706ed78c-e055-4172-856f-114eef4a5c7e",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "e8845ef1-657b-49f8-97cf-2f7f91e439a3",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "men",
-      "posId": "e68c1ab6-e24f-4664-b97d-13bea8926c05",
+      "posId": "cac50898-49ad-48bd-ab5d-d52d5ff259f8",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [],
       "dialectIds": [],
       "senses": [
         {
-          "id": "48e1f406-13fc-45eb-bc64-84c1423ae0fe",
+          "id": "897bf7ad-dff7-45b4-8df4-254715f7ec2b",
           "definition": {
             "zh": "我",
             "en": "I"
@@ -1879,23 +2021,24 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.701Z",
+      "updatedAt": "2026-09-08T04:20:32.701Z"
     },
     {
-      "id": "f4be0b53-928c-4094-bdf3-4f7f2cdbea89",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "01c66e71-a3c5-42ff-9ef6-835462f38e23",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "sen",
-      "posId": "e68c1ab6-e24f-4664-b97d-13bea8926c05",
+      "posId": "cac50898-49ad-48bd-ab5d-d52d5ff259f8",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [],
       "dialectIds": [],
       "senses": [
         {
-          "id": "0a125df8-add8-439f-acf5-122d58b68b63",
+          "id": "790fafad-d519-44e9-a3d7-8cfeb8d47879",
           "definition": {
             "zh": "你",
             "en": "you (sg.)"
@@ -1917,23 +2060,24 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.701Z",
+      "updatedAt": "2026-09-08T04:20:32.701Z"
     },
     {
-      "id": "f785355d-3dd8-413c-87ea-cb766524aa6e",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "45360997-c273-4f9e-a9bd-de45db96e2f4",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "o",
-      "posId": "e68c1ab6-e24f-4664-b97d-13bea8926c05",
+      "posId": "cac50898-49ad-48bd-ab5d-d52d5ff259f8",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "b2449206-fcf3-4a6c-ad3f-fa9840413510"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "1659e8a4-2a63-4c38-93ad-e7ca023bbe2c"
       },
       "tags": [],
       "dialectIds": [],
       "senses": [
         {
-          "id": "8e95ceca-e68d-4957-80f5-b0c770590dc8",
+          "id": "9be4ed69-72ca-4ff9-ad73-ed6164235ed0",
           "definition": {
             "zh": "他 / 她 / 它",
             "en": "he / she / it"
@@ -1955,23 +2099,24 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.701Z",
+      "updatedAt": "2026-09-08T04:20:32.701Z"
     },
     {
-      "id": "07defb1d-2a45-4df6-bfc4-b801ac5e9ae4",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "f533592c-5fd2-4111-bbf8-b4f8b7ae57ad",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "lemma": "biz",
-      "posId": "e68c1ab6-e24f-4664-b97d-13bea8926c05",
+      "posId": "cac50898-49ad-48bd-ab5d-d52d5ff259f8",
       "features": {
-        "58da57cb-3484-48c0-a2c2-134e1b11ebdb": "164fee4c-152c-434d-bcb7-4051b5424f22"
+        "33057bb4-859e-4348-a1be-9ecb3df6bb1c": "fb515801-5ec4-4012-8e5c-9e6f7e5bcac9"
       },
       "tags": [],
       "dialectIds": [],
       "senses": [
         {
-          "id": "97c059d2-faf8-45c7-b542-419b51f62cca",
+          "id": "fcef95a4-f2f3-4513-be79-08ecfd3826e2",
           "definition": {
             "zh": "我们",
             "en": "we"
@@ -1993,16 +2138,17 @@
       },
       "forms": {},
       "pronunciations": {},
+      "relations": [],
       "notes": "",
-      "createdAt": "2026-09-08T02:34:28.741Z",
-      "updatedAt": "2026-09-08T02:34:28.741Z"
+      "createdAt": "2026-09-08T04:20:32.701Z",
+      "updatedAt": "2026-09-08T04:20:32.701Z"
     }
   ],
   "paradigms": [],
   "sentences": [
     {
-      "id": "bdca6866-46b8-44d8-aecf-b627aaad2451",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "2414c2dc-bcfe-4835-bb98-60cd5803eab2",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "text": "ilenler kasoda jatdu",
       "orthoTexts": {},
       "translation": {
@@ -2016,8 +2162,8 @@
       "notes": ""
     },
     {
-      "id": "6e91efff-4566-4467-add9-f4d5443eb477",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "eb2fbf5f-dfca-473a-aca6-7d06be7a895d",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "text": "men teliüm aldum",
       "orthoTexts": {},
       "translation": {
@@ -2031,8 +2177,8 @@
       "notes": ""
     },
     {
-      "id": "ef48fbf1-26d9-4a19-8e2f-32becec277eb",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "2265b74a-35ac-4c71-91ec-bea39956692a",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "text": "sen nölüm sördün mü",
       "orthoTexts": {},
       "translation": {
@@ -2046,8 +2192,8 @@
       "notes": ""
     },
     {
-      "id": "31460068-7423-4805-bf1b-d9eaae8fee07",
-      "languageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+      "id": "7eaed8ce-cea6-4b42-96aa-707aba50a5b3",
+      "languageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
       "text": "tovarum burake verdü",
       "orthoTexts": {},
       "translation": {
@@ -2065,7 +2211,7 @@
   "abbreviations": [],
   "docs": [],
   "settings": {
-    "defaultLanguageId": "d0304a09-380d-425a-9a2a-09ce45677f74",
+    "defaultLanguageId": "5db5ca7a-5d66-414a-8490-fac0560104e7",
     "glossLanguages": [
       "zh",
       "en"
@@ -2076,6 +2222,7 @@
     ],
     "abbreviationStyle": "leipzig",
     "exportTemplates": [],
-    "dataFont": ""
+    "dataFont": "",
+    "lexiconColumns": []
   }
 }

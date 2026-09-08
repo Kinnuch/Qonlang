@@ -77,7 +77,7 @@ export function createLanguage(init: Partial<Language> & { name: string }): Lang
     digraphs: [],
     orthographies: [createOrthography(primaryOrthoName, true)],
     syllable: { enabled: false, template: '', strategy: 'maximal-onset' },
-    prosody: { type: 'none', rules: '', tones: [] },
+    prosody: { type: 'none', stressPosition: 'initial', rules: '', tones: [] },
     phonotactics: {
       onsets: [],
       nuclei: [],

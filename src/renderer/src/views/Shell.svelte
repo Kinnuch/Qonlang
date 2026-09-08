@@ -24,6 +24,7 @@
   import SoundChanges from './SoundChanges.svelte'
   import Morphemes from './Morphemes.svelte'
   import Lexicon from './Lexicon.svelte'
+  import Phonology from './Phonology.svelte'
   import SettingsView from './Settings.svelte'
   import Placeholder from './Placeholder.svelte'
 
@@ -132,6 +133,8 @@
       <Languages bind:inspectorTitle />
     {:else if ui.section === 'soundChanges'}
       <SoundChanges bind:inspectorTitle />
+    {:else if ui.section === 'phonology'}
+      <Phonology bind:inspectorTitle />
     {:else if ui.section === 'morphemes'}
       <Morphemes bind:inspectorTitle />
     {:else if ui.section === 'lexicon'}

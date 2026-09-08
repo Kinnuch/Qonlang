@@ -10,6 +10,7 @@
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
   import RuleList from '$lib/ui/RuleList.svelte'
   import RuleChainGraph from '$lib/ui/RuleChainGraph.svelte'
+  import { languageParseOptions } from '$lib/engine/phon'
   import { Plus, Trash2, Download, Upload, Copy, BookOpen, List, Code, GitBranch } from '@lucide/svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -24,14 +25,20 @@
     inspectorTitle = t('soundChanges.testBench')
   })
 
-  // 解析（去抖）
+  // 解析（去抖）。规则集第一个绑定了语言的阶段所属语言的音类和多合字母作为基础。
   let program = $state<RuleProgram | null>(null)
   let parseTimer: ReturnType<typeof setTimeout> | null = null
+  const baseLanguage = $derived.by(() => {
+    if (!active) return null
+    const boundId = Object.values(active.stageLanguages).find((id) => !!id)
+    return project.languages.find((l) => l.id === boundId) ?? projectState.currentLanguage ?? null
+  })
   $effect(() => {
     const text = active?.text ?? ''
+    const opts = languageParseOptions(baseLanguage)
     if (parseTimer) clearTimeout(parseTimer)
     parseTimer = setTimeout(() => {
-      program = parseRuleText(text)
+      program = parseRuleText(text, opts)
     }, 120)
     return () => {
       if (parseTimer) clearTimeout(parseTimer)
