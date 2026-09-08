@@ -343,13 +343,24 @@ export interface Paradigm {
   inheritsFrom: Id | null
 }
 
+/**
+ * 微调：生成之外的自定义小操作，每行一条，依次执行。
+ * 速记：`-at` 去掉词尾 at；`+u` 追加 u；`^-e` 去掉词首 e；`^+a` 前置 a。
+ * 含 `>` 的行按规则语言解释（如 `at > / _#`）。
+ * pre 在拼接之后、跑音变之前执行；post 在最终形式上执行。
+ */
+export interface Adjust {
+  pre?: string
+  post?: string
+}
+
 export type SlotGenerator =
   | { kind: 'none' }
   | { kind: 'table' }
-  | { kind: 'affix'; stem: string; prefix: string; suffix: string; infix: string; infixAt: string }
-  | { kind: 'affix-sca'; stem: string; prefix: string; suffix: string; ruleSetId: Id | null; fromStage: string; toStage: string }
-  | { kind: 'pattern'; stem: string; pattern: string }
-  | { kind: 'reduplication'; stem: string; scope: 'full' | 'initial' | 'final'; length: number }
+  | ({ kind: 'affix'; stem: string; prefix: string; suffix: string; infix: string; infixAt: string } & Adjust)
+  | ({ kind: 'affix-sca'; stem: string; prefix: string; suffix: string; ruleSetId: Id | null; fromStage: string; toStage: string } & Adjust)
+  | ({ kind: 'pattern'; stem: string; pattern: string } & Adjust)
+  | ({ kind: 'reduplication'; stem: string; scope: 'full' | 'initial' | 'final'; length: number } & Adjust)
 
 // ───────────────────────── 例句 ─────────────────────────
 

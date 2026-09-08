@@ -544,7 +544,12 @@ const en: Dict = {
     examples: 'Differing examples',
     backToSlots: 'Back to slots',
     deleted: 'Deleted paradigm “{name}”',
-    affixHint: 'Affixes are literal; start with @ to reference a morpheme (by form or gloss) whose allomorph is chosen by environment, e.g. @-lAr. Stem: lemma or a stem name (empty = lemma); leading/trailing hyphens are stripped.'
+    affixHint: 'Affixes are literal; start with @ to reference a morpheme (by form or gloss) whose allomorph is chosen by environment, e.g. @-lAr. Stem: lemma or a stem name (empty = lemma); leading/trailing hyphens are stripped.',
+    adjust: 'Adjustments',
+    adjustPre: 'before sound changes…',
+    adjustStem: 'on the stem…',
+    adjustPost: 'on the final form…',
+    adjustHint: 'One adjustment per line, applied in order: -at strips final at; +u appends u; ^-e strips initial e; ^+a prepends a; lines containing > run as rules (e.g. at > / _#, V > / _C#). The upper box runs after affixation and before sound changes (or on the stem); the lower box on the final form.'
   },
   placeholder: {
     title: 'This page arrives in a later milestone',

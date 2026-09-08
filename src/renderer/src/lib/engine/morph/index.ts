@@ -204,6 +204,44 @@ export interface Generated {
   trace: string[]
 }
 
+/**
+ * 微调：每行一条。`-x` 去词尾 x，`+x` 追加，`^-x` 去词首，`^+x` 前置；含 > 的行是规则。
+ */
+export function applyAdjust(ctx: MorphContext, surface: string, text: string | undefined, trace: string[], label: string): string {
+  if (!text || !text.trim()) return surface
+  let s = surface
+  const opts = languageParseOptions(ctx.language)
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line || line.startsWith(';')) continue
+    const before = s
+    if (line.includes('>')) {
+      const prog = parseRuleText(line, opts)
+      const err = prog.diagnostics.find((d) => d.severity === 'error')
+      if (err) {
+        trace.push(`${label} ✗ ${line}: ${err.message}`)
+        continue
+      }
+      s = runRules(prog, s, { trace: false }).output
+    } else if (line.startsWith('^-')) {
+      const x = line.slice(2)
+      if (x && s.startsWith(x)) s = s.slice(x.length)
+    } else if (line.startsWith('^+')) {
+      s = line.slice(2) + s
+    } else if (line.startsWith('-')) {
+      const x = line.slice(1)
+      if (x && s.endsWith(x)) s = s.slice(0, s.length - x.length)
+    } else if (line.startsWith('+')) {
+      s = s + line.slice(1)
+    } else {
+      trace.push(`${label} ? ${line}`)
+      continue
+    }
+    trace.push(`${label} ${line}: ${before} → ${s}`)
+  }
+  return s
+}
+
 export function generateForm(ctx: MorphContext, lexeme: Lexeme, paradigm: Paradigm, slot: SlotDef): Generated | null {
   const g = resolveGenerator(paradigm, slot.key, ctx.project.paradigms)
   if (g.kind === 'none' || g.kind === 'table') return null
@@ -224,6 +262,7 @@ export function generateForm(ctx: MorphContext, lexeme: Lexeme, paradigm: Paradi
     }
     surface = pre.form + surface + suf.form
     trace.push(`拼接: ${surface}`)
+    surface = applyAdjust(ctx, surface, g.pre, trace, '微调(前)')
     if (g.kind === 'affix-sca' && g.ruleSetId) {
       const prog = ctx.program(g.ruleSetId)
       if (prog) {
@@ -233,9 +272,11 @@ export function generateForm(ctx: MorphContext, lexeme: Lexeme, paradigm: Paradi
       } else trace.push('规则集不存在')
     }
   } else if (g.kind === 'pattern') {
+    surface = applyAdjust(ctx, surface, g.pre, trace, '微调(前)')
     surface = applyPattern(surface, g.pattern, nuclei, inventory)
     trace.push(`模板 ${g.pattern}: ${surface}`)
   } else if (g.kind === 'reduplication') {
+    surface = applyAdjust(ctx, surface, g.pre, trace, '微调(前)')
     const segs = segment(surface, inventory)
     const n = Math.max(1, g.length || 1)
     if (g.scope === 'full') surface = surface + surface
@@ -243,6 +284,7 @@ export function generateForm(ctx: MorphContext, lexeme: Lexeme, paradigm: Paradi
     else surface = surface + segs.slice(-n).join('')
     trace.push(`重叠 ${g.scope}: ${surface}`)
   }
+  surface = applyAdjust(ctx, surface, g.post, trace, '微调(后)')
   return { surface, trace }
 }
 

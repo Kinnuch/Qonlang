@@ -106,6 +106,30 @@ describe('generators', () => {
   })
 })
 
+describe('adjustments', () => {
+  it('applies shorthand and rule lines before and after the generator', () => {
+    const { p, L, ctx } = setup()
+    const rs = p.ruleSets[0]
+    const w = createLexeme(L.id, 'kaso')
+    const para: Paradigm = {
+      id: 'a',
+      name: {},
+      dimensionIds: ['num'],
+      disabledSlots: [],
+      generators: {
+        sg: { kind: 'affix-sca', stem: '', prefix: '', suffix: '¢wat', ruleSetId: rs.id, fromStage: '', toStage: '', pre: '-at', post: '+i\nk > g / #_' },
+        pl: { kind: 'affix', stem: '', prefix: '', suffix: 'lar', infix: '', infixAt: '', post: '^-k\n-r\nV > / _#' }
+      },
+      inheritsFrom: null
+    }
+    const slots = paradigmSlots(para, p.categories, ['zh'])
+    const sg = generateForm(ctx, w, para, slots[0])!
+    expect(sg.surface).toBe('gasowi')
+    expect(sg.trace.some((l) => l.includes('微调(前) -at'))).toBe(true)
+    expect(generateForm(ctx, w, para, slots[1])?.surface).toBe('asol')
+  })
+})
+
 describe('derive and reconcile', () => {
   it('writes derived forms but keeps overrides, and reports agreement', () => {
     const { p, para, kaso, nöl, ctx } = setup()

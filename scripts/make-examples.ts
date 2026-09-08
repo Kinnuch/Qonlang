@@ -400,10 +400,11 @@ function makeTheusrin(): void {
   // 名词格范式：祖语词干 + 格缀，从 PSkr 阶段跑完整套音变（用户方法论：及物 强形+s、不及物 强形+m）
   const kase = category(p, '格', 'case', [['及物格', 'transitive', 'TR'], ['不及物格', 'intransitive', 'INTR'], ['欠格', 'deficient', 'DEF'], ['斜格', 'oblique', 'OBL']])
   const nounP: import('$lib/core/model').Paradigm = { id: newId(), name: { zh: '名词' }, dimensionIds: [kase.id], disabledSlots: [], generators: {}, inheritsFrom: null }
-  const gen = (stem: string, suffix: string): import('$lib/core/model').SlotGenerator => ({ kind: 'affix-sca', stem, prefix: '', suffix, ruleSetId: rsT.id, fromStage: 'PSkr', toStage: '' })
+  const gen = (stem: string, suffix: string, pre = ''): import('$lib/core/model').SlotGenerator => ({ kind: 'affix-sca', stem, prefix: '', suffix, ruleSetId: rsT.id, fromStage: 'PSkr', toStage: '', pre })
   nounP.generators[value(kase, 'TR')] = gen('强形', 's')
   nounP.generators[value(kase, 'INTR')] = gen('强形', 'm')
-  nounP.generators[value(kase, 'DEF')] = gen('弱形', 'wat')
+  // 欠格：弱形 + wat，在跑音变前脱落 -at
+  nounP.generators[value(kase, 'DEF')] = gen('弱形', 'wat', '-at')
   nounP.generators[value(kase, 'OBL')] = gen('强形', 'st')
   p.paradigms.push(nounP)
   N.paradigmId = nounP.id

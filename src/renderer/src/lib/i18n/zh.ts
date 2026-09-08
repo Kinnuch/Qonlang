@@ -540,7 +540,12 @@ export default {
     examples: '不一致示例',
     backToSlots: '返回槽位',
     deleted: '已删除范式「{name}」',
-    affixHint: '词缀直接写字面；以 @ 开头引用语素（按形式或 gloss），按异体形环境自动挑选，如 @-lAr。词干填 lemma 或词干名（留空为词头），首尾连字符自动去掉。'
+    affixHint: '词缀直接写字面；以 @ 开头引用语素（按形式或 gloss），按异体形环境自动挑选，如 @-lAr。词干填 lemma 或词干名（留空为词头），首尾连字符自动去掉。',
+    adjust: '微调',
+    adjustPre: '跑音变前…',
+    adjustStem: '对词干…',
+    adjustPost: '最终形式…',
+    adjustHint: '微调每行一条，依次执行：-at 去掉词尾 at；+u 追加 u；^-e 去掉词首 e；^+a 前置 a；含 > 的行按规则语言执行（如 at > / _#、V > / _C#）。上框在拼接之后、跑音变之前（或作用于词干），下框作用于最终形式。'
   },
   placeholder: {
     title: '这一页在后续里程碑实现',

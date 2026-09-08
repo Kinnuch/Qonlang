@@ -269,7 +269,7 @@
           <p class="small muted">{t('paradigms.noSlots')}</p>
         {:else}
           <table class="tbl slots">
-            <thead><tr><th></th><th>{t('paradigms.slot')}</th><th>{t('paradigms.gloss')}</th><th>{t('paradigms.generator')}</th><th>{t('paradigms.params')}</th></tr></thead>
+            <thead><tr><th></th><th>{t('paradigms.slot')}</th><th>{t('paradigms.gloss')}</th><th>{t('paradigms.generator')}</th><th>{t('paradigms.params')}</th><th>{t('paradigms.adjust')}</th></tr></thead>
             <tbody>
               {#each slots as s (s.key)}
                 {@const disabled = active.disabledSlots.includes(s.key)}
@@ -320,12 +320,21 @@
                       {#if g.scope !== 'full'}<input type="number" min="1" class="input p tiny" bind:value={g.length} onchange={touch} />{/if}
                     {/if}
                   </td>
+                  <td class="adjust">
+                    {#if g.kind === 'affix-sca' || g.kind === 'pattern' || g.kind === 'reduplication'}
+                      <textarea class="textarea adj" rows="1" placeholder={g.kind === 'affix-sca' ? t('paradigms.adjustPre') : t('paradigms.adjustStem')} title={t('paradigms.adjustHint')} bind:value={g.pre} oninput={touch}></textarea>
+                    {/if}
+                    {#if g.kind !== 'none' && g.kind !== 'table'}
+                      <textarea class="textarea adj" rows="1" placeholder={t('paradigms.adjustPost')} title={t('paradigms.adjustHint')} bind:value={g.post} oninput={touch}></textarea>
+                    {/if}
+                  </td>
                 </tr>
               {/each}
             </tbody>
           </table>
           <datalist id="dl-stems"><option value="lemma"></option>{#each stemNames as s (s)}<option value={s}></option>{/each}</datalist>
           <p class="small muted">{t('paradigms.affixHint')}</p>
+          <p class="small muted">{t('paradigms.adjustHint')}</p>
         {/if}
       </section>
     </div>
@@ -516,6 +525,19 @@
   }
   .p.tiny {
     width: 84px;
+  }
+  .adjust {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 150px;
+  }
+  .adj {
+    min-height: 28px;
+    padding: 3px 6px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    resize: vertical;
   }
   .mono {
     font-family: var(--font-mono);
