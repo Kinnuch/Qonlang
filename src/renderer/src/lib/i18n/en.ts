@@ -776,6 +776,11 @@ const en: Dict = {
     corpus: 'Sentence entry, automatic gloss drafts, correction and export.',
     docs: 'Markdown documentation pages inside the project.'
   },
+  errors: {
+    title: 'This page hit an error; other pages are unaffected.',
+    retry: 'Retry',
+    goLanguages: 'Go to Languages'
+  },
   skin: {
     title: 'Skin',
     hint: 'Skins are app-level settings and never enter the project file. Colours are stored separately for light and dark; fonts can be set for corpus text, translation, gloss and custom scripts.',

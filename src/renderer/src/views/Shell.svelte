@@ -154,6 +154,18 @@
   </header>
 
   <main class="main">
+    <svelte:boundary onerror={(e) => console.error(e)}>
+    {#snippet failed(error, reset)}
+      <div class="crash card">
+        <strong>{t('errors.title')}</strong>
+        <pre class="mono">{String((error as Error)?.message ?? error)}</pre>
+        <div class="row wrap">
+          <button class="btn primary sm" onclick={reset}>{t('errors.retry')}</button>
+          <button class="btn sm" onclick={() => { ui.section = 'languages'; reset() }}>{t('errors.goLanguages')}</button>
+          <button class="btn sm" onclick={() => projectState.save()}>{t('common.save')}</button>
+        </div>
+      </div>
+    {/snippet}
     {#if ui.section === 'languages'}
       <Languages bind:inspectorTitle />
     {:else if ui.section === 'soundChanges'}
@@ -181,6 +193,7 @@
     {:else}
       <Placeholder section={ui.section} bind:inspectorTitle />
     {/if}
+    </svelte:boundary>
   </main>
 
   <aside class="inspector" hidden={!ui.inspectorOpen}>
@@ -279,6 +292,21 @@
   }
   .btn.active {
     color: var(--accent-text);
+  }
+  .crash {
+    margin: 24px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-color: var(--danger);
+  }
+  .crash pre {
+    margin: 0;
+    white-space: pre-wrap;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--danger);
   }
   .main {
     grid-area: main;

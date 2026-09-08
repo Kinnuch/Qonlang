@@ -6,6 +6,7 @@
   import { i18n, t, LOCALES } from '$lib/i18n/index.svelte'
   import type { ProjectTemplate } from '$lib/core/model'
   import { createLanguage } from '$lib/core/factory'
+  import { mdToHtml } from '$lib/core/markdown'
   import { FolderOpen, FilePlus2, Clock, Trash2, Coffee, ScrollText, User, Link2, ExternalLink } from '@lucide/svelte'
   import changelogRaw from '../../../../CHANGELOG.md?raw'
   import wechatQr from '../assets/img/wechat-qr.png'
