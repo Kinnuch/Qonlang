@@ -1,0 +1,307 @@
+/**
+ * 形态引擎：范式槽位、生成器、推导与对账。
+ * 生成器只做机械拼接 / 替换；语音层面的调整交给规则引擎（affix-sca）。
+ */
+import type { GrammaticalCategory, Id, Language, Lexeme, Morpheme, Paradigm, Project, SlotGenerator } from '$lib/core/model'
+import { parseRuleText, runRules, type RuleProgram } from '../sca'
+import { languageParseOptions, nucleusSet, segment } from '../phon'
+
+export interface SlotDef {
+  key: string
+  values: { categoryId: Id; valueId: Id }[]
+  /** 人类可读的槽位名（取值名用 . 连接），也是词位 forms 里的键 */
+  label: string
+  /** gloss 缩写（NOM.PL） */
+  abbr: string
+}
+
+function pick(text: Record<string, string>, langs: string[]): string {
+  for (const l of langs) if (text[l]) return text[l]
+  return Object.values(text).find(Boolean) ?? ''
+}
+
+export function slotKey(values: { categoryId: Id; valueId: Id }[]): string {
+  return values.map((v) => v.valueId).join('|')
+}
+
+/** 维度笛卡尔积 → 槽位（已屏蔽的除外） */
+export function paradigmSlots(p: Paradigm, categories: GrammaticalCategory[], glossLangs: string[], includeDisabled = false): SlotDef[] {
+  const dims = p.dimensionIds.map((id) => categories.find((c) => c.id === id)).filter((c): c is GrammaticalCategory => !!c)
+  if (!dims.length) return []
+  let combos: { categoryId: Id; valueId: Id }[][] = [[]]
+  for (const d of dims) {
+    const next: { categoryId: Id; valueId: Id }[][] = []
+    for (const c of combos) for (const v of d.values) next.push([...c, { categoryId: d.id, valueId: v.id }])
+    combos = next
+  }
+  const out: SlotDef[] = []
+  for (const values of combos) {
+    const key = slotKey(values)
+    if (!includeDisabled && p.disabledSlots.includes(key)) continue
+    const names = values.map((v) => {
+      const cat = dims.find((d) => d.id === v.categoryId)!
+      const val = cat.values.find((x) => x.id === v.valueId)!
+      return { name: pick(val.name, glossLangs) || val.abbr || '?', abbr: val.abbr || pick(val.name, glossLangs) }
+    })
+    out.push({ key, values, label: names.map((n) => n.name).join('.'), abbr: names.map((n) => n.abbr).join('.') })
+  }
+  return out
+}
+
+/** 沿继承链找槽位的生成器 */
+export function resolveGenerator(p: Paradigm, key: string, paradigms: Paradigm[], depth = 0): SlotGenerator {
+  const g = p.generators[key]
+  if (g && g.kind !== 'none') return g
+  if (p.inheritsFrom && depth < 8) {
+    const parent = paradigms.find((x) => x.id === p.inheritsFrom)
+    if (parent) return resolveGenerator(parent, key, paradigms, depth + 1)
+  }
+  return g ?? { kind: 'none' }
+}
+
+export function paradigmFor(project: Project, lexeme: Lexeme): Paradigm | null {
+  const pos = project.posList.find((p) => p.id === lexeme.posId)
+  if (!pos?.paradigmId) return null
+  return project.paradigms.find((p) => p.id === pos.paradigmId) ?? null
+}
+
+// ───────────────────────── 生成 ─────────────────────────
+
+export interface MorphContext {
+  project: Project
+  language: Language
+  /** 规则集程序缓存 */
+  program: (ruleSetId: Id) => RuleProgram | null
+}
+
+export function makeContext(project: Project, language: Language): MorphContext {
+  const cache = new Map<Id, RuleProgram | null>()
+  return {
+    project,
+    language,
+    program: (id) => {
+      if (!cache.has(id)) {
+        const rs = project.ruleSets.find((r) => r.id === id)
+        cache.set(id, rs ? parseRuleText(rs.text, languageParseOptions(language)) : null)
+      }
+      return cache.get(id) ?? null
+    }
+  }
+}
+
+const trimHyphens = (s: string): string => s.replace(/^-+|-+$/g, '')
+
+export function stemOf(lexeme: Lexeme, name: string): { value: string; note: string } {
+  const n = name.trim()
+  if (!n || n === 'lemma' || n === '词头') return { value: trimHyphens(lexeme.lemma), note: 'lemma' }
+  const v = lexeme.stems[n]
+  if (v != null && v !== '') return { value: trimHyphens(v), note: n }
+  return { value: trimHyphens(lexeme.lemma), note: `${n}→lemma` }
+}
+
+/**
+ * 词缀文本：以 @ 开头表示引用语素（按形式或 gloss 查找），按异体形环境挑选；否则按字面。
+ * 环境用规则语言写，如后缀异体形 `-lar / {Back}[^aeouöü]*_`：左侧是词干末尾的条件。
+ */
+function resolveAffix(ctx: MorphContext, text: string, stem: string, side: 'prefix' | 'suffix'): { form: string; note: string } {
+  const raw = text.trim()
+  if (!raw.startsWith('@')) return { form: trimHyphens(raw), note: '' }
+  const ref = raw.slice(1).trim()
+  const m = ctx.project.morphemes.find((x) => x.languageId === ctx.language.id && (x.form === ref || x.gloss === ref || trimHyphens(x.form) === trimHyphens(ref)))
+  if (!m) return { form: trimHyphens(ref), note: `未找到语素 ${ref}` }
+  const allo = selectAllomorph(ctx, m, stem, side)
+  return { form: trimHyphens(allo.form), note: allo.note }
+}
+
+export function selectAllomorph(ctx: MorphContext, m: Morpheme, stem: string, side: 'prefix' | 'suffix'): { form: string; note: string } {
+  const opts = languageParseOptions(ctx.language)
+  for (const a of m.allomorphs) {
+    const env = a.environment.trim()
+    if (!env) continue
+    const idx = env.indexOf('_')
+    const left = idx >= 0 ? env.slice(0, idx) : env
+    const right = idx >= 0 ? env.slice(idx + 1) : ''
+    // 后缀看词干末尾（左环境），前缀看词干开头（右环境）
+    const rule = side === 'suffix' ? `> ¤ / ${left}_#` : `> ¤ / #_${right}`
+    const prog = parseRuleText(rule, opts)
+    const out = runRules(prog, stem, { trace: false }).output
+    const hit = side === 'suffix' ? out.endsWith('¤') : out.startsWith('¤')
+    if (hit) return { form: a.form, note: `${m.form} → ${a.form} (${env})` }
+  }
+  const fallback = m.allomorphs.find((a) => !a.environment.trim())?.form ?? m.form
+  return { form: fallback, note: `${m.form} → ${fallback}` }
+}
+
+function insertInfix(stem: string, infix: string, at: string, nuclei: Set<string>, inventory: string[]): string {
+  const segs = segment(stem, inventory)
+  const a = at.trim()
+  let pos: number
+  if (/^-?\d+$/.test(a)) {
+    const n = Number(a)
+    pos = n >= 0 ? Math.min(n, segs.length) : Math.max(0, segs.length + n)
+  } else if (/^V(\d*)$/i.test(a)) {
+    // 第 n 个元音之后（默认第一个）
+    const n = Number(a.slice(1) || '1')
+    let seen = 0
+    pos = segs.length
+    for (let i = 0; i < segs.length; i++) {
+      if (nuclei.has(segs[i]) && ++seen === n) {
+        pos = i + 1
+        break
+      }
+    }
+  } else if (/^C(\d*)$/i.test(a)) {
+    const n = Number(a.slice(1) || '1')
+    let seen = 0
+    pos = segs.length
+    for (let i = 0; i < segs.length; i++) {
+      if (!nuclei.has(segs[i]) && ++seen === n) {
+        pos = i + 1
+        break
+      }
+    }
+  } else pos = 1
+  return [...segs.slice(0, pos), infix, ...segs.slice(pos)].join('')
+}
+
+/** 词根-模板：C1 / {1} 引用词干第 n 个辅音，bare C 顺序取下一个辅音，V 顺序取下一个元音，其余字面 */
+function applyPattern(stem: string, pattern: string, nuclei: Set<string>, inventory: string[]): string {
+  const segs = segment(stem, inventory)
+  const cons = segs.filter((s) => !nuclei.has(s))
+  const vows = segs.filter((s) => nuclei.has(s))
+  let ci = 0
+  let vi = 0
+  let out = ''
+  const chars = Array.from(pattern)
+  for (let i = 0; i < chars.length; i++) {
+    const c = chars[i]
+    if (c === 'C' || c === '{') {
+      let j = i + 1
+      let num = ''
+      if (c === '{') {
+        while (j < chars.length && chars[j] !== '}') num += chars[j++]
+        i = j
+      } else {
+        while (j < chars.length && /\d/.test(chars[j])) num += chars[j++]
+        i = j - 1
+      }
+      if (num) out += cons[Number(num) - 1] ?? ''
+      else out += cons[ci++] ?? ''
+    } else if (c === 'V') {
+      let j = i + 1
+      let num = ''
+      while (j < chars.length && /\d/.test(chars[j])) num += chars[j++]
+      i = j - 1
+      if (num) out += vows[Number(num) - 1] ?? ''
+      else out += vows[vi++] ?? ''
+    } else out += c
+  }
+  return out
+}
+
+export interface Generated {
+  surface: string
+  trace: string[]
+}
+
+export function generateForm(ctx: MorphContext, lexeme: Lexeme, paradigm: Paradigm, slot: SlotDef): Generated | null {
+  const g = resolveGenerator(paradigm, slot.key, ctx.project.paradigms)
+  if (g.kind === 'none' || g.kind === 'table') return null
+  const trace: string[] = []
+  const stem = stemOf(lexeme, g.stem)
+  trace.push(`词干 ${stem.note}: ${stem.value}`)
+  const nuclei = nucleusSet(ctx.language)
+  const inventory = ctx.language.phonemes.map((p) => p.symbol)
+  let surface = stem.value
+  if (g.kind === 'affix' || g.kind === 'affix-sca') {
+    const pre = resolveAffix(ctx, g.prefix ?? '', surface, 'prefix')
+    const suf = resolveAffix(ctx, g.suffix ?? '', surface, 'suffix')
+    if (pre.note) trace.push(pre.note)
+    if (suf.note) trace.push(suf.note)
+    if (g.kind === 'affix' && g.infix) {
+      surface = insertInfix(surface, trimHyphens(g.infix), g.infixAt, nuclei, inventory)
+      trace.push(`中缀 ${g.infix} @ ${g.infixAt || 'V1'}: ${surface}`)
+    }
+    surface = pre.form + surface + suf.form
+    trace.push(`拼接: ${surface}`)
+    if (g.kind === 'affix-sca' && g.ruleSetId) {
+      const prog = ctx.program(g.ruleSetId)
+      if (prog) {
+        const r = runRules(prog, surface, { startAt: g.fromStage || undefined, stopAt: g.toStage || undefined })
+        for (const e of r.trace) trace.push(`${e.before} → ${e.after} (${e.target || '∅'} → ${e.replacement || '∅'}, L${e.line})`)
+        surface = r.output
+      } else trace.push('规则集不存在')
+    }
+  } else if (g.kind === 'pattern') {
+    surface = applyPattern(surface, g.pattern, nuclei, inventory)
+    trace.push(`模板 ${g.pattern}: ${surface}`)
+  } else if (g.kind === 'reduplication') {
+    const segs = segment(surface, inventory)
+    const n = Math.max(1, g.length || 1)
+    if (g.scope === 'full') surface = surface + surface
+    else if (g.scope === 'initial') surface = segs.slice(0, n).join('') + surface
+    else surface = surface + segs.slice(-n).join('')
+    trace.push(`重叠 ${g.scope}: ${surface}`)
+  }
+  return { surface, trace }
+}
+
+/** 推导一个词位的全部槽位并写回 forms（覆盖值不动）。返回改动数。 */
+export function deriveForms(ctx: MorphContext, lexeme: Lexeme, paradigm: Paradigm, slots?: SlotDef[]): number {
+  const defs = slots ?? paradigmSlots(paradigm, ctx.project.categories, ctx.project.settings.glossLanguages)
+  let n = 0
+  for (const s of defs) {
+    const cur = lexeme.forms[s.label]
+    if (cur?.override) continue
+    const g = generateForm(ctx, lexeme, paradigm, s)
+    if (!g) continue
+    if (!cur || cur.surface !== g.surface || !cur.derived) {
+      lexeme.forms[s.label] = { surface: g.surface, derived: true, override: false, trace: g.trace }
+      n++
+    }
+  }
+  return n
+}
+
+// ───────────────────────── 对账 ─────────────────────────
+
+export interface SlotReport {
+  slot: SlotDef
+  same: number
+  diff: number
+  missing: number
+  /** 没有生成器 */
+  skipped: boolean
+  examples: { lemma: string; stored: string; generated: string }[]
+}
+
+/** 把推导值与词位里已录入（override）的形式比对 */
+export function reconcile(ctx: MorphContext, lexemes: Lexeme[], paradigm: Paradigm): SlotReport[] {
+  const slots = paradigmSlots(paradigm, ctx.project.categories, ctx.project.settings.glossLanguages)
+  return slots.map((slot) => {
+    const rep: SlotReport = { slot, same: 0, diff: 0, missing: 0, skipped: false, examples: [] }
+    const g0 = resolveGenerator(paradigm, slot.key, ctx.project.paradigms)
+    if (g0.kind === 'none' || g0.kind === 'table') {
+      rep.skipped = true
+      return rep
+    }
+    for (const l of lexemes) {
+      const stored = l.forms[slot.label]
+      const gen = generateForm(ctx, l, paradigm, slot)
+      if (!gen) continue
+      // 只与用户录入 / 覆盖的形式比对；推导出来的值不算已录入
+      if (!stored || !stored.surface || !stored.override) {
+        rep.missing++
+        continue
+      }
+      // 录入值可能是逗号分隔的多个变体，任一相等即算一致
+      const variants = stored.surface.split(/[,，;；/]\s*/).map((v) => v.trim().replace(/^\*/, ''))
+      if (variants.includes(gen.surface)) rep.same++
+      else {
+        rep.diff++
+        if (rep.examples.length < 30) rep.examples.push({ lemma: l.lemma, stored: stored.surface, generated: gen.surface })
+      }
+    }
+    return rep
+  })
+}

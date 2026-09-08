@@ -9,6 +9,7 @@
   import { lexemesToRows, morphemesToRows } from '$lib/importers/csvImport'
   import { parseLexc, mergeLexicanter } from '$lib/importers/lexicanter'
   import { derivePronunciations } from '$lib/core/pronounce'
+  import { paradigmFor, paradigmSlots, deriveForms, makeContext } from '$lib/engine/morph'
   import type { EtymologySource, Id, Lexeme } from '$lib/core/model'
   import Portal from '$lib/ui/Portal.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
@@ -17,7 +18,7 @@
   import LexemeCard from '$lib/ui/LexemeCard.svelte'
   import LexemeGraph from '$lib/ui/LexemeGraph.svelte'
   import Taxonomy from './Taxonomy.svelte'
-  import { Plus, Trash2, X, Copy, Upload, Download, AlertTriangle, Eye, Pencil, Columns3, Waypoints, ArrowLeft } from '@lucide/svelte'
+  import { Plus, Trash2, X, Copy, Upload, Download, AlertTriangle, Eye, Pencil, Columns3, Waypoints, ArrowLeft, Wand2, RotateCcw } from '@lucide/svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -199,6 +200,19 @@
   function relLabel(kind: string): string {
     const k = t(`lexicon.relKinds.${kind}`)
     return k === `lexicon.relKinds.${kind}` ? kind : k
+  }
+
+  const paradigmOf = (l: Lexeme) => paradigmFor(project, l)
+  const slotsOf = (l: Lexeme) => {
+    const p = paradigmFor(project, l)
+    return p ? paradigmSlots(p, project.categories, glossLangs) : []
+  }
+  function deriveNow(l: Lexeme): void {
+    const p = paradigmFor(project, l)
+    const lg = project.languages.find((x) => x.id === l.languageId)
+    if (!p || !lg) return
+    deriveForms(makeContext(project, lg), l, p)
+    touch(l)
   }
 
   function renameKey(obj: Record<string, unknown>, oldKey: string, newKey: string): void {
@@ -489,9 +503,29 @@
     {/if}
 
     <div class="field">
-      <div class="row"><span class="small muted grow">{t('lexicon.forms')}</span><button class="btn ghost sm" onclick={() => { l.forms[''] = { surface: '', derived: false, override: true, trace: [] }; touch(l) }}><Plus size={14} />{t('lexicon.addForm')}</button></div>
-      <span class="hint">{t('lexicon.formsHint')}</span>
-      {#each Object.keys(l.forms) as k (k)}
+      <div class="row">
+        <span class="small muted grow">{t('lexicon.forms')}</span>
+        {#if paradigmOf(l)}<button class="btn ghost sm" onclick={() => deriveNow(l)}><Wand2 size={14} />{t('lexicon.deriveForms')}</button>{/if}
+        <button class="btn ghost sm" onclick={() => { l.forms[''] = { surface: '', derived: false, override: true, trace: [] }; touch(l) }}><Plus size={14} />{t('lexicon.addForm')}</button>
+      </div>
+      {#if paradigmOf(l)}
+        {#each slotsOf(l) as s (s.key)}
+          {@const f = l.forms[s.label]}
+          <div class="row kv" title={f?.trace?.join('\n') ?? ''}>
+            <span class="slot small">{s.label}</span>
+            <input class="input data" class:derived={f && !f.override} value={f?.surface ?? ''} placeholder="—" oninput={(e) => { l.forms[s.label] = { surface: (e.currentTarget as HTMLInputElement).value, derived: false, override: true, trace: [] }; touch(l) }} />
+            {#if f?.override}
+              <button class="btn ghost icon sm" title={t('lexicon.resetDerived')} onclick={() => { delete l.forms[s.label]; deriveNow(l) }}><RotateCcw size={13} /></button>
+            {:else if f}
+              <span class="badge">{t('lexicon.formsDerived')}</span>
+            {/if}
+          </div>
+        {/each}
+        {#if Object.keys(l.forms).some((k) => !slotsOf(l).some((s) => s.label === k))}<span class="small muted">{t('lexicon.extraForms')}</span>{/if}
+      {:else if l.posId}
+        <span class="hint">{t('lexicon.noParadigm')}</span>
+      {/if}
+      {#each Object.keys(l.forms).filter((k) => !slotsOf(l).some((s) => s.label === k)) as k (k)}
         <div class="row kv">
           <input class="input" value={k} placeholder={t('lexicon.slot')} onchange={(e) => { renameKey(l.forms, k, (e.currentTarget as HTMLInputElement).value.trim()); touch(l) }} />
           <input class="input data" bind:value={l.forms[k].surface} oninput={() => { l.forms[k].override = true; touch(l) }} />
@@ -718,6 +752,17 @@
     width: 90px;
     flex: none;
     color: var(--text-2);
+  }
+  .slot {
+    width: 110px;
+    flex: none;
+    color: var(--text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .input.derived {
+    color: var(--accent-text);
   }
   .hint.warn {
     color: var(--warn);

@@ -133,6 +133,20 @@ function makeAelith(): void {
     p.lexemes.push(lx)
   }
 
+  // 范式：名词 数 × 格，动词 极性 × 时 × 人称（后缀写原音位，交给「元音和谐」规则集实现）
+  const affix = (suffix: string, rsId: Id): import('$lib/core/model').SlotGenerator => ({ kind: 'affix-sca', stem: '词干', prefix: '', suffix, ruleSetId: rsId, fromStage: '底层', toStage: '表层' })
+  const makeParadigms = (rsId: Id): void => {
+    const nounP: import('$lib/core/model').Paradigm = { id: newId(), name: { zh: '名词', en: 'noun' }, dimensionIds: [num.id, kase.id], disabledSlots: [], generators: {}, inheritsFrom: null }
+    const caseSuffix: Record<string, string> = { NOM: '', ACC: '¢Ŭm', LOC: '¢dA', DAT: '¢kA' }
+    for (const n of num.values) for (const k of kase.values) nounP.generators[`${n.id}|${k.id}`] = affix((n.abbr === 'PL' ? '¢lAr' : '') + caseSuffix[k.abbr], rsId)
+    const verbP: import('$lib/core/model').Paradigm = { id: newId(), name: { zh: '动词', en: 'verb' }, dimensionIds: [polarity.id, tense.id, person.id], disabledSlots: [], generators: {}, inheritsFrom: null }
+    const personSuffix: Record<string, string> = { '1': '¢Ŭm', '2': '¢sAn', '3': '' }
+    for (const po of polarity.values) for (const te of tense.values) for (const pe of person.values) verbP.generators[`${po.id}|${te.id}|${pe.id}`] = affix((po.abbr === 'NEG' ? '¢mA' : '') + (te.abbr === 'PST' ? '¢dU' : '') + personSuffix[pe.abbr], rsId)
+    p.paradigms.push(nounP, verbP)
+    N.paradigmId = nounP.id
+    V.paradigmId = verbP.id
+  }
+
   const rs = createRuleSet(
     '元音和谐',
     [
@@ -158,6 +172,7 @@ function makeAelith(): void {
   rs.testWords = 'kaso¢lAr¢Ŭm\nnöl¢dA\nilen¢lAr¢kA\nsör¢mA¢dU¢Ŭm\nkel¢dU¢sAn\nteli¢Ŭm'
   rs.stageLanguages = { 底层: L.id, 表层: L.id }
   p.ruleSets.push(rs)
+  makeParadigms(rs.id)
 
   const sentences: [string, string, string][] = [
     ['ilenler kasoda jatdu', '孩子们在房子里睡了。', 'The children slept in the house.'],
@@ -299,7 +314,9 @@ function makeTheusrin(): void {
   tsr.color = '#0E9F8A'
   askr.color = '#3B82F6'
 
-  const rsT = createRuleSet('原始希克林语 → 瑟乌丝林语', fromYinbianji(read(join(fx, 'theusrin', 'Category.txt')), read(join(fx, 'theusrin', 'Replace.txt')), read(join(fx, 'theusrin', 'Rule.txt'))))
+  // 词表里的词干用词表记法（eu、ei、k̂、ĝ、ñ，语素界 -，可选段括号），先一次性转成音变输入记法
+  const notation = ['; 词表记法 → 音变输入记法（在第一个阶段快照之前执行）', 'eu > œ / _', 'ei > æ / _', 'k̂ > c / _', 'ĝ > j / _', 'ñ > ŋ / _', '[-] > / _', '[(] > / _', '[)] > / _', ''].join('\n')
+  const rsT = createRuleSet('原始希克林语 → 瑟乌丝林语', notation + fromYinbianji(read(join(fx, 'theusrin', 'Category.txt')), read(join(fx, 'theusrin', 'Replace.txt')), read(join(fx, 'theusrin', 'Rule.txt'))))
   rsT.testWords = read(join(fx, 'theusrin', 'Lexicon.txt')).trim()
   rsT.stageLanguages = { PSkr: pskr.id, Tsr: tsr.id, Orthography: tsr.id }
   const rsA = createRuleSet('原始希克林语 → 群岛希克林语', fromYinbianji(read(join(fx, 'archipelago', 'Category.txt')), read(join(fx, 'archipelago', 'Replace.txt')), read(join(fx, 'archipelago', 'Rule.txt'))))
@@ -379,6 +396,17 @@ function makeTheusrin(): void {
     A
   )
   imp('瑟乌丝林语词表 - PSkr.csv', { 词根: { kind: 'lemma' }, 释义: { kind: 'definition', lang: 'zh' }, 备注: { kind: 'notes' }, 词性: { kind: 'tags' } }, 'morphemes', pskr.id, null)
+
+  // 名词格范式：祖语词干 + 格缀，从 PSkr 阶段跑完整套音变（用户方法论：及物 强形+s、不及物 强形+m）
+  const kase = category(p, '格', 'case', [['及物格', 'transitive', 'TR'], ['不及物格', 'intransitive', 'INTR'], ['欠格', 'deficient', 'DEF'], ['斜格', 'oblique', 'OBL']])
+  const nounP: import('$lib/core/model').Paradigm = { id: newId(), name: { zh: '名词' }, dimensionIds: [kase.id], disabledSlots: [], generators: {}, inheritsFrom: null }
+  const gen = (stem: string, suffix: string): import('$lib/core/model').SlotGenerator => ({ kind: 'affix-sca', stem, prefix: '', suffix, ruleSetId: rsT.id, fromStage: 'PSkr', toStage: '' })
+  nounP.generators[value(kase, 'TR')] = gen('强形', 's')
+  nounP.generators[value(kase, 'INTR')] = gen('强形', 'm')
+  nounP.generators[value(kase, 'DEF')] = gen('弱形', 'wat')
+  nounP.generators[value(kase, 'OBL')] = gen('强形', 'st')
+  p.paradigms.push(nounP)
+  N.paradigmId = nounP.id
   p.meta.description = '从五张词表和音变姬规则生成；T 表（惯用形 / 限定词 / 数词 / 小品词 / 代词）需在向导里分组导入。'
   p.meta.updatedAt = now()
   save(join('private', 'Theusrin.laim.json'), p)
