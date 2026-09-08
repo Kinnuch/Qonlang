@@ -14,7 +14,7 @@
   import iconCathamos from '../assets/friends/cathamos.png'
 
   const WIKI_URL = 'https://wiki.gilatod.art'
-  const DEV = { name: 'Kinnuch', site: 'https://kinnuch.github.io', github: 'https://github.com/Kinnuch', email: '1900017838@pku.edu.cn' }
+  const DEV = { name: 'Kinnuch', site: 'https://kinnuch.github.io', github: 'https://github.com/Kinnuch', email: 'kinnuch@pku.edu.cn' }
   const FRIENDS = [
     { name: '荏苒之境主站', url: 'https://gilatod.art', icon: iconGilatod, blurb: 'Gilatod，长期合作的朋友的主站。' },
     { name: 'Kikomas', url: 'https://kikomas.art', icon: iconKikomas, blurb: '插画与视觉创作。' },

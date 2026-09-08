@@ -18,9 +18,9 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: qonlang
+  executableName: Qonlang
 nsis:
-  artifactName: qonlang-${version}-setup.${ext}
+  artifactName: Qonlang-${version}-setup.${ext}
   shortcutName: 千语集
   uninstallDisplayName: 千语集
   createDesktopShortcut: always
@@ -30,7 +30,7 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   notarize: false
 dmg:
-  artifactName: qonlang-${version}.${ext}
+  artifactName: Qonlang-${version}.${ext}
 linux:
   target:
     - AppImage
@@ -38,5 +38,5 @@ linux:
   maintainer: Kinnuch
   category: Utility
 appImage:
-  artifactName: qonlang-${version}.${ext}
+  artifactName: Qonlang-${version}.${ext}
 npmRebuild: false

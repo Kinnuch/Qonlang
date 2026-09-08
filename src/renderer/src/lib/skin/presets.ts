@@ -47,6 +47,15 @@ export const FONT_VARS: Record<FontSlot, string> = {
   script: '--font-script'
 }
 
+/** 用户保存的预设：名称为纯字符串 */
+export interface UserSkinPreset {
+  id: string
+  name: string
+  light: Record<string, string>
+  dark: Record<string, string>
+  fonts: Record<FontSlot, string>
+}
+
 export interface SkinPreset {
   id: string
   name: { zh: string; en: string }

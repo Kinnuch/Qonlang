@@ -19,6 +19,7 @@ interface Prefs {
   csvPresets: unknown[]
   dismissedHints: string[]
   skin: unknown
+  skinPresets: unknown[]
 }
 const DEFAULT_PREFS: Prefs = {
   locale: 'zh',
@@ -31,7 +32,8 @@ const DEFAULT_PREFS: Prefs = {
   savedSymbols: [],
   csvPresets: [],
   dismissedHints: [],
-  skin: { preset: 'default', light: {}, dark: {}, fonts: { ui: '', data: '', mono: '', corpusText: '', corpusTr: '', gloss: '', script: '' }, mirror: '' }
+  skin: { preset: 'default', light: {}, dark: {}, fonts: { ui: '', data: '', mono: '', corpusText: '', corpusTr: '', gloss: '', script: '' }, mirror: '' },
+  skinPresets: []
 }
 
 interface RecentEntry {

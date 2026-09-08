@@ -8,7 +8,8 @@
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import { flashOn } from '$lib/ui/flash'
-  import { Download, Check, Trash2, RotateCcw, FolderPlus, Loader } from '@lucide/svelte'
+  import { Download, Check, Trash2, RotateCcw, FolderPlus, Loader, Save, Pencil } from '@lucide/svelte'
+  import { newId } from '$lib/core/factory'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
   $effect(() => {
@@ -58,6 +59,57 @@
     skin.fonts = { ...EMPTY_FONTS, ...p.fonts }
     presetFlash++
     save()
+  }
+  const userPresets = $derived(ui.prefs.skinPresets)
+  function applyUserPreset(id: string): void {
+    const p = userPresets.find((x) => x.id === id)
+    if (!p) return
+    skin.preset = id
+    skin.light = { ...p.light }
+    skin.dark = { ...p.dark }
+    skin.fonts = { ...EMPTY_FONTS, ...p.fonts }
+    presetFlash++
+    save()
+  }
+  function saveAsPreset(): void {
+    const name = window.prompt(t('skin.presetName'), '')?.trim()
+    if (!name) return
+    const existing = userPresets.find((x) => x.name === name)
+    const data = { name, light: { ...skin.light }, dark: { ...skin.dark }, fonts: { ...skin.fonts } }
+    if (existing) Object.assign(existing, data)
+    else ui.prefs.skinPresets.push({ id: newId(), ...data })
+    skin.preset = (existing ?? ui.prefs.skinPresets[ui.prefs.skinPresets.length - 1]).id
+    save()
+    ui.toast(t('skin.presetSaved', { name }))
+  }
+  function renamePreset(id: string): void {
+    const p = userPresets.find((x) => x.id === id)
+    if (!p) return
+    const name = window.prompt(t('skin.presetName'), p.name)?.trim()
+    if (!name) return
+    p.name = name
+    save()
+  }
+  function deletePreset(id: string): void {
+    const idx = userPresets.findIndex((x) => x.id === id)
+    if (idx < 0) return
+    const snap = $state.snapshot(userPresets[idx])
+    ui.prefs.skinPresets.splice(idx, 1)
+    if (skin.preset === id) skin.preset = 'custom'
+    save()
+    ui.toast(t('skin.presetDeleted', { name: snap.name }), {
+      action: {
+        label: t('common.undo'),
+        run: () => {
+          ui.prefs.skinPresets.splice(Math.min(idx, ui.prefs.skinPresets.length), 0, snap)
+          save()
+        }
+      }
+    })
+  }
+  /** 预设卡片的三色：背景 / 强调 / 文字，取浅色配置，缺省回落默认 */
+  function swatchOf(p: { light: Record<string, string> }): [string, string, string] {
+    return [p.light['--bg'] || '#fafaf7', p.light['--accent'] || '#0e9f8a', p.light['--text'] || '#1f1f1f']
   }
   function reset(): void {
     ui.prefs.skin = structuredClone(DEFAULT_SKIN)
@@ -111,8 +163,30 @@
             <span class="pname">{zh ? p.name.zh : p.name.en}</span>
           </button>
         {/each}
+        {#each userPresets as p (p.id)}
+          {@const sw = swatchOf(p)}
+          <div class="preset user" class:active={skin.preset === p.id}>
+            <button class="preset-main" onclick={() => applyUserPreset(p.id)}>
+              <span class="swatch" style:background={sw[0]} style:border-color={sw[1]}>
+                <span class="dot" style:background={sw[1]}></span>
+                <span class="line" style:background={sw[2]}></span>
+                <span class="line short" style:background={sw[2]}></span>
+              </span>
+              <span class="pname">{p.name}</span>
+            </button>
+            <span class="preset-tools">
+              <button class="btn ghost icon sm" title={t('skin.renamePreset')} onclick={() => renamePreset(p.id)}><Pencil size={11} /></button>
+              <button class="btn ghost icon sm" title={t('skin.deletePreset')} onclick={() => deletePreset(p.id)}><Trash2 size={11} /></button>
+            </span>
+          </div>
+        {/each}
+        <button class="preset add" onclick={saveAsPreset}>
+          <span class="swatch dashed"><Save size={20} /></span>
+          <span class="pname">{t('skin.saveAsPreset')}</span>
+        </button>
         {#if skin.preset === 'custom'}<span class="badge accent self">{t('skin.custom')}</span>{/if}
       </div>
+      <p class="small muted">{t('skin.presetHint')}</p>
     </section>
 
     <section>
@@ -257,6 +331,45 @@ a > e / _i</pre>
     background: var(--bg-elev);
     cursor: pointer;
     color: var(--text);
+  }
+  .preset.user {
+    position: relative;
+    padding: 0;
+  }
+  .preset-main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px 6px;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+  }
+  .preset-tools {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: none;
+    gap: 0;
+    background: var(--bg-elev);
+    border-radius: var(--radius-sm);
+  }
+  .preset.user:hover .preset-tools {
+    display: inline-flex;
+  }
+  .preset.add {
+    border-style: dashed;
+    color: var(--text-2);
+  }
+  .swatch.dashed {
+    display: grid;
+    place-items: center;
+    border-style: dashed;
+    border-color: var(--border-strong);
+    background: var(--bg);
   }
   .preset.active {
     border-color: var(--accent);

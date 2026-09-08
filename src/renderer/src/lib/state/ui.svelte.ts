@@ -81,6 +81,7 @@ class UiState {
     this.prefs.skin.light ??= {}
     this.prefs.skin.dark ??= {}
     this.prefs.skin.mirror ??= ''
+    if (!Array.isArray(this.prefs.skinPresets)) this.prefs.skinPresets = []
     i18n.locale = this.prefs.locale as LocaleCode
     this.prefsLoaded = true
     this.applyTheme()

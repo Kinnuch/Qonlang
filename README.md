@@ -21,7 +21,7 @@ npm run build:web  # 网页版静态文件 → dist/web
 ```
 
 Windows 下若 PowerShell 提示「禁止运行脚本」，双击 `dev.cmd` 启动开发版，或改用 `npm.cmd run dev`；
-也可以直接用 `npm run build:unpack` 打出免安装的 `dist/win-unpacked/qonlang.exe`。
+也可以直接用 `npm run build:unpack` 打出免安装的 `dist/win-unpacked/Qonlang.exe`。
 
 ## 结构
 

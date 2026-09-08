@@ -1,4 +1,4 @@
-import type { Skin } from '$lib/skin/presets'
+import type { Skin, UserSkinPreset } from '$lib/skin/presets'
 /**
  * 平台适配层：渲染层只认这个接口，不直接碰 Node 或浏览器专有 API。
  * Electron 实现走 IPC；网页实现走 File System Access API + IndexedDB。
@@ -44,6 +44,8 @@ export interface Prefs {
   dismissedHints: string[]
   /** 皮肤（颜色与字体） */
   skin: Skin
+  /** 用户保存的皮肤预设 */
+  skinPresets: UserSkinPreset[]
 }
 
 export interface CsvPreset {
@@ -66,7 +68,8 @@ export const DEFAULT_PREFS: Prefs = {
   savedSymbols: [],
   csvPresets: [],
   dismissedHints: [],
-  skin: { preset: 'default', light: {}, dark: {}, fonts: { ui: '', data: '', mono: '', corpusText: '', corpusTr: '', gloss: '', script: '' }, mirror: '' }
+  skin: { preset: 'default', light: {}, dark: {}, fonts: { ui: '', data: '', mono: '', corpusText: '', corpusTr: '', gloss: '', script: '' }, mirror: '' },
+  skinPresets: []
 }
 
 export interface AppInfo {
