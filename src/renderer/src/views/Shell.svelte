@@ -20,6 +20,7 @@
   } from '@lucide/svelte'
   import { chars } from '$lib/state/chars.svelte'
   import CharPanel from '$lib/ui/CharPanel.svelte'
+  import WordPopover from '$lib/ui/WordPopover.svelte'
   import Languages from './Languages.svelte'
   import SoundChanges from './SoundChanges.svelte'
   import Morphemes from './Morphemes.svelte'
@@ -163,6 +164,7 @@
   </aside>
 </div>
 <CharPanel />
+<WordPopover />
 
 <style>
   .shell {

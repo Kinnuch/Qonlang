@@ -283,6 +283,42 @@ kbd {
   background: transparent;
 }
 
+/* ── 动作反馈 ── */
+@keyframes flash-ok {
+  0% {
+    box-shadow: 0 0 0 0 rgba(14, 159, 138, 0.55);
+    background-color: var(--accent-soft);
+  }
+  60% {
+    box-shadow: 0 0 0 6px rgba(14, 159, 138, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(14, 159, 138, 0);
+  }
+}
+.flash-ok {
+  animation: flash-ok 0.9s ease-out;
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+.fading {
+  animation: fade-out 0.45s ease-in forwards;
+  pointer-events: none;
+}
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.slide-in {
+  animation: slide-in 0.35s ease-out;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

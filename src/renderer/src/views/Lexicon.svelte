@@ -43,6 +43,13 @@
       ui.pendingImport = null
       mode = 'csv'
     }
+    if (ui.pendingLexemeId) {
+      selectedId = ui.pendingLexemeId
+      ui.pendingLexemeId = null
+      mode = 'entries'
+      mainView = 'list'
+      editMode = false
+    }
   })
 
   const inLang = $derived(project.lexemes.filter((l) => !langId || l.languageId === langId))

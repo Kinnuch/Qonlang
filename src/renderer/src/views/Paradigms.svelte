@@ -8,6 +8,9 @@
   import { parseRuleText } from '$lib/engine/sca'
   import Portal from '$lib/ui/Portal.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
+  import Hint from '$lib/ui/Hint.svelte'
+  import { flashOn } from '$lib/ui/flash'
+  let derivedFlash = $state(0)
   import { Plus, Trash2, ChevronUp, ChevronDown, Play, ClipboardCheck, ArrowLeft, Check, X, Minus } from '@lucide/svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -162,6 +165,7 @@
     if (!ctx) return
     const n = deriveForms(ctx, testLexeme, active)
     touch()
+    derivedFlash++
     ui.toast(t('paradigms.derivedCount', { n, words: 1 }))
   }
   function deriveAllBound(): void {
@@ -215,6 +219,7 @@
     <button class="btn primary" onclick={addParadigm}><Plus size={16} />{t('paradigms.newParadigm')}</button>
   </div>
 
+  <Hint id="paradigms" text={t('paradigms.hint')} />
   {#if !active}
     <p class="muted">{t('paradigms.empty')}</p>
   {:else if view === 'report' && report}
@@ -388,7 +393,7 @@
       <input class="input data" list="dl-lexemes-p" placeholder={t('paradigms.pickLexeme')} bind:value={testLemma} />
       <datalist id="dl-lexemes-p">{#each lexemeDatalist as l (l.id)}<option value={l.lemma}></option>{/each}</datalist>
       {#if testLexeme}
-        <table class="tbl small test">
+        <table class="tbl small test" use:flashOn={derivedFlash}>
           <tbody>
             {#each testRows as r (r.slot.key)}
               <tr title={r.trace.join('\n')}>

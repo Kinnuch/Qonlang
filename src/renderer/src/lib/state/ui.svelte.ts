@@ -55,6 +55,8 @@ class UiState {
   }
   /** 新建项目后要自动打开的导入向导 */
   pendingImport = $state<'csv' | null>(null)
+  /** 跳到词库页时要选中的词位 */
+  pendingLexemeId = $state<string | null>(null)
   prefs = $state<Prefs>({ ...DEFAULT_PREFS })
   prefsLoaded = $state(false)
   toasts = $state<Toast[]>([])

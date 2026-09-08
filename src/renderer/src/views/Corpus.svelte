@@ -8,6 +8,9 @@
   import Portal from '$lib/ui/Portal.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
+  import Hint from '$lib/ui/Hint.svelte'
+  import { flashOn } from '$lib/ui/flash'
+  import { wordHover } from '$lib/state/wordHover.svelte'
   import { Plus, Trash2, X, Copy, Wand2, RefreshCw, CheckCheck, Check, Sparkles } from '@lucide/svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -23,6 +26,10 @@
   let exportFormat = $state<'leipzig' | 'markdown' | 'html' | 'latex' | 'template'>('leipzig')
   let templateId = $state<string>('')
   let templateDraft = $state({ name: '', template: '' })
+  /** 全部确认后编辑器渐隐中 */
+  let fading = $state(false)
+  /** 刚确认完、需要闪一下的句子 */
+  let justConfirmed = $state<Id | null>(null)
 
   const list = $derived.by(() => {
     const q = query.trim().toLowerCase()
@@ -80,9 +87,40 @@
     touch()
   }
   function confirmAll(): void {
-    if (!selected) return
+    if (!selected || fading) return
+    const id = selected.id
     for (const tk of selected.tokens) if (tk.analyses[tk.chosen]) tk.confirmed = true
     touch()
+    // 渐隐编辑器 → 取消选中 → 列表卡片长出第三行 gloss 并闪一下
+    fading = true
+    setTimeout(() => {
+      fading = false
+      selectedId = null
+      justConfirmed = id
+      setTimeout(() => (justConfirmed = null), 1200)
+    }, 420)
+  }
+  function fullyConfirmed(s: Sentence): boolean {
+    const c = coverage(s)
+    return c.total > 0 && c.confirmed === c.total
+  }
+  function lexemeOf(tk: Token): Id | null {
+    return tk.analyses[tk.chosen]?.lexemeId ?? null
+  }
+  function hoverWord(e: MouseEvent, tk: Token): void {
+    const id = lexemeOf(tk)
+    if (!id) return
+    wordHover.show(id, (e.currentTarget as HTMLElement).getBoundingClientRect())
+  }
+  function clickWord(e: MouseEvent, tk: Token): void {
+    const id = lexemeOf(tk)
+    if (!id) return
+    e.stopPropagation()
+    const lx = project.lexemes.find((l) => l.id === id)
+    ui.pendingLexemeId = id
+    if (lx) projectState.currentLanguageId = lx.languageId
+    wordHover.hide(true)
+    ui.go('lexicon')
   }
   function analysisLabel(a: Analysis): string {
     return a.morphs.map((m) => m.form).join('-') + ' → ' + a.morphs.map((m) => m.gloss).join('-')
@@ -252,9 +290,10 @@
     </div>
   {:else}
     <div class="scroll">
+      <Hint id="corpus" text={t('corpus.hint')} />
       {#if selected}
         {@const s = selected}
-        <div class="card editor">
+        <div class="card editor" class:fading>
           <div class="row toolbar">
             <span class="small muted grow">{t('corpus.coverageLabel', { confirmed: coverage(s).confirmed, total: coverage(s).total })}</span>
             <button class="btn sm" onclick={() => analyze(false)}><Wand2 size={14} />{t('corpus.analyze')}</button>
@@ -267,7 +306,7 @@
             <div class="il">
               {#each s.tokens as tk, i (i)}
                 <div class="tok" class:bad={unresolved(tk)} class:ok={tk.confirmed}>
-                  <div class="surface data">{tk.surface}</div>
+                  <div class="surface data" class:link={!!lexemeOf(tk)} role="link" tabindex="-1" onmouseenter={(e) => hoverWord(e, tk)} onmouseleave={() => wordHover.hide()} onclick={(e) => clickWord(e, tk)} onkeydown={() => {}}>{tk.surface}</div>
                   <input class="input data m" value={morphsOf(tk)} title={t('corpus.morphs')} onchange={(e) => customize(tk, (e.currentTarget as HTMLInputElement).value, glossOf(tk))} />
                   <input class="input g" value={glossOf(tk)} title={glossTitle(glossOf(tk)) || t('corpus.gloss')} onchange={(e) => customize(tk, morphsOf(tk), (e.currentTarget as HTMLInputElement).value)} />
                   <div class="row ctl">
@@ -293,11 +332,24 @@
         <div class="list">
           {#each list as s (s.id)}
             {@const c = coverage(s)}
-            <div class="card item" class:sel={selectedId === s.id} role="button" tabindex="0" onclick={() => (selectedId = s.id)} onkeydown={(e) => e.key === 'Enter' && (selectedId = s.id)}>
+            {@const done = fullyConfirmed(s)}
+            <div class="card item" class:sel={selectedId === s.id} use:flashOn={justConfirmed === s.id} role="button" tabindex="0" onclick={() => (selectedId = s.id)} onkeydown={(e) => e.key === 'Enter' && (selectedId = s.id)}>
               <div class="row">
-                <span class="data text grow">{s.text || '—'}</span>
-                <span class="badge" class:accent={c.total > 0 && c.confirmed === c.total}>{c.confirmed}/{c.total}</span>
+                {#if s.tokens.length}
+                  <span class="data text grow words">
+                    {#each s.tokens as tk, i (i)}<span class="w" class:link={!!lexemeOf(tk)} role="link" tabindex="-1" onmouseenter={(e) => hoverWord(e, tk)} onmouseleave={() => wordHover.hide()} onclick={(e) => clickWord(e, tk)} onkeydown={() => {}}>{tk.surface}</span>{/each}
+                  </span>
+                {:else}
+                  <span class="data text grow">{s.text || '—'}</span>
+                {/if}
+                <span class="badge" class:accent={done}>{c.confirmed}/{c.total}</span>
               </div>
+              {#if done}
+                {@const il = interlinear(project, s)}
+                <div class="gl" class:slide-in={justConfirmed === s.id}>
+                  {#each il.words as w, i (i)}<span class="gw"><span class="data m">{w.morphs}</span><span class="g">{w.gloss}</span></span>{/each}
+                </div>
+              {/if}
               <div class="small muted">{pickText(s.translation, glossLangs)}</div>
               {#if s.tags.length || s.source}<div class="small muted">{[s.source, ...s.tags].filter(Boolean).join(' · ')}</div>{/if}
             </div>
@@ -501,6 +553,39 @@
   }
   .text {
     font-size: 15px;
+  }
+  .words {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.45em;
+  }
+  .link {
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background-color 0.15s;
+  }
+  .link:hover {
+    background: var(--accent-soft);
+    color: var(--accent-text);
+  }
+  .gl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 14px;
+    margin: 2px 0;
+  }
+  .gw {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+  }
+  .gw .m {
+    font-size: 13px;
+  }
+  .gw .g {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-2);
   }
   .two-col {
     display: grid;

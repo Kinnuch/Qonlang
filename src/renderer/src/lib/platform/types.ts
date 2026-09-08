@@ -39,6 +39,8 @@ export interface Prefs {
   savedSymbols: string[]
   /** CSV 导入向导保存的列映射预设 */
   csvPresets: CsvPreset[]
+  /** 已关闭的联动提示 */
+  dismissedHints: string[]
 }
 
 export interface CsvPreset {
@@ -59,7 +61,8 @@ export const DEFAULT_PREFS: Prefs = {
   inspectorWidth: 360,
   recentSymbols: [],
   savedSymbols: [],
-  csvPresets: []
+  csvPresets: [],
+  dismissedHints: []
 }
 
 export interface AppInfo {

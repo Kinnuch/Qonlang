@@ -12,6 +12,7 @@
   import Portal from '$lib/ui/Portal.svelte'
   import RuleList from '$lib/ui/RuleList.svelte'
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
+  import Hint from '$lib/ui/Hint.svelte'
   import { Plus, Trash2, X, Wand2, RefreshCw, Copy, List, Code, Check } from '@lucide/svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -304,6 +305,7 @@
     </div>
   </div>
 
+  <Hint id="phonology" text={t('phonology.hint')} />
   {#if !lang}
     <p class="muted">{t('lexicon.noLanguage')}</p>
   {:else if tab === 'phonemes'}
