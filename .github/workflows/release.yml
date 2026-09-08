@@ -1,5 +1,5 @@
-# 打 tag（v0.3.0 这种）或手动触发时，同时在 Windows 与 macOS 上出安装包，
-# 并把两个平台的产物挂到同名 GitHub Release 上。
+# 打 tag（v0.3.0 这种）或手动触发时，同时在 Windows 与 macOS 上出安装包。
+# 打 tag 时每个平台的 job 直接把自己的产物挂到同名 GitHub Release（两个 job 各自追加，不经过 artifact 中转）。
 name: Release installers
 
 on:
@@ -25,8 +25,10 @@ jobs:
             script: build:mac
             artifact: macos
             files: |
-              dist/*.dmg
-              dist/*-mac-*.zip
+              dist/*-mac-x64.dmg
+              dist/*-mac-arm64.dmg
+              dist/*-mac-x64.zip
+              dist/*-mac-arm64.zip
     runs-on: ${{ matrix.os }}
     env:
       # 没有签名证书：跳过 macOS 签名与公证
@@ -39,26 +41,19 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run ${{ matrix.script }}
+      - name: List outputs
+        shell: bash
+        run: ls -la dist | grep -v '^d'
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.files }}
           if-no-files-found: error
-
-  release:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-      - name: List
-        run: ls -R artifacts
-      - uses: softprops/action-gh-release@v2
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
         with:
           name: Qonlang ${{ github.ref_name }}
-          files: |
-            artifacts/windows/*
-            artifacts/macos/*
+          files: ${{ matrix.files }}
+          fail_on_unmatched_files: true
           generate_release_notes: true
