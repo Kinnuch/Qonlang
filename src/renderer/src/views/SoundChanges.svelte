@@ -7,6 +7,7 @@
   import type { RuleSet } from '$lib/core/model'
   import { parseRuleText, runRules, ruleOrdinals, fromYinbianji, fromLexicanter, fromSca2, type RuleProgram, type RunResult } from '$lib/engine/sca'
   import Portal from '$lib/ui/Portal.svelte'
+  import Hint from '$lib/ui/Hint.svelte'
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
   import RuleList from '$lib/ui/RuleList.svelte'
   import RuleChainGraph from '$lib/ui/RuleChainGraph.svelte'
@@ -200,6 +201,7 @@
     </div>
     <button class="btn primary" onclick={() => addSet()}><Plus size={16} />{t('soundChanges.newSet')}</button>
   </div>
+  <Hint id="soundchanges" text={t('soundChanges.hint')} />
 
   {#if !active}
     <p class="muted">{t('soundChanges.empty')}</p>

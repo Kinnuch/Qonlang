@@ -52,6 +52,24 @@ export const electronPlatform: PlatformAPI = {
   async readBinaryFiles(opts) {
     return (await bridge().invoke('file:readBinary', opts)) as { name: string; base64: string }[]
   },
+  async listFonts() {
+    return (await bridge().invoke('fonts:list')) as { file: string; size: number }[]
+  },
+  async readFont(file) {
+    return (await bridge().invoke('fonts:read', file)) as string | null
+  },
+  async saveFont(file, base64) {
+    return (await bridge().invoke('fonts:save', file, base64)) as boolean
+  },
+  async deleteFont(file) {
+    await bridge().invoke('fonts:delete', file)
+  },
+  async downloadFont(url, file) {
+    return (await bridge().invoke('fonts:download', url, file)) as { ok: boolean; error?: string }
+  },
+  onFontProgress(cb) {
+    bridge().on('fonts:progress', (p) => cb(p as { file: string; received: number; total: number }))
+  },
   async saveTextFile(suggestedName, content) {
     return (await bridge().invoke('file:saveText', suggestedName, content)) as boolean
   },

@@ -510,13 +510,19 @@
   .surface {
     font-size: 17px;
     font-weight: 500;
+    font-family: var(--font-corpus-text);
+  }
+  .tok .m,
+  .words,
+  .gw .m {
+    font-family: var(--font-corpus-text);
   }
   .tok .input {
     padding: 2px 6px;
     font-size: 13px;
   }
   .tok .g {
-    font-family: var(--font-mono);
+    font-family: var(--font-gloss);
     font-size: 12px;
   }
   .ctl {
@@ -537,6 +543,10 @@
     font-size: 11px;
     padding: 2px 6px;
     color: var(--accent-text);
+  }
+  .tr,
+  .item .muted {
+    font-family: var(--font-corpus-tr);
   }
   .tr {
     color: var(--text-2);
@@ -597,7 +607,7 @@
     font-size: 13px;
   }
   .gw .g {
-    font-family: var(--font-mono);
+    font-family: var(--font-gloss);
     font-size: 11px;
     color: var(--text-2);
   }

@@ -48,6 +48,7 @@ const en: Dict = {
     corpus: 'Corpus',
     docs: 'Docs',
     settings: 'Settings',
+    skin: 'Skin',
     inspector: 'Inspector',
     home: 'Back to the start page (closes the project)',
     backTo: 'Back to “{name}”'
@@ -107,6 +108,7 @@ const en: Dict = {
     lineage: 'Lineage'
   },
   soundChanges: {
+    hint: 'Rule sets can use the classes and digraphs defined on the Phonology page; once a stage snapshot is bound to a language, paradigm “affix + sound change” generators and whole-lexicon evolution can reference it.',
     title: 'Sound changes',
     newSet: 'New rule set',
     untitledSet: 'Untitled rule set',
@@ -237,6 +239,7 @@ const en: Dict = {
     codepoints: 'Code points'
   },
   morphemes: {
+    hint: 'Morphemes are referenced by paradigm generators as @morpheme (allomorph chosen by environment) and take part in corpus auto-segmentation; lexeme etymologies can point at roots here.',
     title: 'Morphemes',
     empty: 'This language has no morphemes yet.',
     add: 'Add morpheme',
@@ -267,6 +270,7 @@ const en: Dict = {
     count: '{n} items'
   },
   lexicon: {
+    hint: 'The pronunciation column comes from Phonology orthography rules, the script column from Script mapping rules, and slot panels from Paradigms bound to a part of speech; hovering a word in Corpus jumps back here.',
     title: 'Lexicon',
     entries: 'Entries',
     taxonomy: 'Parts of speech & dimensions',
@@ -685,6 +689,34 @@ const en: Dict = {
     paradigms: 'Grammatical dimensions, slots, five generators, paradigm test bench.',
     corpus: 'Sentence entry, automatic gloss drafts, correction and export.',
     docs: 'Markdown documentation pages inside the project.'
+  },
+  skin: {
+    title: 'Skin',
+    hint: 'Skins are app-level settings and never enter the project file. Colours are stored separately for light and dark; fonts can be set for corpus text, translation, gloss and custom scripts.',
+    presets: 'Presets',
+    colors: 'Colours',
+    colorsFor: 'Editing: {theme}',
+    fonts: 'Fonts',
+    fontSlots: { ui: 'Interface', data: 'Language data (lemmas, rules…)', mono: 'Monospace (source)', corpusText: 'Corpus text', corpusTr: 'Corpus translation', gloss: 'Gloss line', script: 'Custom script (when no embedded font)' },
+    fontPlaceholder: 'Empty = default; several names separated by commas',
+    library: 'Font library',
+    libraryHint: 'All fonts below are OFL-licensed and free for commercial use. Downloads are stored in the app data folder. You can also add local font files.',
+    installed: 'Installed',
+    download: 'Download',
+    downloading: 'Downloading {pct}%',
+    downloaded: 'Downloaded {name}',
+    downloadFailed: 'Download failed: {err}',
+    importLocal: 'Add from local file',
+    importedLocal: 'Added {n} fonts',
+    removeFont: 'Remove',
+    mirror: 'Download mirror prefix (optional)',
+    mirrorHint: 'A GitHub accelerator prefix such as https://ghfast.top/ ; leave empty for direct downloads.',
+    reset: 'Reset to default',
+    resetDone: 'Skin reset',
+    custom: 'Custom',
+    preview: 'Preview',
+    previewText: 'Sample text',
+    vars: { bg: 'Page background', bgElev: 'Panel background', bgSunken: 'Sunken background', bgHover: 'Hover background', border: 'Border', borderStrong: 'Strong border', text: 'Text', text2: 'Secondary text', text3: 'Faint text', accent: 'Accent', accentHover: 'Accent hover', accentSoft: 'Accent tint', accentText: 'Accent text', danger: 'Danger', warn: 'Warning' }
   },
   settings: {
     title: 'Settings',

@@ -14,6 +14,7 @@
   import { paradigmFor, paradigmSlots, deriveForms, makeContext } from '$lib/engine/morph'
   import type { EtymologySource, Id, Lexeme } from '$lib/core/model'
   import Portal from '$lib/ui/Portal.svelte'
+  import Hint from '$lib/ui/Hint.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import CsvImportWizard from '$lib/ui/CsvImportWizard.svelte'
@@ -321,6 +322,7 @@
       <button class="btn primary" onclick={add}><Plus size={16} />{t('lexicon.add')}</button>
     {/if}
   </div>
+  <Hint id="lexicon" text={t('lexicon.hint')} />
 
   {#if mode === 'taxonomy'}
     <div class="scroll"><Taxonomy /></div>

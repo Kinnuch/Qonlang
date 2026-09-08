@@ -1,3 +1,4 @@
+import type { Skin } from '$lib/skin/presets'
 /**
  * 平台适配层：渲染层只认这个接口，不直接碰 Node 或浏览器专有 API。
  * Electron 实现走 IPC；网页实现走 File System Access API + IndexedDB。
@@ -41,6 +42,8 @@ export interface Prefs {
   csvPresets: CsvPreset[]
   /** 已关闭的联动提示 */
   dismissedHints: string[]
+  /** 皮肤（颜色与字体） */
+  skin: Skin
 }
 
 export interface CsvPreset {
@@ -62,7 +65,8 @@ export const DEFAULT_PREFS: Prefs = {
   recentSymbols: [],
   savedSymbols: [],
   csvPresets: [],
-  dismissedHints: []
+  dismissedHints: [],
+  skin: { preset: 'default', light: {}, dark: {}, fonts: { ui: '', data: '', mono: '', corpusText: '', corpusTr: '', gloss: '', script: '' }, mirror: '' }
 }
 
 export interface AppInfo {
@@ -89,6 +93,13 @@ export interface PlatformAPI {
   readTextFiles(opts: { multiple: boolean; extensions: string[] }): Promise<{ name: string; content: string }[]>
   /** 让用户选二进制文件（字体等），内容以 base64 返回 */
   readBinaryFiles(opts: { multiple: boolean; extensions: string[] }): Promise<{ name: string; base64: string }[]>
+  /** 用户字体库（应用数据目录 fonts/） */
+  listFonts(): Promise<{ file: string; size: number }[]>
+  readFont(file: string): Promise<string | null>
+  saveFont(file: string, base64: string): Promise<boolean>
+  deleteFont(file: string): Promise<void>
+  downloadFont(url: string, file: string): Promise<{ ok: boolean; error?: string }>
+  onFontProgress(cb: (p: { file: string; received: number; total: number }) => void): void
   /** 把文本存成文件；用户取消返回 false */
   saveTextFile(suggestedName: string, content: string): Promise<boolean>
 

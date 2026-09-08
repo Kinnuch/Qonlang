@@ -44,6 +44,7 @@ export default {
     corpus: '语料',
     docs: '文档',
     settings: '设置',
+    skin: '皮肤',
     inspector: '检视器',
     home: '返回开始页（关闭当前项目）',
     backTo: '返回「{name}」'
@@ -103,6 +104,7 @@ export default {
     lineage: '谱系'
   },
   soundChanges: {
+    hint: '规则集里的音类可直接引用「音系」页定义的音类与多合字母；阶段快照绑定语言后，范式的「拼接后跑音变」生成器和整库演化都能引用它。',
     title: '音变',
     newSet: '新建规则集',
     untitledSet: '未命名规则集',
@@ -233,6 +235,7 @@ export default {
     codepoints: '码位'
   },
   morphemes: {
+    hint: '语素会被范式生成器以 @语素 引用（按环境挑异体形），也参与语料页的自动切分；词条的词源可指向这里的词根。',
     title: '语素',
     empty: '这门语言还没有语素。',
     add: '新增语素',
@@ -263,6 +266,7 @@ export default {
     count: '{n} 条'
   },
   lexicon: {
+    hint: '发音列由「音系」页正字法规则自动生成，文字列由「文字」页映射规则生成，槽位面板来自绑定了词类的「范式」；语料页悬停词可跳回这里。',
     title: '词库',
     entries: '词条',
     taxonomy: '词类与维度',
@@ -681,6 +685,34 @@ export default {
     paradigms: '语法维度、槽位、五种生成器、范式测试台。',
     corpus: '例句录入、自动 gloss 草稿、校正与导出。',
     docs: '项目内的 Markdown 文档页。'
+  },
+  skin: {
+    title: '皮肤',
+    hint: '皮肤是应用级设置，不进项目文件。颜色按浅色 / 深色分别保存；字体可指定到语料的原文、译文、gloss 和自定义文字。',
+    presets: '预设',
+    colors: '颜色',
+    colorsFor: '当前编辑：{theme}',
+    fonts: '字体',
+    fontSlots: { ui: '界面', data: '语言数据（词头、规则等）', mono: '等宽（源代码）', corpusText: '语料原文', corpusTr: '语料译文', gloss: 'gloss 行', script: '自定义文字（无内嵌字体时）' },
+    fontPlaceholder: '留空用默认；可写多个，逗号分隔',
+    library: '字体库',
+    libraryHint: '以下字体均为 OFL 许可，可免费商用。下载后存到应用数据目录，重启也在。也可从本地文件添加。',
+    installed: '已安装',
+    download: '下载',
+    downloading: '下载中 {pct}%',
+    downloaded: '已下载 {name}',
+    downloadFailed: '下载失败：{err}',
+    importLocal: '从本地文件添加',
+    importedLocal: '添加了 {n} 个字体',
+    removeFont: '删除',
+    mirror: '下载镜像前缀（可选）',
+    mirrorHint: '国内网络可填 GitHub 加速前缀，例如 https://ghfast.top/ ；留空直连。',
+    reset: '恢复默认',
+    resetDone: '已恢复默认皮肤',
+    custom: '自定义',
+    preview: '预览',
+    previewText: '示例原文',
+    vars: { bg: '页面背景', bgElev: '面板背景', bgSunken: '凹陷背景', bgHover: '悬停背景', border: '边框', borderStrong: '强边框', text: '文字', text2: '次要文字', text3: '弱文字', accent: '强调色', accentHover: '强调悬停', accentSoft: '强调底色', accentText: '强调文字', danger: '危险', warn: '警告' }
   },
   settings: {
     title: '设置',

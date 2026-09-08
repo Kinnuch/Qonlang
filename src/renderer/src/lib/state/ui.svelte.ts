@@ -1,5 +1,7 @@
 import { platform, DEFAULT_PREFS, type Prefs } from '$lib/platform'
 import { i18n, type LocaleCode } from '$lib/i18n/index.svelte'
+import { applySkin } from '$lib/skin/apply'
+import { DEFAULT_SKIN, EMPTY_FONTS } from '$lib/skin/presets'
 
 export type Section =
   | 'languages'
@@ -11,6 +13,7 @@ export type Section =
   | 'paradigms'
   | 'corpus'
   | 'docs'
+  | 'skin'
   | 'settings'
 
 export const SECTIONS: Section[] = [
@@ -23,6 +26,7 @@ export const SECTIONS: Section[] = [
   'paradigms',
   'corpus',
   'docs',
+  'skin',
   'settings'
 ]
 
@@ -72,6 +76,11 @@ class UiState {
 
   async loadPrefs(): Promise<void> {
     this.prefs = await platform.getPrefs()
+    if (!this.prefs.skin) this.prefs.skin = structuredClone(DEFAULT_SKIN)
+    this.prefs.skin.fonts = { ...EMPTY_FONTS, ...(this.prefs.skin.fonts ?? {}) }
+    this.prefs.skin.light ??= {}
+    this.prefs.skin.dark ??= {}
+    this.prefs.skin.mirror ??= ''
     i18n.locale = this.prefs.locale as LocaleCode
     this.prefsLoaded = true
     this.applyTheme()
@@ -86,6 +95,7 @@ class UiState {
   applyTheme(): void {
     if (typeof document === 'undefined') return
     document.documentElement.dataset.theme = this.resolvedTheme
+    applySkin(this.prefs.skin ?? DEFAULT_SKIN, this.resolvedTheme)
   }
 
   watchSystemTheme(): () => void {

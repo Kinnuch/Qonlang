@@ -1,6 +1,6 @@
 # 千语集 · Qonlang
 
-给所有造语者的工作台：录入词汇与词根、制订音变规则、按音系自动标音、自动 gloss 例句。
+给所有造语者的工作台：录入词汇与词根、制订音变规则、按音系自动标音、自动 gloss 例句、自定义文字与皮肤。
 先验语、后验语、单语、语系都能用；软件不内置任何一门语言的术语，一切分类由你定义。
 
 A workbench for every conlanger: lexicon and roots, sound-change rules, automatic
@@ -33,6 +33,9 @@ src/renderer/    界面（Svelte 5 + TypeScript）
   src/lib/platform/  平台适配层：Electron 与网页两套实现，同一接口
   src/lib/state/     运行时状态（Svelte runes）
   src/lib/i18n/      界面文案，中文 / English
+  src/lib/engine/    音变、音系、形态、gloss 引擎（纯 TS）
+  src/lib/script/    自定义文字：字体解析、内嵌字体、转写→文字映射
+  src/lib/skin/      皮肤预设与可下载字体目录（均为 OFL）
   src/views/         各页面
 tests/           Vitest
 docs/            大纲与规则语言文档

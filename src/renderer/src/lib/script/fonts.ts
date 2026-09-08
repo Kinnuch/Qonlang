@@ -24,7 +24,7 @@ export function ensureScriptFont(script: Script): void {
 
 export function fontCss(script: Script): string {
   const fam = scriptFontFamily(script)
-  return fam ? `font-family:"${fam.replace(/"/g, '')}",var(--font-data)` : ''
+  return fam ? `font-family:"${fam.replace(/"/g, '')}",var(--font-script)` : 'font-family:var(--font-script)'
 }
 
 /** 把 base64 字体数据转成 data URL，按扩展名挑 MIME */

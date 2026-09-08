@@ -7,6 +7,7 @@
   import { parseProject } from '$lib/core/serialize'
   import { SECTIONS, type Section } from '$lib/state/ui.svelte'
   import { chars } from '$lib/state/chars.svelte'
+  import { fontLibrary } from '$lib/state/fonts.svelte'
   import Welcome from './views/Welcome.svelte'
   import Shell from './views/Shell.svelte'
   import Toasts from '$lib/ui/Toasts.svelte'
@@ -19,6 +20,8 @@
     const stopChars = chars.install()
     void (async () => {
       await ui.loadPrefs()
+      fontLibrary.onProgress()
+      void fontLibrary.refresh()
       snapshot = await platform.loadSnapshot()
       if (!snapshot && ui.prefs.reopenLast) {
         const recent = await platform.getRecent()

@@ -27,6 +27,11 @@
     'Noto Sans CJK SC', 'Noto Sans SC', sans-serif;
   --font-data: 'Gentium Plus', 'Charis SIL', 'Doulos SIL', 'Times New Roman', serif;
   --font-mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  /* 皮肤可分别指定的语料字体，默认跟随上面三者 */
+  --font-corpus-text: var(--font-data);
+  --font-corpus-tr: var(--font-ui);
+  --font-gloss: var(--font-mono);
+  --font-script: var(--font-data);
   --nav-w: 56px;
   --topbar-h: 44px;
   --inspector-w: 360px;

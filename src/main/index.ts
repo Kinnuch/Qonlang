@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, net } from 'electron'
 import { join, basename, dirname } from 'path'
 import { promises as fs } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -18,6 +18,7 @@ interface Prefs {
   savedSymbols: string[]
   csvPresets: unknown[]
   dismissedHints: string[]
+  skin: unknown
 }
 const DEFAULT_PREFS: Prefs = {
   locale: 'zh',
@@ -29,7 +30,8 @@ const DEFAULT_PREFS: Prefs = {
   recentSymbols: [],
   savedSymbols: [],
   csvPresets: [],
-  dismissedHints: []
+  dismissedHints: [],
+  skin: { preset: 'default', light: {}, dark: {}, fonts: { ui: '', data: '', mono: '', corpusText: '', corpusTr: '', gloss: '', script: '' }, mirror: '' }
 }
 
 interface RecentEntry {
@@ -44,6 +46,37 @@ const prefsFile = (): string => join(userData(), 'prefs.json')
 const recentFile = (): string => join(userData(), 'recent.json')
 const snapshotFile = (): string => join(userData(), 'snapshot.laim.json')
 const backupsDir = (): string => join(userData(), 'Backups')
+const fontsDir = (): string => join(userData(), 'fonts')
+
+/** 跟随重定向的下载，带进度回调 */
+function downloadTo(url: string, dest: string, onProgress: (received: number, total: number) => void, hops = 0): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (hops > 8) return reject(new Error('too many redirects'))
+    const req = net.request({ url, redirect: 'manual' })
+    req.on('redirect', (_status, _method, redirectUrl) => {
+      req.abort()
+      downloadTo(redirectUrl, dest, onProgress, hops + 1).then(resolve, reject)
+    })
+    req.on('response', (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400) return
+      if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}`))
+      const total = Number(res.headers['content-length'] ?? 0)
+      const chunks: Buffer[] = []
+      let received = 0
+      res.on('data', (c: Buffer) => {
+        chunks.push(c)
+        received += c.length
+        onProgress(received, total)
+      })
+      res.on('end', () => {
+        fs.writeFile(dest, Buffer.concat(chunks)).then(resolve, reject)
+      })
+      res.on('error', reject)
+    })
+    req.on('error', reject)
+    req.end()
+  })
+}
 
 async function readJson<T>(file: string, fallback: T): Promise<T> {
   try {
@@ -271,6 +304,45 @@ function registerIpc(): void {
     await writeJson(recentFile(), list.slice(0, RECENT_MAX))
   })
   ipcMain.handle('recent:clear', async () => writeJson(recentFile(), []))
+
+  ipcMain.handle('fonts:list', async () => {
+    await fs.mkdir(fontsDir(), { recursive: true })
+    const names = await fs.readdir(fontsDir())
+    const out: { file: string; size: number }[] = []
+    for (const n of names) {
+      if (!/\.(ttf|otf|woff2?|ttc)$/i.test(n)) continue
+      const st = await fs.stat(join(fontsDir(), n))
+      out.push({ file: n, size: st.size })
+    }
+    return out
+  })
+  ipcMain.handle('fonts:read', async (_e, file: string) => {
+    try {
+      return (await fs.readFile(join(fontsDir(), basename(file)))).toString('base64')
+    } catch {
+      return null
+    }
+  })
+  ipcMain.handle('fonts:save', async (_e, file: string, base64: string) => {
+    await fs.mkdir(fontsDir(), { recursive: true })
+    await fs.writeFile(join(fontsDir(), basename(file)), Buffer.from(base64, 'base64'))
+    return true
+  })
+  ipcMain.handle('fonts:delete', async (_e, file: string) => {
+    await fs.rm(join(fontsDir(), basename(file)), { force: true })
+  })
+  ipcMain.handle('fonts:download', async (_e, url: string, file: string) => {
+    await fs.mkdir(fontsDir(), { recursive: true })
+    const dest = join(fontsDir(), basename(file))
+    try {
+      await downloadTo(url, dest + '.part', (received, total) => mainWindow?.webContents.send('fonts:progress', { file, received, total }))
+      await fs.rename(dest + '.part', dest)
+      return { ok: true }
+    } catch (e) {
+      await fs.rm(dest + '.part', { force: true })
+      return { ok: false, error: String(e) }
+    }
+  })
 
   ipcMain.handle('prefs:get', () => getPrefs())
   ipcMain.handle('prefs:set', (_e, p: Prefs) => writeJson(prefsFile(), p))

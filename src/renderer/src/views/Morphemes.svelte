@@ -5,6 +5,7 @@
   import { createMorpheme, MORPHEME_TYPES } from '$lib/core/factory'
   import type { Id, Morpheme, MorphemeType } from '$lib/core/model'
   import Portal from '$lib/ui/Portal.svelte'
+  import Hint from '$lib/ui/Hint.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import { Plus, Trash2, X } from '@lucide/svelte'
@@ -81,6 +82,7 @@
     </select>
     <button class="btn primary" onclick={add}><Plus size={16} />{t('morphemes.add')}</button>
   </div>
+  <Hint id="morphemes" text={t('morphemes.hint')} />
 
   {#if list.length === 0}
     <p class="muted">{t('morphemes.empty')}</p>

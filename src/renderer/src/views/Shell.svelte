@@ -17,12 +17,14 @@
     Save,
     PanelRight,
     X,
-    Keyboard
+    Keyboard,
+    Shirt
   } from '@lucide/svelte'
   import { chars } from '$lib/state/chars.svelte'
   import CharPanel from '$lib/ui/CharPanel.svelte'
   import WordPopover from '$lib/ui/WordPopover.svelte'
   import ScriptView from './ScriptView.svelte'
+  import Skin from './Skin.svelte'
   import { ensureScriptFont } from '$lib/script/fonts'
   import Languages from './Languages.svelte'
   import SoundChanges from './SoundChanges.svelte'
@@ -44,6 +46,7 @@
     paradigms: Table2,
     corpus: MessageSquareQuote,
     docs: FileText,
+    skin: Shirt,
     settings: Settings
   }
 
@@ -96,7 +99,7 @@
 <div class="shell" class:no-inspector={!ui.inspectorOpen} class:dragging style:--inspector-w={`${ui.prefs.inspectorWidth}px`}>
   <nav class="nav">
     <button class="nav-logo" title={t('nav.home')} onclick={closeProject}>千</button>
-    {#each SECTIONS.filter((s) => s !== 'settings') as s (s)}
+    {#each SECTIONS.filter((s) => s !== 'settings' && s !== 'skin') as s (s)}
       {@const Icon = icons[s]}
       <button class="nav-btn" class:active={ui.section === s} title={ui.section === s && ui.previousSection ? t('nav.backTo', { name: t(`nav.${ui.previousSection}`) }) : t(`nav.${s}`)} onclick={() => ui.go(s)}>
         <Icon size={20} />
@@ -104,6 +107,10 @@
       </button>
     {/each}
     <div class="grow"></div>
+    <button class="nav-btn" class:active={ui.section === 'skin'} title={ui.section === 'skin' && ui.previousSection ? t('nav.backTo', { name: t(`nav.${ui.previousSection}`) }) : t('nav.skin')} onclick={() => ui.go('skin')}>
+      <Shirt size={20} />
+      <span class="nav-label">{t('nav.skin')}</span>
+    </button>
     <button class="nav-btn" class:active={chars.open} title={t('chars.tooltip')} onmousedown={(e) => e.preventDefault()} onclick={() => chars.toggle()}>
       <Keyboard size={20} />
       <span class="nav-label">{t('chars.title')}</span>
@@ -158,6 +165,8 @@
       <Morphemes bind:inspectorTitle />
     {:else if ui.section === 'lexicon'}
       <Lexicon bind:inspectorTitle />
+    {:else if ui.section === 'skin'}
+      <Skin bind:inspectorTitle />
     {:else if ui.section === 'settings'}
       <SettingsView bind:inspectorTitle />
     {:else}

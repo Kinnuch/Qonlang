@@ -239,6 +239,40 @@ export const webPlatform: PlatformAPI = {
       })
     )
   },
+  async listFonts() {
+    return (await kvGet<{ file: string; size: number }[]>('fonts:index')) ?? []
+  },
+  async readFont(file) {
+    return (await kvGet<string>('font:' + file)) ?? null
+  },
+  async saveFont(file, base64) {
+    const idx = ((await kvGet<{ file: string; size: number }[]>('fonts:index')) ?? []).filter((f) => f.file !== file)
+    idx.push({ file, size: Math.floor((base64.length * 3) / 4) })
+    await kvSet('font:' + file, base64)
+    await kvSet('fonts:index', idx)
+    return true
+  },
+  async deleteFont(file) {
+    const idx = ((await kvGet<{ file: string; size: number }[]>('fonts:index')) ?? []).filter((f) => f.file !== file)
+    await kvSet('font:' + file, null)
+    await kvSet('fonts:index', idx)
+  },
+  async downloadFont(url, file) {
+    try {
+      const res = await fetch(url)
+      if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
+      const buf = new Uint8Array(await res.arrayBuffer())
+      let bin = ''
+      for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000))
+      await this.saveFont(file, btoa(bin))
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: String(e) }
+    }
+  },
+  onFontProgress() {
+    /* 浏览器版不报进度 */
+  },
   async saveTextFile(suggestedName, content) {
     if (window.showSaveFilePicker) {
       try {
