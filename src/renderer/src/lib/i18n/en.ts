@@ -776,11 +776,6 @@ const en: Dict = {
     corpus: 'Sentence entry, automatic gloss drafts, correction and export.',
     docs: 'Markdown documentation pages inside the project.'
   },
-  errors: {
-    title: 'This page hit an error; other pages are unaffected.',
-    retry: 'Retry',
-    goLanguages: 'Go to Languages'
-  },
   skin: {
     title: 'Skin',
     hint: 'Skins are app-level settings and never enter the project file. Colours are stored separately for light and dark; fonts can be set for corpus text, translation, gloss and custom scripts.',
@@ -848,6 +843,9 @@ const en: Dict = {
     saveShortcut: 'Save (Ctrl+S)'
   },
   errors: {
+    pageCrashed: 'This page hit an error; other pages are unaffected.',
+    retry: 'Retry',
+    goLanguages: 'Go to Languages',
     invalidJson: 'The file is not valid JSON.',
     notAProject: 'The file is not a Qonlang project.',
     newerSchema: 'This file was created by a newer Qonlang; please update.',

@@ -772,11 +772,6 @@ export default {
     corpus: '例句录入、自动 gloss 草稿、校正与导出。',
     docs: '项目内的 Markdown 文档页。'
   },
-  errors: {
-    title: '这一页出错了，其他页面不受影响。',
-    retry: '重试',
-    goLanguages: '回到「语言」页'
-  },
   skin: {
     title: '皮肤',
     hint: '皮肤是应用级设置，不进项目文件。颜色按浅色 / 深色分别保存；字体可指定到语料的原文、译文、gloss 和自定义文字。',
@@ -844,6 +839,9 @@ export default {
     saveShortcut: '保存 (Ctrl+S)'
   },
   errors: {
+    pageCrashed: '这一页出错了，其他页面不受影响。',
+    retry: '重试',
+    goLanguages: '回到「语言」页',
     invalidJson: '文件不是合法的 JSON。',
     notAProject: '文件不是千语集项目。',
     newerSchema: '此文件由更新版本的千语集创建，请升级软件。',

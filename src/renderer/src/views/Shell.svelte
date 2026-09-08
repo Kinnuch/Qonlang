@@ -157,7 +157,7 @@
     <svelte:boundary onerror={(e) => console.error(e)}>
     {#snippet failed(error, reset)}
       <div class="crash card">
-        <strong>{t('errors.title')}</strong>
+        <strong>{t('errors.pageCrashed')}</strong>
         <pre class="mono">{String((error as Error)?.message ?? error)}</pre>
         <div class="row wrap">
           <button class="btn primary sm" onclick={reset}>{t('errors.retry')}</button>
