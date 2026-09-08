@@ -320,13 +320,15 @@
                       {#if g.scope !== 'full'}<input type="number" min="1" class="input p tiny" bind:value={g.length} onchange={touch} />{/if}
                     {/if}
                   </td>
-                  <td class="adjust">
-                    {#if g.kind === 'affix-sca' || g.kind === 'pattern' || g.kind === 'reduplication'}
-                      <textarea class="textarea adj" rows="1" placeholder={g.kind === 'affix-sca' ? t('paradigms.adjustPre') : t('paradigms.adjustStem')} title={t('paradigms.adjustHint')} bind:value={g.pre} oninput={touch}></textarea>
-                    {/if}
-                    {#if g.kind !== 'none' && g.kind !== 'table'}
-                      <textarea class="textarea adj" rows="1" placeholder={t('paradigms.adjustPost')} title={t('paradigms.adjustHint')} bind:value={g.post} oninput={touch}></textarea>
-                    {/if}
+                  <td>
+                    <div class="adjust">
+                      {#if g.kind === 'affix-sca' || g.kind === 'pattern' || g.kind === 'reduplication'}
+                        <textarea class="textarea adj" rows="1" placeholder={g.kind === 'affix-sca' ? t('paradigms.adjustPre') : t('paradigms.adjustStem')} title={t('paradigms.adjustHint')} bind:value={g.pre} oninput={touch}></textarea>
+                      {/if}
+                      {#if g.kind !== 'none' && g.kind !== 'table'}
+                        <textarea class="textarea adj" rows="1" placeholder={t('paradigms.adjustPost')} title={t('paradigms.adjustHint')} bind:value={g.post} oninput={touch}></textarea>
+                      {/if}
+                    </div>
                   </td>
                 </tr>
               {/each}
