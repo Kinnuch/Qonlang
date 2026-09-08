@@ -68,12 +68,14 @@
   function closeProject(): void {
     if (projectState.dirty) {
       ui.toast(t('dialog.unsavedBody'), {
+        timeout: 0,
         action: {
           label: t('dialog.saveAndClose'),
           run: async () => {
             if (await projectState.save()) projectState.close()
           }
-        }
+        },
+        secondary: { label: t('dialog.discardAndClose'), run: () => projectState.close() }
       })
       return
     }
@@ -83,10 +85,10 @@
 
 <div class="shell" class:no-inspector={!ui.inspectorOpen} class:dragging style:--inspector-w={`${ui.prefs.inspectorWidth}px`}>
   <nav class="nav">
-    <div class="nav-logo" title={t('app.name')}>千</div>
+    <button class="nav-logo" title={t('nav.home')} onclick={closeProject}>千</button>
     {#each SECTIONS.filter((s) => s !== 'settings') as s (s)}
       {@const Icon = icons[s]}
-      <button class="nav-btn" class:active={ui.section === s} title={t(`nav.${s}`)} onclick={() => (ui.section = s)}>
+      <button class="nav-btn" class:active={ui.section === s} title={ui.section === s && ui.previousSection ? t('nav.backTo', { name: t(`nav.${ui.previousSection}`) }) : t(`nav.${s}`)} onclick={() => ui.go(s)}>
         <Icon size={20} />
         <span class="nav-label">{t(`nav.${s}`)}</span>
       </button>
@@ -96,7 +98,7 @@
       <Keyboard size={20} />
       <span class="nav-label">{t('chars.title')}</span>
     </button>
-    <button class="nav-btn" class:active={ui.section === 'settings'} title={t('nav.settings')} onclick={() => (ui.section = 'settings')}>
+    <button class="nav-btn" class:active={ui.section === 'settings'} title={ui.section === 'settings' && ui.previousSection ? t('nav.backTo', { name: t(`nav.${ui.previousSection}`) }) : t('nav.settings')} onclick={() => ui.go('settings')}>
       <Settings size={20} />
       <span class="nav-label">{t('nav.settings')}</span>
     </button>
@@ -190,6 +192,13 @@
     font-weight: 600;
     font-size: 18px;
     color: var(--accent);
+    border: 0;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .nav-logo:hover {
+    background: var(--accent-soft);
   }
   .nav-btn {
     display: flex;

@@ -29,6 +29,7 @@ export interface Toast {
   message: string
   kind: 'info' | 'error'
   action?: { label: string; run: () => void }
+  secondary?: { label: string; run: () => void }
   timeout: number
 }
 
@@ -36,7 +37,22 @@ let toastSeq = 0
 
 class UiState {
   section = $state<Section>('languages')
+  /** 上一个页面（再次点击当前页的导航按钮时回到它） */
+  previousSection = $state<Section | null>(null)
   inspectorOpen = $state(true)
+
+  go(s: Section): void {
+    if (s === this.section) {
+      if (this.previousSection && this.previousSection !== s) {
+        const back = this.previousSection
+        this.previousSection = s
+        this.section = back
+      }
+      return
+    }
+    this.previousSection = this.section
+    this.section = s
+  }
   /** 新建项目后要自动打开的导入向导 */
   pendingImport = $state<'csv' | null>(null)
   prefs = $state<Prefs>({ ...DEFAULT_PREFS })

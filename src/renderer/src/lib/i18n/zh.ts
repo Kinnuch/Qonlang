@@ -43,7 +43,9 @@ export default {
     corpus: '语料',
     docs: '文档',
     settings: '设置',
-    inspector: '检视器'
+    inspector: '检视器',
+    home: '返回开始页（关闭当前项目）',
+    backTo: '返回「{name}」'
   },
   welcome: {
     title: '开始',

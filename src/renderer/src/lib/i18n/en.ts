@@ -47,7 +47,9 @@ const en: Dict = {
     corpus: 'Corpus',
     docs: 'Docs',
     settings: 'Settings',
-    inspector: 'Inspector'
+    inspector: 'Inspector',
+    home: 'Back to the start page (closes the project)',
+    backTo: 'Back to “{name}”'
   },
   welcome: {
     title: 'Start',

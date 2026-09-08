@@ -9,11 +9,20 @@
       <span class="grow">{toast.message}</span>
       {#if toast.action}
         <button
-          class="btn sm"
+          class="btn sm primary"
           onclick={() => {
             toast.action?.run()
             ui.dismiss(toast.id)
           }}>{toast.action.label}</button
+        >
+      {/if}
+      {#if toast.secondary}
+        <button
+          class="btn sm"
+          onclick={() => {
+            toast.secondary?.run()
+            ui.dismiss(toast.id)
+          }}>{toast.secondary.label}</button
         >
       {/if}
       <button class="btn ghost icon sm" aria-label="close" onclick={() => ui.dismiss(toast.id)}><X size={14} /></button>
