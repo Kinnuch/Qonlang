@@ -2,6 +2,8 @@
   /** 显示模式下的词条卡：只读、简约，把录入模式记录的信息排版出来 */
   import type { Id, Lexeme, Project } from '$lib/core/model'
   import { t, pickText } from '$lib/i18n/index.svelte'
+  import { lexemeScript } from '$lib/script/render'
+  import { fontCss } from '$lib/script/fonts'
 
   let { lexeme, project, onselect }: { lexeme: Lexeme; project: Project; onselect?: (id: Id) => void } = $props()
 
@@ -21,6 +23,7 @@
   const derivedWords = $derived(project.lexemes.filter((x) => x.etymology.sources.some((s) => s.kind === 'lexeme' && s.id === l.id)))
   const pron = $derived(lang ? lang.orthographies.map((o) => ({ name: o.name, p: l.pronunciations[o.id] })).filter((x) => x.p?.ipa) : [])
   const dialects = $derived(lang ? lang.dialects.filter((d) => l.dialectIds.includes(d.id)) : [])
+  const scripts = $derived(lang ? lang.scripts.map((sc) => ({ sc, text: lexemeScript(lang!, sc, l) })).filter((x) => x.text) : [])
 
   function sourceText(s: Lexeme['etymology']['sources'][number]): { text: string; id?: Id } {
     if (s.kind === 'morpheme') {
@@ -41,6 +44,7 @@
 <article class="entry">
   <header>
     <h2 class="lemma data">{l.lemma || '—'}</h2>
+    {#each scripts as x (x.sc.id)}<div class="scr" style={fontCss(x.sc)} dir={x.sc.direction === 'rtl' ? 'rtl' : 'ltr'} title={x.sc.name}>{x.text}</div>{/each}
     <div class="row meta">
       {#if pos}<span class="pos">{pos.abbr || pickText(pos.name, glossLangs)}</span>{/if}
       {#each pron as p (p.name)}<span class="ipa data">/{p.p.ipa}/{#if pron.length > 1}<span class="tiny">{p.name}</span>{/if}</span>{/each}
@@ -140,6 +144,11 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+  .scr {
+    font-size: 24px;
+    line-height: 1.3;
+    margin: 2px 0 4px;
   }
   .lemma {
     font-size: 30px;

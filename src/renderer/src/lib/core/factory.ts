@@ -13,6 +13,7 @@ import {
   type ProjectTemplate,
   type RuleSet,
   type Sentence,
+  type Script,
   type Sense
 } from './model'
 
@@ -64,6 +65,19 @@ export function createOrthography(name: string, isPrimary = false): Orthography 
   }
 }
 
+export function createScript(name: string): Script {
+  return {
+    id: newId(),
+    name,
+    type: 'alphabet',
+    direction: 'ltr',
+    font: { family: '', dataUrl: null, fileName: '' },
+    glyphs: [],
+    rules: '@glyphs',
+    notes: ''
+  }
+}
+
 export function createLanguage(init: Partial<Language> & { name: string }): Language {
   const primaryOrthoName = 'Romanization'
   return {
@@ -89,6 +103,7 @@ export function createLanguage(init: Partial<Language> & { name: string }): Lang
     },
     alphabet: [],
     dialects: [],
+    scripts: [],
     ...init
   }
 }
@@ -113,6 +128,7 @@ export function createLexeme(languageId: Id, lemma = ''): Lexeme {
     forms: {},
     pronunciations: {},
     relations: [],
+    scriptForms: {},
     notes: '',
     createdAt: t,
     updatedAt: t

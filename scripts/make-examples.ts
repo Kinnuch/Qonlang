@@ -8,7 +8,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import { createProject, createLanguage, createLexeme, createMorpheme, createRuleSet, createSentence, newId, now } from '$lib/core/factory'
+import { createProject, createLanguage, createLexeme, createMorpheme, createRuleSet, createSentence, createScript, newId, now } from '$lib/core/factory'
 import { serializeProject } from '$lib/core/serialize'
 import { parseCsv } from '$lib/core/csv'
 import { applyCsvImport, defaultMapping, type CsvMapping, type FieldSpec } from '$lib/importers/csvImport'
@@ -187,7 +187,21 @@ function makeAelith(): void {
     s.source = '夹具'
     p.sentences.push(s)
   }
-  p.meta.description = '黏着先验语测试夹具（虚构）：元音和谐、多槽位后缀、异体形环境。'
+  // 文字：用 Unicode 卢恩区做一套“Aelith 刻文”，无需外部字体
+  const runes = createScript('Aelith 刻文')
+  runes.type = 'alphabet'
+  runes.font.family = 'Segoe UI Historic'
+  const pairs: [string, string, string][] = [
+    ['a', 'ᚨ', 'ansuz'], ['e', 'ᛖ', 'ehwaz'], ['i', 'ᛁ', 'isaz'], ['o', 'ᛟ', 'othala'], ['u', 'ᚢ', 'uruz'], ['ö', 'ᛜ', 'ingwaz'], ['ü', 'ᛇ', 'eihwaz'],
+    ['p', 'ᛈ', 'pertho'], ['t', 'ᛏ', 'tiwaz'], ['k', 'ᚲ', 'kaunan'], ['b', 'ᛒ', 'berkanan'], ['d', 'ᛞ', 'dagaz'], ['g', 'ᚷ', 'gebo'],
+    ['m', 'ᛗ', 'mannaz'], ['n', 'ᚾ', 'naudiz'], ['s', 'ᛊ', 'sowilo'], ['v', 'ᚠ', 'fehu'], ['r', 'ᚱ', 'raido'], ['l', 'ᛚ', 'laguz'], ['j', 'ᛃ', 'jera'], ['w', 'ᚹ', 'wunjo']
+  ]
+  runes.glyphs = pairs.map(([value, char, name]) => ({ id: newId(), char, name, value, category: 'aeiouöü'.includes(value) ? 'vowel' : 'consonant', notes: '' }))
+  runes.glyphs.push({ id: newId(), char: '᛫', name: 'word divider', value: '', category: 'punct', notes: '' })
+  runes.rules = ['; 双写辅音只刻一次', 'C2 > C', '@glyphs'].join(String.fromCharCode(10))
+  runes.notes = '示例：拉丁转写 → 卢恩区字符，规则里先合并双辅音。'
+  L.scripts.push(runes)
+  p.meta.description = '黏着先验语测试夹具（虚构）：元音和谐、多槽位后缀、异体形环境、卢恩刻文。'
   save('Aelith.laim.json', p)
 }
 

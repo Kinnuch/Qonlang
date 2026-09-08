@@ -7,6 +7,8 @@ import { tokenize, buildIndex, analyzeToken, analyzeSentence, interlinear, toLei
 
 const p = parseProject(readFileSync(join(__dirname, '..', '..', 'examples', 'Aelith.laim.json'), 'utf8'))
 const L = p.languages[0]
+// 示例文件里的例句可能已确认分析，会影响首选与词频；这里只测引擎本身
+p.sentences = []
 
 describe('tokenize', () => {
   it('splits on whitespace and strips punctuation', () => {
@@ -68,7 +70,8 @@ describe('sentence analysis and rendering', () => {
     p.sentences.pop()
 
     const leipzig = toLeipzig(il)
-    expect(leipzig.split('\n')[0]).toMatch(/^ilen-ler\s+kaso-da\s+jat-du$/)
+    // 示例语言带一套文字，Leipzig 输出的首行是文字行
+    expect(leipzig.split('\n')[il.scripts.length]).toMatch(/^ilen-ler\s+kaso-da\s+jat-du$/)
     expect(toLatex(il)).toContain('\\gll ilen-ler kaso-da jat-du \\\\')
     expect(toHtml(il)).toContain('gl__g">孩子-PL<')
     expect(toMarkdown(il)).toContain('| ilen-ler | kaso-da | jat-du |')

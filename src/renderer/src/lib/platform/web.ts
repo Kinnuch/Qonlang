@@ -220,6 +220,25 @@ export const webPlatform: PlatformAPI = {
     })
     return Promise.all(files.map(async (f) => ({ name: f.name, content: await f.text() })))
   },
+  async readBinaryFiles(opts) {
+    const files = await new Promise<File[]>((resolve) => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.multiple = opts.multiple
+      input.accept = opts.extensions.map((e) => '.' + e).join(',')
+      input.onchange = () => resolve(Array.from(input.files ?? []))
+      input.oncancel = () => resolve([])
+      input.click()
+    })
+    return Promise.all(
+      files.map(async (f) => {
+        const buf = new Uint8Array(await f.arrayBuffer())
+        let bin = ''
+        for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000))
+        return { name: f.name, base64: btoa(bin) }
+      })
+    )
+  },
   async saveTextFile(suggestedName, content) {
     if (window.showSaveFilePicker) {
       try {

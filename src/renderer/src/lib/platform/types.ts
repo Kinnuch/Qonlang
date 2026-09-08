@@ -87,6 +87,8 @@ export interface PlatformAPI {
   exportFolder(files: Record<string, string>, suggestedName: string): Promise<boolean>
   /** 让用户选若干文本文件并读出内容（导入用） */
   readTextFiles(opts: { multiple: boolean; extensions: string[] }): Promise<{ name: string; content: string }[]>
+  /** 让用户选二进制文件（字体等），内容以 base64 返回 */
+  readBinaryFiles(opts: { multiple: boolean; extensions: string[] }): Promise<{ name: string; base64: string }[]>
   /** 把文本存成文件；用户取消返回 false */
   saveTextFile(suggestedName: string, content: string): Promise<boolean>
 

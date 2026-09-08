@@ -49,6 +49,9 @@ export const electronPlatform: PlatformAPI = {
   async readTextFiles(opts) {
     return (await bridge().invoke('file:readText', opts)) as { name: string; content: string }[]
   },
+  async readBinaryFiles(opts) {
+    return (await bridge().invoke('file:readBinary', opts)) as { name: string; base64: string }[]
+  },
   async saveTextFile(suggestedName, content) {
     return (await bridge().invoke('file:saveText', suggestedName, content)) as boolean
   },

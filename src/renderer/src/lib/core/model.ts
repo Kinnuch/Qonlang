@@ -95,6 +95,41 @@ export interface Language {
   alphabet: string[]
   /** 方言 / 语域标签（用户自定义） */
   dialects: Dialect[]
+  /** 自定义文字（书写系统），可多套 */
+  scripts: Script[]
+}
+
+// ───────────────────────── 文字 ─────────────────────────
+
+export type ScriptType = 'alphabet' | 'abjad' | 'abugida' | 'syllabary' | 'logographic' | 'featural' | 'mixed' | 'other'
+
+export interface Glyph {
+  id: Id
+  /** 字符本身（可含组合符号，PUA 亦可） */
+  char: string
+  /** 名称（来自字体 post 表或用户填写） */
+  name: string
+  /** 转写值：主正字法里对应的拼写；映射规则由此自动生成 */
+  value: string
+  /** 分类（字母 / 元音符号 / 附标 / 数字 / 标点……用户可改） */
+  category: string
+  notes: string
+}
+
+export interface Script {
+  id: Id
+  name: string
+  type: ScriptType
+  direction: TextDirection
+  /** 字体：family 为系统字体名；dataUrl 非空时为内嵌字体文件（注册为 FontFace） */
+  font: { family: string; dataUrl: string | null; fileName: string }
+  glyphs: Glyph[]
+  /**
+   * 转写 → 文字 的规则文本（与音变共用规则语言）。
+   * 其中一行 `@glyphs` 会展开为由字形表自动生成的映射（按转写值长度降序）。
+   */
+  rules: string
+  notes: string
 }
 
 export interface Phoneme {
@@ -278,6 +313,8 @@ export interface Lexeme {
   forms: Record<string, InflectedForm>
   /** orthographyId → 发音 */
   pronunciations: Record<Id, Pronunciation>
+  /** scriptId → 手工指定的文字写法（覆盖自动映射）；缺省时按文字规则自动生成 */
+  scriptForms: Record<Id, string>
   /** 用户标注的词间关系（同义、反义、参见……种类自定义） */
   relations: LexemeRelation[]
   notes: string

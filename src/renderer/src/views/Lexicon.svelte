@@ -9,6 +9,8 @@
   import { lexemesToRows, morphemesToRows } from '$lib/importers/csvImport'
   import { parseLexc, mergeLexicanter } from '$lib/importers/lexicanter'
   import { derivePronunciations } from '$lib/core/pronounce'
+  import { lexemeScript } from '$lib/script/render'
+  import { fontCss } from '$lib/script/fonts'
   import { paradigmFor, paradigmSlots, deriveForms, makeContext } from '$lib/engine/morph'
   import type { EtymologySource, Id, Lexeme } from '$lib/core/model'
   import Portal from '$lib/ui/Portal.svelte'
@@ -91,6 +93,7 @@
     for (const g of glossLangs) cols.push({ key: `def:${g}`, label: `${t('lexicon.colDefinition')} (${g})` })
     cols.push({ key: 'tags', label: t('lexicon.colTags') }, { key: 'proto', label: t('lexicon.colProto') }, { key: 'pron', label: t('lexicon.colPron') })
     for (const c of project.categories) cols.push({ key: `feat:${c.id}`, label: `${t('lexicon.colFeature')}: ${pickText(c.name, glossLangs)}` })
+    for (const lg of project.languages) if (!selLang || lg.id === selLang.id) for (const sc of lg.scripts) cols.push({ key: `script:${sc.id}`, label: t('script.lexiconColumn', { name: sc.name }) })
     const stems = new Set<string>()
     const forms = new Set<string>()
     for (const l of inLang) {
@@ -131,8 +134,17 @@
     }
     if (key.startsWith('stem:')) return l.stems[key.slice(5)] ?? ''
     if (key.startsWith('form:')) return l.forms[key.slice(5)]?.surface ?? ''
+    if (key.startsWith('script:')) {
+      const sc = scriptOf(key.slice(7))
+      const lg = project.languages.find((x) => x.id === l.languageId)
+      return sc && lg ? lexemeScript(lg, sc, l) : ''
+    }
     if (key === 'updated') return l.updatedAt.slice(0, 10)
     return ''
+  }
+  function scriptOf(id: string) {
+    for (const lg of project.languages) for (const sc of lg.scripts) if (sc.id === id) return sc
+    return null
   }
   const dataCol = (key: string): boolean => key === 'proto' || key === 'pron' || key.startsWith('stem:') || key.startsWith('form:')
 
@@ -339,6 +351,9 @@
                   <td class="pos">{#if l.posId}<span class="badge">{posLabel(l.posId)}</span>{/if}</td>
                 {:else if c.key === 'tags'}
                   <td class="tags-cell">{#each l.tags.slice(0, 4) as tg (tg)}<span class="badge">{tg}</span>{/each}</td>
+                {:else if c.key.startsWith('script:')}
+                  {@const sc = scriptOf(c.key.slice(7))}
+                  <td class="scr" style={sc ? fontCss(sc) : ''} dir={sc?.direction === 'rtl' ? 'rtl' : 'ltr'}>{cell(l, c.key)}</td>
                 {:else}
                   <td class:data={dataCol(c.key)} class:def={c.key.startsWith('def:')}>{cell(l, c.key)}</td>
                 {/if}
@@ -507,6 +522,17 @@
           </div>
         {/each}
       </div>
+      {#if selLang.scripts.length}
+        <div class="field">
+          <span class="small muted">{t('script.override')}</span>
+          {#each selLang.scripts as sc (sc.id)}
+            <div class="row kv">
+              <span class="small oname">{sc.name}</span>
+              <input class="input scr" style={fontCss(sc)} dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'} value={l.scriptForms?.[sc.id] ?? ''} placeholder={lexemeScript(selLang, sc, l, l.lemma)} title={t('script.overrideHint')} oninput={(e) => { if (!l.scriptForms) l.scriptForms = {}; const v = (e.currentTarget as HTMLInputElement).value; if (v) l.scriptForms[sc.id] = v; else delete l.scriptForms[sc.id]; touch(l) }} />
+            </div>
+          {/each}
+        </div>
+      {/if}
     {/if}
 
     <div class="field">
@@ -554,6 +580,10 @@
 {/if}
 
 <style>
+  .scr {
+    font-size: 18px;
+    line-height: 1.3;
+  }
   .page {
     padding: 20px 24px;
     display: flex;

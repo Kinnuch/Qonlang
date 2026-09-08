@@ -69,13 +69,17 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
   ] as const) {
     if (!Array.isArray(merged[key])) (merged as unknown as Record<string, unknown>)[key] = []
   }
-  for (const l of merged.lexemes) if (!Array.isArray(l.relations)) l.relations = []
+  for (const l of merged.lexemes) {
+    if (!Array.isArray(l.relations)) l.relations = []
+    if (!l.scriptForms || typeof l.scriptForms !== 'object') l.scriptForms = {}
+  }
   for (const lang of merged.languages) {
     if (!lang.prosody) lang.prosody = { type: 'none', stressPosition: 'initial', rules: '', tones: [] }
     if (!lang.prosody.stressPosition) lang.prosody.stressPosition = 'initial'
     if (!Array.isArray(lang.phonemes)) lang.phonemes = []
     if (!Array.isArray(lang.classes)) lang.classes = []
     if (!Array.isArray(lang.digraphs)) lang.digraphs = []
+    if (!Array.isArray(lang.scripts)) lang.scripts = []
   }
   return merged
 }

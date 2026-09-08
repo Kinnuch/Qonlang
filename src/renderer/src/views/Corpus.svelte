@@ -11,6 +11,8 @@
   import Hint from '$lib/ui/Hint.svelte'
   import { flashOn } from '$lib/ui/flash'
   import { wordHover } from '$lib/state/wordHover.svelte'
+  import { renderScript } from '$lib/script/render'
+  import { fontCss } from '$lib/script/fonts'
   import { Plus, Trash2, X, Copy, Wand2, RefreshCw, CheckCheck, Check, Sparkles } from '@lucide/svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -300,6 +302,10 @@
             <button class="btn ghost sm" onclick={() => analyze(true)}><RefreshCw size={14} />{t('corpus.reanalyze')}</button>
             <button class="btn ghost sm" onclick={confirmAll}><CheckCheck size={14} />{t('corpus.confirmAll')}</button>
           </div>
+          {#each language.scripts as sc (sc.id)}
+            {@const st = renderScript(language, sc, s.text)}
+            {#if st}<div class="scr" style={fontCss(sc)} dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'} title={sc.name}>{st}</div>{/if}
+          {/each}
           {#if s.tokens.length === 0}
             <p class="small muted">{t('corpus.noTokens')}</p>
           {:else}
@@ -334,6 +340,10 @@
             {@const c = coverage(s)}
             {@const done = fullyConfirmed(s)}
             <div class="card item" class:sel={selectedId === s.id} use:flashOn={justConfirmed === s.id} role="button" tabindex="0" onclick={() => (selectedId = s.id)} onkeydown={(e) => e.key === 'Enter' && (selectedId = s.id)}>
+              {#each language.scripts as sc (sc.id)}
+                {@const st = renderScript(language, sc, s.text)}
+                {#if st}<div class="scr" style={fontCss(sc)} dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'} title={sc.name}>{st}</div>{/if}
+              {/each}
               <div class="row">
                 {#if s.tokens.length}
                   <span class="data text grow words">
@@ -553,6 +563,10 @@
   }
   .text {
     font-size: 15px;
+  }
+  .scr {
+    font-size: 22px;
+    line-height: 1.3;
   }
   .words {
     display: flex;

@@ -4,6 +4,7 @@
  */
 import type { Analysis, Id, Lexeme, Morpheme, Project, Sentence, Token } from '$lib/core/model'
 import { paradigmFor, paradigmSlots } from '../morph'
+import { renderScript } from '$lib/script/render'
 
 export interface GlossIndex {
   lemma: Map<string, Lexeme[]>
@@ -198,6 +199,8 @@ export interface Interlinear {
   words: { surface: string; morphs: string; gloss: string; resolved: boolean }[]
   translation: string
   extra: { label: string; text: string }[]
+  /** 自定义文字行（每套文字一行） */
+  scripts: { name: string; text: string; scriptId: Id }[]
 }
 
 function joiner(a: Analysis, i: number, project: Project): string {
@@ -221,7 +224,9 @@ export function interlinear(project: Project, s: Sentence, glossLang?: string): 
   })
   const langs = glossLang ? [glossLang, ...project.settings.glossLanguages] : project.settings.glossLanguages
   const translation = langs.map((g) => s.translation[g]).find(Boolean) ?? Object.values(s.translation).find(Boolean) ?? ''
-  return { words, translation, extra: s.extraLines }
+  const lang = project.languages.find((l) => l.id === s.languageId)
+  const scripts = lang ? lang.scripts.map((sc) => ({ name: sc.name, scriptId: sc.id, text: renderScript(lang, sc, s.text) })).filter((x) => x.text) : []
+  return { words, translation, extra: s.extraLines, scripts }
 }
 
 function pad(s: string, n: number): string {
@@ -233,7 +238,7 @@ export function toLeipzig(il: Interlinear): string {
   const widths = il.words.map((w) => Math.max(...[w.morphs, w.gloss].map((x) => Array.from(x).reduce((a, c) => a + (/[\u3000-\u9fff\uff00-\uffef]/.test(c) ? 2 : 1), 0))) + 2)
   const line1 = il.words.map((w, i) => pad(w.morphs, widths[i])).join('').trimEnd()
   const line2 = il.words.map((w, i) => pad(w.gloss, widths[i])).join('').trimEnd()
-  const lines = [line1, line2]
+  const lines = [...il.scripts.map((x) => x.text), line1, line2]
   for (const e of il.extra) lines.push(`${e.label ? e.label + ': ' : ''}${e.text}`)
   lines.push(`‘${il.translation}’`)
   return lines.join('\n')
@@ -243,18 +248,19 @@ export function toMarkdown(il: Interlinear): string {
   const head = '| ' + il.words.map((w) => w.morphs).join(' | ') + ' |'
   const sep = '|' + il.words.map(() => ' --- ').join('|') + '|'
   const gl = '| ' + il.words.map((w) => w.gloss).join(' | ') + ' |'
-  return [head, sep, gl, '', `‘${il.translation}’`].join('\n')
+  return [...il.scripts.map((x) => x.text + '  '), head, sep, gl, '', `‘${il.translation}’`].join('\n')
 }
 
 export function toHtml(il: Interlinear): string {
   const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
   const words = il.words.map((w) => `<span class="gl__w"><span class="gl__m">${esc(w.morphs)}</span><span class="gl__g">${esc(w.gloss)}</span></span>`).join('')
-  return `<div class="gloss"><div class="gloss__row">${words}</div><div class="gloss__tr">${esc(il.translation)}</div></div>`
+  const scr = il.scripts.map((x) => `<div class="gloss__script">${esc(x.text)}</div>`).join('')
+  return `<div class="gloss">${scr}<div class="gloss__row">${words}</div><div class="gloss__tr">${esc(il.translation)}</div></div>`
 }
 
 export function toLatex(il: Interlinear): string {
   const esc = (s: string): string => s.replace(/([&%$#_{}])/g, '\\$1')
-  return ['\\begin{exe}', '\\ex', `\\gll ${il.words.map((w) => esc(w.morphs)).join(' ')} \\\\`, `${il.words.map((w) => esc(w.gloss)).join(' ')} \\\\`, `\\glt ‘${esc(il.translation)}’`, '\\end{exe}'].join('\n')
+  return ['\\begin{exe}', '\\ex', ...il.scripts.map((x) => esc(x.text) + ' \\\\'), `\\gll ${il.words.map((w) => esc(w.morphs)).join(' ')} \\\\`, `${il.words.map((w) => esc(w.gloss)).join(' ')} \\\\`, `\\glt ‘${esc(il.translation)}’`, '\\end{exe}'].join('\n')
 }
 
 /**
@@ -271,7 +277,8 @@ export function renderTemplate(template: string, il: Interlinear, s: Sentence): 
     translation: il.translation,
     source: s.source,
     morphs: il.words.map((w) => w.morphs).join(' '),
-    gloss: il.words.map((w) => w.gloss).join(' ')
+    gloss: il.words.map((w) => w.gloss).join(' '),
+    script: il.scripts.map((x) => x.text).join('\n')
   })
 }
 

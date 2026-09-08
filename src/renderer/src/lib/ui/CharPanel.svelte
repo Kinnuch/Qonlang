@@ -29,6 +29,7 @@
     type Sym
   } from '$lib/ipa/data'
   import { X, Search, GripHorizontal, Star, Copy, CornerDownLeft, Trash2 } from '@lucide/svelte'
+  import { fontCss } from '$lib/script/fonts'
 
   type Tab = 'pulmonic' | 'nonPulmonic' | 'vowels' | 'diacritics' | 'supra' | 'tones' | 'symbols' | 'latin' | 'compose' | 'recent' | 'saved' | 'project'
   const TABS: Tab[] = ['pulmonic', 'nonPulmonic', 'vowels', 'diacritics', 'supra', 'tones', 'symbols', 'latin', 'compose', 'recent', 'saved', 'project']
@@ -112,6 +113,7 @@
   }
 
   const projectPhonemes = $derived(projectState.currentLanguage?.phonemes ?? [])
+  const projectScripts = $derived((projectState.currentLanguage?.scripts ?? []).filter((s) => s.glyphs.length))
 </script>
 
 {#snippet symButton(s: string, info: Sym | undefined, big = false)}
@@ -308,12 +310,23 @@
             </div>
           {/if}
         {:else if tab === 'project'}
-          {#if projectPhonemes.length === 0}
+          {#if projectPhonemes.length === 0 && projectScripts.length === 0}
             <p class="muted small">{t('chars.projectEmpty')}</p>
           {:else}
-            <div class="grid">
-              {#each projectPhonemes as p (p.id)}{@render symButton(p.symbol, undefined)}{/each}
-            </div>
+            {#if projectPhonemes.length}
+              <p class="small muted">{t('chars.projectPhonemes')}</p>
+              <div class="grid">
+                {#each projectPhonemes as p (p.id)}{@render symButton(p.symbol, undefined)}{/each}
+              </div>
+            {/if}
+            {#each projectScripts as sc (sc.id)}
+              <p class="small muted">{t('chars.projectScript')} · {sc.name}</p>
+              <div class="grid" style={fontCss(sc)}>
+                {#each sc.glyphs as g (g.id)}
+                  <button class="sym" title={[g.value, g.name].filter(Boolean).join(' · ')} onmousedown={keepFocus} onclick={() => insert(g.char)} oncontextmenu={(e) => onContext(e, g.char)}>{g.char}</button>
+                {/each}
+              </div>
+            {/each}
           {/if}
         {/if}
       </div>

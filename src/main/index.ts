@@ -230,6 +230,20 @@ function registerIpc(): void {
     return out
   })
 
+  ipcMain.handle('file:readBinary', async (_e, opts: { multiple: boolean; extensions: string[] }) => {
+    const r = await dialog.showOpenDialog(mainWindow!, {
+      properties: opts.multiple ? ['openFile', 'multiSelections'] : ['openFile'],
+      filters: [
+        { name: 'Files', extensions: opts.extensions.length ? opts.extensions : ['*'] },
+        { name: 'All files', extensions: ['*'] }
+      ]
+    })
+    if (r.canceled) return []
+    const out: { name: string; base64: string }[] = []
+    for (const p of r.filePaths) out.push({ name: basename(p), base64: (await fs.readFile(p)).toString('base64') })
+    return out
+  })
+
   ipcMain.handle('file:saveText', async (_e, suggestedName: string, content: string) => {
     const r = await dialog.showSaveDialog(mainWindow!, { defaultPath: join(app.getPath('documents'), suggestedName) })
     if (r.canceled || !r.filePath) return false

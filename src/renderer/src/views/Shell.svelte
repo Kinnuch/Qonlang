@@ -6,6 +6,7 @@
   import {
     Globe,
     AudioLines,
+    PenTool,
     GitBranch,
     Puzzle,
     BookOpen,
@@ -21,6 +22,8 @@
   import { chars } from '$lib/state/chars.svelte'
   import CharPanel from '$lib/ui/CharPanel.svelte'
   import WordPopover from '$lib/ui/WordPopover.svelte'
+  import ScriptView from './ScriptView.svelte'
+  import { ensureScriptFont } from '$lib/script/fonts'
   import Languages from './Languages.svelte'
   import SoundChanges from './SoundChanges.svelte'
   import Morphemes from './Morphemes.svelte'
@@ -34,6 +37,7 @@
   const icons: Record<Section, Component<{ size?: number }>> = {
     languages: Globe,
     phonology: AudioLines,
+    script: PenTool,
     soundChanges: GitBranch,
     morphemes: Puzzle,
     lexicon: BookOpen,
@@ -44,6 +48,10 @@
   }
 
   let inspectorTitle = $state('')
+  // 注册各语言内嵌的文字字体
+  $effect(() => {
+    for (const l of projectState.project?.languages ?? []) for (const sc of l.scripts) ensureScriptFont(sc)
+  })
 
   // 拖动分隔条调整检视器宽度
   const MIN_W = 280
@@ -138,6 +146,8 @@
       <Languages bind:inspectorTitle />
     {:else if ui.section === 'soundChanges'}
       <SoundChanges bind:inspectorTitle />
+    {:else if ui.section === 'script'}
+      <ScriptView bind:inspectorTitle />
     {:else if ui.section === 'phonology'}
       <Phonology bind:inspectorTitle />
     {:else if ui.section === 'paradigms'}

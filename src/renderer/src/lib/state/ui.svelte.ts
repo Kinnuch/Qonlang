@@ -4,6 +4,7 @@ import { i18n, type LocaleCode } from '$lib/i18n/index.svelte'
 export type Section =
   | 'languages'
   | 'phonology'
+  | 'script'
   | 'soundChanges'
   | 'morphemes'
   | 'lexicon'
@@ -15,6 +16,7 @@ export type Section =
 export const SECTIONS: Section[] = [
   'languages',
   'phonology',
+  'script',
   'soundChanges',
   'morphemes',
   'lexicon',
