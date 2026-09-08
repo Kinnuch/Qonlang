@@ -16,6 +16,7 @@ interface Prefs {
   inspectorWidth: number
   recentSymbols: string[]
   savedSymbols: string[]
+  csvPresets: unknown[]
 }
 const DEFAULT_PREFS: Prefs = {
   locale: 'zh',
@@ -25,7 +26,8 @@ const DEFAULT_PREFS: Prefs = {
   reopenLast: true,
   inspectorWidth: 360,
   recentSymbols: [],
-  savedSymbols: []
+  savedSymbols: [],
+  csvPresets: []
 }
 
 interface RecentEntry {

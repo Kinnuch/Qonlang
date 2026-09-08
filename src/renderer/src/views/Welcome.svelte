@@ -5,6 +5,7 @@
   import { ui } from '$lib/state/ui.svelte'
   import { i18n, t, LOCALES } from '$lib/i18n/index.svelte'
   import type { ProjectTemplate } from '$lib/core/model'
+  import { createLanguage } from '$lib/core/factory'
   import { FolderOpen, FilePlus2, Clock, Trash2 } from '@lucide/svelte'
 
   let { snapshot, onsnapshothandled }: { snapshot: string | null; onsnapshothandled: () => void } = $props()
@@ -24,13 +25,42 @@
   const templates: { id: ProjectTemplate; available: boolean }[] = [
     { id: 'blank', available: true },
     { id: 'family', available: true },
-    { id: 'lexicanter', available: false },
-    { id: 'csv', available: false }
+    { id: 'lexicanter', available: true },
+    { id: 'csv', available: true }
   ]
+  let definitionLang = $state('')
 
-  function create(): void {
+  async function create(): Promise<void> {
     if (!template) return
     const n = name.trim() || t('app.untitled')
+    if (template === 'lexicanter') {
+      const [f] = await platform.readTextFiles({ multiple: false, extensions: ['lexc', 'json'] })
+      if (!f) return
+      try {
+        const { parseLexc, lexicanterToProject } = await import('$lib/importers/lexicanter')
+        const { project, report } = lexicanterToProject(parseLexc(f.content), {
+          definitionLang: definitionLang.trim() || (i18n.locale.startsWith('zh') ? 'zh' : 'en'),
+          uiLocale: i18n.locale,
+          appVersion: version
+        })
+        if (name.trim()) project.meta.name = name.trim()
+        projectState.load(project, null)
+        projectState.touch()
+        ui.toast(t('lexicon.lexicanterDone', { lexemes: report.lexemes, languages: report.languages.length }))
+      } catch (e) {
+        ui.error((e as Error).message)
+      }
+      return
+    }
+    if (template === 'csv') {
+      projectState.create({ name: n, template: 'csv', appVersion: version, uiLocale: i18n.locale })
+      projectState.project!.languages.push(createLanguage({ name: n }))
+      projectState.project!.settings.defaultLanguageId = projectState.project!.languages[0].id
+      projectState.currentLanguageId = projectState.project!.languages[0].id
+      ui.pendingImport = 'csv'
+      ui.section = 'lexicon'
+      return
+    }
     projectState.create({
       name: n,
       template,
@@ -146,6 +176,12 @@
           <label for="pname">{t('welcome.projectName')}</label>
           <input id="pname" class="input" bind:value={name} placeholder={t('app.untitled')} />
         </div>
+        {#if template === 'lexicanter'}
+          <div class="field">
+            <label for="deflang">{t('welcome.definitionLang')}</label>
+            <input id="deflang" class="input" bind:value={definitionLang} placeholder={i18n.locale.startsWith('zh') ? 'zh' : 'en'} />
+          </div>
+        {/if}
         {#if template === 'family'}
           <div class="field">
             <label for="proto">{t('welcome.protoName')}</label>
@@ -157,7 +193,7 @@
           </div>
         {/if}
         <div class="row">
-          <button class="btn primary" type="submit">{t('welcome.create')}</button>
+          <button class="btn primary" type="submit">{template === 'lexicanter' ? t('welcome.lexicanterPick') : t('welcome.create')}</button>
           <button class="btn ghost" type="button" onclick={() => (template = null)}>{t('common.cancel')}</button>
         </div>
       </form>

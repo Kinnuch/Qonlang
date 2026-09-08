@@ -37,6 +37,8 @@ let toastSeq = 0
 class UiState {
   section = $state<Section>('languages')
   inspectorOpen = $state(true)
+  /** 新建项目后要自动打开的导入向导 */
+  pendingImport = $state<'csv' | null>(null)
   prefs = $state<Prefs>({ ...DEFAULT_PREFS })
   prefsLoaded = $state(false)
   toasts = $state<Toast[]>([])

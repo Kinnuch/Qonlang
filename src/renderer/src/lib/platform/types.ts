@@ -37,6 +37,17 @@ export interface Prefs {
   recentSymbols: string[]
   /** 字符面板：用户收藏的符号或组合 */
   savedSymbols: string[]
+  /** CSV 导入向导保存的列映射预设 */
+  csvPresets: CsvPreset[]
+}
+
+export interface CsvPreset {
+  name: string
+  target: 'lexemes' | 'morphemes'
+  /** 表头名（或无表头时的列序号字符串）→ 字段 JSON */
+  columns: Record<string, unknown>
+  tagSeparator: string
+  splitProtoArrow: boolean
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -47,7 +58,8 @@ export const DEFAULT_PREFS: Prefs = {
   reopenLast: true,
   inspectorWidth: 360,
   recentSymbols: [],
-  savedSymbols: []
+  savedSymbols: [],
+  csvPresets: []
 }
 
 export interface AppInfo {

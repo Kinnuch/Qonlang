@@ -22,6 +22,8 @@
   import CharPanel from '$lib/ui/CharPanel.svelte'
   import Languages from './Languages.svelte'
   import SoundChanges from './SoundChanges.svelte'
+  import Morphemes from './Morphemes.svelte'
+  import Lexicon from './Lexicon.svelte'
   import SettingsView from './Settings.svelte'
   import Placeholder from './Placeholder.svelte'
 
@@ -130,6 +132,10 @@
       <Languages bind:inspectorTitle />
     {:else if ui.section === 'soundChanges'}
       <SoundChanges bind:inspectorTitle />
+    {:else if ui.section === 'morphemes'}
+      <Morphemes bind:inspectorTitle />
+    {:else if ui.section === 'lexicon'}
+      <Lexicon bind:inspectorTitle />
     {:else if ui.section === 'settings'}
       <SettingsView bind:inspectorTitle />
     {:else}

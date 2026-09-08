@@ -2,11 +2,11 @@
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t } from '$lib/i18n/index.svelte'
-  import { createLanguage, languageChildren, languageLineage, wouldCreateCycle, LANGUAGE_COLORS } from '$lib/core/factory'
+  import { createLanguage, languageChildren, languageLineage, wouldCreateCycle, LANGUAGE_COLORS, newId } from '$lib/core/factory'
   import type { Id, Language } from '$lib/core/model'
   import Portal from '$lib/ui/Portal.svelte'
   import LanguageNode from './LanguageNode.svelte'
-  import { Plus, Trash2, Star } from '@lucide/svelte'
+  import { Plus, Trash2, Star, X } from '@lucide/svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -144,6 +144,21 @@
       </div>
     </div>
     <div class="field">
+      <label for="lang-alphabet">{t('languages.alphabet')}</label>
+      <input id="lang-alphabet" class="input data" value={lang.alphabet.join(' ')} onchange={(e) => { lang.alphabet = (e.currentTarget as HTMLInputElement).value.split(/\s+/).filter(Boolean); projectState.touch() }} />
+      <span class="hint">{t('languages.alphabetHint')}</span>
+    </div>
+    <div class="field">
+      <div class="row"><span class="small muted grow">{t('languages.dialects')}</span><button class="btn ghost sm" onclick={() => { lang.dialects.push({ id: newId(), name: '', abbr: '' }); projectState.touch() }}><Plus size={14} />{t('languages.addDialect')}</button></div>
+      {#each lang.dialects as d, i (d.id)}
+        <div class="row dia">
+          <input class="input" placeholder={t('common.name')} bind:value={d.name} oninput={() => projectState.touch()} />
+          <input class="input abbr" placeholder={t('common.abbr')} bind:value={d.abbr} oninput={() => projectState.touch()} />
+          <button class="btn ghost icon sm" onclick={() => { lang.dialects.splice(i, 1); projectState.touch() }}><X size={14} /></button>
+        </div>
+      {/each}
+    </div>
+    <div class="field">
       <label for="lang-notes">{t('common.notes')}</label>
       <textarea id="lang-notes" class="textarea" bind:value={lang.notes} oninput={() => projectState.touch()}></textarea>
     </div>
@@ -232,5 +247,12 @@
     flex-wrap: wrap;
     gap: 6px;
     margin-top: 12px;
+  }
+  .dia {
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .dia .abbr {
+    width: 90px;
   }
 </style>
