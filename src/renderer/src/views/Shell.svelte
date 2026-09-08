@@ -26,6 +26,7 @@
   import Lexicon from './Lexicon.svelte'
   import Phonology from './Phonology.svelte'
   import Paradigms from './Paradigms.svelte'
+  import Corpus from './Corpus.svelte'
   import SettingsView from './Settings.svelte'
   import Placeholder from './Placeholder.svelte'
 
@@ -140,6 +141,8 @@
       <Phonology bind:inspectorTitle />
     {:else if ui.section === 'paradigms'}
       <Paradigms bind:inspectorTitle />
+    {:else if ui.section === 'corpus'}
+      <Corpus bind:inspectorTitle />
     {:else if ui.section === 'morphemes'}
       <Morphemes bind:inspectorTitle />
     {:else if ui.section === 'lexicon'}
