@@ -142,13 +142,14 @@ function makeAelith(): void {
       '{Back}=a o u',
       '{Front}=e ö ü',
       '-* 底层',
-      'Ŭ > / V¢_',
-      'Ŭ > U / _',
       'A > e / {Front}[^aeouöü]*_',
       'A > a / _',
       'U > ü / {Front}[^aeouöü]*_',
       'U > u / _',
       'I > i / _',
+      'Ŭ > / V¢_',
+      'Ŭ > ü / {Front}[^aeouöü]*_',
+      'Ŭ > u / _',
       '¢ > / _',
       '-* 表层'
     ].join('\n')
