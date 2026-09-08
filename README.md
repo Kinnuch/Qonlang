@@ -32,6 +32,8 @@ Windows 下若 PowerShell 提示「禁止运行脚本」，双击 `dev.cmd` 启�
 **正式发布用 GitHub Actions 同时出两个平台**：`npm run release`（或手动 `git tag v0.3.0 && git push origin v0.3.0`）。
 推 tag 后 `.github/workflows/release.yml` 会在 Windows 与 macOS 的 runner 上各自打包，并把 Windows 安装包、macOS 的 dmg / zip（Intel 与 Apple Silicon）一起挂到同名 GitHub Release。
 
+Windows 上打不了 macOS 包（electron-builder 只允许在 macOS 上构建 mac 目标）；本机想要 mac 包时用 `npm run fetch:release -- v0.3.0 mac` 把 CI 打好的产物拉到 `dist/release/<tag>/`。
+
 macOS 版没有签名与公证（没有 Apple 开发者账号），首次打开会被 Gatekeeper 拦：右键应用 →「打开」，或在终端执行 `xattr -cr /Applications/Qonlang.app`。macOS / Linux 从源码运行用 `sh dev.sh`。
 
 ## 结构
