@@ -22,6 +22,7 @@
   import RuleChainGraph from '$lib/ui/RuleChainGraph.svelte'
   import EvolvePanel from '$lib/ui/EvolvePanel.svelte'
   import { languageParseOptions } from '$lib/engine/phon'
+  import { guideUrl } from '$lib/core/guide'
   import {
     Plus,
     Trash2,
@@ -323,7 +324,7 @@
         >
         <a
           class="btn ghost sm"
-          href="https://github.com/kinnuch/qonlang/blob/main/docs/rules.md"
+          href={guideUrl('soundChanges', 'rule-language')}
           target="_blank"
           rel="noreferrer"><BookOpen size={14} />{t('soundChanges.syntaxHelp')}</a
         >

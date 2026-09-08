@@ -19,6 +19,8 @@ const en: Dict = {
     undo: 'Undo',
     close: 'Close',
     ok: 'OK',
+    guide: 'User guide',
+    guideTitle: 'Open the guide for “{name}” (author’s website)',
     add: 'Add',
     edit: 'Edit',
     name: 'Name',

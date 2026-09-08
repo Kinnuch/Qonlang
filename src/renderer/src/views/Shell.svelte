@@ -30,6 +30,7 @@
   import Docs from './Docs.svelte'
   import CommandPalette from '$lib/ui/CommandPalette.svelte'
   import PromptDialog from '$lib/ui/PromptDialog.svelte'
+  import { guideUrl } from '$lib/core/guide'
   import { ensureScriptFont } from '$lib/script/fonts'
   import Languages from './Languages.svelte'
   import SoundChanges from './SoundChanges.svelte'
@@ -246,6 +247,14 @@
         <Placeholder section={ui.section} bind:inspectorTitle />
       {/if}
     </svelte:boundary>
+    <a
+      class="guide"
+      href={guideUrl(ui.section)}
+      target="_blank"
+      rel="noreferrer"
+      title={t('common.guideTitle', { name: t(`nav.${ui.section}`) })}
+      ><BookOpen size={14} />{t('common.guide')}</a
+    >
   </main>
 
   <aside class="inspector" hidden={!ui.inspectorOpen}>
@@ -370,6 +379,30 @@
     grid-area: main;
     overflow: auto;
     min-width: 0;
+    position: relative;
+  }
+  .guide {
+    position: absolute;
+    right: 18px;
+    bottom: 12px;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    color: var(--text-2);
+    font-size: 12px;
+    text-decoration: none;
+    box-shadow: var(--shadow);
+    opacity: 0.85;
+  }
+  .guide:hover {
+    opacity: 1;
+    color: var(--accent-text);
+    border-color: var(--accent);
   }
   .inspector {
     grid-area: insp;

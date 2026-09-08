@@ -7,6 +7,7 @@
   import type { ProjectTemplate } from '$lib/core/model'
   import { createLanguage } from '$lib/core/factory'
   import { mdToHtml } from '$lib/core/markdown'
+  import { guideUrl } from '$lib/core/guide'
   import {
     FolderOpen,
     FilePlus2,
@@ -16,7 +17,8 @@
     ScrollText,
     User,
     Link2,
-    ExternalLink
+    ExternalLink,
+    BookOpen
   } from '@lucide/svelte'
   import changelogRaw from '../../../../CHANGELOG.md?raw'
   import wechatQr from '../assets/img/wechat-qr.png'
@@ -284,6 +286,9 @@
     <div class="footer-spacer"></div>
     <div class="footer">
       <div class="row footer-bar">
+        <button class="btn" onclick={() => open(guideUrl('welcome'))}
+          ><BookOpen size={16} />{t('common.guide')}</button
+        >
         <button
           class="btn"
           class:active={footerPanel === 'coffee'}

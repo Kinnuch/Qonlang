@@ -15,6 +15,8 @@ export default {
     undo: '撤销',
     close: '关闭',
     ok: '确定',
+    guide: '使用指南',
+    guideTitle: '打开「{name}」的使用指南（个人网站）',
     add: '添加',
     edit: '编辑',
     name: '名称',

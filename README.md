@@ -7,7 +7,7 @@ A workbench for every conlanger: lexicon and roots, sound-change rules, automati
 phonemic transcription, automatic interlinear glossing. Works for a priori and
 a posteriori languages alike; nothing language-specific is baked in.
 
-设计大纲见 [docs/outline.md](docs/outline.md)。
+使用指南（分模块）：<https://kinnuch.github.io/cerf/qonlang/>。设计大纲见 [docs/outline.md](docs/outline.md)。
 
 ## 开发
 
