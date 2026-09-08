@@ -17,6 +17,8 @@
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
+    "pack:win": "bash scripts/pack-win.sh",
+    "installer:win": "bash scripts/pack-win.sh && electron-builder --win nsis --prepackaged dist/win-unpacked",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux",

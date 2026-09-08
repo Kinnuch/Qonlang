@@ -21,5 +21,11 @@ require("fs").writeFileSync("dist/app-stage/package.json", JSON.stringify({
 npx --yes @electron/asar pack dist/app-stage "$OUT/resources/app.asar"
 rm -f "$OUT/resources/default_app.asar"
 mv -f "$OUT/electron.exe" "$OUT/Qonlang.exe"
+# 给 exe 写入图标与版本信息（rcedit 随 electron-winstaller 附带）
+RCEDIT=node_modules/electron-winstaller/vendor/rcedit.exe
+if [ -f "$RCEDIT" ]; then
+  VER=$(node -p 'require("./package.json").version')
+  "$RCEDIT" "$OUT/Qonlang.exe" --set-icon build/icon.ico --set-version-string ProductName Qonlang --set-version-string FileDescription "Qonlang 千语集" --set-version-string CompanyName Kinnuch --set-version-string LegalCopyright "MIT" --set-file-version "$VER" --set-product-version "$VER" || echo "rcedit failed (icon not embedded)"
+fi
 rm -rf dist/app-stage
 echo "done: $OUT/Qonlang.exe"
