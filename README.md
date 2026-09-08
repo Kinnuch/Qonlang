@@ -1,4 +1,4 @@
-# 千语集 · Qianyuji
+# 千语集 · Qonlang
 
 给所有造语者的工作台：录入词汇与词根、制订音变规则、按音系自动标音、自动 gloss 例句。
 先验语、后验语、单语、语系都能用；软件不内置任何一门语言的术语，一切分类由你定义。
@@ -21,7 +21,7 @@ npm run build:web  # 网页版静态文件 → dist/web
 ```
 
 Windows 下若 PowerShell 提示「禁止运行脚本」，双击 `dev.cmd` 启动开发版，或改用 `npm.cmd run dev`；
-也可以直接用 `npm run build:unpack` 打出免安装的 `dist/win-unpacked/qianyuji.exe`。
+也可以直接用 `npm run build:unpack` 打出免安装的 `dist/win-unpacked/qonlang.exe`。
 
 ## 结构
 

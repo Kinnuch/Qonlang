@@ -1,5 +1,5 @@
-appId: io.github.kinnuch.qianyuji
-productName: 千语集
+appId: io.github.kinnuch.qonlang
+productName: Qonlang
 directories:
   buildResources: build
 files:
@@ -18,9 +18,9 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: qianyuji
+  executableName: qonlang
 nsis:
-  artifactName: qianyuji-${version}-setup.${ext}
+  artifactName: qonlang-${version}-setup.${ext}
   shortcutName: 千语集
   uninstallDisplayName: 千语集
   createDesktopShortcut: always
@@ -30,7 +30,7 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   notarize: false
 dmg:
-  artifactName: qianyuji-${version}.${ext}
+  artifactName: qonlang-${version}.${ext}
 linux:
   target:
     - AppImage
@@ -38,5 +38,5 @@ linux:
   maintainer: Kinnuch
   category: Utility
 appImage:
-  artifactName: qianyuji-${version}.${ext}
+  artifactName: qonlang-${version}.${ext}
 npmRebuild: false

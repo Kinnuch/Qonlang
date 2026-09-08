@@ -234,7 +234,7 @@
         {#if warnCount}<span class="badge warn">{t('soundChanges.warnings', { n: warnCount })}</span>{/if}
         {#if !errorCount && !warnCount}<span class="badge">{t('soundChanges.noDiagnostics')}</span>{/if}
         <button class="btn ghost sm" onclick={exportText}><Download size={14} />{t('soundChanges.exportText')}</button>
-        <a class="btn ghost sm" href="https://github.com/kinnuch/qianyuji/blob/main/docs/rules.md" target="_blank" rel="noreferrer"><BookOpen size={14} />{t('soundChanges.syntaxHelp')}</a>
+        <a class="btn ghost sm" href="https://github.com/kinnuch/qonlang/blob/main/docs/rules.md" target="_blank" rel="noreferrer"><BookOpen size={14} />{t('soundChanges.syntaxHelp')}</a>
       </div>
       {#if program && program.diagnostics.length}
         <ul class="diags">

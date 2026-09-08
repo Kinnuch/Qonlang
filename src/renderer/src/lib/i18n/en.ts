@@ -4,7 +4,7 @@ type Dict = typeof zh
 
 const en: Dict = {
   app: {
-    name: 'Qianyuji',
+    name: 'Qonlang',
     tagline: 'A workbench for every conlanger',
     untitled: 'Untitled project',
     untitledLanguage: 'Untitled language'
@@ -75,6 +75,11 @@ const en: Dict = {
     },
     lexicanterPick: 'Choose a .lexc file',
     definitionLang: 'Language of the definition text',
+    coffee: 'Buy me a coffee',
+    changelog: 'Changelog',
+    developer: 'Developer',
+    friends: 'Friends',
+    scanWechat: 'Scan with WeChat. Thank you!',
     projectName: 'Project name',
     protoName: 'Proto-language name',
     daughterNames: 'Daughter languages (one per line)',
@@ -109,7 +114,7 @@ const en: Dict = {
     importYinbianji: 'Yinbianji files (Category / Replace / Rule)',
     importLexicanter: 'Lexicanter pronunciation rules',
     importSca2: 'Zompist SCA² rules',
-    importPlain: 'Qianyuji rule text',
+    importPlain: 'Qonlang rule text',
     exportText: 'Export as text',
     editorPlaceholder: 'Write rules here. Example:\nV=aeiou\n-* Proto\na > e / _i\n-* Modern',
     diagnostics: 'Diagnostics',
@@ -642,8 +647,8 @@ const en: Dict = {
   },
   errors: {
     invalidJson: 'The file is not valid JSON.',
-    notAProject: 'The file is not a Qianyuji project.',
-    newerSchema: 'This file was created by a newer Qianyuji; please update.',
+    notAProject: 'The file is not a Qonlang project.',
+    newerSchema: 'This file was created by a newer Qonlang; please update.',
     saveFailed: 'Save failed: {msg}',
     openFailed: 'Open failed: {msg}'
   },

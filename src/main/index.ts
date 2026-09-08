@@ -4,7 +4,7 @@ import { promises as fs } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
-const APP_ID = 'io.github.kinnuch.qianyuji'
+const APP_ID = 'io.github.kinnuch.qonlang'
 const RECENT_MAX = 10
 
 interface Prefs {
@@ -169,7 +169,7 @@ function registerIpc(): void {
     const r = await dialog.showOpenDialog(mainWindow!, {
       properties: ['openFile'],
       filters: [
-        { name: 'Qianyuji project', extensions: ['json'] },
+        { name: 'Qonlang project', extensions: ['json'] },
         { name: 'All files', extensions: ['*'] }
       ]
     })
@@ -189,7 +189,7 @@ function registerIpc(): void {
   ipcMain.handle('project:saveAs', async (_e, suggestedName: string) => {
     const r = await dialog.showSaveDialog(mainWindow!, {
       defaultPath: join(app.getPath('documents'), suggestedName),
-      filters: [{ name: 'Qianyuji project', extensions: ['json'] }]
+      filters: [{ name: 'Qonlang project', extensions: ['json'] }]
     })
     return r.canceled || !r.filePath ? null : r.filePath
   })

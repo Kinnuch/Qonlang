@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 手动打 Windows 免安装版（绕过 electron-builder 在某些机器上的目录改名 EPERM）。
-# 产物：dist/win-unpacked/qianyuji.exe
+# 产物：dist/win-unpacked/qonlang.exe
 # 前提：已 npm install；electron 二进制已在 node_modules/electron/dist。
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -16,10 +16,10 @@ cp -r node_modules/@electron-toolkit/utils dist/app-stage/node_modules/@electron
 node -e '
 const p = require("./package.json");
 require("fs").writeFileSync("dist/app-stage/package.json", JSON.stringify({
-  name: p.name, productName: "千语集", version: p.version, description: p.description,
+  name: p.name, productName: "Qonlang", version: p.version, description: p.description,
   main: p.main, author: "Kinnuch", license: "MIT", private: true }, null, 2));'
 npx --yes @electron/asar pack dist/app-stage "$OUT/resources/app.asar"
 rm -f "$OUT/resources/default_app.asar"
-mv -f "$OUT/electron.exe" "$OUT/qianyuji.exe"
+mv -f "$OUT/electron.exe" "$OUT/qonlang.exe"
 rm -rf dist/app-stage
-echo "done: $OUT/qianyuji.exe"
+echo "done: $OUT/qonlang.exe"

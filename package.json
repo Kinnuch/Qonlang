@@ -1,12 +1,12 @@
 {
-  "name": "qianyuji",
+  "name": "qonlang",
   "version": "0.1.0",
-  "description": "千语集 Qianyuji — a workbench for every conlanger: lexicon, sound changes, phonology, glossing.",
+  "description": "千语集 Qonlang — a workbench for every conlanger: lexicon, sound changes, phonology, paradigms, glossing.",
   "main": "./out/main/index.js",
   "author": {
     "name": "Kinnuch"
   },
-  "homepage": "https://github.com/kinnuch/qianyuji",
+  "homepage": "https://github.com/kinnuch/qonlang",
   "scripts": {
     "format": "prettier --plugin prettier-plugin-svelte --write .",
     "lint": "eslint --cache .",

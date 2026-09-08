@@ -6,7 +6,60 @@
   import { i18n, t, LOCALES } from '$lib/i18n/index.svelte'
   import type { ProjectTemplate } from '$lib/core/model'
   import { createLanguage } from '$lib/core/factory'
-  import { FolderOpen, FilePlus2, Clock, Trash2 } from '@lucide/svelte'
+  import { FolderOpen, FilePlus2, Clock, Trash2, Coffee, ScrollText, User, Link2, ExternalLink } from '@lucide/svelte'
+  import changelogRaw from '../../../../CHANGELOG.md?raw'
+  import wechatQr from '../assets/img/wechat-qr.png'
+  import iconGilatod from '../assets/friends/gilatod.png'
+  import iconKikomas from '../assets/friends/kikomas.png'
+  import iconCathamos from '../assets/friends/cathamos.png'
+
+  const WIKI_URL = 'https://wiki.gilatod.art'
+  const DEV = { name: 'Kinnuch', site: 'https://kinnuch.github.io', github: 'https://github.com/Kinnuch', email: '1900017838@pku.edu.cn' }
+  const FRIENDS = [
+    { name: '荏苒之境主站', url: 'https://gilatod.art', icon: iconGilatod, blurb: 'Gilatod，长期合作的朋友的主站。' },
+    { name: 'Kikomas', url: 'https://kikomas.art', icon: iconKikomas, blurb: '插画与视觉创作。' },
+    { name: 'Cathamos', url: 'https://cathamos.github.io', icon: iconCathamos, blurb: 'Cathamos 的个人站点。' },
+    { name: 'Sicusa', url: 'https://github.com/sicusa', icon: null, blurb: 'GitHub 主页。' }
+  ]
+  let footerPanel = $state<'coffee' | 'changelog' | 'dev' | 'friends' | null>(null)
+
+  /** 极简 Markdown：标题、列表、段落 */
+  function mdToHtml(md: string): string {
+    const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    const lines = md.split(/\r?\n/)
+    let html = ''
+    let inList = false
+    for (const raw of lines) {
+      const line = raw.trimEnd()
+      const h = /^(#{1,4})\s+(.*)$/.exec(line)
+      if (h) {
+        if (inList) {
+          html += '</ul>'
+          inList = false
+        }
+        html += `<h${h[1].length + 1}>${esc(h[2])}</h${h[1].length + 1}>`
+        continue
+      }
+      const li = /^\s*[-*]\s+(.*)$/.exec(line)
+      if (li) {
+        if (!inList) {
+          html += '<ul>'
+          inList = true
+        }
+        html += `<li>${esc(li[1]).replace(/`([^`]+)`/g, '<code>$1</code>')}</li>`
+        continue
+      }
+      if (inList) {
+        html += '</ul>'
+        inList = false
+      }
+      if (line.trim()) html += `<p>${esc(line)}</p>`
+    }
+    if (inList) html += '</ul>'
+    return html
+  }
+  const changelogHtml = mdToHtml(changelogRaw)
+  const open = (url: string): void => void platform.openExternal(url)
 
   let { snapshot, onsnapshothandled }: { snapshot: string | null; onsnapshothandled: () => void } = $props()
 
@@ -154,6 +207,12 @@
       </div>
     {/if}
 
+    <button class="banner card" onclick={() => open(WIKI_URL)}>
+      <span class="banner-mark">✦</span>
+      <span class="banner-text">万千世界的历史由图书管理员于此编纂，直至时间终结。</span>
+      <span class="banner-link">wiki.gilatod.art <ExternalLink size={13} /></span>
+    </button>
+
     <h2>{t('welcome.templates.title')}</h2>
     <div class="templates">
       {#each templates as tp (tp.id)}
@@ -198,6 +257,42 @@
         </div>
       </form>
     {/if}
+
+    <div class="footer-spacer"></div>
+    <div class="footer">
+      <div class="row footer-bar">
+        <button class="btn" class:active={footerPanel === 'coffee'} onclick={() => (footerPanel = footerPanel === 'coffee' ? null : 'coffee')}><Coffee size={16} />{t('welcome.coffee')}</button>
+        <button class="btn" class:active={footerPanel === 'changelog'} onclick={() => (footerPanel = footerPanel === 'changelog' ? null : 'changelog')}><ScrollText size={16} />{t('welcome.changelog')}</button>
+        <button class="btn" class:active={footerPanel === 'dev'} onclick={() => (footerPanel = footerPanel === 'dev' ? null : 'dev')}><User size={16} />{t('welcome.developer')}</button>
+        <button class="btn" class:active={footerPanel === 'friends'} onclick={() => (footerPanel = footerPanel === 'friends' ? null : 'friends')}><Link2 size={16} />{t('welcome.friends')}</button>
+      </div>
+      {#if footerPanel === 'coffee'}
+        <div class="card panel coffee">
+          <img src={wechatQr} alt="WeChat Pay" />
+          <p class="small muted">{t('welcome.scanWechat')}</p>
+        </div>
+      {:else if footerPanel === 'changelog'}
+        <div class="card panel md">{@html changelogHtml}</div>
+      {:else if footerPanel === 'dev'}
+        <div class="card panel dev">
+          <strong>{DEV.name}</strong>
+          <button class="link" onclick={() => open(DEV.site)}>{DEV.site}</button>
+          <button class="link" onclick={() => open(DEV.github)}>{DEV.github}</button>
+          <span class="small muted">{DEV.email}</span>
+          <span class="small muted">{t('settings.license')} · {t('app.name')} v{version}</span>
+        </div>
+      {:else if footerPanel === 'friends'}
+        <div class="card panel friends">
+          {#each FRIENDS as f (f.url)}
+            <button class="friend" onclick={() => open(f.url)}>
+              {#if f.icon}<img src={f.icon} alt={f.name} />{:else}<span class="ficon">{f.name[0]}</span>{/if}
+              <span class="grow"><strong>{f.name}</strong><span class="small muted">{f.blurb}</span></span>
+              <ExternalLink size={13} />
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
   </main>
 </div>
 
@@ -329,5 +424,156 @@
   .form {
     padding: 20px;
     max-width: 520px;
+  }
+  .main {
+    display: flex;
+    flex-direction: column;
+  }
+  .banner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 14px 18px;
+    margin-bottom: 24px;
+    text-align: left;
+    cursor: pointer;
+    background: linear-gradient(90deg, var(--accent-soft), var(--bg-elev));
+    border-color: var(--accent);
+    transition: box-shadow 0.15s;
+  }
+  .banner:hover {
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .banner-mark {
+    color: var(--accent);
+    font-size: 18px;
+  }
+  .banner-text {
+    flex: 1;
+    font-family: var(--font-data);
+    font-size: 16px;
+    letter-spacing: 0.02em;
+  }
+  .banner-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--accent-text);
+    white-space: nowrap;
+  }
+  .footer-spacer {
+    flex: 1;
+    min-height: 24px;
+  }
+  .footer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .footer-bar {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .footer .btn.active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-text);
+  }
+  .panel {
+    padding: 16px 20px;
+    animation: rise 0.18s ease-out;
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+  .coffee {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .coffee img {
+    width: 260px;
+    border-radius: var(--radius);
+  }
+  .md :global(h2) {
+    font-size: 15px;
+    margin: 10px 0 4px;
+  }
+  .md :global(h3),
+  .md :global(h4) {
+    font-size: 13px;
+    margin: 8px 0 2px;
+    color: var(--text-2);
+  }
+  .md :global(ul) {
+    margin: 0 0 6px;
+    padding-left: 20px;
+    font-size: 13px;
+  }
+  .md :global(p) {
+    font-size: 13px;
+  }
+  .md {
+    max-height: 320px;
+    overflow: auto;
+  }
+  .dev {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .link {
+    border: 0;
+    background: none;
+    padding: 0;
+    color: var(--accent-text);
+    cursor: pointer;
+    text-align: left;
+  }
+  .friends {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .friend {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    cursor: pointer;
+    text-align: left;
+  }
+  .friend:hover {
+    border-color: var(--accent);
+  }
+  .friend img,
+  .ficon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: none;
+  }
+  .ficon {
+    display: grid;
+    place-items: center;
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+  .friend .grow {
+    display: flex;
+    flex-direction: column;
   }
 </style>

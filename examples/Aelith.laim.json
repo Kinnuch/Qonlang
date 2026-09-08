@@ -6,7 +6,7 @@
     "description": "黏着先验语测试夹具（虚构）：元音和谐、多槽位后缀、异体形环境。",
     "author": "",
     "createdAt": "2026-09-08T05:52:53.983Z",
-    "updatedAt": "2026-09-08T05:52:53.983Z",
+    "updatedAt": "2026-09-08T07:34:25.325Z",
     "template": "blank",
     "appVersion": "0.1.0"
   },
@@ -2369,7 +2369,77 @@
       },
       "source": "夹具",
       "tags": [],
-      "tokens": [],
+      "tokens": [
+        {
+          "surface": "ilenler",
+          "analyses": [
+            {
+              "lexemeId": "9bc7db83-24e8-48fa-89a3-89a2c2aad8fd",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "ilen",
+                  "gloss": "孩子",
+                  "morphemeId": null
+                },
+                {
+                  "form": "ler",
+                  "gloss": "PL",
+                  "morphemeId": "a9645b00-f543-4c0d-9ca3-153804922a45"
+                }
+              ]
+            }
+          ],
+          "chosen": 0,
+          "confirmed": true
+        },
+        {
+          "surface": "kasoda",
+          "analyses": [
+            {
+              "lexemeId": "6e23862e-75c7-4166-9205-522e32505baa",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "kaso",
+                  "gloss": "房子",
+                  "morphemeId": null
+                },
+                {
+                  "form": "da",
+                  "gloss": "LOC",
+                  "morphemeId": "286c786c-8a16-4895-be8a-a653c2b4747c"
+                }
+              ]
+            }
+          ],
+          "chosen": 0,
+          "confirmed": true
+        },
+        {
+          "surface": "jatdu",
+          "analyses": [
+            {
+              "lexemeId": "c44e5bcd-373f-4bb3-b735-df2d235126f9",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "jat",
+                  "gloss": "睡",
+                  "morphemeId": null
+                },
+                {
+                  "form": "du",
+                  "gloss": "PST",
+                  "morphemeId": "ea838725-56fc-4d6f-9e9c-670bf411a8a6"
+                }
+              ]
+            }
+          ],
+          "chosen": 0,
+          "confirmed": true
+        }
+      ],
       "extraLines": [],
       "notes": ""
     },
@@ -2384,7 +2454,167 @@
       },
       "source": "夹具",
       "tags": [],
-      "tokens": [],
+      "tokens": [
+        {
+          "surface": "men",
+          "analyses": [
+            {
+              "lexemeId": "34f2e5b7-1492-4cdf-a776-5148ab304c89",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "men",
+                  "gloss": "我",
+                  "morphemeId": null
+                }
+              ]
+            },
+            {
+              "lexemeId": null,
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "me",
+                  "gloss": "NEG",
+                  "morphemeId": "fb3c5582-34f5-4a98-aae3-bff7f161f01b"
+                },
+                {
+                  "form": "n",
+                  "gloss": "2SG.POSS",
+                  "morphemeId": "41b6ceba-1721-417f-987a-657e9b524d16"
+                }
+              ]
+            }
+          ],
+          "chosen": 0,
+          "confirmed": false
+        },
+        {
+          "surface": "teliüm",
+          "analyses": [
+            {
+              "lexemeId": "3e01a148-cdb8-4d8f-9b5d-62f1f94f9943",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "teli",
+                  "gloss": "水",
+                  "morphemeId": null
+                },
+                {
+                  "form": "üm",
+                  "gloss": "ACC",
+                  "morphemeId": "17fba099-4f4a-4690-a503-fedba9675edb"
+                }
+              ]
+            },
+            {
+              "lexemeId": "3e01a148-cdb8-4d8f-9b5d-62f1f94f9943",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "teli",
+                  "gloss": "水",
+                  "morphemeId": null
+                },
+                {
+                  "form": "üm",
+                  "gloss": "1SG.POSS",
+                  "morphemeId": "ac7aaeb9-fadb-4239-b633-cbf2cbc0eae3"
+                }
+              ]
+            },
+            {
+              "lexemeId": "3e01a148-cdb8-4d8f-9b5d-62f1f94f9943",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "teli",
+                  "gloss": "水",
+                  "morphemeId": null
+                },
+                {
+                  "form": "üm",
+                  "gloss": "1SG",
+                  "morphemeId": "ac768d4d-3d41-428b-bfaa-8542ed53df8c"
+                }
+              ]
+            }
+          ],
+          "chosen": 0,
+          "confirmed": false
+        },
+        {
+          "surface": "aldum",
+          "analyses": [
+            {
+              "lexemeId": "f27f7d68-29a7-4ee1-a146-f5c7b3ef8996",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "al",
+                  "gloss": "拿",
+                  "morphemeId": null
+                },
+                {
+                  "form": "du",
+                  "gloss": "PST",
+                  "morphemeId": "ea838725-56fc-4d6f-9e9c-670bf411a8a6"
+                },
+                {
+                  "form": "m",
+                  "gloss": "ACC",
+                  "morphemeId": "17fba099-4f4a-4690-a503-fedba9675edb"
+                }
+              ]
+            },
+            {
+              "lexemeId": "f27f7d68-29a7-4ee1-a146-f5c7b3ef8996",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "al",
+                  "gloss": "拿",
+                  "morphemeId": null
+                },
+                {
+                  "form": "du",
+                  "gloss": "PST",
+                  "morphemeId": "ea838725-56fc-4d6f-9e9c-670bf411a8a6"
+                },
+                {
+                  "form": "m",
+                  "gloss": "1SG.POSS",
+                  "morphemeId": "ac7aaeb9-fadb-4239-b633-cbf2cbc0eae3"
+                }
+              ]
+            },
+            {
+              "lexemeId": "f27f7d68-29a7-4ee1-a146-f5c7b3ef8996",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "al",
+                  "gloss": "拿",
+                  "morphemeId": null
+                },
+                {
+                  "form": "du",
+                  "gloss": "PST",
+                  "morphemeId": "ea838725-56fc-4d6f-9e9c-670bf411a8a6"
+                },
+                {
+                  "form": "m",
+                  "gloss": "1SG",
+                  "morphemeId": "ac768d4d-3d41-428b-bfaa-8542ed53df8c"
+                }
+              ]
+            }
+          ],
+          "chosen": 0,
+          "confirmed": false
+        }
+      ],
       "extraLines": [],
       "notes": ""
     },
@@ -2399,7 +2629,138 @@
       },
       "source": "夹具",
       "tags": [],
-      "tokens": [],
+      "tokens": [
+        {
+          "surface": "sen",
+          "analyses": [
+            {
+              "lexemeId": "48cc80b6-79fd-47a2-b164-1b7019a014a1",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "sen",
+                  "gloss": "你",
+                  "morphemeId": null
+                }
+              ]
+            },
+            {
+              "lexemeId": null,
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "sen",
+                  "gloss": "2SG",
+                  "morphemeId": "96ac1727-26cf-44a4-913e-c5a19f69d669"
+                }
+              ]
+            }
+          ],
+          "chosen": 0,
+          "confirmed": false
+        },
+        {
+          "surface": "nölüm",
+          "analyses": [
+            {
+              "lexemeId": "f8564ae6-b01a-4f1f-afaf-d1a918cfd21a",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "nöl",
+                  "gloss": "太阳",
+                  "morphemeId": null
+                },
+                {
+                  "form": "üm",
+                  "gloss": "ACC",
+                  "morphemeId": "17fba099-4f4a-4690-a503-fedba9675edb"
+                }
+              ]
+            },
+            {
+              "lexemeId": "f8564ae6-b01a-4f1f-afaf-d1a918cfd21a",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "nöl",
+                  "gloss": "太阳",
+                  "morphemeId": null
+                },
+                {
+                  "form": "üm",
+                  "gloss": "1SG.POSS",
+                  "morphemeId": "ac7aaeb9-fadb-4239-b633-cbf2cbc0eae3"
+                }
+              ]
+            },
+            {
+              "lexemeId": "f8564ae6-b01a-4f1f-afaf-d1a918cfd21a",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "nöl",
+                  "gloss": "太阳",
+                  "morphemeId": null
+                },
+                {
+                  "form": "üm",
+                  "gloss": "1SG",
+                  "morphemeId": "ac768d4d-3d41-428b-bfaa-8542ed53df8c"
+                }
+              ]
+            }
+          ],
+          "chosen": 0,
+          "confirmed": false
+        },
+        {
+          "surface": "sördün",
+          "analyses": [
+            {
+              "lexemeId": "a3a6901d-63b4-4569-a4d2-9c985bec962c",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "sör",
+                  "gloss": "看见",
+                  "morphemeId": null
+                },
+                {
+                  "form": "dü",
+                  "gloss": "PST",
+                  "morphemeId": "ea838725-56fc-4d6f-9e9c-670bf411a8a6"
+                },
+                {
+                  "form": "n",
+                  "gloss": "2SG.POSS",
+                  "morphemeId": "41b6ceba-1721-417f-987a-657e9b524d16"
+                }
+              ]
+            }
+          ],
+          "chosen": 0,
+          "confirmed": false
+        },
+        {
+          "surface": "mü",
+          "analyses": [
+            {
+              "lexemeId": null,
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "mü",
+                  "gloss": "Q",
+                  "morphemeId": "dfbd2110-2a22-47fb-9b73-761b48768168"
+                }
+              ]
+            }
+          ],
+          "chosen": 0,
+          "confirmed": false
+        }
+      ],
       "extraLines": [],
       "notes": ""
     },
@@ -2414,7 +2775,109 @@
       },
       "source": "夹具",
       "tags": [],
-      "tokens": [],
+      "tokens": [
+        {
+          "surface": "tovarum",
+          "analyses": [
+            {
+              "lexemeId": "d23d6263-8321-4633-9884-282534b78a72",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "tovar",
+                  "gloss": "朋友",
+                  "morphemeId": null
+                },
+                {
+                  "form": "um",
+                  "gloss": "ACC",
+                  "morphemeId": "17fba099-4f4a-4690-a503-fedba9675edb"
+                }
+              ]
+            },
+            {
+              "lexemeId": "d23d6263-8321-4633-9884-282534b78a72",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "tovar",
+                  "gloss": "朋友",
+                  "morphemeId": null
+                },
+                {
+                  "form": "um",
+                  "gloss": "1SG.POSS",
+                  "morphemeId": "ac7aaeb9-fadb-4239-b633-cbf2cbc0eae3"
+                }
+              ]
+            },
+            {
+              "lexemeId": "d23d6263-8321-4633-9884-282534b78a72",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "tovar",
+                  "gloss": "朋友",
+                  "morphemeId": null
+                },
+                {
+                  "form": "um",
+                  "gloss": "1SG",
+                  "morphemeId": "ac768d4d-3d41-428b-bfaa-8542ed53df8c"
+                }
+              ]
+            }
+          ],
+          "chosen": 0,
+          "confirmed": false
+        },
+        {
+          "surface": "burake",
+          "analyses": [
+            {
+              "lexemeId": "dbd65e40-0cac-4533-840a-f2551b27dba2",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "bura",
+                  "gloss": "面包",
+                  "morphemeId": null
+                },
+                {
+                  "form": "ke",
+                  "gloss": "DAT",
+                  "morphemeId": "3e0c1697-28ea-4d2d-8127-b614d09ca5d4"
+                }
+              ]
+            }
+          ],
+          "chosen": 0,
+          "confirmed": false
+        },
+        {
+          "surface": "verdü",
+          "analyses": [
+            {
+              "lexemeId": "8a9f61ac-a2b4-4f71-b095-e59425dc4bf1",
+              "slot": null,
+              "morphs": [
+                {
+                  "form": "ver",
+                  "gloss": "给",
+                  "morphemeId": null
+                },
+                {
+                  "form": "dü",
+                  "gloss": "PST",
+                  "morphemeId": "ea838725-56fc-4d6f-9e9c-670bf411a8a6"
+                }
+              ]
+            }
+          ],
+          "chosen": 0,
+          "confirmed": false
+        }
+      ],
       "extraLines": [],
       "notes": ""
     }

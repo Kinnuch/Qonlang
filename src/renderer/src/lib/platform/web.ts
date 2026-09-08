@@ -58,7 +58,7 @@ async function kvSet(key: string, value: unknown): Promise<void> {
   }
 }
 
-const pickerTypes = [{ description: 'Qianyuji project', accept: { 'application/json': ['.json'] } }]
+const pickerTypes = [{ description: 'Qonlang project', accept: { 'application/json': ['.json'] } }]
 
 async function ensurePermission(handle: FileSystemFileHandle, mode: 'read' | 'readwrite'): Promise<boolean> {
   const h = handle as unknown as {
