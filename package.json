@@ -24,7 +24,8 @@
     "build:web": "vite build --config vite.web.config.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck:web": "svelte-check --tsconfig ./tsconfig.web.json"
+    "typecheck:web": "svelte-check --tsconfig ./tsconfig.web.json",
+    "examples": "esbuild scripts/make-examples.ts --bundle --platform=node --format=esm --alias:$lib=./src/renderer/src/lib --outfile=dist/make-examples.mjs && node dist/make-examples.mjs"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",

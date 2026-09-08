@@ -6,3 +6,4 @@ out
 *.log*
 *.tmp
 tests/fixtures/private
+examples/private
