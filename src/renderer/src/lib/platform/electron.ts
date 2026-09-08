@@ -29,7 +29,10 @@ export const electronPlatform: PlatformAPI = {
     if (!entry.path) return null
     const r = (await bridge().invoke('project:read', entry.path)) as { content: string } | null
     if (!r) return null
-    return { target: { path: entry.path, handleKey: null, name: baseName(entry.path) }, content: r.content } satisfies OpenResult
+    return {
+      target: { path: entry.path, handleKey: null, name: baseName(entry.path) },
+      content: r.content
+    } satisfies OpenResult
   },
 
   async saveProject(target, content, suggestedName) {

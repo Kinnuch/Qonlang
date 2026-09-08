@@ -18,14 +18,16 @@ export const i18n = {
   },
   set locale(v: LocaleCode) {
     locale = dicts[v] ? v : 'zh'
-    if (typeof document !== 'undefined') document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en'
+    if (typeof document !== 'undefined')
+      document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en'
   }
 }
 
 function lookup(dict: unknown, path: string): string | undefined {
   let cur: unknown = dict
   for (const seg of path.split('.')) {
-    if (cur && typeof cur === 'object' && seg in (cur as object)) cur = (cur as Record<string, unknown>)[seg]
+    if (cur && typeof cur === 'object' && seg in (cur as object))
+      cur = (cur as Record<string, unknown>)[seg]
     else return undefined
   }
   return typeof cur === 'string' ? cur : undefined

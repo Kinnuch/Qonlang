@@ -103,7 +103,8 @@ export function parseClassLine(raw: string): { name: string; members: string[] }
   const m = CLASS_LINE.exec(content)
   if (!m) return null
   const key = m[1]
-  const members = key.length === 1 ? dedupe(Array.from(m[2].replace(/\s+/g, ''))) : dedupe(splitMembers(m[2]))
+  const members =
+    key.length === 1 ? dedupe(Array.from(m[2].replace(/\s+/g, ''))) : dedupe(splitMembers(m[2]))
   return { name: key.replace(/^\{|\}$/g, ''), members }
 }
 
@@ -180,7 +181,7 @@ export function revertReplacements(text: string, replacements: [string, string][
   return t
 }
 
-const CLASS_ESCAPE = /[\\\]^\-]/g
+const CLASS_ESCAPE = /[\\\]^-]/g
 const RE_ESCAPE = /[\\^$.*+?()[\]{}|/]/g
 
 function classRegex(members: string[]): string {
@@ -233,7 +234,10 @@ function expand(
     } else if (c === '(') {
       let j = i + 1
       while (j < chars.length && chars[j] !== ')') j++
-      const inner = expand(chars.slice(i + 1, j).join(''), classes, { ...opts, captureFirst: false })
+      const inner = expand(chars.slice(i + 1, j).join(''), classes, {
+        ...opts,
+        captureFirst: false
+      })
       out += '(?:' + inner.re + ')?'
       i = j
     } else if (c === '{') {
@@ -308,7 +312,8 @@ function splitContext(s: string): Context | null {
 
 export function parseRuleText(text: string, options: ParseOptions = {}): RuleProgram {
   const classes = new Map<string, string[]>()
-  for (const [k, v] of Object.entries(options.classes ?? {})) classes.set(k.length === 1 ? k : `{${k.replace(/^\{|\}$/g, '')}}`, v)
+  for (const [k, v] of Object.entries(options.classes ?? {}))
+    classes.set(k.length === 1 ? k : `{${k.replace(/^\{|\}$/g, '')}}`, v)
   const replacements: [string, string][] = [...(options.replacements ?? [])]
   const rawLines = text.split(/\r?\n/)
   const diagnostics: Diagnostic[] = []
@@ -337,7 +342,10 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     const cm = CLASS_LINE.exec(content)
     if (cm) {
       const key = cm[1]
-      const members = key.length === 1 ? dedupe(Array.from(cm[2].replace(/\s+/g, ''))) : dedupe(splitMembers(cm[2]))
+      const members =
+        key.length === 1
+          ? dedupe(Array.from(cm[2].replace(/\s+/g, '')))
+          : dedupe(splitMembers(cm[2]))
       classes.set(key, members)
       kinds.push('class')
       return
@@ -355,7 +363,8 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
   })
   replacements.sort((a, b) => b[0].length - a[0].length)
   // 音类成员也要过一遍多合字母替换（用户在音类里写 th，等价于写 θ）
-  for (const [k, v] of classes) classes.set(k, dedupe(v.map((m) => applyReplacements(m, replacements))))
+  for (const [k, v] of classes)
+    classes.set(k, dedupe(v.map((m) => applyReplacements(m, replacements))))
 
   const lines: ParsedLine[] = []
   const steps: (ParsedRule | MarkerLine)[] = []
@@ -429,8 +438,16 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
         const main = compile(l, t.re, r)
         let exclude: RegExp | null = null
         if (exception) {
-          const el = expand(exception.left, classes, { boundary: '^', captureFirst: false, warn }).re
-          const er = expand(exception.right, classes, { boundary: '$', captureFirst: false, warn }).re
+          const el = expand(exception.left, classes, {
+            boundary: '^',
+            captureFirst: false,
+            warn
+          }).re
+          const er = expand(exception.right, classes, {
+            boundary: '$',
+            captureFirst: false,
+            warn
+          }).re
           exclude = compile(el, t.re, er)
         }
         compiled.push({ main, exclude })

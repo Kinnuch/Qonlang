@@ -4,8 +4,14 @@ import { join } from 'path'
 import { parseLexc, lexicanterToProject, blocksToMarkdown } from '$lib/importers/lexicanter'
 import { parseProject, serializeProject } from '$lib/core/serialize'
 
-const file = parseLexc(readFileSync(join(__dirname, '..', 'fixtures', 'lexicanter', 'sample.lexc'), 'utf8'))
-const { project: p, report } = lexicanterToProject(file, { definitionLang: 'en', uiLocale: 'zh', appVersion: '0' })
+const file = parseLexc(
+  readFileSync(join(__dirname, '..', 'fixtures', 'lexicanter', 'sample.lexc'), 'utf8')
+)
+const { project: p, report } = lexicanterToProject(file, {
+  definitionLang: 'en',
+  uiLocale: 'zh',
+  appVersion: '0'
+})
 
 describe('lexicanter import', () => {
   it('creates the main language and relatives', () => {

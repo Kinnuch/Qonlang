@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { segment, syllabify, parseTemplate, stressIndex, renderSyllables, checkWord, generateWords, analyzeWord, nucleusSet } from '$lib/engine/phon'
+import {
+  segment,
+  syllabify,
+  parseTemplate,
+  stressIndex,
+  renderSyllables,
+  checkWord,
+  generateWords,
+  analyzeWord,
+  nucleusSet
+} from '$lib/engine/phon'
 import { inferFeatures } from '$lib/ipa/features'
 import { createLanguage } from '$lib/core/factory'
 
@@ -19,7 +29,10 @@ describe('syllabify', () => {
     expect(renderSyllables(s)).toBe('ka.stra')
   })
   it('respects allowed onsets and template limits', () => {
-    const s = syllabify(['k', 'a', 's', 't', 'r', 'a'], { nuclei: V, onsets: new Set(['k', 't', 'tr', 's']) })
+    const s = syllabify(['k', 'a', 's', 't', 'r', 'a'], {
+      nuclei: V,
+      onsets: new Set(['k', 't', 'tr', 's'])
+    })
     expect(renderSyllables(s)).toBe('kas.tra')
     const t = syllabify(['k', 'a', 's', 't', 'r', 'a'], { nuclei: V, maxOnset: 1 })
     expect(renderSyllables(t)).toBe('kast.ra')
@@ -52,13 +65,31 @@ describe('stress', () => {
 })
 
 describe('phonotactics', () => {
-  const pt = { onsets: ['k', 't', 's'], nuclei: ['a', 'i'], codas: ['n'], illegal: ['tt'], weights: {}, minSyllables: 1, maxSyllables: 2 }
+  const pt = {
+    onsets: ['k', 't', 's'],
+    nuclei: ['a', 'i'],
+    codas: ['n'],
+    illegal: ['tt'],
+    weights: {},
+    minSyllables: 1,
+    maxSyllables: 2
+  }
   it('reports violations', () => {
     const segs = ['k', 'a', 'r', 'a', 'n']
     const syl = syllabify(segs, { nuclei: new Set(['a', 'i']) })
     expect(checkWord(segs, syl, pt).map((v) => v.kind)).toEqual(['onset'])
-    expect(checkWord(['t', 't', 'a'], syllabify(['t', 't', 'a'], { nuclei: new Set(['a']) }), pt).map((v) => v.kind)).toContain('illegal')
-    expect(checkWord(['k', 'a', 'k', 'a', 'k', 'a'], syllabify(['k', 'a', 'k', 'a', 'k', 'a'], { nuclei: new Set(['a']) }), pt).map((v) => v.kind)).toContain('syllables')
+    expect(
+      checkWord(['t', 't', 'a'], syllabify(['t', 't', 'a'], { nuclei: new Set(['a']) }), pt).map(
+        (v) => v.kind
+      )
+    ).toContain('illegal')
+    expect(
+      checkWord(
+        ['k', 'a', 'k', 'a', 'k', 'a'],
+        syllabify(['k', 'a', 'k', 'a', 'k', 'a'], { nuclei: new Set(['a']) }),
+        pt
+      ).map((v) => v.kind)
+    ).toContain('syllables')
   })
   it('generates words within the constraints, deterministically for a seed', () => {
     const a = generateWords(pt, { count: 10, seed: 42 })
@@ -69,24 +100,40 @@ describe('phonotactics', () => {
       expect(w.includes('tt')).toBe(false)
       expect(/^[ktsain]+$/.test(w)).toBe(true)
     }
-    expect(generateWords(pt, { count: 5, seed: 1, exclude: new Set(a) }).some((w) => a.includes(w))).toBe(false)
+    expect(
+      generateWords(pt, { count: 5, seed: 1, exclude: new Set(a) }).some((w) => a.includes(w))
+    ).toBe(false)
   })
 })
 
 describe('language-level analysis', () => {
   it('infers default features from the IPA charts', () => {
-    expect(inferFeatures('b')).toMatchObject({ type: 'consonant', voice: 'voiced', place: 'bilabial', manner: 'plosive' })
-    expect(inferFeatures('y')).toMatchObject({ type: 'vowel', height: 'close', backness: 'front', round: 'yes' })
+    expect(inferFeatures('b')).toMatchObject({
+      type: 'consonant',
+      voice: 'voiced',
+      place: 'bilabial',
+      manner: 'plosive'
+    })
+    expect(inferFeatures('y')).toMatchObject({
+      type: 'vowel',
+      height: 'close',
+      backness: 'front',
+      round: 'yes'
+    })
     expect(inferFeatures('tʰ')).toMatchObject({ manner: 'plosive', aspirated: 'yes' })
     expect(inferFeatures('ẽ')).toMatchObject({ type: 'vowel', nasal: 'yes' })
   })
   it('analyzeWord uses the language inventory, template and stress setting', () => {
     const L = createLanguage({ name: 'x' })
-    L.phonemes = 'k t s a i ts'.split(' ').map((s) => ({ id: s, symbol: s, features: inferFeatures(s), graphemes: {}, notes: '' }))
+    L.phonemes = 'k t s a i ts'
+      .split(' ')
+      .map((s) => ({ id: s, symbol: s, features: inferFeatures(s), graphemes: {}, notes: '' }))
     L.syllable = { enabled: true, template: '(C)V(C)', strategy: 'template' }
     L.prosody = { type: 'stress', stressPosition: 'penult', rules: '', tones: [] }
     expect([...nucleusSet(L)]).toEqual(['a', 'i'])
-    expect(analyzeWord(L, 'tsakita').text).toBe('tsa.ki.ˈta'.replace('ˈta', 'ta').replace('ki', 'ˈki'))
+    expect(analyzeWord(L, 'tsakita').text).toBe(
+      'tsa.ki.ˈta'.replace('ˈta', 'ta').replace('ki', 'ˈki')
+    )
     expect(analyzeWord(L, 'tsakita').segments).toEqual(['ts', 'a', 'k', 'i', 't', 'a'])
   })
 })

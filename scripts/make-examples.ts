@@ -8,10 +8,24 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import { createProject, createLanguage, createLexeme, createMorpheme, createRuleSet, createSentence, createScript, newId, now } from '$lib/core/factory'
+import {
+  createProject,
+  createLexeme,
+  createMorpheme,
+  createRuleSet,
+  createSentence,
+  createScript,
+  newId,
+  now
+} from '$lib/core/factory'
 import { serializeProject } from '$lib/core/serialize'
 import { parseCsv } from '$lib/core/csv'
-import { applyCsvImport, defaultMapping, type CsvMapping, type FieldSpec } from '$lib/importers/csvImport'
+import {
+  applyCsvImport,
+  defaultMapping,
+  type CsvMapping,
+  type FieldSpec
+} from '$lib/importers/csvImport'
 import { fromYinbianji } from '$lib/engine/sca'
 import { inferFeatures } from '$lib/ipa/features'
 import type { GrammaticalCategory, Id, PartOfSpeech, Project } from '$lib/core/model'
@@ -25,8 +39,17 @@ function pos(p: Project, zh: string, en: string, abbr: string): PartOfSpeech {
   p.posList.push(x)
   return x
 }
-function category(p: Project, zh: string, en: string, values: [string, string, string][]): GrammaticalCategory {
-  const c: GrammaticalCategory = { id: newId(), name: { zh, en }, values: values.map(([vzh, ven, abbr]) => ({ id: newId(), name: { zh: vzh, en: ven }, abbr })) }
+function category(
+  p: Project,
+  zh: string,
+  en: string,
+  values: [string, string, string][]
+): GrammaticalCategory {
+  const c: GrammaticalCategory = {
+    id: newId(),
+    name: { zh, en },
+    values: values.map(([vzh, ven, abbr]) => ({ id: newId(), name: { zh: vzh, en: ven }, abbr }))
+  }
   p.categories.push(c)
   return c
 }
@@ -36,39 +59,93 @@ function value(c: GrammaticalCategory, abbr: string): Id {
 function save(name: string, p: Project): void {
   const file = join(outDir, name)
   writeFileSync(file, serializeProject(p), 'utf8')
-  console.log('wrote', file, `${p.languages.length} langs, ${p.lexemes.length} lexemes, ${p.morphemes.length} morphemes`)
+  console.log(
+    'wrote',
+    file,
+    `${p.languages.length} langs, ${p.lexemes.length} lexemes, ${p.morphemes.length} morphemes`
+  )
 }
 
 // ───────────────────────── Aelith：黏着先验语 ─────────────────────────
 function makeAelith(): void {
-  const p = createProject({ name: 'Aelith', template: 'blank', appVersion: '0.1.0', uiLocale: 'zh' })
+  const p = createProject({
+    name: 'Aelith',
+    template: 'blank',
+    appVersion: '0.1.0',
+    uiLocale: 'zh'
+  })
   const L = p.languages[0]
   L.abbr = 'ae'
-  L.notes = '虚构的黏着语测试夹具：前后元音和谐，名词后缀链 词根-数-格-领属，动词 词根-否定-时-人称。'
+  L.notes =
+    '虚构的黏着语测试夹具：前后元音和谐，名词后缀链 词根-数-格-领属，动词 词根-否定-时-人称。'
   L.alphabet = 'a b d e g i j k l m n o ö p r s t u ü v w'.split(' ')
-  L.phonemes = 'p t k b d g m n s v r l j w a e i o u ö ü'.split(' ').map((s) => ({ id: newId(), symbol: s, features: inferFeatures(s), graphemes: {}, notes: '' }))
+  L.phonemes = 'p t k b d g m n s v r l j w a e i o u ö ü'
+    .split(' ')
+    .map((s) => ({ id: newId(), symbol: s, features: inferFeatures(s), graphemes: {}, notes: '' }))
   L.classes = [
-    { id: newId(), name: 'C', members: 'p t k b d g m n s v r l j w'.split(' '), featureQuery: null },
+    {
+      id: newId(),
+      name: 'C',
+      members: 'p t k b d g m n s v r l j w'.split(' '),
+      featureQuery: null
+    },
     { id: newId(), name: 'V', members: 'a e i o u ö ü'.split(' '), featureQuery: null },
     { id: newId(), name: 'Back', members: ['a', 'o', 'u'], featureQuery: null },
     { id: newId(), name: 'Front', members: ['e', 'ö', 'ü'], featureQuery: null }
   ]
   L.syllable = { enabled: true, template: '(C)V(C)', strategy: 'template' }
   L.prosody = { type: 'stress', stressPosition: 'initial', rules: '', tones: [] }
-  L.phonotactics = { onsets: 'p t k b d g m n s v r l j w'.split(' '), nuclei: 'a e i o u ö ü'.split(' '), codas: 'n l r s t k m'.split(' '), illegal: ['jj', 'ww'], weights: {}, minSyllables: 1, maxSyllables: 3 }
+  L.phonotactics = {
+    onsets: 'p t k b d g m n s v r l j w'.split(' '),
+    nuclei: 'a e i o u ö ü'.split(' '),
+    codas: 'n l r s t k m'.split(' '),
+    illegal: ['jj', 'ww'],
+    weights: {},
+    minSyllables: 1,
+    maxSyllables: 3
+  }
 
   const N = pos(p, '名词', 'noun', 'n.')
   const V = pos(p, '动词', 'verb', 'v.')
   const A = pos(p, '形容词', 'adjective', 'adj.')
   const PRO = pos(p, '代词', 'pronoun', 'pron.')
-  const num = category(p, '数', 'number', [['单数', 'singular', 'SG'], ['复数', 'plural', 'PL']])
-  const kase = category(p, '格', 'case', [['主格', 'nominative', 'NOM'], ['宾格', 'accusative', 'ACC'], ['位格', 'locative', 'LOC'], ['与格', 'dative', 'DAT']])
-  const person = category(p, '人称', 'person', [['第一人称', 'first person', '1'], ['第二人称', 'second person', '2'], ['第三人称', 'third person', '3']])
-  const tense = category(p, '时', 'tense', [['现在', 'present', 'PRS'], ['过去', 'past', 'PST']])
-  const polarity = category(p, '极性', 'polarity', [['肯定', 'affirmative', 'AFF'], ['否定', 'negative', 'NEG']])
-  const harmony = category(p, '和谐类', 'harmony class', [['后元音', 'back', 'B'], ['前元音', 'front', 'F']])
+  const num = category(p, '数', 'number', [
+    ['单数', 'singular', 'SG'],
+    ['复数', 'plural', 'PL']
+  ])
+  const kase = category(p, '格', 'case', [
+    ['主格', 'nominative', 'NOM'],
+    ['宾格', 'accusative', 'ACC'],
+    ['位格', 'locative', 'LOC'],
+    ['与格', 'dative', 'DAT']
+  ])
+  const person = category(p, '人称', 'person', [
+    ['第一人称', 'first person', '1'],
+    ['第二人称', 'second person', '2'],
+    ['第三人称', 'third person', '3']
+  ])
+  const tense = category(p, '时', 'tense', [
+    ['现在', 'present', 'PRS'],
+    ['过去', 'past', 'PST']
+  ])
+  const polarity = category(p, '极性', 'polarity', [
+    ['肯定', 'affirmative', 'AFF'],
+    ['否定', 'negative', 'NEG']
+  ])
+  const harmony = category(p, '和谐类', 'harmony class', [
+    ['后元音', 'back', 'B'],
+    ['前元音', 'front', 'F']
+  ])
 
-  const suffix = (form: string, gloss: string, zh: string, en: string, allo: [string, string][] = [], feats: Record<Id, Id> = {}, type: 'suffix' | 'clitic' | 'particle' = 'suffix'): void => {
+  const suffix = (
+    form: string,
+    gloss: string,
+    zh: string,
+    en: string,
+    allo: [string, string][] = [],
+    feats: Record<Id, Id> = {},
+    type: 'suffix' | 'clitic' | 'particle' = 'suffix'
+  ): void => {
     const m = createMorpheme(L.id, type)
     m.form = form
     m.gloss = gloss
@@ -77,18 +154,133 @@ function makeAelith(): void {
     m.features = feats
     p.morphemes.push(m)
   }
-  suffix('-lAr', 'PL', '复数', 'plural', [['-lar', '{Back}[^aeouöü]*_'], ['-ler', '{Front}[^aeouöü]*_']], { [num.id]: value(num, 'PL') })
-  suffix('-(U)m', 'ACC', '宾格', 'accusative', [['-m', 'V_'], ['-um', '{Back}C_'], ['-üm', '{Front}C_']], { [kase.id]: value(kase, 'ACC') })
-  suffix('-dA', 'LOC', '位格', 'locative', [['-da', '{Back}[^aeouöü]*_'], ['-de', '{Front}[^aeouöü]*_']], { [kase.id]: value(kase, 'LOC') })
-  suffix('-kA', 'DAT', '与格', 'dative', [['-ka', '{Back}[^aeouöü]*_'], ['-ke', '{Front}[^aeouöü]*_']], { [kase.id]: value(kase, 'DAT') })
-  suffix('-(U)m', '1SG.POSS', '我的', 'my', [['-m', 'V_'], ['-um', '{Back}C_'], ['-üm', '{Front}C_']], { [person.id]: value(person, '1') })
-  suffix('-(U)n', '2SG.POSS', '你的', 'your', [['-n', 'V_'], ['-un', '{Back}C_'], ['-ün', '{Front}C_']], { [person.id]: value(person, '2') })
+  suffix(
+    '-lAr',
+    'PL',
+    '复数',
+    'plural',
+    [
+      ['-lar', '{Back}[^aeouöü]*_'],
+      ['-ler', '{Front}[^aeouöü]*_']
+    ],
+    { [num.id]: value(num, 'PL') }
+  )
+  suffix(
+    '-(U)m',
+    'ACC',
+    '宾格',
+    'accusative',
+    [
+      ['-m', 'V_'],
+      ['-um', '{Back}C_'],
+      ['-üm', '{Front}C_']
+    ],
+    { [kase.id]: value(kase, 'ACC') }
+  )
+  suffix(
+    '-dA',
+    'LOC',
+    '位格',
+    'locative',
+    [
+      ['-da', '{Back}[^aeouöü]*_'],
+      ['-de', '{Front}[^aeouöü]*_']
+    ],
+    { [kase.id]: value(kase, 'LOC') }
+  )
+  suffix(
+    '-kA',
+    'DAT',
+    '与格',
+    'dative',
+    [
+      ['-ka', '{Back}[^aeouöü]*_'],
+      ['-ke', '{Front}[^aeouöü]*_']
+    ],
+    { [kase.id]: value(kase, 'DAT') }
+  )
+  suffix(
+    '-(U)m',
+    '1SG.POSS',
+    '我的',
+    'my',
+    [
+      ['-m', 'V_'],
+      ['-um', '{Back}C_'],
+      ['-üm', '{Front}C_']
+    ],
+    { [person.id]: value(person, '1') }
+  )
+  suffix(
+    '-(U)n',
+    '2SG.POSS',
+    '你的',
+    'your',
+    [
+      ['-n', 'V_'],
+      ['-un', '{Back}C_'],
+      ['-ün', '{Front}C_']
+    ],
+    { [person.id]: value(person, '2') }
+  )
   suffix('-sI', '3SG.POSS', '他的', 'his/her', [['-si', '_']], { [person.id]: value(person, '3') })
-  suffix('-mA', 'NEG', '否定', 'negative', [['-ma', '{Back}[^aeouöü]*_'], ['-me', '{Front}[^aeouöü]*_']], { [polarity.id]: value(polarity, 'NEG') })
-  suffix('-dU', 'PST', '过去', 'past', [['-du', '{Back}[^aeouöü]*_'], ['-dü', '{Front}[^aeouöü]*_']], { [tense.id]: value(tense, 'PST') })
-  suffix('-(U)m', '1SG', '第一人称单数', 'first singular', [['-m', 'V_'], ['-um', '{Back}C_'], ['-üm', '{Front}C_']], { [person.id]: value(person, '1') })
-  suffix('-sAn', '2SG', '第二人称单数', 'second singular', [['-san', '{Back}[^aeouöü]*_'], ['-sen', '{Front}[^aeouöü]*_']], { [person.id]: value(person, '2') })
-  suffix('=mU', 'Q', '疑问', 'question', [['=mu', '{Back}[^aeouöü]*_'], ['=mü', '{Front}[^aeouöü]*_']], {}, 'clitic')
+  suffix(
+    '-mA',
+    'NEG',
+    '否定',
+    'negative',
+    [
+      ['-ma', '{Back}[^aeouöü]*_'],
+      ['-me', '{Front}[^aeouöü]*_']
+    ],
+    { [polarity.id]: value(polarity, 'NEG') }
+  )
+  suffix(
+    '-dU',
+    'PST',
+    '过去',
+    'past',
+    [
+      ['-du', '{Back}[^aeouöü]*_'],
+      ['-dü', '{Front}[^aeouöü]*_']
+    ],
+    { [tense.id]: value(tense, 'PST') }
+  )
+  suffix(
+    '-(U)m',
+    '1SG',
+    '第一人称单数',
+    'first singular',
+    [
+      ['-m', 'V_'],
+      ['-um', '{Back}C_'],
+      ['-üm', '{Front}C_']
+    ],
+    { [person.id]: value(person, '1') }
+  )
+  suffix(
+    '-sAn',
+    '2SG',
+    '第二人称单数',
+    'second singular',
+    [
+      ['-san', '{Back}[^aeouöü]*_'],
+      ['-sen', '{Front}[^aeouöü]*_']
+    ],
+    { [person.id]: value(person, '2') }
+  )
+  suffix(
+    '=mU',
+    'Q',
+    '疑问',
+    'question',
+    [
+      ['=mu', '{Back}[^aeouöü]*_'],
+      ['=mü', '{Front}[^aeouöü]*_']
+    ],
+    {},
+    'clitic'
+  )
   suffix('ve', 'and', '和', 'and', [], {}, 'particle')
 
   const words: [string, PartOfSpeech, string, string, string[]][] = [
@@ -134,14 +326,49 @@ function makeAelith(): void {
   }
 
   // 范式：名词 数 × 格，动词 极性 × 时 × 人称（后缀写原音位，交给「元音和谐」规则集实现）
-  const affix = (suffix: string, rsId: Id): import('$lib/core/model').SlotGenerator => ({ kind: 'affix-sca', stem: '词干', prefix: '', suffix, ruleSetId: rsId, fromStage: '底层', toStage: '表层' })
+  const affix = (suffix: string, rsId: Id): import('$lib/core/model').SlotGenerator => ({
+    kind: 'affix-sca',
+    stem: '词干',
+    prefix: '',
+    suffix,
+    ruleSetId: rsId,
+    fromStage: '底层',
+    toStage: '表层'
+  })
   const makeParadigms = (rsId: Id): void => {
-    const nounP: import('$lib/core/model').Paradigm = { id: newId(), name: { zh: '名词', en: 'noun' }, dimensionIds: [num.id, kase.id], disabledSlots: [], generators: {}, inheritsFrom: null }
+    const nounP: import('$lib/core/model').Paradigm = {
+      id: newId(),
+      name: { zh: '名词', en: 'noun' },
+      dimensionIds: [num.id, kase.id],
+      disabledSlots: [],
+      generators: {},
+      inheritsFrom: null
+    }
     const caseSuffix: Record<string, string> = { NOM: '', ACC: '¢Ŭm', LOC: '¢dA', DAT: '¢kA' }
-    for (const n of num.values) for (const k of kase.values) nounP.generators[`${n.id}|${k.id}`] = affix((n.abbr === 'PL' ? '¢lAr' : '') + caseSuffix[k.abbr], rsId)
-    const verbP: import('$lib/core/model').Paradigm = { id: newId(), name: { zh: '动词', en: 'verb' }, dimensionIds: [polarity.id, tense.id, person.id], disabledSlots: [], generators: {}, inheritsFrom: null }
+    for (const n of num.values)
+      for (const k of kase.values)
+        nounP.generators[`${n.id}|${k.id}`] = affix(
+          (n.abbr === 'PL' ? '¢lAr' : '') + caseSuffix[k.abbr],
+          rsId
+        )
+    const verbP: import('$lib/core/model').Paradigm = {
+      id: newId(),
+      name: { zh: '动词', en: 'verb' },
+      dimensionIds: [polarity.id, tense.id, person.id],
+      disabledSlots: [],
+      generators: {},
+      inheritsFrom: null
+    }
     const personSuffix: Record<string, string> = { '1': '¢Ŭm', '2': '¢sAn', '3': '' }
-    for (const po of polarity.values) for (const te of tense.values) for (const pe of person.values) verbP.generators[`${po.id}|${te.id}|${pe.id}`] = affix((po.abbr === 'NEG' ? '¢mA' : '') + (te.abbr === 'PST' ? '¢dU' : '') + personSuffix[pe.abbr], rsId)
+    for (const po of polarity.values)
+      for (const te of tense.values)
+        for (const pe of person.values)
+          verbP.generators[`${po.id}|${te.id}|${pe.id}`] = affix(
+            (po.abbr === 'NEG' ? '¢mA' : '') +
+              (te.abbr === 'PST' ? '¢dU' : '') +
+              personSuffix[pe.abbr],
+            rsId
+          )
     p.paradigms.push(nounP, verbP)
     N.paradigmId = nounP.id
     V.paradigmId = verbP.id
@@ -192,12 +419,44 @@ function makeAelith(): void {
   runes.type = 'alphabet'
   runes.font.family = 'Segoe UI Historic'
   const pairs: [string, string, string][] = [
-    ['a', 'ᚨ', 'ansuz'], ['e', 'ᛖ', 'ehwaz'], ['i', 'ᛁ', 'isaz'], ['o', 'ᛟ', 'othala'], ['u', 'ᚢ', 'uruz'], ['ö', 'ᛜ', 'ingwaz'], ['ü', 'ᛇ', 'eihwaz'],
-    ['p', 'ᛈ', 'pertho'], ['t', 'ᛏ', 'tiwaz'], ['k', 'ᚲ', 'kaunan'], ['b', 'ᛒ', 'berkanan'], ['d', 'ᛞ', 'dagaz'], ['g', 'ᚷ', 'gebo'],
-    ['m', 'ᛗ', 'mannaz'], ['n', 'ᚾ', 'naudiz'], ['s', 'ᛊ', 'sowilo'], ['v', 'ᚠ', 'fehu'], ['r', 'ᚱ', 'raido'], ['l', 'ᛚ', 'laguz'], ['j', 'ᛃ', 'jera'], ['w', 'ᚹ', 'wunjo']
+    ['a', 'ᚨ', 'ansuz'],
+    ['e', 'ᛖ', 'ehwaz'],
+    ['i', 'ᛁ', 'isaz'],
+    ['o', 'ᛟ', 'othala'],
+    ['u', 'ᚢ', 'uruz'],
+    ['ö', 'ᛜ', 'ingwaz'],
+    ['ü', 'ᛇ', 'eihwaz'],
+    ['p', 'ᛈ', 'pertho'],
+    ['t', 'ᛏ', 'tiwaz'],
+    ['k', 'ᚲ', 'kaunan'],
+    ['b', 'ᛒ', 'berkanan'],
+    ['d', 'ᛞ', 'dagaz'],
+    ['g', 'ᚷ', 'gebo'],
+    ['m', 'ᛗ', 'mannaz'],
+    ['n', 'ᚾ', 'naudiz'],
+    ['s', 'ᛊ', 'sowilo'],
+    ['v', 'ᚠ', 'fehu'],
+    ['r', 'ᚱ', 'raido'],
+    ['l', 'ᛚ', 'laguz'],
+    ['j', 'ᛃ', 'jera'],
+    ['w', 'ᚹ', 'wunjo']
   ]
-  runes.glyphs = pairs.map(([value, char, name]) => ({ id: newId(), char, name, value, category: 'aeiouöü'.includes(value) ? 'vowel' : 'consonant', notes: '' }))
-  runes.glyphs.push({ id: newId(), char: '᛫', name: 'word divider', value: '', category: 'punct', notes: '' })
+  runes.glyphs = pairs.map(([value, char, name]) => ({
+    id: newId(),
+    char,
+    name,
+    value,
+    category: 'aeiouöü'.includes(value) ? 'vowel' : 'consonant',
+    notes: ''
+  }))
+  runes.glyphs.push({
+    id: newId(),
+    char: '᛫',
+    name: 'word divider',
+    value: '',
+    category: 'punct',
+    notes: ''
+  })
   runes.rules = ['; 双写辅音只刻一次', 'C2 > C', '@glyphs'].join(String.fromCharCode(10))
   runes.notes = '示例：拉丁转写 → 卢恩区字符，规则里先合并双辅音。'
   L.scripts.push(runes)
@@ -207,23 +466,78 @@ function makeAelith(): void {
 
 // ───────────────────────── Tsahun：孤立声调语 ─────────────────────────
 function makeTsahun(): void {
-  const p = createProject({ name: 'Tsahun', template: 'blank', appVersion: '0.1.0', uiLocale: 'zh' })
+  const p = createProject({
+    name: 'Tsahun',
+    template: 'blank',
+    appVersion: '0.1.0',
+    uiLocale: 'zh'
+  })
   const L = p.languages[0]
   L.abbr = 'ts'
-  L.notes = '虚构的孤立声调语测试夹具：单音节词，五个声调，无屈折，语法靠语序与小品词。罗马化用数字标调，另有西里尔字母正字法。'
+  L.notes =
+    '虚构的孤立声调语测试夹具：单音节词，五个声调，无屈折，语法靠语序与小品词。罗马化用数字标调，另有西里尔字母正字法。'
   const rom = L.orthographies[0]
   rom.name = '罗马化'
-  rom.rulesToIpa = ['; 数字调 → 五度标调字母', 'ts > t͡s', 'ng > ŋ', '55 > ˥', '35 > ˧˥', '21 > ˨˩', '51 > ˥˩', '33 > ˧'].join('\n')
+  rom.rulesToIpa = [
+    '; 数字调 → 五度标调字母',
+    'ts > t͡s',
+    'ng > ŋ',
+    '55 > ˥',
+    '35 > ˧˥',
+    '21 > ˨˩',
+    '51 > ˥˩',
+    '33 > ˧'
+  ].join('\n')
   L.orthographies.push({
     id: newId(),
     name: '西里尔正字',
     font: '',
     direction: 'ltr',
     rulesToIpa: '',
-    rulesFromIpa: ['t͡s > ц', 'ŋ > ң', 'w > в', 'j > й', 'h > х', 'k > к', 'p > п', 't > т', 'm > м', 'n > н', 's > с', 'l > л', 'a > а', 'i > и', 'u > у', 'e > е', 'o > о', '˥ > ⁵⁵', '˧˥ > ³⁵', '˨˩ > ²¹', '˥˩ > ⁵¹', '˧ > ³³'].join('\n'),
+    rulesFromIpa: [
+      't͡s > ц',
+      'ŋ > ң',
+      'w > в',
+      'j > й',
+      'h > х',
+      'k > к',
+      'p > п',
+      't > т',
+      'm > м',
+      'n > н',
+      's > с',
+      'l > л',
+      'a > а',
+      'i > и',
+      'u > у',
+      'e > е',
+      'o > о',
+      '˥ > ⁵⁵',
+      '˧˥ > ³⁵',
+      '˨˩ > ²¹',
+      '˥˩ > ⁵¹',
+      '˧ > ³³'
+    ].join('\n'),
     isPrimary: false
   })
-  L.phonemes = 'p t k t͡s m n ŋ s h l w j a i u e o'.split(' ').map((s) => ({ id: newId(), symbol: s, features: s === 't͡s' ? { type: 'consonant', voice: 'voiceless', place: 'alveolar', manner: 'affricate', syllabic: 'no' } : inferFeatures(s), graphemes: {}, notes: '' }))
+  L.phonemes = 'p t k t͡s m n ŋ s h l w j a i u e o'
+    .split(' ')
+    .map((s) => ({
+      id: newId(),
+      symbol: s,
+      features:
+        s === 't͡s'
+          ? {
+              type: 'consonant',
+              voice: 'voiceless',
+              place: 'alveolar',
+              manner: 'affricate',
+              syllabic: 'no'
+            }
+          : inferFeatures(s),
+      graphemes: {},
+      notes: ''
+    }))
   L.classes = [
     { id: newId(), name: 'C', members: 'p t k ts m n ng s h l w j'.split(' '), featureQuery: null },
     { id: newId(), name: 'V', members: 'a i u e o'.split(' '), featureQuery: null }
@@ -242,8 +556,24 @@ function makeTsahun(): void {
     ]
   }
   // 配列表用 IPA 写（检查与造词都在 IPA 上进行），造出的词经罗马化的「IPA → 正字法」规则转回
-  L.phonotactics = { onsets: 'p t k t͡s m n ŋ s h l w j kw'.split(' '), nuclei: 'a i u e o ai'.split(' '), codas: ['n', 'ŋ', 'm', 'k', 'p', 't'], illegal: [], weights: {}, minSyllables: 1, maxSyllables: 1 }
-  rom.rulesFromIpa = ['t͡s > ts', 'ŋ > ng', '˧˥ > 35', '˨˩ > 21', '˥˩ > 51', '˥ > 55', '˧ > 33'].join('\n')
+  L.phonotactics = {
+    onsets: 'p t k t͡s m n ŋ s h l w j kw'.split(' '),
+    nuclei: 'a i u e o ai'.split(' '),
+    codas: ['n', 'ŋ', 'm', 'k', 'p', 't'],
+    illegal: [],
+    weights: {},
+    minSyllables: 1,
+    maxSyllables: 1
+  }
+  rom.rulesFromIpa = [
+    't͡s > ts',
+    'ŋ > ng',
+    '˧˥ > 35',
+    '˨˩ > 21',
+    '˥˩ > 51',
+    '˥ > 55',
+    '˧ > 33'
+  ].join('\n')
 
   const N = pos(p, '名词', 'noun', 'n.')
   const V = pos(p, '动词', 'verb', 'v.')
@@ -320,7 +650,13 @@ function makeTheusrin(): void {
     return
   }
   const read = (f: string): string => readFileSync(f, 'utf8')
-  const p = createProject({ name: '瑟乌丝林语', template: 'family', appVersion: '0.1.0', uiLocale: 'zh', familyNames: { proto: '原始希克林语', daughters: ['瑟乌丝林语', '群岛希克林语'] } })
+  const p = createProject({
+    name: '瑟乌丝林语',
+    template: 'family',
+    appVersion: '0.1.0',
+    uiLocale: 'zh',
+    familyNames: { proto: '原始希克林语', daughters: ['瑟乌丝林语', '群岛希克林语'] }
+  })
   const [pskr, tsr, askr] = p.languages
   pskr.abbr = 'PSkr'
   tsr.abbr = 'Tsr'
@@ -329,11 +665,37 @@ function makeTheusrin(): void {
   askr.color = '#3B82F6'
 
   // 词表里的词干用词表记法（eu、ei、k̂、ĝ、ñ，语素界 -，可选段括号），先一次性转成音变输入记法
-  const notation = ['; 词表记法 → 音变输入记法（在第一个阶段快照之前执行）', 'eu > œ / _', 'ei > æ / _', 'k̂ > c / _', 'ĝ > j / _', 'ñ > ŋ / _', '[-] > / _', '[(] > / _', '[)] > / _', ''].join('\n')
-  const rsT = createRuleSet('原始希克林语 → 瑟乌丝林语', notation + fromYinbianji(read(join(fx, 'theusrin', 'Category.txt')), read(join(fx, 'theusrin', 'Replace.txt')), read(join(fx, 'theusrin', 'Rule.txt'))))
+  const notation = [
+    '; 词表记法 → 音变输入记法（在第一个阶段快照之前执行）',
+    'eu > œ / _',
+    'ei > æ / _',
+    'k̂ > c / _',
+    'ĝ > j / _',
+    'ñ > ŋ / _',
+    '[-] > / _',
+    '[(] > / _',
+    '[)] > / _',
+    ''
+  ].join('\n')
+  const rsT = createRuleSet(
+    '原始希克林语 → 瑟乌丝林语',
+    notation +
+      fromYinbianji(
+        read(join(fx, 'theusrin', 'Category.txt')),
+        read(join(fx, 'theusrin', 'Replace.txt')),
+        read(join(fx, 'theusrin', 'Rule.txt'))
+      )
+  )
   rsT.testWords = read(join(fx, 'theusrin', 'Lexicon.txt')).trim()
   rsT.stageLanguages = { PSkr: pskr.id, Tsr: tsr.id, Orthography: tsr.id }
-  const rsA = createRuleSet('原始希克林语 → 群岛希克林语', fromYinbianji(read(join(fx, 'archipelago', 'Category.txt')), read(join(fx, 'archipelago', 'Replace.txt')), read(join(fx, 'archipelago', 'Rule.txt'))))
+  const rsA = createRuleSet(
+    '原始希克林语 → 群岛希克林语',
+    fromYinbianji(
+      read(join(fx, 'archipelago', 'Category.txt')),
+      read(join(fx, 'archipelago', 'Replace.txt')),
+      read(join(fx, 'archipelago', 'Rule.txt'))
+    )
+  )
   rsA.stageLanguages = { PSkr: pskr.id }
   p.ruleSets.push(rsT, rsA)
 
@@ -341,7 +703,13 @@ function makeTheusrin(): void {
   const V = pos(p, '动词', 'verb', 'v.')
   const A = pos(p, '形容词', 'adjective', 'adj.')
 
-  const imp = (file: string, fields: Record<string, FieldSpec>, target: CsvMapping['target'], languageId: Id, ps: PartOfSpeech | null): void => {
+  const imp = (
+    file: string,
+    fields: Record<string, FieldSpec>,
+    target: CsvMapping['target'],
+    languageId: Id,
+    ps: PartOfSpeech | null
+  ): void => {
     const rows = parseCsv(read(join(priv, file))).rows
     const m = defaultMapping(languageId, rows[0].length)
     m.target = target
@@ -409,12 +777,48 @@ function makeTheusrin(): void {
     tsr.id,
     A
   )
-  imp('瑟乌丝林语词表 - PSkr.csv', { 词根: { kind: 'lemma' }, 释义: { kind: 'definition', lang: 'zh' }, 备注: { kind: 'notes' }, 词性: { kind: 'tags' } }, 'morphemes', pskr.id, null)
+  imp(
+    '瑟乌丝林语词表 - PSkr.csv',
+    {
+      词根: { kind: 'lemma' },
+      释义: { kind: 'definition', lang: 'zh' },
+      备注: { kind: 'notes' },
+      词性: { kind: 'tags' }
+    },
+    'morphemes',
+    pskr.id,
+    null
+  )
 
   // 名词格范式：祖语词干 + 格缀，从 PSkr 阶段跑完整套音变（用户方法论：及物 强形+s、不及物 强形+m）
-  const kase = category(p, '格', 'case', [['及物格', 'transitive', 'TR'], ['不及物格', 'intransitive', 'INTR'], ['欠格', 'deficient', 'DEF'], ['斜格', 'oblique', 'OBL']])
-  const nounP: import('$lib/core/model').Paradigm = { id: newId(), name: { zh: '名词' }, dimensionIds: [kase.id], disabledSlots: [], generators: {}, inheritsFrom: null }
-  const gen = (stem: string, suffix: string, pre = ''): import('$lib/core/model').SlotGenerator => ({ kind: 'affix-sca', stem, prefix: '', suffix, ruleSetId: rsT.id, fromStage: 'PSkr', toStage: '', pre })
+  const kase = category(p, '格', 'case', [
+    ['及物格', 'transitive', 'TR'],
+    ['不及物格', 'intransitive', 'INTR'],
+    ['欠格', 'deficient', 'DEF'],
+    ['斜格', 'oblique', 'OBL']
+  ])
+  const nounP: import('$lib/core/model').Paradigm = {
+    id: newId(),
+    name: { zh: '名词' },
+    dimensionIds: [kase.id],
+    disabledSlots: [],
+    generators: {},
+    inheritsFrom: null
+  }
+  const gen = (
+    stem: string,
+    suffix: string,
+    pre = ''
+  ): import('$lib/core/model').SlotGenerator => ({
+    kind: 'affix-sca',
+    stem,
+    prefix: '',
+    suffix,
+    ruleSetId: rsT.id,
+    fromStage: 'PSkr',
+    toStage: '',
+    pre
+  })
   nounP.generators[value(kase, 'TR')] = gen('强形', 's')
   nounP.generators[value(kase, 'INTR')] = gen('强形', 'm')
   // 欠格：弱形 + wat，在跑音变前脱落 -at
@@ -422,7 +826,8 @@ function makeTheusrin(): void {
   nounP.generators[value(kase, 'OBL')] = gen('强形', 'st')
   p.paradigms.push(nounP)
   N.paradigmId = nounP.id
-  p.meta.description = '从五张词表和音变姬规则生成；T 表（惯用形 / 限定词 / 数词 / 小品词 / 代词）需在向导里分组导入。'
+  p.meta.description =
+    '从五张词表和音变姬规则生成；T 表（惯用形 / 限定词 / 数词 / 小品词 / 代词）需在向导里分组导入。'
   p.meta.updatedAt = now()
   save(join('private', 'Theusrin.laim.json'), p)
 }

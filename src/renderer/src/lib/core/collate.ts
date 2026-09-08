@@ -3,7 +3,8 @@
  * 不在表里的字符排在最后，按 Unicode 顺序。
  */
 export function makeCollator(alphabet: string[]): (a: string, b: string) => number {
-  if (!alphabet.length) return (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }) || a.localeCompare(b)
+  if (!alphabet.length)
+    return (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }) || a.localeCompare(b)
   const order = new Map<string, number>()
   alphabet.forEach((g, i) => {
     if (!order.has(g)) order.set(g, i)

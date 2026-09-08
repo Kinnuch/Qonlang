@@ -6,7 +6,12 @@
   import { t } from '$lib/i18n/index.svelte'
   import { newId } from '$lib/core/factory'
   import type { Language } from '$lib/core/model'
-  import { dictionaryHtml, dictionaryMarkdown, renderEntries, type DictOptions } from '$lib/export/dictionary'
+  import {
+    dictionaryHtml,
+    dictionaryMarkdown,
+    renderEntries,
+    type DictOptions
+  } from '$lib/export/dictionary'
   import { Download, Check, Trash2, X, Copy } from '@lucide/svelte'
 
   let { language, onclose }: { language: Language; onclose: () => void } = $props()
@@ -26,30 +31,64 @@
     if (!title) title = `${language.name}`
   })
   const templates = $derived(project.settings.exportTemplates.filter((x) => x.kind === 'entry'))
-  const opts = $derived((): DictOptions => ({ title, glossLangs, senseLangs, includeForms, includeEtymology, includeScript, includeNotes, groupByInitial, fontFamily: project.settings.dataFont || undefined }))
-  const preview = $derived(renderEntries(project, language, templateDraft.template, opts()).split('\n').slice(0, 6).join('\n'))
+  const opts = $derived((): DictOptions => ({
+    title,
+    glossLangs,
+    senseLangs,
+    includeForms,
+    includeEtymology,
+    includeScript,
+    includeNotes,
+    groupByInitial,
+    fontFamily: project.settings.dataFont || undefined
+  }))
+  const preview = $derived(
+    renderEntries(project, language, templateDraft.template, opts())
+      .split('\n')
+      .slice(0, 6)
+      .join('\n')
+  )
 
   async function doExport(kind: 'html' | 'md' | 'pdf' | 'template'): Promise<void> {
     const o = opts()
     const base = `${language.name}-dictionary`
     let ok = false
-    if (kind === 'html') ok = await platform.saveTextFile(`${base}.html`, dictionaryHtml(project, language, o))
-    else if (kind === 'md') ok = await platform.saveTextFile(`${base}.md`, dictionaryMarkdown(project, language, o))
-    else if (kind === 'pdf') ok = await platform.exportPdf(dictionaryHtml(project, language, o), `${base}.pdf`)
-    else ok = await platform.saveTextFile(`${base}.txt`, renderEntries(project, language, templateDraft.template, o))
+    if (kind === 'html')
+      ok = await platform.saveTextFile(`${base}.html`, dictionaryHtml(project, language, o))
+    else if (kind === 'md')
+      ok = await platform.saveTextFile(`${base}.md`, dictionaryMarkdown(project, language, o))
+    else if (kind === 'pdf')
+      ok = await platform.exportPdf(dictionaryHtml(project, language, o), `${base}.pdf`)
+    else
+      ok = await platform.saveTextFile(
+        `${base}.txt`,
+        renderEntries(project, language, templateDraft.template, o)
+      )
     if (ok) ui.toast(t('dict.exported'))
   }
   async function copyTemplateOut(): Promise<void> {
-    await navigator.clipboard.writeText(renderEntries(project, language, templateDraft.template, opts()))
+    await navigator.clipboard.writeText(
+      renderEntries(project, language, templateDraft.template, opts())
+    )
     ui.toast(t('soundChanges.copied'))
   }
   function saveTemplate(): void {
     const name = templateDraft.name.trim()
     if (!name) return
-    const existing = project.settings.exportTemplates.find((x) => x.kind === 'entry' && x.name === name)
+    const existing = project.settings.exportTemplates.find(
+      (x) => x.kind === 'entry' && x.name === name
+    )
     if (existing) existing.template = templateDraft.template
-    else project.settings.exportTemplates.push({ id: newId(), name, kind: 'entry', template: templateDraft.template })
-    templateId = (existing ?? project.settings.exportTemplates[project.settings.exportTemplates.length - 1]).id
+    else
+      project.settings.exportTemplates.push({
+        id: newId(),
+        name,
+        kind: 'entry',
+        template: templateDraft.template
+      })
+    templateId = (
+      existing ?? project.settings.exportTemplates[project.settings.exportTemplates.length - 1]
+    ).id
     projectState.touch()
   }
   function loadTemplate(id: string): void {
@@ -77,41 +116,80 @@
   <div class="two">
     <section>
       <h4>{t('dict.options')}</h4>
-      <div class="field"><label for="dx-title">{t('dict.docTitle')}</label><input id="dx-title" class="input" bind:value={title} /></div>
+      <div class="field">
+        <label for="dx-title">{t('dict.docTitle')}</label><input
+          id="dx-title"
+          class="input"
+          bind:value={title}
+        />
+      </div>
       <div class="row wrap gap">
-        <label class="row small"><input type="checkbox" bind:checked={includeForms} />{t('dict.includeForms')}</label>
-        <label class="row small"><input type="checkbox" bind:checked={includeEtymology} />{t('dict.includeEtymology')}</label>
-        <label class="row small"><input type="checkbox" bind:checked={includeScript} />{t('dict.includeScript')}</label>
-        <label class="row small"><input type="checkbox" bind:checked={includeNotes} />{t('dict.includeNotes')}</label>
-        <label class="row small"><input type="checkbox" bind:checked={groupByInitial} />{t('dict.groupByInitial')}</label>
+        <label class="row small"
+          ><input type="checkbox" bind:checked={includeForms} />{t('dict.includeForms')}</label
+        >
+        <label class="row small"
+          ><input type="checkbox" bind:checked={includeEtymology} />{t(
+            'dict.includeEtymology'
+          )}</label
+        >
+        <label class="row small"
+          ><input type="checkbox" bind:checked={includeScript} />{t('dict.includeScript')}</label
+        >
+        <label class="row small"
+          ><input type="checkbox" bind:checked={includeNotes} />{t('dict.includeNotes')}</label
+        >
+        <label class="row small"
+          ><input type="checkbox" bind:checked={groupByInitial} />{t('dict.groupByInitial')}</label
+        >
       </div>
       <div class="row wrap gap">
         <span class="small muted">{t('dict.senseLangs')}</span>
-        {#each glossLangs as g (g)}<label class="row small"><input type="checkbox" checked={senseLangs.length === 0 || senseLangs.includes(g)} onchange={() => toggleSenseLang(g)} />{g}</label>{/each}
+        {#each glossLangs as g (g)}<label class="row small"
+            ><input
+              type="checkbox"
+              checked={senseLangs.length === 0 || senseLangs.includes(g)}
+              onchange={() => toggleSenseLang(g)}
+            />{g}</label
+          >{/each}
       </div>
       <div class="row wrap gap">
         <button class="btn sm" onclick={() => doExport('html')}><Download size={14} />HTML</button>
-        <button class="btn sm" onclick={() => doExport('md')}><Download size={14} />Markdown</button>
-        <button class="btn primary sm" onclick={() => doExport('pdf')}><Download size={14} />PDF</button>
+        <button class="btn sm" onclick={() => doExport('md')}><Download size={14} />Markdown</button
+        >
+        <button class="btn primary sm" onclick={() => doExport('pdf')}
+          ><Download size={14} />PDF</button
+        >
       </div>
     </section>
     <section>
       <h4>{t('dict.template')}</h4>
       <div class="row kv">
-        <select class="select grow" value={templateId} onchange={(e) => loadTemplate((e.currentTarget as HTMLSelectElement).value)}>
+        <select
+          class="select grow"
+          value={templateId}
+          onchange={(e) => loadTemplate((e.currentTarget as HTMLSelectElement).value)}
+        >
           <option value="">{t('corpus.templateNew')}</option>
           {#each templates as tp (tp.id)}<option value={tp.id}>{tp.name}</option>{/each}
         </select>
-        {#if templateId}<button class="btn ghost icon sm danger" onclick={deleteTemplate}><Trash2 size={14} /></button>{/if}
+        {#if templateId}<button class="btn ghost icon sm danger" onclick={deleteTemplate}
+            ><Trash2 size={14} /></button
+          >{/if}
       </div>
       <input class="input" placeholder={t('corpus.templateName')} bind:value={templateDraft.name} />
       <textarea class="textarea mono" rows="4" bind:value={templateDraft.template}></textarea>
       <p class="tiny muted">{t('dict.templateHint')}</p>
       <pre class="out">{preview}</pre>
       <div class="row wrap gap">
-        <button class="btn sm" onclick={saveTemplate}><Check size={14} />{t('corpus.saveTemplate')}</button>
-        <button class="btn ghost sm" onclick={copyTemplateOut}><Copy size={14} />{t('corpus.copy')}</button>
-        <button class="btn sm" onclick={() => doExport('template')}><Download size={14} />{t('dict.exportTemplate')}</button>
+        <button class="btn sm" onclick={saveTemplate}
+          ><Check size={14} />{t('corpus.saveTemplate')}</button
+        >
+        <button class="btn ghost sm" onclick={copyTemplateOut}
+          ><Copy size={14} />{t('corpus.copy')}</button
+        >
+        <button class="btn sm" onclick={() => doExport('template')}
+          ><Download size={14} />{t('dict.exportTemplate')}</button
+        >
       </div>
     </section>
   </div>

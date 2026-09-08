@@ -25,7 +25,9 @@
           }}>{toast.secondary.label}</button
         >
       {/if}
-      <button class="btn ghost icon sm" aria-label="close" onclick={() => ui.dismiss(toast.id)}><X size={14} /></button>
+      <button class="btn ghost icon sm" aria-label="close" onclick={() => ui.dismiss(toast.id)}
+        ><X size={14} /></button
+      >
     </div>
   {/each}
 </div>

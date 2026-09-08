@@ -34,26 +34,39 @@ export interface EvolveRow {
 }
 
 function inputOf(l: Lexeme, field: EvolveOptions['inputField']): string {
-  if (!field || field.kind === 'lemma') return l.lemma
+  if (!field || field.kind !== 'stem') return l.lemma
   return l.stems[field.name] ?? ''
 }
 
 export function planEvolution(project: Project, o: EvolveOptions): EvolveRow[] {
   const targets = project.lexemes.filter((l) => l.languageId === o.targetLanguageId)
   const bySource = new Map<Id, Lexeme>()
-  for (const t of targets) for (const s of t.etymology.sources) if (s.kind === 'lexeme' || s.kind === 'morpheme') bySource.set(s.id, t)
+  for (const t of targets)
+    for (const s of t.etymology.sources)
+      if (s.kind === 'lexeme' || s.kind === 'morpheme') bySource.set(s.id, t)
   const byLemma = new Map<string, Lexeme>()
   for (const t of targets) if (!byLemma.has(t.lemma)) byLemma.set(t.lemma, t)
   const rows: EvolveRow[] = []
   const morphemeMode = o.inputField?.kind === 'morpheme'
-  const sources: (Lexeme | Morpheme)[] = morphemeMode ? project.morphemes.filter((m) => m.languageId === o.sourceLanguageId) : project.lexemes.filter((l) => l.languageId === o.sourceLanguageId)
+  const sources: (Lexeme | Morpheme)[] = morphemeMode
+    ? project.morphemes.filter((m) => m.languageId === o.sourceLanguageId)
+    : project.lexemes.filter((l) => l.languageId === o.sourceLanguageId)
   for (const l of sources) {
-    if (!morphemeMode && o.posIds?.length && (!(l as Lexeme).posId || !o.posIds.includes((l as Lexeme).posId!))) continue
+    if (
+      !morphemeMode &&
+      o.posIds?.length &&
+      (!(l as Lexeme).posId || !o.posIds.includes((l as Lexeme).posId!))
+    )
+      continue
     const input = morphemeMode ? (l as Morpheme).form : inputOf(l as Lexeme, o.inputField)
     if (!input.trim()) continue
     let output = ''
     try {
-      output = runRules(o.program, input, { startAt: o.startAt || undefined, stopAt: o.stopAt || undefined, trace: false }).output
+      output = runRules(o.program, input, {
+        startAt: o.startAt || undefined,
+        stopAt: o.stopAt || undefined,
+        trace: false
+      }).output
     } catch {
       output = ''
     }
@@ -63,7 +76,15 @@ export function planEvolution(project: Project, o: EvolveOptions): EvolveRow[] {
     if (!output) action = 'skip'
     else if (existing) action = existing.lemma === output ? 'same' : 'update'
     else if (collision) action = 'skip'
-    rows.push({ source: l, sourceKind: morphemeMode ? 'morpheme' : 'lexeme', input, output, existing, collision, action })
+    rows.push({
+      source: l,
+      sourceKind: morphemeMode ? 'morpheme' : 'lexeme',
+      input,
+      output,
+      existing,
+      collision,
+      action
+    })
   }
   return rows
 }
@@ -77,7 +98,12 @@ export interface ApplyOptions {
   createOnCollision: boolean
 }
 
-export function applyEvolution(project: Project, rows: EvolveRow[], o: EvolveOptions, a: ApplyOptions): { created: number; updated: number; skipped: number } {
+export function applyEvolution(
+  project: Project,
+  rows: EvolveRow[],
+  o: EvolveOptions,
+  a: ApplyOptions
+): { created: number; updated: number; skipped: number } {
   let created = 0
   let updated = 0
   let skipped = 0
@@ -105,14 +131,31 @@ export function applyEvolution(project: Project, rows: EvolveRow[], o: EvolveOpt
       const src = r.source as Lexeme
       l.posId = src.posId
       l.features = { ...src.features }
-      l.etymology = { type: 'inherited', sources: [{ kind: 'lexeme', id: src.id }], protoForm: r.input, notes: o.ruleSet.name }
+      l.etymology = {
+        type: 'inherited',
+        sources: [{ kind: 'lexeme', id: src.id }],
+        protoForm: r.input,
+        notes: o.ruleSet.name
+      }
       if (a.copySenses) {
-        l.senses = src.senses.map((s) => ({ ...s, id: crypto.randomUUID(), definition: { ...s.definition }, tags: [...s.tags], dialectIds: [], examples: [] }))
+        l.senses = src.senses.map((s) => ({
+          ...s,
+          id: crypto.randomUUID(),
+          definition: { ...s.definition },
+          tags: [...s.tags],
+          dialectIds: [],
+          examples: []
+        }))
         l.tags = [...src.tags]
       }
     } else {
       const src = r.source as Morpheme
-      l.etymology = { type: 'inherited', sources: [{ kind: 'morpheme', id: src.id }], protoForm: r.input, notes: o.ruleSet.name }
+      l.etymology = {
+        type: 'inherited',
+        sources: [{ kind: 'morpheme', id: src.id }],
+        protoForm: r.input,
+        notes: o.ruleSet.name
+      }
       if (a.copySenses) {
         if (Object.values(src.meaning).some(Boolean)) l.senses[0].definition = { ...src.meaning }
         l.tags = [...src.tags]

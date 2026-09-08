@@ -18,7 +18,12 @@
 
   const project = $derived(projectState.project!)
   const glossLangs = $derived(project.settings.glossLanguages)
-  const langId = $derived(projectState.currentLanguageId ?? project.settings.defaultLanguageId ?? project.languages[0]?.id ?? null)
+  const langId = $derived(
+    projectState.currentLanguageId ??
+      project.settings.defaultLanguageId ??
+      project.languages[0]?.id ??
+      null
+  )
   const language = $derived(project.languages.find((l) => l.id === langId) ?? null)
 
   let selectedId = $state<Id | null>(null)
@@ -29,7 +34,13 @@
   const categories = $derived([...new Set(inLang.map((p) => p.category).filter(Boolean))].sort())
   const list = $derived.by(() => {
     const q = query.trim().toLowerCase()
-    return inLang.filter((p) => (!category || p.category === category) && (!q || p.text.toLowerCase().includes(q) || Object.values(p.translation).some((v) => v.toLowerCase().includes(q))))
+    return inLang.filter(
+      (p) =>
+        (!category || p.category === category) &&
+        (!q ||
+          p.text.toLowerCase().includes(q) ||
+          Object.values(p.translation).some((v) => v.toLowerCase().includes(q)))
+    )
   })
   const selected = $derived(project.phrasebook.find((p) => p.id === selectedId) ?? null)
   const allTags = $derived([...new Set(project.phrasebook.flatMap((p) => p.tags))].sort())
@@ -77,13 +88,14 @@
     if (!language) return
     for (const o of language.orthographies) {
       const ipa = transcribe(language, o, p.text)
-      if (ipa != null && !p.pronunciations[o.id]?.irregular) p.pronunciations[o.id] = { ipa, irregular: false }
+      if (ipa != null && !p.pronunciations[o.id]?.irregular)
+        p.pronunciations[o.id] = { ipa, irregular: false }
     }
     touch()
   }
-  function renameCategory(): void {
+  async function renameCategory(): Promise<void> {
     if (!category) return
-    const name = window.prompt(t('phrasebook.category'), category)?.trim()
+    const name = (await ui.prompt(t('phrasebook.category'), category))?.trim()
     if (!name || name === category) return
     for (const p of inLang) if (p.category === category) p.category = name
     category = name
@@ -105,9 +117,17 @@
   {:else}
     <div class="body">
       <aside class="cats">
-        <button class="cat" class:active={category === ''} onclick={() => (category = '')}>{t('phrasebook.allCategories')}<span class="n">{inLang.length}</span></button>
+        <button class="cat" class:active={category === ''} onclick={() => (category = '')}
+          >{t('phrasebook.allCategories')}<span class="n">{inLang.length}</span></button
+        >
         {#each categories as c (c)}
-          <button class="cat" class:active={category === c} onclick={() => (category = c)} ondblclick={renameCategory}>{c}<span class="n">{inLang.filter((p) => p.category === c).length}</span></button>
+          <button
+            class="cat"
+            class:active={category === c}
+            onclick={() => (category = c)}
+            ondblclick={renameCategory}
+            >{c}<span class="n">{inLang.filter((p) => p.category === c).length}</span></button
+          >
         {/each}
         {#if categories.length === 0}<p class="tiny muted">{t('phrasebook.noCategories')}</p>{/if}
       </aside>
@@ -117,20 +137,37 @@
         {:else}
           <div class="list">
             {#each list as p (p.id)}
-              <div class="card item" class:sel={selectedId === p.id} role="button" tabindex="0" onclick={() => (selectedId = p.id)} onkeydown={(e) => e.key === 'Enter' && (selectedId = p.id)}>
+              <div
+                class="card item"
+                class:sel={selectedId === p.id}
+                role="button"
+                tabindex="0"
+                onclick={() => (selectedId = p.id)}
+                onkeydown={(e) => e.key === 'Enter' && (selectedId = p.id)}
+              >
                 {#each language.scripts as sc (sc.id)}
                   {@const st = renderScript(language, sc, p.text)}
-                  {#if st}<div class="scr" style={fontCss(sc)} dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'}>{st}</div>{/if}
+                  {#if st}<div
+                      class="scr"
+                      style={fontCss(sc)}
+                      dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'}
+                    >
+                      {st}
+                    </div>{/if}
                 {/each}
                 <div class="row">
                   <span class="data text grow">{p.text || '—'}</span>
                   {#if p.category && !category}<span class="badge">{p.category}</span>{/if}
                 </div>
                 {#each language.orthographies as o (o.id)}
-                  {#if p.pronunciations[o.id]?.ipa}<div class="small data muted">/{p.pronunciations[o.id].ipa}/</div>{/if}
+                  {#if p.pronunciations[o.id]?.ipa}<div class="small data muted">
+                      /{p.pronunciations[o.id].ipa}/
+                    </div>{/if}
                 {/each}
                 <div class="small tr">{pickText(p.translation, glossLangs)}</div>
-                {#if p.variants.length}<div class="tiny muted">{p.variants.map((v) => v.text).join(' · ')}</div>{/if}
+                {#if p.variants.length}<div class="tiny muted">
+                    {p.variants.map((v) => v.text).join(' · ')}
+                  </div>{/if}
               </div>
             {/each}
           </div>
@@ -145,7 +182,14 @@
   <Portal>
     <div class="field">
       <label for="ph-text">{t('phrasebook.text')}</label>
-      <textarea id="ph-text" class="textarea data" rows="2" bind:value={p.text} oninput={touch} onchange={() => derivePron(p)}></textarea>
+      <textarea
+        id="ph-text"
+        class="textarea data"
+        rows="2"
+        bind:value={p.text}
+        oninput={touch}
+        onchange={() => derivePron(p)}
+      ></textarea>
     </div>
     <div class="field">
       <span class="small muted">{t('corpus.translation')}</span>
@@ -154,24 +198,65 @@
     <div class="field">
       <label for="ph-cat">{t('phrasebook.category')}</label>
       <input id="ph-cat" class="input" list="ph-cats" bind:value={p.category} oninput={touch} />
-      <datalist id="ph-cats">{#each categories as c (c)}<option value={c}></option>{/each}</datalist>
+      <datalist id="ph-cats"
+        >{#each categories as c (c)}<option value={c}></option>{/each}</datalist
+      >
     </div>
     <div class="field">
-      <div class="row"><span class="small muted grow">{t('lexicon.pronunciations')}</span><button class="btn ghost sm" onclick={() => derivePron(p)}><Wand2 size={13} />{t('phrasebook.derivePron')}</button></div>
+      <div class="row">
+        <span class="small muted grow">{t('lexicon.pronunciations')}</span><button
+          class="btn ghost sm"
+          onclick={() => derivePron(p)}><Wand2 size={13} />{t('phrasebook.derivePron')}</button
+        >
+      </div>
       {#each language.orthographies as o (o.id)}
         <div class="row kv">
           <span class="small oname">{o.name}</span>
-          <input class="input data" value={p.pronunciations[o.id]?.ipa ?? ''} oninput={(e) => { p.pronunciations[o.id] = { ipa: (e.currentTarget as HTMLInputElement).value, irregular: true }; touch() }} />
+          <input
+            class="input data"
+            value={p.pronunciations[o.id]?.ipa ?? ''}
+            oninput={(e) => {
+              p.pronunciations[o.id] = {
+                ipa: (e.currentTarget as HTMLInputElement).value,
+                irregular: true
+              }
+              touch()
+            }}
+          />
         </div>
       {/each}
     </div>
     <div class="field">
-      <div class="row"><span class="small muted grow">{t('phrasebook.variants')}</span><button class="btn ghost sm" onclick={() => { p.variants.push({ text: '', note: '' }); touch() }}><Plus size={13} />{t('common.add')}</button></div>
+      <div class="row">
+        <span class="small muted grow">{t('phrasebook.variants')}</span><button
+          class="btn ghost sm"
+          onclick={() => {
+            p.variants.push({ text: '', note: '' })
+            touch()
+          }}><Plus size={13} />{t('common.add')}</button
+        >
+      </div>
       {#each p.variants as v, i (i)}
         <div class="row kv">
-          <input class="input data grow" placeholder={t('phrasebook.variantText')} bind:value={v.text} oninput={touch} />
-          <input class="input grow" placeholder={t('phrasebook.variantNote')} bind:value={v.note} oninput={touch} />
-          <button class="btn ghost icon sm" onclick={() => { p.variants.splice(i, 1); touch() }}><X size={14} /></button>
+          <input
+            class="input data grow"
+            placeholder={t('phrasebook.variantText')}
+            bind:value={v.text}
+            oninput={touch}
+          />
+          <input
+            class="input grow"
+            placeholder={t('phrasebook.variantNote')}
+            bind:value={v.note}
+            oninput={touch}
+          />
+          <button
+            class="btn ghost icon sm"
+            onclick={() => {
+              p.variants.splice(i, 1)
+              touch()
+            }}><X size={14} /></button
+          >
         </div>
       {/each}
     </div>
@@ -179,7 +264,9 @@
       <span class="small muted">{t('common.tags')}</span>
       <TagInput bind:tags={p.tags} suggestions={allTags} onchange={touch} />
     </div>
-    <button class="btn sm danger" onclick={() => remove(p)}><Trash2 size={14} />{t('common.delete')}</button>
+    <button class="btn sm danger" onclick={() => remove(p)}
+      ><Trash2 size={14} />{t('common.delete')}</button
+    >
   </Portal>
 {/if}
 

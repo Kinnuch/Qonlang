@@ -192,7 +192,8 @@ export default {
     noPreview: '自动生成的示例没有被这条规则改变',
     editRule: '编辑',
     input: '输入',
-    chainHint: '每一列是一个阶段快照，节点是音段或音类，边是规则（目标 → 替换）。悬停看环境，点击选中该规则并联动右侧测试台。',
+    chainHint:
+      '每一列是一个阶段快照，节点是音段或音类，边是规则（目标 → 替换）。悬停看环境，点击选中该规则并联动右侧测试台。',
     chainEmpty: '还没有规则可画。'
   },
   chars: {
@@ -287,7 +288,14 @@ export default {
     noFeatures: '还没有语法维度。在「词类与维度」里定义。',
     etymology: '词源',
     etyType: '类型',
-    etyTypes: { root: '词根派生', compound: '复合', borrowing: '借词', derivation: '派生', inherited: '继承（音变）', unknown: '未知' },
+    etyTypes: {
+      root: '词根派生',
+      compound: '复合',
+      borrowing: '借词',
+      derivation: '派生',
+      inherited: '继承（音变）',
+      unknown: '未知'
+    },
     sources: '来源',
     addSource: '添加来源',
     sourceKinds: { morpheme: '语素', lexeme: '词位', external: '外部' },
@@ -343,7 +351,13 @@ export default {
     customKind: '自定义…',
     graph: '关系图',
     backToList: '返回列表',
-    groups: { sources: '来源', derived: '派生 / 复合', cognates: '同源', relations: '标注关系', synonyms: '同义（自动）' },
+    groups: {
+      sources: '来源',
+      derived: '派生 / 复合',
+      cognates: '同源',
+      relations: '标注关系',
+      synonyms: '同义（自动）'
+    },
     noGraph: '这个词还没有任何关联：没有来源、派生词、同源词或标注关系。',
     derivedWords: '派生词',
     formsDerived: '推导',
@@ -475,17 +489,32 @@ export default {
     value: '转写',
     valueHint: '主正字法里对应的拼写；留空则不参与自动映射',
     category: '分类',
-    categories: { letter: '字母', mark: '附标', number: '数字', punct: '标点', glyph: '私用区字形', space: '空白', other: '其他', vowel: '元音符号', consonant: '辅音', syllable: '音节', custom: '自定义…' },
+    categories: {
+      letter: '字母',
+      mark: '附标',
+      number: '数字',
+      punct: '标点',
+      glyph: '私用区字形',
+      space: '空白',
+      other: '其他',
+      vowel: '元音符号',
+      consonant: '辅音',
+      syllable: '音节',
+      custom: '自定义…'
+    },
     allCategories: '全部',
     noGlyphs: '还没有字形。导入字体，或粘贴字符表。',
-    rulesHint: '规则语言与音变页相同。`@glyphs` 那一行会展开成字形表自动生成的映射（转写值长的优先）；在它前面写的规则先执行，后面的规则后执行。',
+    rulesHint:
+      '规则语言与音变页相同。`@glyphs` 那一行会展开成字形表自动生成的映射（转写值长的优先）；在它前面写的规则先执行，后面的规则后执行。',
     autoRules: '自动映射（由字形表生成，{n} 条）',
     typeHints: {
       alphabet: '一字母对一音，通常只需 @glyphs；多合字母给单独字形填更长的转写值即可。',
       abjad: '在 @glyphs 之前删掉不写出的元音，例如 `[aiu] > / C_`。',
-      abugida: '先把辅音后的固有元音删掉（如 `a > / C_`），再把其他元音映射成附标；末尾无元音的辅音可加去元音符号，如 `C > C◌्`。',
+      abugida:
+        '先把辅音后的固有元音删掉（如 `a > / C_`），再把其他元音映射成附标；末尾无元音的辅音可加去元音符号，如 `C > C◌्`。',
       syllabary: '给每个音节一个字形并填上转写（如 ka、ki）；@glyphs 会按最长匹配优先处理。',
-      logographic: '语素文字通常按词映射：在词库的「文字写法」里逐词手填，规则只处理能规律推导的部分。',
+      logographic:
+        '语素文字通常按词映射：在词库的「文字写法」里逐词手填，规则只处理能规律推导的部分。',
       featural: '可先把音类映射为部件，再用规则拼合。',
       mixed: '混合系统：把各部分写成不同的规则段，用 -* 分段快照观察中间结果。',
       other: ''
@@ -533,8 +562,10 @@ export default {
     language: '所属语言',
     projectWide: '整个项目',
     updated: '更新于',
-    placeholder: '在这里写 Markdown……\n\n## 标题\n- 列表\n**粗体** *斜体* `代码` [[词头]]\n| 表 | 格 |\n| --- | --- |',
-    syntax: '支持：# 标题、- / 1. 列表、> 引用、``` 代码块、| 表格 |、**粗体**、*斜体*、`代码`、[链接](https://…)、[[词头]]。'
+    placeholder:
+      '在这里写 Markdown……\n\n## 标题\n- 列表\n**粗体** *斜体* `代码` [[词头]]\n| 表 | 格 |\n| --- | --- |',
+    syntax:
+      '支持：# 标题、- / 1. 列表、> 引用、``` 代码块、| 表格 |、**粗体**、*斜体*、`代码`、[链接](https://…)、[[词头]]。'
   },
   palette: {
     placeholder: '搜索词条、语素、例句、短语、文档、规则集，或输入页面名……',
@@ -581,12 +612,19 @@ export default {
     groupByInitial: '按首字母分组',
     senseLangs: '义项语言',
     template: '逐条模板',
-    templateHint: '变量：{{lemma}} {{ipa}} {{pos}} {{script}} {{definition}} {{etymology}} {{notes}} {{tags}} {{language}}；块：{{#senses}}{{n}} {{text}} {{lang}}{{/senses}}、{{#forms}}{{label}} {{text}}{{/forms}}。',
+    templateHint:
+      '变量：{{lemma}} {{ipa}} {{pos}} {{script}} {{definition}} {{etymology}} {{notes}} {{tags}} {{language}}；块：{{#senses}}{{n}} {{text}} {{lang}}{{/senses}}、{{#forms}}{{label}} {{text}}{{/forms}}。',
     exportTemplate: '导出文本',
     exported: '已导出'
   },
   phonology: {
-    tabs: { phonemes: '音位', classes: '音类', orthography: '正字法', syllable: '音节与韵律', phonotactics: '配列与造词' },
+    tabs: {
+      phonemes: '音位',
+      classes: '音类',
+      orthography: '正字法',
+      syllable: '音节与韵律',
+      phonotactics: '配列与造词'
+    },
     inventory: '音位表',
     inventoryEmpty: '还没有音位。在下面的 IPA 表里点选，或手动输入任意符号。',
     manualAdd: '手动输入符号',
@@ -600,7 +638,8 @@ export default {
     newDimension: '新维度名',
     inferFeatures: '按 IPA 表重推特征',
     graphemes: '各正字法写法',
-    classesHint: '音类供规则语言引用：单字母或长名都可以。可以直接写成员，也可以按特征自动生成（音位表变化后点刷新）。',
+    classesHint:
+      '音类供规则语言引用：单字母或长名都可以。可以直接写成员，也可以按特征自动生成（音位表变化后点刷新）。',
     quickClasses: '一键生成 C / V',
     addClass: '新增音类',
     noClasses: '还没有音类。',
@@ -628,12 +667,21 @@ export default {
     strategyMax: '最大起首原则',
     strategyTemplate: '按模板限制起首 / 尾音长度',
     template: '音节模板',
-    syllableHint: '音节核取自元音音位（特征 syllabic=yes 或 type=vowel）、名为 V 的音类或配列表的核列表。「配列与造词」里的合法起首表若非空，也会限制划分。',
+    syllableHint:
+      '音节核取自元音音位（特征 syllabic=yes 或 type=vowel）、名为 V 的音类或配列表的核列表。「配列与造词」里的合法起首表若非空，也会限制划分。',
     prosody: '韵律',
     prosodyType: '类型',
     prosodyTypes: { none: '无', stress: '重音', pitch: '音高重音', tone: '声调' },
     stressPosition: '重音位置',
-    stress: { initial: '首音节', second: '第二音节', final: '末音节', penult: '倒数第二音节', antepenult: '倒数第三音节', weight: '重音节敏感（倒数第二重则倒二，否则倒三）', manual: '逐词手标' },
+    stress: {
+      initial: '首音节',
+      second: '第二音节',
+      final: '末音节',
+      penult: '倒数第二音节',
+      antepenult: '倒数第三音节',
+      weight: '重音节敏感（倒数第二重则倒二，否则倒三）',
+      manual: '逐词手标'
+    },
     tones: '声调表',
     addTone: '添加声调',
     prosodyNotes: '说明 / 例外',
@@ -649,12 +697,19 @@ export default {
     weights: '造词权重（成员=权重）',
     minSyl: '最少音节',
     maxSyl: '最多音节',
-    phonotacticsHint: '用 IPA 写，空格分隔；起首、尾音可写辅音丛。留空表示不限制。检查与造词都在 IPA 上进行；造出的词会按基准正字法的「IPA → 正字法」规则转回写法。',
+    phonotacticsHint:
+      '用 IPA 写，空格分隔；起首、尾音可写辅音丛。留空表示不限制。检查与造词都在 IPA 上进行；造出的词会按基准正字法的「IPA → 正字法」规则转回写法。',
     check: '配列检查',
     runCheck: '检查词库',
     noViolations: '词库全部符合配列。',
     violations: '{n} 个词条不符合：',
-    violation: { illegal: '非法序列', onset: '起首', coda: '尾音', nucleus: '音节核', syllables: '音节数' },
+    violation: {
+      illegal: '非法序列',
+      onset: '起首',
+      coda: '尾音',
+      nucleus: '音节核',
+      syllables: '音节数'
+    },
     generator: '随机造词',
     count: '数量',
     generate: '生成',
@@ -675,17 +730,26 @@ export default {
     enabled: '启用',
     generator: '生成器',
     params: '参数',
-    kinds: { none: '无', table: '查表（手填）', affix: '拼接', 'affix-sca': '拼接后跑音变', pattern: '模板 / 交替', reduplication: '重叠' },
+    kinds: {
+      none: '无',
+      table: '查表（手填）',
+      affix: '拼接',
+      'affix-sca': '拼接后跑音变',
+      pattern: '模板 / 交替',
+      reduplication: '重叠'
+    },
     stem: '词干',
     prefix: '前缀',
     suffix: '后缀',
     infix: '中缀',
     infixAt: '位置',
-    infixAtHint: '中缀插入位置：数字（第 n 个音段后，负数从末尾数）、V / V2（第 n 个元音后）、C / C2（第 n 个辅音后）',
+    infixAtHint:
+      '中缀插入位置：数字（第 n 个音段后，负数从末尾数）、V / V2（第 n 个元音后）、C / C2（第 n 个辅音后）',
     ruleSet: '规则集…',
     fromStage: '起始阶段',
     toStage: '截止阶段',
-    patternHint: 'C1、C2…引用词干第 n 个辅音，bare C 依次取下一个辅音，V 同理；其余字面。如 C1aC2aC3、maCCuC',
+    patternHint:
+      'C1、C2…引用词干第 n 个辅音，bare C 依次取下一个辅音，V 同理；其余字面。如 C1aC2aC3、maCCuC',
     scopes: { full: '整体重叠', initial: '词首部分', final: '词尾部分' },
     length: '音段数',
     inherited: '继承',
@@ -708,12 +772,14 @@ export default {
     backToSlots: '返回槽位',
     deleted: '已删除范式「{name}」',
     hint: '范式绑定词类后，词库录入模式里该词类的词条会出现槽位面板，推导值写入后词条卡与语料 gloss 都会用到；生成器可引用「语素」页的词缀与「音变」页的规则集。',
-    affixHint: '词缀直接写字面；以 @ 开头引用语素（按形式或 gloss），按异体形环境自动挑选，如 @-lAr。词干填 lemma 或词干名（留空为词头），首尾连字符自动去掉。',
+    affixHint:
+      '词缀直接写字面；以 @ 开头引用语素（按形式或 gloss），按异体形环境自动挑选，如 @-lAr。词干填 lemma 或词干名（留空为词头），首尾连字符自动去掉。',
     adjust: '微调',
     adjustPre: '跑音变前…',
     adjustStem: '对词干…',
     adjustPost: '最终形式…',
-    adjustHint: '微调每行一条，依次执行：-at 去掉词尾 at；+u 追加 u；^-e 去掉词首 e；^+a 前置 a；含 > 的行按规则语言执行（如 at > / _#、V > / _C#）。上框在拼接之后、跑音变之前（或作用于词干），下框作用于最终形式。'
+    adjustHint:
+      '微调每行一条，依次执行：-at 去掉词尾 at；+u 追加 u；^-e 去掉词首 e；^+a 前置 a；含 > 的行按规则语言执行（如 at > / _#、V > / _C#）。上框在拼接之后、跑音变之前（或作用于词干），下框作用于最终形式。'
   },
   corpus: {
     title: '语料',
@@ -742,16 +808,27 @@ export default {
     noTokens: '输入原文后自动分析。',
     coverageLabel: '{confirmed} / {total} 个词已确认',
     export: '导出',
-    formats: { leipzig: '莱比锡纯文本', markdown: 'Markdown 表格', html: 'HTML', latex: 'LaTeX (gb4e)', template: '自定义模板' },
+    formats: {
+      leipzig: '莱比锡纯文本',
+      markdown: 'Markdown 表格',
+      html: 'HTML',
+      latex: 'LaTeX (gb4e)',
+      template: '自定义模板'
+    },
     copy: '复制',
     templateNew: '（新模板）',
     templateName: '模板名',
     saveTemplate: '保存模板',
-    templateHint: '占位符：{{text}} {{translation}} {{source}} {{morphs}} {{gloss}}；逐词块 {{#tokens}}…{{/tokens}} 内可用 {{surface}} {{morphs}} {{gloss}} {{sep}}',
+    templateHint:
+      '占位符：{{text}} {{translation}} {{source}} {{morphs}} {{gloss}}；逐词块 {{#tokens}}…{{/tokens}} 内可用 {{surface}} {{morphs}} {{gloss}} {{sep}}',
     deleted: '已删除例句',
     openInLexicon: '在词库中查看',
     hint: '词库、语素、范式里的改动都会影响这里的自动分析；确认过的分析会成为其他句子里同一个词的首选。悬停任一词可查看词条，点击可跳到词库。',
-    stats: { frequency: '词频', unresolved: '未识别的词', coverage: '词库覆盖率：{pct}% 的词位在语料里出现过' },
+    stats: {
+      frequency: '词频',
+      unresolved: '未识别的词',
+      coverage: '词库覆盖率：{pct}% 的词位在语料里出现过'
+    },
     abbr: {
       title: '缩写表',
       hint: 'gloss 里的缩写及其含义；悬停 gloss 时显示。可一键填入莱比锡标准缩写，再按需增删。',
@@ -786,10 +863,19 @@ export default {
     colors: '颜色',
     colorsFor: '当前编辑：{theme}',
     fonts: '字体',
-    fontSlots: { ui: '界面', data: '语言数据（词头、规则等）', mono: '等宽（源代码）', corpusText: '语料原文', corpusTr: '语料译文', gloss: 'gloss 行', script: '自定义文字（无内嵌字体时）' },
+    fontSlots: {
+      ui: '界面',
+      data: '语言数据（词头、规则等）',
+      mono: '等宽（源代码）',
+      corpusText: '语料原文',
+      corpusTr: '语料译文',
+      gloss: 'gloss 行',
+      script: '自定义文字（无内嵌字体时）'
+    },
     fontPlaceholder: '留空用默认；可写多个，逗号分隔',
     library: '字体库',
-    libraryHint: '以下字体均为 OFL 许可，可免费商用。下载后存到应用数据目录，重启也在。也可从本地文件添加。',
+    libraryHint:
+      '以下字体均为 OFL 许可，可免费商用。下载后存到应用数据目录，重启也在。也可从本地文件添加。',
     installed: '已安装',
     download: '下载',
     downloading: '下载中 {pct}%',
@@ -805,7 +891,23 @@ export default {
     custom: '自定义',
     preview: '预览',
     previewText: '示例原文',
-    vars: { bg: '页面背景', bgElev: '面板背景', bgSunken: '凹陷背景', bgHover: '悬停背景', border: '边框', borderStrong: '强边框', text: '文字', text2: '次要文字', text3: '弱文字', accent: '强调色', accentHover: '强调悬停', accentSoft: '强调底色', accentText: '强调文字', danger: '危险', warn: '警告' }
+    vars: {
+      bg: '页面背景',
+      bgElev: '面板背景',
+      bgSunken: '凹陷背景',
+      bgHover: '悬停背景',
+      border: '边框',
+      borderStrong: '强边框',
+      text: '文字',
+      text2: '次要文字',
+      text3: '弱文字',
+      accent: '强调色',
+      accentHover: '强调悬停',
+      accentSoft: '强调底色',
+      accentText: '强调文字',
+      danger: '危险',
+      warn: '警告'
+    }
   },
   settings: {
     title: '设置',

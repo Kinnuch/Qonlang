@@ -102,9 +102,13 @@ describe('stages', () => {
 
 describe('importers', () => {
   it('converts Lexicanter rules', () => {
-    expect(fromLexicanter('th > θ\n{a,e} > x / ^_\nk > ∅ / _#')).toBe('th > θ\n[ae] > x / #_\nk >  / _#')
+    expect(fromLexicanter('th > θ\n{a,e} > x / ^_\nk > ∅ / _#')).toBe(
+      'th > θ\n[ae] > x / #_\nk >  / _#'
+    )
   })
   it('converts SCA² rules', () => {
-    expect(fromSca2('V=aeiou\ns/z/V_V\na//_#\nx/y/_z/_w')).toBe('V=aeiou\ns > z / V_V\na > / _#\nx > y / _z - _w')
+    expect(fromSca2('V=aeiou\ns/z/V_V\na//_#\nx/y/_z/_w')).toBe(
+      'V=aeiou\ns > z / V_V\na > / _#\nx > y / _z - _w'
+    )
   })
 })

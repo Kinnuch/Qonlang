@@ -26,7 +26,14 @@
 </script>
 
 <div class="node" style:--depth={depth}>
-  <div class="card lang" class:selected={selectedId === language.id} role="button" tabindex="0" onclick={() => onselect(language.id)} onkeydown={(e) => e.key === 'Enter' && onselect(language.id)}>
+  <div
+    class="card lang"
+    class:selected={selectedId === language.id}
+    role="button"
+    tabindex="0"
+    onclick={() => onselect(language.id)}
+    onkeydown={(e) => e.key === 'Enter' && onselect(language.id)}
+  >
     <span class="dot" style:background={language.color}></span>
     <span class="name data">{language.name || t('app.untitledLanguage')}</span>
     {#if language.abbr}<span class="badge">{language.abbr}</span>{/if}
@@ -44,7 +51,15 @@
   {#if kids.length}
     <div class="kids">
       {#each kids as k (k.id)}
-        <LanguageNode language={k} {children} {selectedId} {defaultId} {onselect} {onaddchild} depth={depth + 1} />
+        <LanguageNode
+          language={k}
+          {children}
+          {selectedId}
+          {defaultId}
+          {onselect}
+          {onaddchild}
+          depth={depth + 1}
+        />
       {/each}
     </div>
   {/if}

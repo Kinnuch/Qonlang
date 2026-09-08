@@ -38,24 +38,35 @@ function pickText(text: Record<string, string> | undefined, order: string[]): st
   return Object.values(text).find(Boolean) ?? ''
 }
 
-const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const esc = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 export function collectEntries(project: Project, lang: Language, o: DictOptions): DictEntry[] {
   const collator = makeCollator(lang.alphabet)
   const primary = lang.orthographies.find((x) => x.isPrimary) ?? lang.orthographies[0]
   const senseLangs = o.senseLangs?.length ? o.senseLangs : o.glossLangs
-  const lexemes = project.lexemes.filter((l) => l.languageId === lang.id && l.lemma.trim()).sort((a, b) => collator(a.lemma, b.lemma))
+  const lexemes = project.lexemes
+    .filter((l) => l.languageId === lang.id && l.lemma.trim())
+    .sort((a, b) => collator(a.lemma, b.lemma))
   const script = lang.scripts[0]
   return lexemes.map((l) => {
     const pos = project.posList.find((p) => p.id === l.posId)
     const ipa = primary ? (l.pronunciations[primary.id]?.ipa ?? '') : ''
-    const senses = l.senses.flatMap((s) => senseLangs.map((g) => ({ lang: g, text: s.definition[g] ?? '', tags: s.tags })).filter((x) => x.text))
-    const forms = [...Object.entries(l.stems).map(([k, v]) => ({ label: k, text: v })), ...Object.entries(l.forms).map(([k, f]) => ({ label: k, text: f.surface }))].filter((f) => f.text)
+    const senses = l.senses.flatMap((s) =>
+      senseLangs
+        .map((g) => ({ lang: g, text: s.definition[g] ?? '', tags: s.tags }))
+        .filter((x) => x.text)
+    )
+    const forms = [
+      ...Object.entries(l.stems).map(([k, v]) => ({ label: k, text: v })),
+      ...Object.entries(l.forms).map(([k, f]) => ({ label: k, text: f.surface }))
+    ].filter((f) => f.text)
     const ety: string[] = []
     if (l.etymology.protoForm) ety.push('*' + l.etymology.protoForm)
     for (const s of l.etymology.sources) {
       if (s.kind === 'lexeme') ety.push(project.lexemes.find((x) => x.id === s.id)?.lemma ?? '?')
-      else if (s.kind === 'morpheme') ety.push(project.morphemes.find((x) => x.id === s.id)?.form ?? '?')
+      else if (s.kind === 'morpheme')
+        ety.push(project.morphemes.find((x) => x.id === s.id)?.form ?? '?')
       else ety.push(`${s.language} ${s.form}${s.meaning ? ` ‘${s.meaning}’` : ''}`)
     }
     const first = Array.from(l.lemma.replace(/^[-=*]+/, ''))[0] ?? ''
@@ -90,14 +101,24 @@ export function dictionaryHtml(project: Project, lang: Language, o: DictOptions)
     if (e.script) parts.push(`<span class="script">${esc(e.script)}</span>`)
     if (e.ipa) parts.push(`<span class="ipa">/${esc(e.ipa)}/</span>`)
     if (e.pos) parts.push(`<span class="pos">${esc(e.pos)}</span>`)
-    const senses = e.senses.length > 1 ? `<ol class="senses">${e.senses.map((s) => `<li lang="${s.lang}">${esc(s.text)}${s.tags.length ? ` <span class="tags">${esc(s.tags.join(', '))}</span>` : ''}</li>`).join('')}</ol>` : e.senses[0] ? `<span class="sense" lang="${e.senses[0].lang}">${esc(e.senses[0].text)}</span>` : ''
+    const senses =
+      e.senses.length > 1
+        ? `<ol class="senses">${e.senses.map((s) => `<li lang="${s.lang}">${esc(s.text)}${s.tags.length ? ` <span class="tags">${esc(s.tags.join(', '))}</span>` : ''}</li>`).join('')}</ol>`
+        : e.senses[0]
+          ? `<span class="sense" lang="${e.senses[0].lang}">${esc(e.senses[0].text)}</span>`
+          : ''
     let extra = ''
-    if (o.includeForms && e.forms.length) extra += `<div class="forms">${e.forms.map((f) => `<span><i>${esc(f.label)}</i> ${esc(f.text)}</span>`).join(' · ')}</div>`
+    if (o.includeForms && e.forms.length)
+      extra += `<div class="forms">${e.forms.map((f) => `<span><i>${esc(f.label)}</i> ${esc(f.text)}</span>`).join(' · ')}</div>`
     if (o.includeEtymology && e.etymology) extra += `<div class="ety">← ${esc(e.etymology)}</div>`
     if (o.includeNotes && e.lexeme.notes) extra += `<div class="notes">${esc(e.lexeme.notes)}</div>`
     return `<div class="entry">${parts.join(' ')} ${senses}${extra}</div>`
   }
-  const body = [...groups.entries()].map(([k, es]) => `${k ? `<h2 class="initial">${esc(k)}</h2>` : ''}${es.map(entryHtml).join('\n')}`).join('\n')
+  const body = [...groups.entries()]
+    .map(
+      ([k, es]) => `${k ? `<h2 class="initial">${esc(k)}</h2>` : ''}${es.map(entryHtml).join('\n')}`
+    )
+    .join('\n')
   const css = `
   @page { size: A4; margin: 18mm 16mm; }
   body { font-family: ${font}; font-size: 11pt; line-height: 1.45; color: #1a1a1a; margin: 0; padding: 24px; }
@@ -131,9 +152,13 @@ export function dictionaryMarkdown(project: Project, lang: Language, o: DictOpti
     if (e.script) head += ` ${e.script}`
     if (e.ipa) head += ` /${e.ipa}/`
     if (e.pos) head += ` *${e.pos}*`
-    const senses = e.senses.length > 1 ? e.senses.map((s, i) => `${i + 1}. ${s.text}`).join(' ') : (e.senses[0]?.text ?? '')
+    const senses =
+      e.senses.length > 1
+        ? e.senses.map((s, i) => `${i + 1}. ${s.text}`).join(' ')
+        : (e.senses[0]?.text ?? '')
     lines.push(`- ${head} — ${senses}`)
-    if (o.includeForms && e.forms.length) lines.push(`  - ${e.forms.map((f) => `*${f.label}* ${f.text}`).join(' · ')}`)
+    if (o.includeForms && e.forms.length)
+      lines.push(`  - ${e.forms.map((f) => `*${f.label}* ${f.text}`).join(' · ')}`)
     if (o.includeEtymology && e.etymology) lines.push(`  - ← ${e.etymology}`)
   }
   return lines.join('\n')
@@ -143,15 +168,37 @@ export function dictionaryMarkdown(project: Project, lang: Language, o: DictOpti
  * 逐条模板：{{lemma}} {{ipa}} {{pos}} {{script}} {{definition}}（首义项）{{etymology}} {{notes}} {{tags}}，
  * 块：{{#senses}}{{n}} {{text}} {{lang}}{{/senses}}、{{#forms}}{{label}} {{text}}{{/forms}}。
  */
-export function renderEntries(project: Project, lang: Language, template: string, o: DictOptions): string {
+export function renderEntries(
+  project: Project,
+  lang: Language,
+  template: string,
+  o: DictOptions
+): string {
   const entries = collectEntries(project, lang, o)
-  const fill = (tpl: string, vars: Record<string, string>): string => tpl.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, k: string) => vars[k] ?? '')
+  const fill = (tpl: string, vars: Record<string, string>): string =>
+    tpl.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, k: string) => vars[k] ?? '')
   const block = (tpl: string, name: string, items: Record<string, string>[]): string =>
-    tpl.replace(new RegExp(`\\{\\{#${name}\\}\\}([\\s\\S]*?)\\{\\{\\/${name}\\}\\}`, 'g'), (_m, inner: string) => items.map((it) => fill(inner, it)).join(''))
+    tpl.replace(
+      new RegExp(`\\{\\{#${name}\\}\\}([\\s\\S]*?)\\{\\{\\/${name}\\}\\}`, 'g'),
+      (_m, inner: string) => items.map((it) => fill(inner, it)).join('')
+    )
   return entries
     .map((e) => {
-      let s = block(template, 'senses', e.senses.map((x, i) => ({ n: String(i + 1), text: x.text, lang: x.lang, tags: x.tags.join(', ') })))
-      s = block(s, 'forms', e.forms.map((f) => ({ label: f.label, text: f.text })))
+      let s = block(
+        template,
+        'senses',
+        e.senses.map((x, i) => ({
+          n: String(i + 1),
+          text: x.text,
+          lang: x.lang,
+          tags: x.tags.join(', ')
+        }))
+      )
+      s = block(
+        s,
+        'forms',
+        e.forms.map((f) => ({ label: f.label, text: f.text }))
+      )
       return fill(s, {
         lemma: e.lemma,
         ipa: e.ipa,

@@ -50,7 +50,9 @@ describe('Theusrin regression', () => {
         const m = /^(.*?) → (.*?) \(.*\) at (\d+) line$/.exec(l)!
         return [m[1], m[2], ruleIndexToLine[Number(m[3]) - 1] + offset]
       })
-    const actual = lexicon.flatMap((w) => runRules(program, w).trace.map((t) => [t.before, t.after, t.line]))
+    const actual = lexicon.flatMap((w) =>
+      runRules(program, w).trace.map((t) => [t.before, t.after, t.line])
+    )
     expect(actual).toEqual(expected)
   })
 })

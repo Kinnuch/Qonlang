@@ -16,18 +16,53 @@
   import RuleList from '$lib/ui/RuleList.svelte'
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
   import { flashOn } from '$lib/ui/flash'
-  import { Plus, Trash2, Upload, FileType, ClipboardPaste, Wand2, List, Code, X } from '@lucide/svelte'
+  import {
+    Plus,
+    Trash2,
+    Upload,
+    FileType,
+    ClipboardPaste,
+    Wand2,
+    List,
+    Code,
+    X
+  } from '@lucide/svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
   const project = $derived(projectState.project!)
   const glossLangs = $derived(project.settings.glossLanguages)
-  const lang = $derived(projectState.currentLanguage ?? project.languages.find((l) => l.id === project.settings.defaultLanguageId) ?? project.languages[0] ?? null)
+  const lang = $derived(
+    projectState.currentLanguage ??
+      project.languages.find((l) => l.id === project.settings.defaultLanguageId) ??
+      project.languages[0] ??
+      null
+  )
 
   type Tab = 'glyphs' | 'rules' | 'preview'
   const TABS: Tab[] = ['glyphs', 'rules', 'preview']
-  const TYPES: ScriptType[] = ['alphabet', 'abjad', 'abugida', 'syllabary', 'logographic', 'featural', 'mixed', 'other']
-  const BUILTIN_CATS = ['letter', 'vowel', 'consonant', 'syllable', 'mark', 'number', 'punct', 'glyph', 'space', 'other']
+  const TYPES: ScriptType[] = [
+    'alphabet',
+    'abjad',
+    'abugida',
+    'syllabary',
+    'logographic',
+    'featural',
+    'mixed',
+    'other'
+  ]
+  const BUILTIN_CATS = [
+    'letter',
+    'vowel',
+    'consonant',
+    'syllable',
+    'mark',
+    'number',
+    'punct',
+    'glyph',
+    'space',
+    'other'
+  ]
   let tab = $state<Tab>('glyphs')
   let selectedScript = $state<string | null>(null)
   let selectedGlyph = $state<string | null>(null)
@@ -38,18 +73,27 @@
   let testText = $state('')
   let importedFlash = $state(0)
 
-  const script = $derived(lang?.scripts.find((s) => s.id === selectedScript) ?? lang?.scripts[0] ?? null)
+  const script = $derived(
+    lang?.scripts.find((s) => s.id === selectedScript) ?? lang?.scripts[0] ?? null
+  )
   const glyph = $derived(script?.glyphs.find((g) => g.id === selectedGlyph) ?? null)
   const categories = $derived.by(() => {
     const set = new Set<string>()
     for (const g of script?.glyphs ?? []) if (g.category) set.add(g.category)
-    return [...BUILTIN_CATS.filter((c) => set.has(c)), ...[...set].filter((c) => !BUILTIN_CATS.includes(c)).sort()]
+    return [
+      ...BUILTIN_CATS.filter((c) => set.has(c)),
+      ...[...set].filter((c) => !BUILTIN_CATS.includes(c)).sort()
+    ]
   })
-  const shownGlyphs = $derived((script?.glyphs ?? []).filter((g) => !catFilter || g.category === catFilter))
-  const catLabel = (c: string): string => (BUILTIN_CATS.includes(c) ? t(`script.categories.${c}`) : c)
+  const shownGlyphs = $derived(
+    (script?.glyphs ?? []).filter((g) => !catFilter || g.category === catFilter)
+  )
+  const catLabel = (c: string): string =>
+    BUILTIN_CATS.includes(c) ? t(`script.categories.${c}`) : c
 
   $effect(() => {
-    inspectorTitle = glyph && tab === 'glyphs' ? glyph.char : script ? script.name : t('script.title')
+    inspectorTitle =
+      glyph && tab === 'glyphs' ? glyph.char : script ? script.name : t('script.title')
   })
   $effect(() => {
     if (script) ensureScriptFont(script)
@@ -79,8 +123,12 @@
       .filter(Boolean)
       .map((w) => ({ w, out: runRules(program!, w, { trace: false }).output }))
   })
-  const previewLexemes = $derived(lang ? project.lexemes.filter((l) => l.languageId === lang.id).slice(0, 40) : [])
-  const previewSentences = $derived(lang ? project.sentences.filter((s) => s.languageId === lang.id).slice(0, 10) : [])
+  const previewLexemes = $derived(
+    lang ? project.lexemes.filter((l) => l.languageId === lang.id).slice(0, 40) : []
+  )
+  const previewSentences = $derived(
+    lang ? project.sentences.filter((s) => s.languageId === lang.id).slice(0, 10) : []
+  )
 
   function touch(): void {
     projectState.touch()
@@ -112,7 +160,14 @@
   }
   function addGlyph(): void {
     if (!script) return
-    const g: Glyph = { id: newId(), char: '', name: '', value: '', category: catFilter || 'letter', notes: '' }
+    const g: Glyph = {
+      id: newId(),
+      char: '',
+      name: '',
+      value: '',
+      category: catFilter || 'letter',
+      notes: ''
+    }
     script.glyphs.push(g)
     selectedGlyph = g.id
     touch()
@@ -130,14 +185,23 @@
     touch()
   }
   /** 合并字形：已有相同字符的不重复加 */
-  function mergeGlyphs(items: { char: string; value?: string; name?: string; category?: string }[]): number {
+  function mergeGlyphs(
+    items: { char: string; value?: string; name?: string; category?: string }[]
+  ): number {
     if (!script) return 0
     const have = new Set(script.glyphs.map((g) => g.char))
     let n = 0
     for (const it of items) {
       if (!it.char || have.has(it.char)) continue
       have.add(it.char)
-      script.glyphs.push({ id: newId(), char: it.char, name: it.name ?? '', value: it.value ?? '', category: it.category ?? guessCategory(it.char), notes: '' })
+      script.glyphs.push({
+        id: newId(),
+        char: it.char,
+        name: it.name ?? '',
+        value: it.value ?? '',
+        category: it.category ?? guessCategory(it.char),
+        notes: ''
+      })
       n++
     }
     if (n) {
@@ -149,11 +213,18 @@
   }
   async function importFont(readGlyphs: boolean): Promise<void> {
     if (!script) return
-    const files = await platform.readBinaryFiles({ multiple: false, extensions: ['ttf', 'otf', 'ttc', 'woff', 'woff2'] })
+    const files = await platform.readBinaryFiles({
+      multiple: false,
+      extensions: ['ttf', 'otf', 'ttc', 'woff', 'woff2']
+    })
     const f = files[0]
     if (!f) return
     const ext = f.name.toLowerCase().split('.').pop() ?? ''
-    script.font = { family: script.font.family, dataUrl: fontDataUrl(f.name, f.base64), fileName: f.name }
+    script.font = {
+      family: script.font.family,
+      dataUrl: fontDataUrl(f.name, f.base64),
+      fileName: f.name
+    }
     ensureScriptFont(script)
     touch()
     if (!readGlyphs || !['ttf', 'otf', 'ttc'].includes(ext)) return
@@ -163,7 +234,11 @@
       mergeGlyphs(
         parsed.glyphs
           .filter((g) => g.codepoint > 0x20 && !(g.codepoint >= 0x7f && g.codepoint <= 0xa0))
-          .map((g) => ({ char: g.char, name: g.name, value: /^[A-Za-z0-9]$/.test(g.char) ? g.char : '' }))
+          .map((g) => ({
+            char: g.char,
+            name: g.name,
+            value: /^[A-Za-z0-9]$/.test(g.char) ? g.char : ''
+          }))
       )
     } catch (e) {
       ui.toast(String(e), { kind: 'error' })
@@ -182,9 +257,9 @@
     pasteText = ''
     pasteOpen = false
   }
-  function setCategory(g: Glyph, v: string): void {
+  async function setCategory(g: Glyph, v: string): Promise<void> {
     if (v === '__custom') {
-      const name = window.prompt(t('script.category'))
+      const name = await ui.prompt(t('script.category'))
       if (!name) return
       g.category = name.trim()
     } else g.category = v
@@ -200,19 +275,30 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('script.title')}</h1>
-    {#if lang}<span class="badge" style:background={lang.color} style:color="#fff">{lang.name}</span>{/if}
+    {#if lang}<span class="badge" style:background={lang.color} style:color="#fff">{lang.name}</span
+      >{/if}
     {#if lang}
       <div class="row wrap chips">
         {#each lang.scripts as s (s.id)}
-          <button class="chip big" class:active={script?.id === s.id} onclick={() => { selectedScript = s.id; selectedGlyph = null }}>{s.name}</button>
+          <button
+            class="chip big"
+            class:active={script?.id === s.id}
+            onclick={() => {
+              selectedScript = s.id
+              selectedGlyph = null
+            }}>{s.name}</button
+          >
         {/each}
-        <button class="btn ghost sm" onclick={addScript}><Plus size={14} />{t('script.add')}</button>
+        <button class="btn ghost sm" onclick={addScript}><Plus size={14} />{t('script.add')}</button
+        >
       </div>
     {/if}
     <span class="grow"></span>
     {#if script}
       <div class="seg">
-        {#each TABS as tb (tb)}<button class:active={tab === tb} onclick={() => (tab = tb)}>{t(`script.tabs.${tb}`)}</button>{/each}
+        {#each TABS as tb (tb)}<button class:active={tab === tb} onclick={() => (tab = tb)}
+            >{t(`script.tabs.${tb}`)}</button
+          >{/each}
       </div>
     {/if}
   </div>
@@ -225,23 +311,44 @@
   {:else if tab === 'glyphs'}
     <div class="scroll">
       <div class="row wrap tools">
-        <button class="btn sm" onclick={() => importFont(true)}><FileType size={14} />{t('script.importFromFont')}</button>
-        <button class="btn sm" onclick={() => (pasteOpen = !pasteOpen)}><ClipboardPaste size={14} />{t('script.importText')}</button>
-        <button class="btn ghost sm" onclick={autoCategorize}><Wand2 size={14} />{t('script.autoCategorize')}</button>
+        <button class="btn sm" onclick={() => importFont(true)}
+          ><FileType size={14} />{t('script.importFromFont')}</button
+        >
+        <button class="btn sm" onclick={() => (pasteOpen = !pasteOpen)}
+          ><ClipboardPaste size={14} />{t('script.importText')}</button
+        >
+        <button class="btn ghost sm" onclick={autoCategorize}
+          ><Wand2 size={14} />{t('script.autoCategorize')}</button
+        >
         <span class="grow"></span>
-        <button class="btn primary sm" onclick={addGlyph}><Plus size={14} />{t('script.addGlyph')}</button>
+        <button class="btn primary sm" onclick={addGlyph}
+          ><Plus size={14} />{t('script.addGlyph')}</button
+        >
       </div>
       {#if pasteOpen}
         <div class="card paste">
           <p class="small muted">{t('script.importTextHint')}</p>
           <textarea class="textarea data" rows="6" bind:value={pasteText}></textarea>
-          <div class="row"><span class="grow"></span><button class="btn ghost sm" onclick={() => (pasteOpen = false)}>{t('common.cancel')}</button><button class="btn primary sm" onclick={importPaste}>{t('script.importTextRun')}</button></div>
+          <div class="row">
+            <span class="grow"></span><button
+              class="btn ghost sm"
+              onclick={() => (pasteOpen = false)}>{t('common.cancel')}</button
+            ><button class="btn primary sm" onclick={importPaste}
+              >{t('script.importTextRun')}</button
+            >
+          </div>
         </div>
       {/if}
       {#if categories.length > 1}
         <div class="row wrap">
-          <button class="chip" class:active={catFilter === ''} onclick={() => (catFilter = '')}>{t('script.allCategories')}</button>
-          {#each categories as c (c)}<button class="chip" class:active={catFilter === c} onclick={() => (catFilter = c)}>{catLabel(c)}</button>{/each}
+          <button class="chip" class:active={catFilter === ''} onclick={() => (catFilter = '')}
+            >{t('script.allCategories')}</button
+          >
+          {#each categories as c (c)}<button
+              class="chip"
+              class:active={catFilter === c}
+              onclick={() => (catFilter = c)}>{catLabel(c)}</button
+            >{/each}
         </div>
       {/if}
       {#if script.glyphs.length === 0}
@@ -249,7 +356,12 @@
       {:else}
         <div class="grid" use:flashOn={importedFlash}>
           {#each shownGlyphs as g (g.id)}
-            <button class="gcard" class:sel={selectedGlyph === g.id} onclick={() => (selectedGlyph = g.id)} title={g.name}>
+            <button
+              class="gcard"
+              class:sel={selectedGlyph === g.id}
+              onclick={() => (selectedGlyph = g.id)}
+              title={g.name}
+            >
               <span class="gchar" style={fontCss(script)}>{g.char || '·'}</span>
               <span class="gval data">{g.value || ' '}</span>
             </button>
@@ -262,8 +374,12 @@
       <div class="row">
         <p class="small muted grow">{t('script.rulesHint')}</p>
         <div class="seg">
-          <button class:active={rulesView === 'list'} onclick={() => (rulesView = 'list')}><List size={14} />{t('soundChanges.viewList')}</button>
-          <button class:active={rulesView === 'source'} onclick={() => (rulesView = 'source')}><Code size={14} />{t('soundChanges.viewSource')}</button>
+          <button class:active={rulesView === 'list'} onclick={() => (rulesView = 'list')}
+            ><List size={14} />{t('soundChanges.viewList')}</button
+          >
+          <button class:active={rulesView === 'source'} onclick={() => (rulesView = 'source')}
+            ><Code size={14} />{t('soundChanges.viewSource')}</button
+          >
         </div>
       </div>
       {#if t(`script.typeHints.${script.type}`)}
@@ -273,7 +389,13 @@
         {#if rulesView === 'list'}
           <RuleList bind:text={script.rules} program={userProgram} onchange={touch} />
         {:else}
-          <div class="src"><RuleEditor bind:value={script.rules} diagnostics={program?.diagnostics ?? []} oninput={touch} /></div>
+          <div class="src">
+            <RuleEditor
+              bind:value={script.rules}
+              diagnostics={program?.diagnostics ?? []}
+              oninput={touch}
+            />
+          </div>
         {/if}
       </div>
       <details class="auto">
@@ -293,8 +415,18 @@
             {#each previewLexemes as l (l.id)}
               <tr>
                 <td class="data">{l.lemma}</td>
-                <td class="scr" style={fontCss(script)} dir={script.direction === 'rtl' ? 'rtl' : 'ltr'}>{l.scriptForms?.[script.id] || renderScript(lang, script, l.lemma)}</td>
-                <td class="muted small">{l.senses.map((s) => pickText(s.definition, glossLangs)).filter(Boolean).join('; ')}</td>
+                <td
+                  class="scr"
+                  style={fontCss(script)}
+                  dir={script.direction === 'rtl' ? 'rtl' : 'ltr'}
+                  >{l.scriptForms?.[script.id] || renderScript(lang, script, l.lemma)}</td
+                >
+                <td class="muted small"
+                  >{l.senses
+                    .map((s) => pickText(s.definition, glossLangs))
+                    .filter(Boolean)
+                    .join('; ')}</td
+                >
               </tr>
             {/each}
           </tbody>
@@ -304,7 +436,13 @@
         <h3>{t('script.previewCorpus')}</h3>
         {#each previewSentences as s (s.id)}
           <div class="card sent">
-            <div class="scr big" style={fontCss(script)} dir={script.direction === 'rtl' ? 'rtl' : 'ltr'}>{renderScript(lang, script, s.text)}</div>
+            <div
+              class="scr big"
+              style={fontCss(script)}
+              dir={script.direction === 'rtl' ? 'rtl' : 'ltr'}
+            >
+              {renderScript(lang, script, s.text)}
+            </div>
             <div class="data">{s.text}</div>
             <div class="small muted">{pickText(s.translation, glossLangs)}</div>
           </div>
@@ -320,42 +458,134 @@
     {#if tab === 'glyphs' && glyph}
       {@const g = glyph}
       <div class="preview-glyph" style={fontCss(sc)}>{g.char || '·'}</div>
-      <div class="field"><label for="g-char">{t('script.char')}</label><input id="g-char" class="input data" bind:value={g.char} oninput={touch} /></div>
-      <div class="field"><label for="g-val">{t('script.value')}</label><input id="g-val" class="input data" bind:value={g.value} oninput={touch} placeholder={t('script.valueHint')} /></div>
-      <div class="field"><label for="g-name">{t('script.name')}</label><input id="g-name" class="input" bind:value={g.name} oninput={touch} /></div>
-      <div class="field"><label for="g-cat">{t('script.category')}</label>
-        <select id="g-cat" class="select" value={g.category} onchange={(e) => setCategory(g, (e.currentTarget as HTMLSelectElement).value)}>
-          {#each [...new Set([...BUILTIN_CATS, ...categories, g.category])].filter(Boolean) as c (c)}<option value={c}>{catLabel(c)}</option>{/each}
+      <div class="field">
+        <label for="g-char">{t('script.char')}</label><input
+          id="g-char"
+          class="input data"
+          bind:value={g.char}
+          oninput={touch}
+        />
+      </div>
+      <div class="field">
+        <label for="g-val">{t('script.value')}</label><input
+          id="g-val"
+          class="input data"
+          bind:value={g.value}
+          oninput={touch}
+          placeholder={t('script.valueHint')}
+        />
+      </div>
+      <div class="field">
+        <label for="g-name">{t('script.name')}</label><input
+          id="g-name"
+          class="input"
+          bind:value={g.name}
+          oninput={touch}
+        />
+      </div>
+      <div class="field">
+        <label for="g-cat">{t('script.category')}</label>
+        <select
+          id="g-cat"
+          class="select"
+          value={g.category}
+          onchange={(e) => setCategory(g, (e.currentTarget as HTMLSelectElement).value)}
+        >
+          {#each [...new Set( [...BUILTIN_CATS, ...categories, g.category] )].filter(Boolean) as c (c)}<option
+              value={c}>{catLabel(c)}</option
+            >{/each}
           <option value="__custom">{t('script.categories.custom')}</option>
-        </select></div>
-      <div class="field"><label for="g-notes">{t('common.notes')}</label><textarea id="g-notes" class="textarea" bind:value={g.notes} oninput={touch}></textarea></div>
-      <button class="btn sm danger" onclick={() => removeGlyph(g)}><Trash2 size={14} />{t('common.delete')}</button>
+        </select>
+      </div>
+      <div class="field">
+        <label for="g-notes">{t('common.notes')}</label><textarea
+          id="g-notes"
+          class="textarea"
+          bind:value={g.notes}
+          oninput={touch}
+        ></textarea>
+      </div>
+      <button class="btn sm danger" onclick={() => removeGlyph(g)}
+        ><Trash2 size={14} />{t('common.delete')}</button
+      >
     {:else}
-      <div class="field"><label for="s-name">{t('common.name')}</label><input id="s-name" class="input" bind:value={sc.name} oninput={touch} /></div>
-      <div class="field"><label for="s-type">{t('script.type')}</label>
-        <select id="s-type" class="select" bind:value={sc.type} onchange={touch}>{#each TYPES as ty (ty)}<option value={ty}>{t(`script.types.${ty}`)}</option>{/each}</select></div>
-      <div class="field"><label for="s-dir">{t('script.direction')}</label>
+      <div class="field">
+        <label for="s-name">{t('common.name')}</label><input
+          id="s-name"
+          class="input"
+          bind:value={sc.name}
+          oninput={touch}
+        />
+      </div>
+      <div class="field">
+        <label for="s-type">{t('script.type')}</label>
+        <select id="s-type" class="select" bind:value={sc.type} onchange={touch}
+          >{#each TYPES as ty (ty)}<option value={ty}>{t(`script.types.${ty}`)}</option
+            >{/each}</select
+        >
+      </div>
+      <div class="field">
+        <label for="s-dir">{t('script.direction')}</label>
         <select id="s-dir" class="select" bind:value={sc.direction} onchange={touch}>
-          <option value="ltr">{t('phonology.dir.ltr')}</option><option value="rtl">{t('phonology.dir.rtl')}</option><option value="ttb">{t('phonology.dir.ttb')}</option>
-        </select></div>
+          <option value="ltr">{t('phonology.dir.ltr')}</option><option value="rtl"
+            >{t('phonology.dir.rtl')}</option
+          ><option value="ttb">{t('phonology.dir.ttb')}</option>
+        </select>
+      </div>
       <div class="field">
         <span class="small muted">{t('script.font')}</span>
-        <input class="input" bind:value={sc.font.family} oninput={touch} placeholder={t('script.fontFamily')} />
+        <input
+          class="input"
+          bind:value={sc.font.family}
+          oninput={touch}
+          placeholder={t('script.fontFamily')}
+        />
         <div class="row wrap">
-          <button class="btn sm" onclick={() => importFont(false)}><Upload size={14} />{t('script.importFont')}</button>
-          {#if sc.font.dataUrl}<span class="small muted">{t('script.fontEmbedded', { name: sc.font.fileName })}</span><button class="btn ghost icon sm" title={t('script.clearFont')} onclick={clearFont}><X size={14} /></button>{/if}
+          <button class="btn sm" onclick={() => importFont(false)}
+            ><Upload size={14} />{t('script.importFont')}</button
+          >
+          {#if sc.font.dataUrl}<span class="small muted"
+              >{t('script.fontEmbedded', { name: sc.font.fileName })}</span
+            ><button class="btn ghost icon sm" title={t('script.clearFont')} onclick={clearFont}
+              ><X size={14} /></button
+            >{/if}
         </div>
         <p class="tiny muted">{t('script.fontHint')}</p>
       </div>
       <div class="field">
         <label for="s-test">{t('script.test')}</label>
-        <textarea id="s-test" class="textarea data" rows="3" bind:value={testText} placeholder={t('script.testPlaceholder')}></textarea>
+        <textarea
+          id="s-test"
+          class="textarea data"
+          rows="3"
+          bind:value={testText}
+          placeholder={t('script.testPlaceholder')}
+        ></textarea>
         {#if testResults.length}
-          <table class="res"><tbody>{#each testResults as r (r.w)}<tr><td class="data">{r.w}</td><td class="scr" style={fontCss(sc)} dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'}>{r.out}</td></tr>{/each}</tbody></table>
+          <table class="res">
+            <tbody
+              >{#each testResults as r (r.w)}<tr
+                  ><td class="data">{r.w}</td><td
+                    class="scr"
+                    style={fontCss(sc)}
+                    dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'}>{r.out}</td
+                  ></tr
+                >{/each}</tbody
+            >
+          </table>
         {/if}
       </div>
-      <div class="field"><label for="s-notes">{t('common.notes')}</label><textarea id="s-notes" class="textarea" bind:value={sc.notes} oninput={touch}></textarea></div>
-      <button class="btn sm danger" onclick={() => removeScript(sc)}><Trash2 size={14} />{t('common.delete')}</button>
+      <div class="field">
+        <label for="s-notes">{t('common.notes')}</label><textarea
+          id="s-notes"
+          class="textarea"
+          bind:value={sc.notes}
+          oninput={touch}
+        ></textarea>
+      </div>
+      <button class="btn sm danger" onclick={() => removeScript(sc)}
+        ><Trash2 size={14} />{t('common.delete')}</button
+      >
     {/if}
   </Portal>
 {/if}

@@ -6,7 +6,13 @@
     multiline = false,
     placeholder = '',
     onchange
-  }: { value?: Record<string, string>; languages?: string[]; multiline?: boolean; placeholder?: string; onchange?: () => void } = $props()
+  }: {
+    value?: Record<string, string>
+    languages?: string[]
+    multiline?: boolean
+    placeholder?: string
+    onchange?: () => void
+  } = $props()
 
   const extra = $derived(Object.keys(value).filter((k) => !languages.includes(k) && value[k]))
 </script>
@@ -16,7 +22,13 @@
     <div class="row">
       <span class="lang">{lang}</span>
       {#if multiline}
-        <textarea class="textarea" rows="2" bind:value={value[lang]} {placeholder} oninput={() => onchange?.()}></textarea>
+        <textarea
+          class="textarea"
+          rows="2"
+          bind:value={value[lang]}
+          {placeholder}
+          oninput={() => onchange?.()}
+        ></textarea>
       {:else}
         <input class="input" bind:value={value[lang]} {placeholder} oninput={() => onchange?.()} />
       {/if}

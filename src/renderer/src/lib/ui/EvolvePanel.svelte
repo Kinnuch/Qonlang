@@ -9,7 +9,11 @@
   import { flashOn } from '$lib/ui/flash'
   import { Play, Check, X } from '@lucide/svelte'
 
-  let { ruleSet, program, onclose }: { ruleSet: RuleSet; program: RuleProgram | null; onclose: () => void } = $props()
+  let {
+    ruleSet,
+    program,
+    onclose
+  }: { ruleSet: RuleSet; program: RuleProgram | null; onclose: () => void } = $props()
 
   const project = $derived(projectState.project!)
   const markers = $derived(program?.markers ?? [])
@@ -44,10 +48,15 @@
   })
   const stemNames = $derived.by(() => {
     const s = new Set<string>()
-    for (const l of project.lexemes) if (l.languageId === sourceLang) for (const k of Object.keys(l.stems)) s.add(k)
+    for (const l of project.lexemes)
+      if (l.languageId === sourceLang) for (const k of Object.keys(l.stems)) s.add(k)
     return [...s].sort()
   })
-  const sourceCount = $derived(inputKind === 'morpheme' ? project.morphemes.filter((m) => m.languageId === sourceLang).length : project.lexemes.filter((l) => l.languageId === sourceLang).length)
+  const sourceCount = $derived(
+    inputKind === 'morpheme'
+      ? project.morphemes.filter((m) => m.languageId === sourceLang).length
+      : project.lexemes.filter((l) => l.languageId === sourceLang).length
+  )
 
   function preview(): void {
     if (!program || !sourceLang || !targetLang) return
@@ -58,13 +67,23 @@
       targetLanguageId: targetLang,
       startAt: startAt || undefined,
       stopAt: stopAt || undefined,
-      inputField: inputKind === 'lemma' ? { kind: 'lemma' } : inputKind === 'morpheme' ? { kind: 'morpheme' } : { kind: 'stem', name: inputKind },
+      inputField:
+        inputKind === 'lemma'
+          ? { kind: 'lemma' }
+          : inputKind === 'morpheme'
+            ? { kind: 'morpheme' }
+            : { kind: 'stem', name: inputKind },
       posIds: posFilter ? [posFilter] : undefined
     })
   }
   function apply(): void {
     if (!rows || !program) return
-    const r = applyEvolution(project, rows, { ruleSet, program, sourceLanguageId: sourceLang as Id, targetLanguageId: targetLang as Id }, { copySenses, updateExisting, createOnCollision })
+    const r = applyEvolution(
+      project,
+      rows,
+      { ruleSet, program, sourceLanguageId: sourceLang as Id, targetLanguageId: targetLang as Id },
+      { copySenses, updateExisting, createOnCollision }
+    )
     projectState.touch()
     doneFlash++
     ui.toast(t('evolve.done', r))
@@ -85,40 +104,108 @@
     <button class="btn ghost icon sm" onclick={onclose}><X size={14} /></button>
   </div>
   <div class="grid">
-    <label class="f"><span>{t('evolve.source')}</span>
-      <select class="select" bind:value={sourceLang} onchange={() => (rows = null)}>{#each project.languages as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select>
-      <span class="tiny muted">{t('evolve.sourceCount', { n: sourceCount })}</span></label>
-    <label class="f"><span>{t('evolve.startAt')}</span>
-      <select class="select" bind:value={startAt} onchange={() => (rows = null)}><option value="">{t('evolve.fromStart')}</option>{#each markers as m (m)}<option value={m}>{m}{boundOf(m) ? ` · ${langName(boundOf(m)!)}` : ''}</option>{/each}</select></label>
-    <label class="f"><span>{t('evolve.stopAt')}</span>
-      <select class="select" bind:value={stopAt} onchange={() => (rows = null)}><option value="">{t('evolve.toEnd')}</option>{#each markers as m (m)}<option value={m}>{m}{boundOf(m) ? ` · ${langName(boundOf(m)!)}` : ''}</option>{/each}</select></label>
-    <label class="f"><span>{t('evolve.target')}</span>
-      <select class="select" bind:value={targetLang} onchange={() => (rows = null)}>{#each project.languages as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select></label>
-    <label class="f"><span>{t('evolve.input')}</span>
-      <select class="select" bind:value={inputKind} onchange={() => (rows = null)}><option value="lemma">{t('lexicon.lemma')}</option><option value="morpheme">{t('evolve.morphemes')}</option>{#each stemNames as s (s)}<option value={s}>{t('lexicon.colStem')}: {s}</option>{/each}</select></label>
-    <label class="f"><span>{t('evolve.pos')}</span>
-      <select class="select" bind:value={posFilter} onchange={() => (rows = null)}><option value="">{t('lexicon.allPos')}</option>{#each project.posList as p (p.id)}<option value={p.id}>{p.abbr || p.id}</option>{/each}</select></label>
+    <label class="f"
+      ><span>{t('evolve.source')}</span>
+      <select class="select" bind:value={sourceLang} onchange={() => (rows = null)}
+        >{#each project.languages as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select
+      >
+      <span class="tiny muted">{t('evolve.sourceCount', { n: sourceCount })}</span></label
+    >
+    <label class="f"
+      ><span>{t('evolve.startAt')}</span>
+      <select class="select" bind:value={startAt} onchange={() => (rows = null)}
+        ><option value="">{t('evolve.fromStart')}</option>{#each markers as m (m)}<option value={m}
+            >{m}{boundOf(m) ? ` · ${langName(boundOf(m)!)}` : ''}</option
+          >{/each}</select
+      ></label
+    >
+    <label class="f"
+      ><span>{t('evolve.stopAt')}</span>
+      <select class="select" bind:value={stopAt} onchange={() => (rows = null)}
+        ><option value="">{t('evolve.toEnd')}</option>{#each markers as m (m)}<option value={m}
+            >{m}{boundOf(m) ? ` · ${langName(boundOf(m)!)}` : ''}</option
+          >{/each}</select
+      ></label
+    >
+    <label class="f"
+      ><span>{t('evolve.target')}</span>
+      <select class="select" bind:value={targetLang} onchange={() => (rows = null)}
+        >{#each project.languages as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select
+      ></label
+    >
+    <label class="f"
+      ><span>{t('evolve.input')}</span>
+      <select class="select" bind:value={inputKind} onchange={() => (rows = null)}
+        ><option value="lemma">{t('lexicon.lemma')}</option><option value="morpheme"
+          >{t('evolve.morphemes')}</option
+        >{#each stemNames as s (s)}<option value={s}>{t('lexicon.colStem')}: {s}</option
+          >{/each}</select
+      ></label
+    >
+    <label class="f"
+      ><span>{t('evolve.pos')}</span>
+      <select class="select" bind:value={posFilter} onchange={() => (rows = null)}
+        ><option value="">{t('lexicon.allPos')}</option>{#each project.posList as p (p.id)}<option
+            value={p.id}>{p.abbr || p.id}</option
+          >{/each}</select
+      ></label
+    >
   </div>
   <div class="row wrap opts">
-    <label class="row small"><input type="checkbox" bind:checked={copySenses} />{t('evolve.copySenses')}</label>
-    <label class="row small"><input type="checkbox" bind:checked={updateExisting} />{t('evolve.updateExisting')}</label>
-    <label class="row small"><input type="checkbox" bind:checked={createOnCollision} />{t('evolve.createOnCollision')}</label>
+    <label class="row small"
+      ><input type="checkbox" bind:checked={copySenses} />{t('evolve.copySenses')}</label
+    >
+    <label class="row small"
+      ><input type="checkbox" bind:checked={updateExisting} />{t('evolve.updateExisting')}</label
+    >
+    <label class="row small"
+      ><input type="checkbox" bind:checked={createOnCollision} />{t(
+        'evolve.createOnCollision'
+      )}</label
+    >
     <span class="grow"></span>
-    <button class="btn sm" disabled={!program || !sourceLang || !targetLang || sourceLang === targetLang} onclick={preview}><Play size={14} />{t('evolve.preview')}</button>
-    <button class="btn primary sm" disabled={!rows || !summary || summary.create + summary.update === 0} onclick={apply}><Check size={14} />{t('evolve.apply')}</button>
+    <button
+      class="btn sm"
+      disabled={!program || !sourceLang || !targetLang || sourceLang === targetLang}
+      onclick={preview}><Play size={14} />{t('evolve.preview')}</button
+    >
+    <button
+      class="btn primary sm"
+      disabled={!rows || !summary || summary.create + summary.update === 0}
+      onclick={apply}><Check size={14} />{t('evolve.apply')}</button
+    >
   </div>
   {#if rows && summary}
     <p class="small muted">{t('evolve.summary', summary)}</p>
     <div class="tbl-wrap">
       <table class="tbl">
-        <thead><tr><th>{t('evolve.colInput')}</th><th>{t('evolve.colOutput')}</th><th>{t('evolve.colExisting')}</th><th>{t('evolve.colAction')}</th></tr></thead>
+        <thead
+          ><tr
+            ><th>{t('evolve.colInput')}</th><th>{t('evolve.colOutput')}</th><th
+              >{t('evolve.colExisting')}</th
+            ><th>{t('evolve.colAction')}</th></tr
+          ></thead
+        >
         <tbody>
           {#each rows as r (r.sourceKind + r.source.id)}
             <tr class={r.action}>
-              <td class="data">{r.input}<span class="tiny muted"> · {r.sourceKind === 'morpheme' ? pickText((r.source as Morpheme).meaning, project.settings.glossLanguages) : (r.source as Lexeme).senses.map((s) => pickText(s.definition, project.settings.glossLanguages)).filter(Boolean).join('; ')}</span></td>
+              <td class="data"
+                >{r.input}<span class="tiny muted">
+                  · {r.sourceKind === 'morpheme'
+                    ? pickText((r.source as Morpheme).meaning, project.settings.glossLanguages)
+                    : (r.source as Lexeme).senses
+                        .map((s) => pickText(s.definition, project.settings.glossLanguages))
+                        .filter(Boolean)
+                        .join('; ')}</span
+                ></td
+              >
               <td class="data">{r.output || '—'}</td>
               <td class="data muted">{r.existing?.lemma ?? r.collision?.lemma ?? ''}</td>
-              <td><span class="badge" class:accent={r.action === 'create' || r.action === 'update'}>{t(`evolve.actions.${r.action}`)}</span></td>
+              <td
+                ><span class="badge" class:accent={r.action === 'create' || r.action === 'update'}
+                  >{t(`evolve.actions.${r.action}`)}</span
+                ></td
+              >
             </tr>
           {/each}
         </tbody>

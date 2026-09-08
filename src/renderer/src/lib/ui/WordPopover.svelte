@@ -11,7 +11,9 @@
   import { BookOpen } from '@lucide/svelte'
 
   const project = $derived(projectState.project)
-  const lexeme = $derived(project && wordHover.lexemeId ? project.lexemes.find((l) => l.id === wordHover.lexemeId) : null)
+  const lexeme = $derived(
+    project && wordHover.lexemeId ? project.lexemes.find((l) => l.id === wordHover.lexemeId) : null
+  )
   const style = $derived.by(() => {
     const r = wordHover.rect
     if (!r) return ''
@@ -33,12 +35,21 @@
 </script>
 
 {#if lexeme && wordHover.rect}
-  <div class="pop card" {style} role="dialog" onmouseenter={() => wordHover.keep()} onmouseleave={() => wordHover.hide()}>
+  <div
+    class="pop card"
+    {style}
+    role="dialog"
+    tabindex="-1"
+    onmouseenter={() => wordHover.keep()}
+    onmouseleave={() => wordHover.hide()}
+  >
     <div class="body">
       <LexemeCard {lexeme} project={project!} />
     </div>
     <div class="foot">
-      <button class="btn sm" onclick={openInLexicon}><BookOpen size={14} />{t('corpus.openInLexicon')}</button>
+      <button class="btn sm" onclick={openInLexicon}
+        ><BookOpen size={14} />{t('corpus.openInLexicon')}</button
+      >
     </div>
   </div>
 {/if}

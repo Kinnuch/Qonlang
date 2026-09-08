@@ -32,7 +32,13 @@ const DEFAULT_PREFS: Prefs = {
   savedSymbols: [],
   csvPresets: [],
   dismissedHints: [],
-  skin: { preset: 'default', light: {}, dark: {}, fonts: { ui: '', data: '', mono: '', corpusText: '', corpusTr: '', gloss: '', script: '' }, mirror: '' },
+  skin: {
+    preset: 'default',
+    light: {},
+    dark: {},
+    fonts: { ui: '', data: '', mono: '', corpusText: '', corpusTr: '', gloss: '', script: '' },
+    mirror: ''
+  },
   skinPresets: []
 }
 
@@ -51,7 +57,12 @@ const backupsDir = (): string => join(userData(), 'Backups')
 const fontsDir = (): string => join(userData(), 'fonts')
 
 /** 跟随重定向的下载，带进度回调 */
-function downloadTo(url: string, dest: string, onProgress: (received: number, total: number) => void, hops = 0): Promise<void> {
+function downloadTo(
+  url: string,
+  dest: string,
+  onProgress: (received: number, total: number) => void,
+  hops = 0
+): Promise<void> {
   return new Promise((resolve, reject) => {
     if (hops > 8) return reject(new Error('too many redirects'))
     const req = net.request({ url, redirect: 'manual' })
@@ -128,8 +139,20 @@ let forceClose = false
 let mainWindow: BrowserWindow | null = null
 
 const dialogText = {
-  zh: { title: '有未保存的改动', body: '要在关闭前保存吗？', save: '保存并关闭', discard: '不保存', cancel: '取消' },
-  en: { title: 'Unsaved changes', body: 'Save before closing?', save: 'Save and close', discard: "Don't save", cancel: 'Cancel' }
+  zh: {
+    title: '有未保存的改动',
+    body: '要在关闭前保存吗？',
+    save: '保存并关闭',
+    discard: '不保存',
+    cancel: '取消'
+  },
+  en: {
+    title: 'Unsaved changes',
+    body: 'Save before closing?',
+    save: 'Save and close',
+    discard: "Don't save",
+    cancel: 'Cancel'
+  }
 }
 
 function createWindow(): void {
@@ -261,30 +284,40 @@ function registerIpc(): void {
     })
     if (r.canceled) return []
     const out: { name: string; content: string }[] = []
-    for (const p of r.filePaths) out.push({ name: basename(p), content: await fs.readFile(p, 'utf8') })
+    for (const p of r.filePaths)
+      out.push({ name: basename(p), content: await fs.readFile(p, 'utf8') })
     return out
   })
 
-  ipcMain.handle('file:readBinary', async (_e, opts: { multiple: boolean; extensions: string[] }) => {
-    const r = await dialog.showOpenDialog(mainWindow!, {
-      properties: opts.multiple ? ['openFile', 'multiSelections'] : ['openFile'],
-      filters: [
-        { name: 'Files', extensions: opts.extensions.length ? opts.extensions : ['*'] },
-        { name: 'All files', extensions: ['*'] }
-      ]
-    })
-    if (r.canceled) return []
-    const out: { name: string; base64: string }[] = []
-    for (const p of r.filePaths) out.push({ name: basename(p), base64: (await fs.readFile(p)).toString('base64') })
-    return out
-  })
+  ipcMain.handle(
+    'file:readBinary',
+    async (_e, opts: { multiple: boolean; extensions: string[] }) => {
+      const r = await dialog.showOpenDialog(mainWindow!, {
+        properties: opts.multiple ? ['openFile', 'multiSelections'] : ['openFile'],
+        filters: [
+          { name: 'Files', extensions: opts.extensions.length ? opts.extensions : ['*'] },
+          { name: 'All files', extensions: ['*'] }
+        ]
+      })
+      if (r.canceled) return []
+      const out: { name: string; base64: string }[] = []
+      for (const p of r.filePaths)
+        out.push({ name: basename(p), base64: (await fs.readFile(p)).toString('base64') })
+      return out
+    }
+  )
 
   ipcMain.handle('export:pdf', async (_e, html: string, suggestedName: string) => {
-    const r = await dialog.showSaveDialog(mainWindow!, { defaultPath: join(app.getPath('documents'), suggestedName), filters: [{ name: 'PDF', extensions: ['pdf'] }] })
+    const r = await dialog.showSaveDialog(mainWindow!, {
+      defaultPath: join(app.getPath('documents'), suggestedName),
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    })
     if (r.canceled || !r.filePath) return false
     const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
     try {
-      await win.loadURL('data:text/html;charset=utf-8;base64,' + Buffer.from(html, 'utf8').toString('base64'))
+      await win.loadURL(
+        'data:text/html;charset=utf-8;base64,' + Buffer.from(html, 'utf8').toString('base64')
+      )
       await new Promise((res) => setTimeout(res, 400))
       const pdf = await win.webContents.printToPDF({ printBackground: true, pageSize: 'A4' })
       await fs.writeFile(r.filePath, pdf)
@@ -295,7 +328,9 @@ function registerIpc(): void {
   })
 
   ipcMain.handle('file:saveText', async (_e, suggestedName: string, content: string) => {
-    const r = await dialog.showSaveDialog(mainWindow!, { defaultPath: join(app.getPath('documents'), suggestedName) })
+    const r = await dialog.showSaveDialog(mainWindow!, {
+      defaultPath: join(app.getPath('documents'), suggestedName)
+    })
     if (r.canceled || !r.filePath) return false
     await fs.writeFile(r.filePath, content, 'utf8')
     return true
@@ -316,7 +351,9 @@ function registerIpc(): void {
     return alive
   })
   ipcMain.handle('recent:add', async (_e, entry: RecentEntry) => {
-    const list = (await readJson<RecentEntry[]>(recentFile(), [])).filter((r) => r.path !== entry.path)
+    const list = (await readJson<RecentEntry[]>(recentFile(), [])).filter(
+      (r) => r.path !== entry.path
+    )
     list.unshift(entry)
     await writeJson(recentFile(), list.slice(0, RECENT_MAX))
   })
@@ -352,7 +389,9 @@ function registerIpc(): void {
     await fs.mkdir(fontsDir(), { recursive: true })
     const dest = join(fontsDir(), basename(file))
     try {
-      await downloadTo(url, dest + '.part', (received, total) => mainWindow?.webContents.send('fonts:progress', { file, received, total }))
+      await downloadTo(url, dest + '.part', (received, total) =>
+        mainWindow?.webContents.send('fonts:progress', { file, received, total })
+      )
       await fs.rename(dest + '.part', dest)
       return { ok: true }
     } catch (e) {

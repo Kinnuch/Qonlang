@@ -21,7 +21,18 @@
     type RuleDraft,
     type RuleProgram
   } from '$lib/engine/sca'
-  import { Plus, Trash2, ChevronUp, ChevronDown, Copy, Check, X, AlertTriangle, Pencil, RotateCcw } from '@lucide/svelte'
+  import {
+    Plus,
+    Trash2,
+    ChevronUp,
+    ChevronDown,
+    Copy,
+    Check,
+    X,
+    AlertTriangle,
+    Pencil,
+    RotateCcw
+  } from '@lucide/svelte'
 
   let {
     text = $bindable(''),
@@ -29,7 +40,13 @@
     hits = new Map<number, number>(),
     selectedLine = $bindable<number | null>(null),
     onchange
-  }: { text?: string; program: RuleProgram | null; hits?: Map<number, number>; selectedLine?: number | null; onchange?: () => void } = $props()
+  }: {
+    text?: string
+    program: RuleProgram | null
+    hits?: Map<number, number>
+    selectedLine?: number | null
+    onchange?: () => void
+  } = $props()
 
   const ordinals = $derived(program ? ruleOrdinals(program) : new Map<number, number>())
 
@@ -93,12 +110,20 @@
     return out
   })
   const classLines = $derived(program ? program.lines.filter((l) => l.kind === 'class') : [])
-  const digraphLines = $derived(program ? program.lines.filter((l) => l.kind === 'replacement') : [])
+  const digraphLines = $derived(
+    program ? program.lines.filter((l) => l.kind === 'replacement') : []
+  )
   const classNames = $derived(program ? [...program.classes.keys()] : [])
 
   // ───── 编辑状态 ─────
   let editingLine = $state<number | null>(null)
-  let draft = $state<RuleDraft>({ target: '', replacement: '', contexts: [{ left: '', right: '' }], exception: null, comment: '' })
+  let draft = $state<RuleDraft>({
+    target: '',
+    replacement: '',
+    contexts: [{ left: '', right: '' }],
+    exception: null,
+    comment: ''
+  })
   let lastField = $state<HTMLInputElement | null>(null)
   let editingMarker = $state<number | null>(null)
   let markerDraft = $state('')
@@ -129,7 +154,13 @@
     const l = insertAfter(line, ' > ')
     editingLine = l
     selectedLine = l
-    draft = { target: '', replacement: '', contexts: [{ left: '', right: '' }], exception: null, comment: '' }
+    draft = {
+      target: '',
+      replacement: '',
+      contexts: [{ left: '', right: '' }],
+      exception: null,
+      comment: ''
+    }
   }
   function addStageAfter(line: number): void {
     const l = insertAfter(line, formatMarker(t('soundChanges.unnamedStage')))
@@ -174,7 +205,8 @@
   /** 选中规则的示例与变化 */
   const preview = $derived.by(() => {
     if (!program || selectedLine == null) return null
-    const r = program.steps.find((s) => s.kind === 'rule' && s.line === selectedLine) as ParsedRule | undefined
+    const r = program.steps.find((s) => s.kind === 'rule' && s.line === selectedLine) as
+      ParsedRule | undefined
     if (!r) return null
     const sample = sampleForRule(program, r)
     if (!sample) return { sample, after: sample, diff: null }
@@ -188,14 +220,23 @@
     if (line === 'new') classDraft = { name: '', members: '' }
     else {
       const p = parseClassLine(lines()[line - 1])
-      classDraft = { name: p?.name ?? '', members: p ? (p.members.some((m) => Array.from(m).length > 1) ? p.members.join(' ') : p.members.join('')) : '' }
+      classDraft = {
+        name: p?.name ?? '',
+        members: p
+          ? p.members.some((m) => Array.from(m).length > 1)
+            ? p.members.join(' ')
+            : p.members.join('')
+          : ''
+      }
     }
   }
   function saveClass(): void {
     const name = classDraft.name.trim().replace(/^\{|\}$/g, '')
     if (!name) return
     const membersRaw = classDraft.members.trim()
-    const members = /[\s,]/.test(membersRaw) ? membersRaw.split(/[\s,]+/).filter(Boolean) : Array.from(membersRaw)
+    const members = /[\s,]/.test(membersRaw)
+      ? membersRaw.split(/[\s,]+/).filter(Boolean)
+      : Array.from(membersRaw)
     const s = formatClassLine(name, members)
     if (editingClass === 'new') {
       const last = classLines[classLines.length - 1]
@@ -229,17 +270,31 @@
     <div class="form-row">
       <label class="f grow">
         <span>{t('soundChanges.target')}</span>
-        <input class="input data" bind:value={draft.target} onfocus={(e) => (lastField = e.currentTarget)} />
+        <input
+          class="input data"
+          bind:value={draft.target}
+          onfocus={(e) => (lastField = e.currentTarget)}
+        />
       </label>
       <span class="arrow">→</span>
       <label class="f grow">
         <span>{t('soundChanges.replacement')}</span>
-        <input class="input data" bind:value={draft.replacement} onfocus={(e) => (lastField = e.currentTarget)} />
+        <input
+          class="input data"
+          bind:value={draft.replacement}
+          onfocus={(e) => (lastField = e.currentTarget)}
+        />
       </label>
       <div class="quick">
-        <button class="btn sm" onclick={() => (draft.replacement = '')}>{t('soundChanges.quickDelete')}</button>
-        <button class="btn sm" onclick={() => (draft.replacement = '\\')}>{t('soundChanges.quickMetathesis')}</button>
-        <button class="btn sm" onclick={() => (draft.replacement = '2')}>{t('soundChanges.quickGeminate')}</button>
+        <button class="btn sm" onclick={() => (draft.replacement = '')}
+          >{t('soundChanges.quickDelete')}</button
+        >
+        <button class="btn sm" onclick={() => (draft.replacement = '\\')}
+          >{t('soundChanges.quickMetathesis')}</button
+        >
+        <button class="btn sm" onclick={() => (draft.replacement = '2')}
+          >{t('soundChanges.quickGeminate')}</button
+        >
       </div>
     </div>
 
@@ -247,16 +302,35 @@
       <span class="small muted">{t('soundChanges.contexts')}</span>
       {#each draft.contexts as c, i (i)}
         <div class="ctx-row">
-          <input class="input data" placeholder={t('soundChanges.leftEnv')} bind:value={c.left} onfocus={(e) => (lastField = e.currentTarget)} />
+          <input
+            class="input data"
+            placeholder={t('soundChanges.leftEnv')}
+            bind:value={c.left}
+            onfocus={(e) => (lastField = e.currentTarget)}
+          />
           <span class="mono">_</span>
-          <input class="input data" placeholder={t('soundChanges.rightEnv')} bind:value={c.right} onfocus={(e) => (lastField = e.currentTarget)} />
-          <button class="btn ghost icon sm" title={t('common.delete')} disabled={draft.contexts.length === 1} onclick={() => draft.contexts.splice(i, 1)}><X size={14} /></button>
+          <input
+            class="input data"
+            placeholder={t('soundChanges.rightEnv')}
+            bind:value={c.right}
+            onfocus={(e) => (lastField = e.currentTarget)}
+          />
+          <button
+            class="btn ghost icon sm"
+            title={t('common.delete')}
+            disabled={draft.contexts.length === 1}
+            onclick={() => draft.contexts.splice(i, 1)}><X size={14} /></button
+          >
         </div>
       {/each}
       <div class="row">
-        <button class="btn ghost sm" onclick={() => draft.contexts.push({ left: '', right: '' })}><Plus size={14} />{t('soundChanges.addContext')}</button>
+        <button class="btn ghost sm" onclick={() => draft.contexts.push({ left: '', right: '' })}
+          ><Plus size={14} />{t('soundChanges.addContext')}</button
+        >
         {#if !draft.exception}
-          <button class="btn ghost sm" onclick={() => (draft.exception = { left: '', right: '' })}><Plus size={14} />{t('soundChanges.addException')}</button>
+          <button class="btn ghost sm" onclick={() => (draft.exception = { left: '', right: '' })}
+            ><Plus size={14} />{t('soundChanges.addException')}</button
+          >
         {/if}
       </div>
     </div>
@@ -265,10 +339,24 @@
       <div class="form-block">
         <span class="small muted">{t('soundChanges.exception')}</span>
         <div class="ctx-row">
-          <input class="input data" placeholder={t('soundChanges.leftEnv')} bind:value={draft.exception.left} onfocus={(e) => (lastField = e.currentTarget)} />
+          <input
+            class="input data"
+            placeholder={t('soundChanges.leftEnv')}
+            bind:value={draft.exception.left}
+            onfocus={(e) => (lastField = e.currentTarget)}
+          />
           <span class="mono">_</span>
-          <input class="input data" placeholder={t('soundChanges.rightEnv')} bind:value={draft.exception.right} onfocus={(e) => (lastField = e.currentTarget)} />
-          <button class="btn ghost icon sm" title={t('common.delete')} onclick={() => (draft.exception = null)}><X size={14} /></button>
+          <input
+            class="input data"
+            placeholder={t('soundChanges.rightEnv')}
+            bind:value={draft.exception.right}
+            onfocus={(e) => (lastField = e.currentTarget)}
+          />
+          <button
+            class="btn ghost icon sm"
+            title={t('common.delete')}
+            onclick={() => (draft.exception = null)}><X size={14} /></button
+          >
         </div>
       </div>
     {/if}
@@ -282,16 +370,23 @@
       <div class="chips">
         <span class="small muted">{t('soundChanges.insertClass')}</span>
         {#each classNames as c (c)}
-          <button class="chip" onclick={() => insertClassName(c.replace(/^\{|\}$/g, ''))}>{c}</button>
+          <button class="chip" onclick={() => insertClassName(c.replace(/^\{|\}$/g, ''))}
+            >{c}</button
+          >
         {/each}
       </div>
     {/if}
     <p class="small muted">{t('soundChanges.formHint')}</p>
     <div class="row">
-      <button class="btn primary sm" onclick={saveRule}><Check size={14} />{t('soundChanges.done')}</button>
-      <button class="btn ghost sm" onclick={() => (editingLine = null)}>{t('common.cancel')}</button>
+      <button class="btn primary sm" onclick={saveRule}
+        ><Check size={14} />{t('soundChanges.done')}</button
+      >
+      <button class="btn ghost sm" onclick={() => (editingLine = null)}>{t('common.cancel')}</button
+      >
       <span class="grow"></span>
-      <button class="btn ghost sm danger" onclick={() => removeRule(line)}><Trash2 size={14} />{t('soundChanges.deleteRule')}</button>
+      <button class="btn ghost sm danger" onclick={() => removeRule(line)}
+        ><Trash2 size={14} />{t('soundChanges.deleteRule')}</button
+      >
     </div>
   </div>
 {/snippet}
@@ -301,28 +396,58 @@
   <section class="decl">
     <div class="row decl-head">
       <h3 class="grow">{t('soundChanges.classes')}</h3>
-      <button class="btn ghost sm" onclick={() => openClass('new')}><Plus size={14} />{t('soundChanges.addClass')}</button>
+      <button class="btn ghost sm" onclick={() => openClass('new')}
+        ><Plus size={14} />{t('soundChanges.addClass')}</button
+      >
     </div>
     <div class="chips wrap">
       {#each classLines as l (l.line)}
         {@const p = parseClassLine(l.raw)}
         {#if p}
-          <button class="chip cls" class:active={editingClass === l.line} onclick={() => openClass(l.line)}>
-            <b>{p.name.length === 1 ? p.name : `{${p.name}}`}</b><span class="data">{p.members.some((m) => Array.from(m).length > 1) ? p.members.join(' ') : p.members.join('')}</span>
+          <button
+            class="chip cls"
+            class:active={editingClass === l.line}
+            onclick={() => openClass(l.line)}
+          >
+            <b>{p.name.length === 1 ? p.name : `{${p.name}}`}</b><span class="data"
+              >{p.members.some((m) => Array.from(m).length > 1)
+                ? p.members.join(' ')
+                : p.members.join('')}</span
+            >
           </button>
         {/if}
       {/each}
     </div>
     {#if editingClass !== null}
       <div class="mini-form card">
-        <label class="f"><span>{t('soundChanges.className')}</span><input class="input" bind:value={classDraft.name} /><span class="hint">{t('soundChanges.classNameHint')}</span></label>
-        <label class="f grow"><span>{t('soundChanges.classMembers')}</span><input class="input data" bind:value={classDraft.members} /><span class="hint">{t('soundChanges.membersHint')}</span></label>
+        <label class="f"
+          ><span>{t('soundChanges.className')}</span><input
+            class="input"
+            bind:value={classDraft.name}
+          /><span class="hint">{t('soundChanges.classNameHint')}</span></label
+        >
+        <label class="f grow"
+          ><span>{t('soundChanges.classMembers')}</span><input
+            class="input data"
+            bind:value={classDraft.members}
+          /><span class="hint">{t('soundChanges.membersHint')}</span></label
+        >
         <div class="row">
-          <button class="btn primary sm" onclick={saveClass}><Check size={14} />{t('soundChanges.done')}</button>
-          <button class="btn ghost sm" onclick={() => (editingClass = null)}>{t('common.cancel')}</button>
+          <button class="btn primary sm" onclick={saveClass}
+            ><Check size={14} />{t('soundChanges.done')}</button
+          >
+          <button class="btn ghost sm" onclick={() => (editingClass = null)}
+            >{t('common.cancel')}</button
+          >
           {#if typeof editingClass === 'number'}
             {@const l = editingClass}
-            <button class="btn ghost sm danger" onclick={() => { deleteLine(l); editingClass = null }}><Trash2 size={14} />{t('common.delete')}</button>
+            <button
+              class="btn ghost sm danger"
+              onclick={() => {
+                deleteLine(l)
+                editingClass = null
+              }}><Trash2 size={14} />{t('common.delete')}</button
+            >
           {/if}
         </div>
       </div>
@@ -330,26 +455,55 @@
 
     <div class="row decl-head">
       <h3 class="grow">{t('soundChanges.digraphs')}</h3>
-      <button class="btn ghost sm" onclick={() => openDigraph('new')}><Plus size={14} />{t('soundChanges.addDigraph')}</button>
+      <button class="btn ghost sm" onclick={() => openDigraph('new')}
+        ><Plus size={14} />{t('soundChanges.addDigraph')}</button
+      >
     </div>
     <div class="chips wrap">
       {#each digraphLines as l (l.line)}
         {@const p = parseReplacementLine(l.raw)}
         {#if p}
-          <button class="chip cls" class:active={editingDigraph === l.line} onclick={() => openDigraph(l.line)}><span class="data">{p.from}</span><span class="muted">→</span><span class="data">{p.to}</span></button>
+          <button
+            class="chip cls"
+            class:active={editingDigraph === l.line}
+            onclick={() => openDigraph(l.line)}
+            ><span class="data">{p.from}</span><span class="muted">→</span><span class="data"
+              >{p.to}</span
+            ></button
+          >
         {/if}
       {/each}
     </div>
     {#if editingDigraph !== null}
       <div class="mini-form card">
-        <label class="f"><span>{t('soundChanges.digraphFrom')}</span><input class="input data" bind:value={digraphDraft.from} /></label>
-        <label class="f"><span>{t('soundChanges.digraphTo')}</span><input class="input data" bind:value={digraphDraft.to} /></label>
+        <label class="f"
+          ><span>{t('soundChanges.digraphFrom')}</span><input
+            class="input data"
+            bind:value={digraphDraft.from}
+          /></label
+        >
+        <label class="f"
+          ><span>{t('soundChanges.digraphTo')}</span><input
+            class="input data"
+            bind:value={digraphDraft.to}
+          /></label
+        >
         <div class="row">
-          <button class="btn primary sm" onclick={saveDigraph}><Check size={14} />{t('soundChanges.done')}</button>
-          <button class="btn ghost sm" onclick={() => (editingDigraph = null)}>{t('common.cancel')}</button>
+          <button class="btn primary sm" onclick={saveDigraph}
+            ><Check size={14} />{t('soundChanges.done')}</button
+          >
+          <button class="btn ghost sm" onclick={() => (editingDigraph = null)}
+            >{t('common.cancel')}</button
+          >
           {#if typeof editingDigraph === 'number'}
             {@const l = editingDigraph}
-            <button class="btn ghost sm danger" onclick={() => { deleteLine(l); editingDigraph = null }}><Trash2 size={14} />{t('common.delete')}</button>
+            <button
+              class="btn ghost sm danger"
+              onclick={() => {
+                deleteLine(l)
+                editingDigraph = null
+              }}><Trash2 size={14} />{t('common.delete')}</button
+            >
           {/if}
         </div>
       </div>
@@ -367,23 +521,57 @@
               class="input stage-input"
               bind:value={markerDraft}
               onkeydown={(e) => {
-                if (e.key === 'Enter') { replaceLine(m.line, formatMarker(markerDraft, m.comment)); editingMarker = null }
+                if (e.key === 'Enter') {
+                  replaceLine(m.line, formatMarker(markerDraft, m.comment))
+                  editingMarker = null
+                }
                 if (e.key === 'Escape') editingMarker = null
               }}
             />
-            <button class="btn primary sm" onclick={() => { replaceLine(m.line, formatMarker(markerDraft, m.comment)); editingMarker = null }}><Check size={14} /></button>
-            <button class="btn ghost icon sm" onclick={() => (editingMarker = null)}><X size={14} /></button>
-            <button class="btn ghost icon sm danger" title={t('common.delete')} onclick={() => { deleteLine(m.line); editingMarker = null }}><Trash2 size={14} /></button>
+            <button
+              class="btn primary sm"
+              onclick={() => {
+                replaceLine(m.line, formatMarker(markerDraft, m.comment))
+                editingMarker = null
+              }}><Check size={14} /></button
+            >
+            <button class="btn ghost icon sm" onclick={() => (editingMarker = null)}
+              ><X size={14} /></button
+            >
+            <button
+              class="btn ghost icon sm danger"
+              title={t('common.delete')}
+              onclick={() => {
+                deleteLine(m.line)
+                editingMarker = null
+              }}><Trash2 size={14} /></button
+            >
           {:else}
-            <button class="stage-name" onclick={() => { editingMarker = m.line; markerDraft = m.name }}>-* {m.name}</button>
+            <button
+              class="stage-name"
+              onclick={() => {
+                editingMarker = m.line
+                markerDraft = m.name
+              }}>-* {m.name}</button
+            >
             {#if m.comment}<span class="small muted">{m.comment}</span>{/if}
           {/if}
           <span class="grow"></span>
-          <button class="btn ghost icon sm" title={t('soundChanges.moveUp')} onclick={() => moveRule(m.line, -1)}><ChevronUp size={14} /></button>
-          <button class="btn ghost icon sm" title={t('soundChanges.moveDown')} onclick={() => moveRule(m.line, 1)}><ChevronDown size={14} /></button>
+          <button
+            class="btn ghost icon sm"
+            title={t('soundChanges.moveUp')}
+            onclick={() => moveRule(m.line, -1)}><ChevronUp size={14} /></button
+          >
+          <button
+            class="btn ghost icon sm"
+            title={t('soundChanges.moveDown')}
+            onclick={() => moveRule(m.line, 1)}><ChevronDown size={14} /></button
+          >
         </div>
       {:else if sections.length > 1}
-        <div class="stage-head row"><span class="small muted">{t('soundChanges.beforeFirstStage')}</span></div>
+        <div class="stage-head row">
+          <span class="small muted">{t('soundChanges.beforeFirstStage')}</span>
+        </div>
       {/if}
 
       {#each sec.items as item (item.line)}
@@ -409,20 +597,65 @@
                   {:else}
                     <span class="tg">{r.target || '∅'}</span>
                     <span class="muted">→</span>
-                    <span class="rp">{r.replacement === '\\' ? '⇄' : r.replacement === '2' ? '×2' : r.replacement || '∅'}</span>
+                    <span class="rp"
+                      >{r.replacement === '\\'
+                        ? '⇄'
+                        : r.replacement === '2'
+                          ? '×2'
+                          : r.replacement || '∅'}</span
+                    >
                     <span class="muted">/</span>
                     <span class="ctx">{describeCtx(r)}</span>
-                    {#if r.exception}<span class="muted">−</span><span class="exc">{r.exception.left}_{r.exception.right}</span>{/if}
+                    {#if r.exception}<span class="muted">−</span><span class="exc"
+                        >{r.exception.left}_{r.exception.right}</span
+                      >{/if}
                   {/if}
                 </span>
                 {#if r.comment}<span class="small muted comment">{r.comment}</span>{/if}
-                {#if hits.get(r.line)}<span class="badge accent">{t('soundChanges.hits', { n: hits.get(r.line)! })}</span>{/if}
+                {#if hits.get(r.line)}<span class="badge accent"
+                    >{t('soundChanges.hits', { n: hits.get(r.line)! })}</span
+                  >{/if}
                 <span class="actions">
-                  <button class="btn ghost icon sm" title={t('soundChanges.editRule')} onclick={(e) => { e.stopPropagation(); openRule(r) }}><Pencil size={14} /></button>
-                  <button class="btn ghost icon sm" title={t('soundChanges.moveUp')} onclick={(e) => { e.stopPropagation(); moveRule(r.line, -1) }}><ChevronUp size={14} /></button>
-                  <button class="btn ghost icon sm" title={t('soundChanges.moveDown')} onclick={(e) => { e.stopPropagation(); moveRule(r.line, 1) }}><ChevronDown size={14} /></button>
-                  <button class="btn ghost icon sm" title={t('soundChanges.duplicate')} onclick={(e) => { e.stopPropagation(); duplicateRule(r) }}><Copy size={14} /></button>
-                  <button class="btn ghost icon sm danger" title={t('soundChanges.deleteRule')} onclick={(e) => { e.stopPropagation(); removeRule(r.line) }}><Trash2 size={14} /></button>
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('soundChanges.editRule')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      openRule(r)
+                    }}><Pencil size={14} /></button
+                  >
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('soundChanges.moveUp')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      moveRule(r.line, -1)
+                    }}><ChevronUp size={14} /></button
+                  >
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('soundChanges.moveDown')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      moveRule(r.line, 1)
+                    }}><ChevronDown size={14} /></button
+                  >
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('soundChanges.duplicate')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      duplicateRule(r)
+                    }}><Copy size={14} /></button
+                  >
+                  <button
+                    class="btn ghost icon sm danger"
+                    title={t('soundChanges.deleteRule')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      removeRule(r.line)
+                    }}><Trash2 size={14} /></button
+                  >
                 </span>
               </div>
               {#if selectedLine === r.line && preview}
@@ -446,7 +679,14 @@
                     {/key}
                     <span class="muted">→</span>
                     <span class="data result">{preview.after}</span>
-                    <button class="btn ghost icon sm" title={t('soundChanges.replay')} onclick={(e) => { e.stopPropagation(); replayKey++ }}><RotateCcw size={13} /></button>
+                    <button
+                      class="btn ghost icon sm"
+                      title={t('soundChanges.replay')}
+                      onclick={(e) => {
+                        e.stopPropagation()
+                        replayKey++
+                      }}><RotateCcw size={13} /></button
+                    >
                   {/if}
                 </div>
               {/if}
@@ -456,18 +696,32 @@
           <div class="rule card err row">
             <span class="num mono">{item.line}</span>
             <AlertTriangle size={14} />
-            <input class="input data grow" value={item.raw} onchange={(e) => replaceLine(item.line, (e.currentTarget as HTMLInputElement).value)} />
+            <input
+              class="input data grow"
+              value={item.raw}
+              onchange={(e) => replaceLine(item.line, (e.currentTarget as HTMLInputElement).value)}
+            />
             <span class="small">{item.message}</span>
-            <button class="btn ghost icon sm danger" onclick={() => removeRule(item.line)}><Trash2 size={14} /></button>
+            <button class="btn ghost icon sm danger" onclick={() => removeRule(item.line)}
+              ><Trash2 size={14} /></button
+            >
           </div>
         {:else if item.kind === 'comment'}
-          <div class="note row"><span class="small muted">{item.raw.replace(/^\s*[;#]\s?/, '')}</span></div>
+          <div class="note row">
+            <span class="small muted">{item.raw.replace(/^\s*[;#]\s?/, '')}</span>
+          </div>
         {/if}
       {/each}
 
       <div class="row stage-foot">
-        <button class="btn ghost sm" onclick={() => addRuleAfter(sec.endLine)}><Plus size={14} />{sec.marker ? t('soundChanges.addRuleHere') : t('soundChanges.addRule')}</button>
-        <button class="btn ghost sm" onclick={() => addStageAfter(sec.endLine)}><Plus size={14} />{t('soundChanges.addStage')}</button>
+        <button class="btn ghost sm" onclick={() => addRuleAfter(sec.endLine)}
+          ><Plus size={14} />{sec.marker
+            ? t('soundChanges.addRuleHere')
+            : t('soundChanges.addRule')}</button
+        >
+        <button class="btn ghost sm" onclick={() => addStageAfter(sec.endLine)}
+          ><Plus size={14} />{t('soundChanges.addStage')}</button
+        >
       </div>
     </section>
   {/each}
@@ -476,8 +730,12 @@
     <p class="muted">{t('soundChanges.noRules')}</p>
     {#if sections.length === 0}
       <div class="row">
-        <button class="btn primary sm" onclick={() => addRuleAfter(lastLine)}><Plus size={14} />{t('soundChanges.addRule')}</button>
-        <button class="btn sm" onclick={() => addStageAfter(lastLine)}><Plus size={14} />{t('soundChanges.addStage')}</button>
+        <button class="btn primary sm" onclick={() => addRuleAfter(lastLine)}
+          ><Plus size={14} />{t('soundChanges.addRule')}</button
+        >
+        <button class="btn sm" onclick={() => addStageAfter(lastLine)}
+          ><Plus size={14} />{t('soundChanges.addStage')}</button
+        >
       </div>
     {/if}
   {/if}

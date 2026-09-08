@@ -25,12 +25,18 @@ export function parseFont(data: ArrayBuffer): ParsedFont {
   const tag = dv.getUint32(0)
   if (tag === 0x74746366) base = dv.getUint32(12) // 'ttcf' → 首字体偏移
   const sfnt = dv.getUint32(base)
-  if (![0x00010000, 0x4f54544f, 0x74727565].includes(sfnt)) throw new Error('unsupported font format')
+  if (![0x00010000, 0x4f54544f, 0x74727565].includes(sfnt))
+    throw new Error('unsupported font format')
   const numTables = dv.getUint16(base + 4)
   const tables = new Map<string, { off: number; len: number }>()
   for (let i = 0; i < numTables; i++) {
     const rec = base + 12 + i * 16
-    const name = String.fromCharCode(dv.getUint8(rec), dv.getUint8(rec + 1), dv.getUint8(rec + 2), dv.getUint8(rec + 3))
+    const name = String.fromCharCode(
+      dv.getUint8(rec),
+      dv.getUint8(rec + 1),
+      dv.getUint8(rec + 2),
+      dv.getUint8(rec + 3)
+    )
     tables.set(name, { off: dv.getUint32(rec + 8), len: dv.getUint32(rec + 12) })
   }
   const cmap = tables.get('cmap')
@@ -38,7 +44,9 @@ export function parseFont(data: ArrayBuffer): ParsedFont {
   const maxp = tables.get('maxp')
   const numGlyphs = maxp ? dv.getUint16(maxp.off + 4) : 0
   const map = readCmap(dv, cmap.off)
-  const names = tables.get('post') ? readPostNames(dv, tables.get('post')!.off, tables.get('post')!.len) : []
+  const names = tables.get('post')
+    ? readPostNames(dv, tables.get('post')!.off, tables.get('post')!.len)
+    : []
   const family = tables.get('name') ? readFamily(dv, tables.get('name')!.off) : ''
   const glyphs: ParsedGlyph[] = []
   for (const [cp, gid] of [...map.entries()].sort((a, b) => a[0] - b[0])) {
@@ -124,7 +132,11 @@ function readPostNames(dv: DataView, off: number, len: number): string[] {
     strs.push(s)
     p += 1 + l
   }
-  return idx.map((i) => (i >= MAC_GLYPH_NAMES_COUNT ? (strs[i - MAC_GLYPH_NAMES_COUNT] ?? '') : MAC_GLYPH_NAMES[i] ?? ''))
+  return idx.map((i) =>
+    i >= MAC_GLYPH_NAMES_COUNT
+      ? (strs[i - MAC_GLYPH_NAMES_COUNT] ?? '')
+      : (MAC_GLYPH_NAMES[i] ?? '')
+  )
 }
 
 function readFamily(dv: DataView, off: number): string {
@@ -167,6 +179,7 @@ export function guessCategory(char: string): string {
 }
 
 // 标准 Macintosh 字形名（post 2.0 索引 < 258）
-const MAC_GLYPH_NAMES = `.notdef .null nonmarkingreturn space exclam quotedbl numbersign dollar percent ampersand quotesingle parenleft parenright asterisk plus comma hyphen period slash zero one two three four five six seven eight nine colon semicolon less equal greater question at A B C D E F G H I J K L M N O P Q R S T U V W X Y Z bracketleft backslash bracketright asciicircum underscore grave a b c d e f g h i j k l m n o p q r s t u v w x y z braceleft bar braceright asciitilde Adieresis Aring Ccedilla Eacute Ntilde Odieresis Udieresis aacute agrave acircumflex adieresis atilde aring ccedilla eacute egrave ecircumflex edieresis iacute igrave icircumflex idieresis ntilde oacute ograve ocircumflex odieresis otilde uacute ugrave ucircumflex udieresis dagger degree cent sterling section bullet paragraph germandbls registered copyright trademark acute dieresis notequal AE Oslash infinity plusminus lessequal greaterequal yen mu partialdiff summation product pi integral ordfeminine ordmasculine Omega ae oslash questiondown exclamdown logicalnot radical florin approxequal Delta guillemotleft guillemotright ellipsis nonbreakingspace Agrave Atilde Otilde OE oe endash emdash quotedblleft quotedblright quoteleft quoteright divide lozenge ydieresis Ydieresis fraction currency guilsinglleft guilsinglright fi fl daggerdbl periodcentered quotesinglbase quotedblbase perthousand Acircumflex Ecircumflex Aacute Edieresis Egrave Iacute Icircumflex Idieresis Igrave Oacute Ocircumflex apple Ograve Uacute Ucircumflex Ugrave dotlessi circumflex tilde macron breve dotaccent ring cedilla hungarumlaut ogonek caron Lslash lslash Scaron scaron Zcaron zcaron brokenbar Eth eth Yacute yacute Thorn thorn minus multiply onesuperior twosuperior threesuperior onehalf onequarter threequarters franc Gbreve gbreve Idotaccent Scedilla scedilla Cacute cacute Ccaron ccaron dcroat`.split(
-  ' '
-)
+const MAC_GLYPH_NAMES =
+  `.notdef .null nonmarkingreturn space exclam quotedbl numbersign dollar percent ampersand quotesingle parenleft parenright asterisk plus comma hyphen period slash zero one two three four five six seven eight nine colon semicolon less equal greater question at A B C D E F G H I J K L M N O P Q R S T U V W X Y Z bracketleft backslash bracketright asciicircum underscore grave a b c d e f g h i j k l m n o p q r s t u v w x y z braceleft bar braceright asciitilde Adieresis Aring Ccedilla Eacute Ntilde Odieresis Udieresis aacute agrave acircumflex adieresis atilde aring ccedilla eacute egrave ecircumflex edieresis iacute igrave icircumflex idieresis ntilde oacute ograve ocircumflex odieresis otilde uacute ugrave ucircumflex udieresis dagger degree cent sterling section bullet paragraph germandbls registered copyright trademark acute dieresis notequal AE Oslash infinity plusminus lessequal greaterequal yen mu partialdiff summation product pi integral ordfeminine ordmasculine Omega ae oslash questiondown exclamdown logicalnot radical florin approxequal Delta guillemotleft guillemotright ellipsis nonbreakingspace Agrave Atilde Otilde OE oe endash emdash quotedblleft quotedblright quoteleft quoteright divide lozenge ydieresis Ydieresis fraction currency guilsinglleft guilsinglright fi fl daggerdbl periodcentered quotesinglbase quotedblbase perthousand Acircumflex Ecircumflex Aacute Edieresis Egrave Iacute Icircumflex Idieresis Igrave Oacute Ocircumflex apple Ograve Uacute Ucircumflex Ugrave dotlessi circumflex tilde macron breve dotaccent ring cedilla hungarumlaut ogonek caron Lslash lslash Scaron scaron Zcaron zcaron brokenbar Eth eth Yacute yacute Thorn thorn minus multiply onesuperior twosuperior threesuperior onehalf onequarter threequarters franc Gbreve gbreve Idotaccent Scedilla scedilla Cacute cacute Ccaron ccaron dcroat`.split(
+    ' '
+  )

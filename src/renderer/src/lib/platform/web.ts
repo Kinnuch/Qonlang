@@ -60,7 +60,10 @@ async function kvSet(key: string, value: unknown): Promise<void> {
 
 const pickerTypes = [{ description: 'Qonlang project', accept: { 'application/json': ['.json'] } }]
 
-async function ensurePermission(handle: FileSystemFileHandle, mode: 'read' | 'readwrite'): Promise<boolean> {
+async function ensurePermission(
+  handle: FileSystemFileHandle,
+  mode: 'read' | 'readwrite'
+): Promise<boolean> {
   const h = handle as unknown as {
     queryPermission?: (o: { mode: string }) => Promise<string>
     requestPermission?: (o: { mode: string }) => Promise<string>
@@ -153,7 +156,10 @@ export const webPlatform: PlatformAPI = {
     if (!(await ensurePermission(handle, 'read'))) return null
     try {
       const file = await handle.getFile()
-      return { target: { path: null, handleKey: entry.handleKey, name: file.name }, content: await file.text() }
+      return {
+        target: { path: null, handleKey: entry.handleKey, name: file.name },
+        content: await file.text()
+      }
     } catch {
       return null
     }
@@ -234,7 +240,8 @@ export const webPlatform: PlatformAPI = {
       files.map(async (f) => {
         const buf = new Uint8Array(await f.arrayBuffer())
         let bin = ''
-        for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000))
+        for (let i = 0; i < buf.length; i += 0x8000)
+          bin += String.fromCharCode(...buf.subarray(i, i + 0x8000))
         return { name: f.name, base64: btoa(bin) }
       })
     )
@@ -246,14 +253,18 @@ export const webPlatform: PlatformAPI = {
     return (await kvGet<string>('font:' + file)) ?? null
   },
   async saveFont(file, base64) {
-    const idx = ((await kvGet<{ file: string; size: number }[]>('fonts:index')) ?? []).filter((f) => f.file !== file)
+    const idx = ((await kvGet<{ file: string; size: number }[]>('fonts:index')) ?? []).filter(
+      (f) => f.file !== file
+    )
     idx.push({ file, size: Math.floor((base64.length * 3) / 4) })
     await kvSet('font:' + file, base64)
     await kvSet('fonts:index', idx)
     return true
   },
   async deleteFont(file) {
-    const idx = ((await kvGet<{ file: string; size: number }[]>('fonts:index')) ?? []).filter((f) => f.file !== file)
+    const idx = ((await kvGet<{ file: string; size: number }[]>('fonts:index')) ?? []).filter(
+      (f) => f.file !== file
+    )
     await kvSet('font:' + file, null)
     await kvSet('fonts:index', idx)
   },
@@ -263,7 +274,8 @@ export const webPlatform: PlatformAPI = {
       if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
       const buf = new Uint8Array(await res.arrayBuffer())
       let bin = ''
-      for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000))
+      for (let i = 0; i < buf.length; i += 0x8000)
+        bin += String.fromCharCode(...buf.subarray(i, i + 0x8000))
       await this.saveFont(file, btoa(bin))
       return { ok: true }
     } catch (e) {

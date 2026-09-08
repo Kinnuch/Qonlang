@@ -44,7 +44,10 @@ class FontLibrary {
     if (typeof document === 'undefined' || !('fonts' in document)) return
     try {
       const face = new FontFace(family, `url(${fontDataUrl(file, base64)})`)
-      face.load().then((f) => document.fonts.add(f)).catch(() => {})
+      face
+        .load()
+        .then((f) => document.fonts.add(f))
+        .catch(() => {})
       this.registered.add(file)
     } catch {
       /* ignore */
@@ -70,7 +73,10 @@ class FontLibrary {
   }
 
   async importLocal(): Promise<number> {
-    const files = await platform.readBinaryFiles({ multiple: true, extensions: ['ttf', 'otf', 'woff', 'woff2'] })
+    const files = await platform.readBinaryFiles({
+      multiple: true,
+      extensions: ['ttf', 'otf', 'woff', 'woff2']
+    })
     let n = 0
     for (const f of files) {
       if (await platform.saveFont(f.name, f.base64)) n++
@@ -87,7 +93,8 @@ class FontLibrary {
 
   onProgress(): void {
     platform.onFontProgress((p) => {
-      if (p.file in this.progress) this.progress = { ...this.progress, [p.file]: { received: p.received, total: p.total } }
+      if (p.file in this.progress)
+        this.progress = { ...this.progress, [p.file]: { received: p.received, total: p.total } }
     })
   }
 }

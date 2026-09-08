@@ -112,7 +112,14 @@ export function runRules(program: RuleProgram, word: string, options: RunOptions
     const next = applyRule(step, current)
     if (next !== current) {
       if (options.trace !== false) {
-        trace.push({ line: step.line, stage, before: current, after: next, target: step.target, replacement: step.replacement })
+        trace.push({
+          line: step.line,
+          stage,
+          before: current,
+          after: next,
+          target: step.target,
+          replacement: step.replacement
+        })
       }
       current = next
     }
@@ -135,6 +142,10 @@ export function ruleOrdinals(program: RuleProgram): Map<number, number> {
 }
 
 /** 批量运行；每个词独立 */
-export function runRulesBatch(program: RuleProgram, words: string[], options: RunOptions = {}): RunResult[] {
+export function runRulesBatch(
+  program: RuleProgram,
+  words: string[],
+  options: RunOptions = {}
+): RunResult[] {
   return words.map((w) => runRules(program, w, options))
 }

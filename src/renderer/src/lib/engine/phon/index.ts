@@ -12,7 +12,20 @@ export function phonemeFeatures(p: Phoneme): Record<string, string> {
 }
 
 /** 分析时跳过的超音段符号：重音、音节点、五度声调字母 */
-export const SUPRASEGMENTAL_IGNORE = new Set(['ˈ', 'ˌ', '.', '˥', '˦', '˧', '˨', '˩', '↗', '↘', '|', '‖'])
+export const SUPRASEGMENTAL_IGNORE = new Set([
+  'ˈ',
+  'ˌ',
+  '.',
+  '˥',
+  '˦',
+  '˧',
+  '˨',
+  '˩',
+  '↗',
+  '↘',
+  '|',
+  '‖'
+])
 
 // ───────────────────────── 音段切分 ─────────────────────────
 
@@ -81,7 +94,7 @@ export function parseTemplate(template: string): { maxOnset: number; maxCoda: nu
  */
 export function syllabify(segments: string[], opts: SyllableOptions): Syllable[] {
   const isN = (s: string): boolean => opts.nuclei.has(s) || opts.nuclei.has(stripMarks(s))
-  const segs = segments.filter((s) => !(opts.ignore?.has(s)))
+  const segs = segments.filter((s) => !opts.ignore?.has(s))
   const nucleusIdx: number[] = []
   segs.forEach((s, i) => {
     if (isN(s)) nucleusIdx.push(i)
@@ -105,7 +118,8 @@ export function syllabify(segments: string[], opts: SyllableOptions): Syllable[]
       onsetLen = Math.min(cluster.length, maxOnset)
       // 受允许起首表限制：从最长往下找一个合法的
       if (opts.onsets && opts.onsets.size) {
-        while (onsetLen > 0 && !opts.onsets.has(cluster.slice(cluster.length - onsetLen).join(''))) onsetLen--
+        while (onsetLen > 0 && !opts.onsets.has(cluster.slice(cluster.length - onsetLen).join('')))
+          onsetLen--
       }
       // 尾音上限
       const maxCoda = opts.maxCoda ?? Infinity
@@ -172,13 +186,25 @@ export interface Violation {
 export function checkWord(segments: string[], sylls: Syllable[], pt: Phonotactics): Violation[] {
   const out: Violation[] = []
   const joined = segments.join('')
-  for (const ill of pt.illegal) if (ill && joined.includes(ill)) out.push({ kind: 'illegal', detail: ill })
-  if (pt.onsets.length) for (const s of sylls) if (s.onset.length && !pt.onsets.includes(s.onset.join(''))) out.push({ kind: 'onset', detail: s.onset.join('') })
-  if (pt.codas.length) for (const s of sylls) if (s.coda.length && !pt.codas.includes(s.coda.join(''))) out.push({ kind: 'coda', detail: s.coda.join('') })
-  if (pt.nuclei.length) for (const s of sylls) if (s.nucleus.length && !pt.nuclei.includes(s.nucleus.join(''))) out.push({ kind: 'nucleus', detail: s.nucleus.join('') })
+  for (const ill of pt.illegal)
+    if (ill && joined.includes(ill)) out.push({ kind: 'illegal', detail: ill })
+  if (pt.onsets.length)
+    for (const s of sylls)
+      if (s.onset.length && !pt.onsets.includes(s.onset.join('')))
+        out.push({ kind: 'onset', detail: s.onset.join('') })
+  if (pt.codas.length)
+    for (const s of sylls)
+      if (s.coda.length && !pt.codas.includes(s.coda.join('')))
+        out.push({ kind: 'coda', detail: s.coda.join('') })
+  if (pt.nuclei.length)
+    for (const s of sylls)
+      if (s.nucleus.length && !pt.nuclei.includes(s.nucleus.join('')))
+        out.push({ kind: 'nucleus', detail: s.nucleus.join('') })
   if (sylls.length && sylls[0].nucleus.length === 0) out.push({ kind: 'nucleus', detail: '∅' })
-  if (pt.minSyllables && sylls.length < pt.minSyllables) out.push({ kind: 'syllables', detail: String(sylls.length) })
-  if (pt.maxSyllables && sylls.length > pt.maxSyllables) out.push({ kind: 'syllables', detail: String(sylls.length) })
+  if (pt.minSyllables && sylls.length < pt.minSyllables)
+    out.push({ kind: 'syllables', detail: String(sylls.length) })
+  if (pt.maxSyllables && sylls.length > pt.maxSyllables)
+    out.push({ kind: 'syllables', detail: String(sylls.length) })
   return out
 }
 
@@ -205,7 +231,11 @@ function rng(seed: number): () => number {
   }
 }
 
-function weightedPick(items: string[], weights: Record<string, number>, rand: () => number): string {
+function weightedPick(
+  items: string[],
+  weights: Record<string, number>,
+  rand: () => number
+): string {
   const ws = items.map((i) => Math.max(0, weights[i] ?? 1))
   const total = ws.reduce((a, b) => a + b, 0)
   if (total <= 0) return items[Math.floor(rand() * items.length)]
@@ -231,7 +261,8 @@ export function generateWords(pt: Phonotactics, opts: GenerateOptions): string[]
     const n = min + Math.floor(rand() * (max - min + 1))
     let w = ''
     for (let i = 0; i < n; i++) {
-      if (pt.onsets.length && (i === 0 ? rand() < onsetProb : rand() < onsetProb)) w += weightedPick(pt.onsets, pt.weights, rand)
+      if (pt.onsets.length && (i === 0 ? rand() < onsetProb : rand() < onsetProb))
+        w += weightedPick(pt.onsets, pt.weights, rand)
       w += weightedPick(pt.nuclei, pt.weights, rand)
       if (pt.codas.length && rand() < codaProb) w += weightedPick(pt.codas, pt.weights, rand)
     }
@@ -250,7 +281,12 @@ export function languageParseOptions(lang: Language | null | undefined): ParseOp
   if (!lang) return {}
   const classes: Record<string, string[]> = {}
   for (const c of lang.classes) if (c.name && c.members.length) classes[c.name] = c.members
-  return { classes, replacements: lang.digraphs.filter((d) => d.from && d.to).map((d) => [d.from, d.to] as [string, string]) }
+  return {
+    classes,
+    replacements: lang.digraphs
+      .filter((d) => d.from && d.to)
+      .map((d) => [d.from, d.to] as [string, string])
+  }
 }
 
 /** 音位表里可作音节核的音段：syllabic 特征为 yes，或属于名为 V / Vowel / 元音 的音类 */
@@ -260,16 +296,23 @@ export function nucleusSet(lang: Language): Set<string> {
     const f = phonemeFeatures(p)
     if (f.syllabic === 'yes' || f.type === 'vowel') s.add(p.symbol)
   }
-  for (const c of lang.classes) if (/^(V|Vowel|Vowels|元音|N|Nucleus)$/i.test(c.name)) for (const m of c.members) s.add(m)
+  for (const c of lang.classes)
+    if (/^(V|Vowel|Vowels|元音|N|Nucleus)$/i.test(c.name)) for (const m of c.members) s.add(m)
   for (const n of lang.phonotactics.nuclei) s.add(n)
   return s
 }
 
 /** 用语言设置给一个 IPA 串划音节并标重音 */
-export function analyzeWord(lang: Language, ipa: string): { segments: string[]; syllables: Syllable[]; stress: number; text: string } {
+export function analyzeWord(
+  lang: Language,
+  ipa: string
+): { segments: string[]; syllables: Syllable[]; stress: number; text: string } {
   const inventory = lang.phonemes.map((p) => p.symbol)
   const segments = segment(ipa, inventory).filter((s) => !SUPRASEGMENTAL_IGNORE.has(s))
-  const tpl = lang.syllable.strategy === 'template' && lang.syllable.template ? parseTemplate(lang.syllable.template) : { maxOnset: Infinity, maxCoda: Infinity }
+  const tpl =
+    lang.syllable.strategy === 'template' && lang.syllable.template
+      ? parseTemplate(lang.syllable.template)
+      : { maxOnset: Infinity, maxCoda: Infinity }
   const syllables = lang.syllable.enabled
     ? syllabify(segments, {
         nuclei: nucleusSet(lang),
@@ -279,6 +322,14 @@ export function analyzeWord(lang: Language, ipa: string): { segments: string[]; 
         ignore: SUPRASEGMENTAL_IGNORE
       })
     : [{ onset: [], nucleus: segments, coda: [] }]
-  const stress = lang.prosody.type === 'stress' || lang.prosody.type === 'pitch' ? stressIndex(syllables, lang.prosody.stressPosition) : -1
-  return { segments, syllables, stress, text: lang.syllable.enabled ? renderSyllables(syllables, stress) : ipa }
+  const stress =
+    lang.prosody.type === 'stress' || lang.prosody.type === 'pitch'
+      ? stressIndex(syllables, lang.prosody.stressPosition)
+      : -1
+  return {
+    segments,
+    syllables,
+    stress,
+    text: lang.syllable.enabled ? renderSyllables(syllables, stress) : ipa
+  }
 }

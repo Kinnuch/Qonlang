@@ -69,6 +69,16 @@ class UiState {
   pendingSelect = $state<{ kind: string; id: string } | null>(null)
   /** 命令面板开关 */
   paletteOpen = $state(false)
+  /** 应用内输入框请求（Electron 不支持 window.prompt） */
+  promptReq = $state<{ title: string; value: string; resolve: (v: string | null) => void } | null>(
+    null
+  )
+  prompt(title: string, value = ''): Promise<string | null> {
+    return new Promise((resolve) => {
+      if (this.promptReq) this.promptReq.resolve(null)
+      this.promptReq = { title, value, resolve }
+    })
+  }
   /** 跳到某页并选中某对象 */
   jump(section: Section, kind: string, id: string): void {
     if (kind === 'lexeme') this.pendingLexemeId = id

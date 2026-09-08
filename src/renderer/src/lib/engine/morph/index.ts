@@ -2,7 +2,16 @@
  * 形态引擎：范式槽位、生成器、推导与对账。
  * 生成器只做机械拼接 / 替换；语音层面的调整交给规则引擎（affix-sca）。
  */
-import type { GrammaticalCategory, Id, Language, Lexeme, Morpheme, Paradigm, Project, SlotGenerator } from '$lib/core/model'
+import type {
+  GrammaticalCategory,
+  Id,
+  Language,
+  Lexeme,
+  Morpheme,
+  Paradigm,
+  Project,
+  SlotGenerator
+} from '$lib/core/model'
 import { parseRuleText, runRules, type RuleProgram } from '../sca'
 import { languageParseOptions, nucleusSet, segment } from '../phon'
 
@@ -25,13 +34,21 @@ export function slotKey(values: { categoryId: Id; valueId: Id }[]): string {
 }
 
 /** 维度笛卡尔积 → 槽位（已屏蔽的除外） */
-export function paradigmSlots(p: Paradigm, categories: GrammaticalCategory[], glossLangs: string[], includeDisabled = false): SlotDef[] {
-  const dims = p.dimensionIds.map((id) => categories.find((c) => c.id === id)).filter((c): c is GrammaticalCategory => !!c)
+export function paradigmSlots(
+  p: Paradigm,
+  categories: GrammaticalCategory[],
+  glossLangs: string[],
+  includeDisabled = false
+): SlotDef[] {
+  const dims = p.dimensionIds
+    .map((id) => categories.find((c) => c.id === id))
+    .filter((c): c is GrammaticalCategory => !!c)
   if (!dims.length) return []
   let combos: { categoryId: Id; valueId: Id }[][] = [[]]
   for (const d of dims) {
     const next: { categoryId: Id; valueId: Id }[][] = []
-    for (const c of combos) for (const v of d.values) next.push([...c, { categoryId: d.id, valueId: v.id }])
+    for (const c of combos)
+      for (const v of d.values) next.push([...c, { categoryId: d.id, valueId: v.id }])
     combos = next
   }
   const out: SlotDef[] = []
@@ -41,15 +58,28 @@ export function paradigmSlots(p: Paradigm, categories: GrammaticalCategory[], gl
     const names = values.map((v) => {
       const cat = dims.find((d) => d.id === v.categoryId)!
       const val = cat.values.find((x) => x.id === v.valueId)!
-      return { name: pick(val.name, glossLangs) || val.abbr || '?', abbr: val.abbr || pick(val.name, glossLangs) }
+      return {
+        name: pick(val.name, glossLangs) || val.abbr || '?',
+        abbr: val.abbr || pick(val.name, glossLangs)
+      }
     })
-    out.push({ key, values, label: names.map((n) => n.name).join('.'), abbr: names.map((n) => n.abbr).join('.') })
+    out.push({
+      key,
+      values,
+      label: names.map((n) => n.name).join('.'),
+      abbr: names.map((n) => n.abbr).join('.')
+    })
   }
   return out
 }
 
 /** 沿继承链找槽位的生成器 */
-export function resolveGenerator(p: Paradigm, key: string, paradigms: Paradigm[], depth = 0): SlotGenerator {
+export function resolveGenerator(
+  p: Paradigm,
+  key: string,
+  paradigms: Paradigm[],
+  depth = 0
+): SlotGenerator {
   const g = p.generators[key]
   if (g && g.kind !== 'none') return g
   if (p.inheritsFrom && depth < 8) {
@@ -93,7 +123,8 @@ const trimHyphens = (s: string): string => s.replace(/^-+|-+$/g, '')
 
 export function stemOf(lexeme: Lexeme, name: string): { value: string; note: string } {
   const n = name.trim()
-  if (!n || n === 'lemma' || n === '词头') return { value: trimHyphens(lexeme.lemma), note: 'lemma' }
+  if (!n || n === 'lemma' || n === '词头')
+    return { value: trimHyphens(lexeme.lemma), note: 'lemma' }
   const v = lexeme.stems[n]
   if (v != null && v !== '') return { value: trimHyphens(v), note: n }
   return { value: trimHyphens(lexeme.lemma), note: `${n}→lemma` }
@@ -103,17 +134,31 @@ export function stemOf(lexeme: Lexeme, name: string): { value: string; note: str
  * 词缀文本：以 @ 开头表示引用语素（按形式或 gloss 查找），按异体形环境挑选；否则按字面。
  * 环境用规则语言写，如后缀异体形 `-lar / {Back}[^aeouöü]*_`：左侧是词干末尾的条件。
  */
-function resolveAffix(ctx: MorphContext, text: string, stem: string, side: 'prefix' | 'suffix'): { form: string; note: string } {
+function resolveAffix(
+  ctx: MorphContext,
+  text: string,
+  stem: string,
+  side: 'prefix' | 'suffix'
+): { form: string; note: string } {
   const raw = text.trim()
   if (!raw.startsWith('@')) return { form: trimHyphens(raw), note: '' }
   const ref = raw.slice(1).trim()
-  const m = ctx.project.morphemes.find((x) => x.languageId === ctx.language.id && (x.form === ref || x.gloss === ref || trimHyphens(x.form) === trimHyphens(ref)))
+  const m = ctx.project.morphemes.find(
+    (x) =>
+      x.languageId === ctx.language.id &&
+      (x.form === ref || x.gloss === ref || trimHyphens(x.form) === trimHyphens(ref))
+  )
   if (!m) return { form: trimHyphens(ref), note: `未找到语素 ${ref}` }
   const allo = selectAllomorph(ctx, m, stem, side)
   return { form: trimHyphens(allo.form), note: allo.note }
 }
 
-export function selectAllomorph(ctx: MorphContext, m: Morpheme, stem: string, side: 'prefix' | 'suffix'): { form: string; note: string } {
+export function selectAllomorph(
+  ctx: MorphContext,
+  m: Morpheme,
+  stem: string,
+  side: 'prefix' | 'suffix'
+): { form: string; note: string } {
   const opts = languageParseOptions(ctx.language)
   for (const a of m.allomorphs) {
     const env = a.environment.trim()
@@ -132,7 +177,13 @@ export function selectAllomorph(ctx: MorphContext, m: Morpheme, stem: string, si
   return { form: fallback, note: `${m.form} → ${fallback}` }
 }
 
-function insertInfix(stem: string, infix: string, at: string, nuclei: Set<string>, inventory: string[]): string {
+function insertInfix(
+  stem: string,
+  infix: string,
+  at: string,
+  nuclei: Set<string>,
+  inventory: string[]
+): string {
   const segs = segment(stem, inventory)
   const a = at.trim()
   let pos: number
@@ -165,7 +216,12 @@ function insertInfix(stem: string, infix: string, at: string, nuclei: Set<string
 }
 
 /** 词根-模板：C1 / {1} 引用词干第 n 个辅音，bare C 顺序取下一个辅音，V 顺序取下一个元音，其余字面 */
-function applyPattern(stem: string, pattern: string, nuclei: Set<string>, inventory: string[]): string {
+function applyPattern(
+  stem: string,
+  pattern: string,
+  nuclei: Set<string>,
+  inventory: string[]
+): string {
   const segs = segment(stem, inventory)
   const cons = segs.filter((s) => !nuclei.has(s))
   const vows = segs.filter((s) => nuclei.has(s))
@@ -207,7 +263,13 @@ export interface Generated {
 /**
  * 微调：每行一条。`-x` 去词尾 x，`+x` 追加，`^-x` 去词首，`^+x` 前置；含 > 的行是规则。
  */
-export function applyAdjust(ctx: MorphContext, surface: string, text: string | undefined, trace: string[], label: string): string {
+export function applyAdjust(
+  ctx: MorphContext,
+  surface: string,
+  text: string | undefined,
+  trace: string[],
+  label: string
+): string {
   if (!text || !text.trim()) return surface
   let s = surface
   const opts = languageParseOptions(ctx.language)
@@ -242,7 +304,12 @@ export function applyAdjust(ctx: MorphContext, surface: string, text: string | u
   return s
 }
 
-export function generateForm(ctx: MorphContext, lexeme: Lexeme, paradigm: Paradigm, slot: SlotDef): Generated | null {
+export function generateForm(
+  ctx: MorphContext,
+  lexeme: Lexeme,
+  paradigm: Paradigm,
+  slot: SlotDef
+): Generated | null {
   const g = resolveGenerator(paradigm, slot.key, ctx.project.paradigms)
   if (g.kind === 'none' || g.kind === 'table') return null
   const trace: string[] = []
@@ -266,8 +333,14 @@ export function generateForm(ctx: MorphContext, lexeme: Lexeme, paradigm: Paradi
     if (g.kind === 'affix-sca' && g.ruleSetId) {
       const prog = ctx.program(g.ruleSetId)
       if (prog) {
-        const r = runRules(prog, surface, { startAt: g.fromStage || undefined, stopAt: g.toStage || undefined })
-        for (const e of r.trace) trace.push(`${e.before} → ${e.after} (${e.target || '∅'} → ${e.replacement || '∅'}, L${e.line})`)
+        const r = runRules(prog, surface, {
+          startAt: g.fromStage || undefined,
+          stopAt: g.toStage || undefined
+        })
+        for (const e of r.trace)
+          trace.push(
+            `${e.before} → ${e.after} (${e.target || '∅'} → ${e.replacement || '∅'}, L${e.line})`
+          )
         surface = r.output
       } else trace.push('规则集不存在')
     }
@@ -289,8 +362,14 @@ export function generateForm(ctx: MorphContext, lexeme: Lexeme, paradigm: Paradi
 }
 
 /** 推导一个词位的全部槽位并写回 forms（覆盖值不动）。返回改动数。 */
-export function deriveForms(ctx: MorphContext, lexeme: Lexeme, paradigm: Paradigm, slots?: SlotDef[]): number {
-  const defs = slots ?? paradigmSlots(paradigm, ctx.project.categories, ctx.project.settings.glossLanguages)
+export function deriveForms(
+  ctx: MorphContext,
+  lexeme: Lexeme,
+  paradigm: Paradigm,
+  slots?: SlotDef[]
+): number {
+  const defs =
+    slots ?? paradigmSlots(paradigm, ctx.project.categories, ctx.project.settings.glossLanguages)
   let n = 0
   for (const s of defs) {
     const cur = lexeme.forms[s.label]
@@ -341,7 +420,8 @@ export function reconcile(ctx: MorphContext, lexemes: Lexeme[], paradigm: Paradi
       if (variants.includes(gen.surface)) rep.same++
       else {
         rep.diff++
-        if (rep.examples.length < 30) rep.examples.push({ lemma: l.lemma, stored: stored.surface, generated: gen.surface })
+        if (rep.examples.length < 30)
+          rep.examples.push({ lemma: l.lemma, stored: stored.surface, generated: gen.surface })
       }
     }
     return rep

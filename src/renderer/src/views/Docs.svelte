@@ -18,14 +18,18 @@
   let selectedId = $state<Id | null>(null)
   let view = $state<'edit' | 'split' | 'preview'>('split')
 
-  const list = $derived(project.docs.filter((d) => !langId || d.languageId === langId || d.languageId === null))
+  const list = $derived(
+    project.docs.filter((d) => !langId || d.languageId === langId || d.languageId === null)
+  )
   const selected = $derived(project.docs.find((d) => d.id === selectedId) ?? null)
   const lemmaIndex = $derived.by(() => {
     const m = new Map<string, Id>()
     for (const l of project.lexemes) if (l.lemma && !m.has(l.lemma)) m.set(l.lemma, l.id)
     return m
   })
-  const html = $derived(selected ? mdToHtml(selected.markdown, { resolve: (n) => lemmaIndex.get(n) ?? null }) : '')
+  const html = $derived(
+    selected ? mdToHtml(selected.markdown, { resolve: (n) => lemmaIndex.get(n) ?? null }) : ''
+  )
 
   $effect(() => {
     inspectorTitle = selected ? t('docs.page') : t('docs.title')
@@ -101,9 +105,15 @@
     <span class="grow"></span>
     {#if selected}
       <div class="seg">
-        <button class:active={view === 'edit'} onclick={() => (view = 'edit')}><Pencil size={14} />{t('docs.edit')}</button>
-        <button class:active={view === 'split'} onclick={() => (view = 'split')}><Columns2 size={14} />{t('docs.split')}</button>
-        <button class:active={view === 'preview'} onclick={() => (view = 'preview')}><Eye size={14} />{t('docs.preview')}</button>
+        <button class:active={view === 'edit'} onclick={() => (view = 'edit')}
+          ><Pencil size={14} />{t('docs.edit')}</button
+        >
+        <button class:active={view === 'split'} onclick={() => (view = 'split')}
+          ><Columns2 size={14} />{t('docs.split')}</button
+        >
+        <button class:active={view === 'preview'} onclick={() => (view = 'preview')}
+          ><Eye size={14} />{t('docs.preview')}</button
+        >
       </div>
     {/if}
     <button class="btn primary" onclick={add}><Plus size={16} />{t('docs.add')}</button>
@@ -116,7 +126,9 @@
         <button class="pg" class:active={selectedId === d.id} onclick={() => (selectedId = d.id)}>
           <FileText size={14} />
           <span class="grow ellip">{d.title || t('docs.untitled')}</span>
-          {#if d.languageId}<span class="tiny muted">{project.languages.find((l) => l.id === d.languageId)?.abbr || ''}</span>{/if}
+          {#if d.languageId}<span class="tiny muted"
+              >{project.languages.find((l) => l.id === d.languageId)?.abbr || ''}</span
+            >{/if}
         </button>
       {/each}
       {#if list.length === 0}<p class="small muted">{t('docs.empty')}</p>{/if}
@@ -128,10 +140,20 @@
           <div class="pane">
             <div class="row toolbar">
               {#each [['**', '**', 'B'], ['*', '*', 'I'], ['## ', '', 'H'], ['- ', '', '•'], ['[[', ']]', '[[ ]]'], ['| a | b |\n| --- | --- |\n| 1 | 2 |', '', '⊞'], ['```\n', '\n```', '</>']] as [a, b, label] (label)}
-                <button class="btn ghost sm mono" title={label} onclick={() => insertAtCursor(a + b)}>{label}</button>
+                <button
+                  class="btn ghost sm mono"
+                  title={label}
+                  onclick={() => insertAtCursor(a + b)}>{label}</button
+                >
               {/each}
             </div>
-            <textarea id="doc-md" class="textarea md" bind:value={d.markdown} oninput={() => touch(d)} placeholder={t('docs.placeholder')}></textarea>
+            <textarea
+              id="doc-md"
+              class="textarea md"
+              bind:value={d.markdown}
+              oninput={() => touch(d)}
+              placeholder={t('docs.placeholder')}
+            ></textarea>
           </div>
         {/if}
         {#if view !== 'edit'}
@@ -150,19 +172,30 @@
 {#if selected}
   {@const d = selected}
   <Portal>
-    <div class="field"><label for="doc-title">{t('docs.pageTitle')}</label><input id="doc-title" class="input" bind:value={d.title} oninput={() => touch(d)} /></div>
-    <div class="field"><label for="doc-lang">{t('docs.language')}</label>
+    <div class="field">
+      <label for="doc-title">{t('docs.pageTitle')}</label><input
+        id="doc-title"
+        class="input"
+        bind:value={d.title}
+        oninput={() => touch(d)}
+      />
+    </div>
+    <div class="field">
+      <label for="doc-lang">{t('docs.language')}</label>
       <select id="doc-lang" class="select" bind:value={d.languageId} onchange={() => touch(d)}>
         <option value={null}>{t('docs.projectWide')}</option>
         {#each project.languages as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
-      </select></div>
+      </select>
+    </div>
     <p class="small muted">{t('docs.updated')}: {d.updatedAt.slice(0, 16).replace('T', ' ')}</p>
     <div class="row wrap">
       <button class="btn sm" onclick={() => exportMd(d)}><Download size={14} />Markdown</button>
       <button class="btn sm" onclick={() => exportPdf(d)}><Download size={14} />PDF</button>
     </div>
     <p class="small muted">{t('docs.syntax')}</p>
-    <button class="btn sm danger" onclick={() => remove(d)}><Trash2 size={14} />{t('common.delete')}</button>
+    <button class="btn sm danger" onclick={() => remove(d)}
+      ><Trash2 size={14} />{t('common.delete')}</button
+    >
   </Portal>
 {/if}
 

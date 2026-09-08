@@ -15,7 +15,10 @@ export function ensureScriptFont(script: Script): void {
   if (registered.get(script.id) === url) return
   try {
     const face = new FontFace(`qy-script-${script.id}`, `url(${url})`)
-    face.load().then((f) => document.fonts.add(f)).catch(() => {})
+    face
+      .load()
+      .then((f) => document.fonts.add(f))
+      .catch(() => {})
     registered.set(script.id, url)
   } catch {
     /* 非浏览器环境 */
@@ -24,13 +27,22 @@ export function ensureScriptFont(script: Script): void {
 
 export function fontCss(script: Script): string {
   const fam = scriptFontFamily(script)
-  return fam ? `font-family:"${fam.replace(/"/g, '')}",var(--font-script)` : 'font-family:var(--font-script)'
+  return fam
+    ? `font-family:"${fam.replace(/"/g, '')}",var(--font-script)`
+    : 'font-family:var(--font-script)'
 }
 
 /** 把 base64 字体数据转成 data URL，按扩展名挑 MIME */
 export function fontDataUrl(fileName: string, base64: string): string {
   const ext = fileName.toLowerCase().split('.').pop() ?? ''
-  const mime = ext === 'otf' ? 'font/otf' : ext === 'woff' ? 'font/woff' : ext === 'woff2' ? 'font/woff2' : 'font/ttf'
+  const mime =
+    ext === 'otf'
+      ? 'font/otf'
+      : ext === 'woff'
+        ? 'font/woff'
+        : ext === 'woff2'
+          ? 'font/woff2'
+          : 'font/ttf'
   return `data:${mime};base64,${base64}`
 }
 

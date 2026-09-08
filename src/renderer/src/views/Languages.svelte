@@ -2,7 +2,14 @@
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t } from '$lib/i18n/index.svelte'
-  import { createLanguage, languageChildren, languageLineage, wouldCreateCycle, LANGUAGE_COLORS, newId } from '$lib/core/factory'
+  import {
+    createLanguage,
+    languageChildren,
+    languageLineage,
+    wouldCreateCycle,
+    LANGUAGE_COLORS,
+    newId
+  } from '$lib/core/factory'
   import type { Id, Language } from '$lib/core/model'
   import Portal from '$lib/ui/Portal.svelte'
   import LanguageNode from './LanguageNode.svelte'
@@ -39,7 +46,9 @@
 
   function add(parentId: Id | null = null): void {
     const used = new Set(project.languages.map((l) => l.color))
-    const color = LANGUAGE_COLORS.find((c) => !used.has(c)) ?? LANGUAGE_COLORS[project.languages.length % LANGUAGE_COLORS.length]
+    const color =
+      LANGUAGE_COLORS.find((c) => !used.has(c)) ??
+      LANGUAGE_COLORS[project.languages.length % LANGUAGE_COLORS.length]
     const l = createLanguage({ name: t('app.untitledLanguage'), parentId, color })
     project.languages.push(l)
     if (!project.settings.defaultLanguageId) project.settings.defaultLanguageId = l.id
@@ -58,7 +67,8 @@
     for (const x of project.languages) if (orphaned.includes(x.id)) x.parentId = null
     const wasDefault = project.settings.defaultLanguageId === l.id
     if (wasDefault) project.settings.defaultLanguageId = project.languages[0]?.id ?? null
-    if (projectState.currentLanguageId === l.id) projectState.currentLanguageId = project.settings.defaultLanguageId
+    if (projectState.currentLanguageId === l.id)
+      projectState.currentLanguageId = project.settings.defaultLanguageId
     if (selectedId === l.id) selectedId = null
     projectState.touch()
     ui.toast(t('languages.deleted', { name: snapshot.name }), {
@@ -88,7 +98,9 @@
 <div class="page">
   <div class="page-head row">
     <h1 class="grow">{t('languages.title')}</h1>
-    <button class="btn primary" onclick={() => add(null)}><Plus size={16} />{t('languages.addLanguage')}</button>
+    <button class="btn primary" onclick={() => add(null)}
+      ><Plus size={16} />{t('languages.addLanguage')}</button
+    >
   </div>
 
   {#if project.languages.length === 0}
@@ -114,15 +126,30 @@
   <Portal>
     <div class="field">
       <label for="lang-name">{t('common.name')}</label>
-      <input id="lang-name" class="input data" bind:value={lang.name} oninput={() => projectState.touch()} />
+      <input
+        id="lang-name"
+        class="input data"
+        bind:value={lang.name}
+        oninput={() => projectState.touch()}
+      />
     </div>
     <div class="field">
       <label for="lang-abbr">{t('common.abbr')}</label>
-      <input id="lang-abbr" class="input" bind:value={lang.abbr} oninput={() => projectState.touch()} />
+      <input
+        id="lang-abbr"
+        class="input"
+        bind:value={lang.abbr}
+        oninput={() => projectState.touch()}
+      />
     </div>
     <div class="field">
       <label for="lang-parent">{t('languages.parent')}</label>
-      <select id="lang-parent" class="select" value={lang.parentId ?? ''} onchange={(e) => setParent(lang, (e.currentTarget as HTMLSelectElement).value || null)}>
+      <select
+        id="lang-parent"
+        class="select"
+        value={lang.parentId ?? ''}
+        onchange={(e) => setParent(lang, (e.currentTarget as HTMLSelectElement).value || null)}
+      >
         <option value="">{t('languages.noParent')}</option>
         {#each project.languages.filter((x) => x.id !== lang.id) as x (x.id)}
           <option value={x.id}>{x.name}</option>
@@ -144,27 +171,69 @@
             }}
           ></button>
         {/each}
-        <input type="color" class="swatch custom" bind:value={lang.color} oninput={() => projectState.touch()} />
+        <input
+          type="color"
+          class="swatch custom"
+          bind:value={lang.color}
+          oninput={() => projectState.touch()}
+        />
       </div>
     </div>
     <div class="field">
       <label for="lang-alphabet">{t('languages.alphabet')}</label>
-      <input id="lang-alphabet" class="input data" value={lang.alphabet.join(' ')} onchange={(e) => { lang.alphabet = (e.currentTarget as HTMLInputElement).value.split(/\s+/).filter(Boolean); projectState.touch() }} />
+      <input
+        id="lang-alphabet"
+        class="input data"
+        value={lang.alphabet.join(' ')}
+        onchange={(e) => {
+          lang.alphabet = (e.currentTarget as HTMLInputElement).value.split(/\s+/).filter(Boolean)
+          projectState.touch()
+        }}
+      />
       <span class="hint">{t('languages.alphabetHint')}</span>
     </div>
     <div class="field">
-      <div class="row"><span class="small muted grow">{t('languages.dialects')}</span><button class="btn ghost sm" onclick={() => { lang.dialects.push({ id: newId(), name: '', abbr: '' }); projectState.touch() }}><Plus size={14} />{t('languages.addDialect')}</button></div>
+      <div class="row">
+        <span class="small muted grow">{t('languages.dialects')}</span><button
+          class="btn ghost sm"
+          onclick={() => {
+            lang.dialects.push({ id: newId(), name: '', abbr: '' })
+            projectState.touch()
+          }}><Plus size={14} />{t('languages.addDialect')}</button
+        >
+      </div>
       {#each lang.dialects as d, i (d.id)}
         <div class="row dia">
-          <input class="input" placeholder={t('common.name')} bind:value={d.name} oninput={() => projectState.touch()} />
-          <input class="input abbr" placeholder={t('common.abbr')} bind:value={d.abbr} oninput={() => projectState.touch()} />
-          <button class="btn ghost icon sm" onclick={() => { lang.dialects.splice(i, 1); projectState.touch() }}><X size={14} /></button>
+          <input
+            class="input"
+            placeholder={t('common.name')}
+            bind:value={d.name}
+            oninput={() => projectState.touch()}
+          />
+          <input
+            class="input abbr"
+            placeholder={t('common.abbr')}
+            bind:value={d.abbr}
+            oninput={() => projectState.touch()}
+          />
+          <button
+            class="btn ghost icon sm"
+            onclick={() => {
+              lang.dialects.splice(i, 1)
+              projectState.touch()
+            }}><X size={14} /></button
+          >
         </div>
       {/each}
     </div>
     <div class="field">
       <label for="lang-notes">{t('common.notes')}</label>
-      <textarea id="lang-notes" class="textarea" bind:value={lang.notes} oninput={() => projectState.touch()}></textarea>
+      <textarea
+        id="lang-notes"
+        class="textarea"
+        bind:value={lang.notes}
+        oninput={() => projectState.touch()}
+      ></textarea>
     </div>
 
     {#if languageLineage(project.languages, lang.id).length > 1}
@@ -191,8 +260,12 @@
           }}><Star size={14} />{t('languages.setDefault')}</button
         >
       {/if}
-      <button class="btn sm" onclick={() => add(lang.id)}><Plus size={14} />{t('languages.addChild')}</button>
-      <button class="btn sm danger" onclick={() => remove(lang)}><Trash2 size={14} />{t('common.delete')}</button>
+      <button class="btn sm" onclick={() => add(lang.id)}
+        ><Plus size={14} />{t('languages.addChild')}</button
+      >
+      <button class="btn sm danger" onclick={() => remove(lang)}
+        ><Trash2 size={14} />{t('common.delete')}</button
+      >
     </div>
   </Portal>
 {/if}

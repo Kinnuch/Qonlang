@@ -18,7 +18,10 @@ describe('csv parsing', () => {
     expect(parseCsv('﻿a,b\n1,2').rows[0]).toEqual(['a', 'b'])
   })
   it('drops empty lines and roundtrips', () => {
-    const rows = [['a', 'b,c'], ['"q"', '']]
+    const rows = [
+      ['a', 'b,c'],
+      ['"q"', '']
+    ]
     expect(parseCsv(toCsv(rows)).rows).toEqual(rows)
   })
 })
@@ -45,7 +48,14 @@ describe('csv import', () => {
   it('guesses a mapping from headers', () => {
     const p = createProject({ name: 'x', template: 'blank', appVersion: '1', uiLocale: 'zh' })
     const m = guessMapping(rows[0], defaultMapping(p.languages[0].id, 6))
-    expect(m.columns.map((c) => c.kind)).toEqual(['lemma', 'pos', 'definition', 'tags', 'protoForm', 'ignore'])
+    expect(m.columns.map((c) => c.kind)).toEqual([
+      'lemma',
+      'pos',
+      'definition',
+      'tags',
+      'protoForm',
+      'ignore'
+    ])
   })
   it('creates lexemes, parts of speech and categories; reports skips and duplicates', () => {
     const p = createProject({ name: 'x', template: 'blank', appVersion: '1', uiLocale: 'zh' })
@@ -72,7 +82,15 @@ describe('csv import', () => {
     m.hasHeader = false
     m.columns = [{ kind: 'lemma' }, { kind: 'morphemeType' }, { kind: 'definition', lang: 'zh' }]
     m.splitProtoArrow = true
-    const r = applyCsvImport(p, [['KAM', '词根', '住所'], ['-a', 'suffix', '名词化'], ['seuk-ren > sokren', '词根', '白发']], m)
+    const r = applyCsvImport(
+      p,
+      [
+        ['KAM', '词根', '住所'],
+        ['-a', 'suffix', '名词化'],
+        ['seuk-ren > sokren', '词根', '白发']
+      ],
+      m
+    )
     expect(r.created).toBe(3)
     expect(p.morphemes.map((x) => [x.form, x.type])).toEqual([
       ['KAM', 'root'],

@@ -10,8 +10,26 @@ import type { Project } from '$lib/core/model'
 function runic() {
   const lang = createLanguage({ name: 'T' })
   const sc = createScript('Runes')
-  const pairs: [string, string][] = [['f', 'ᚠ'], ['u', 'ᚢ'], ['th', 'ᚦ'], ['a', 'ᚨ'], ['r', 'ᚱ'], ['k', 'ᚲ'], ['n', 'ᚾ'], ['i', 'ᛁ'], ['s', 'ᛊ'], ['t', 'ᛏ']]
-  sc.glyphs = pairs.map(([value, char], i) => ({ id: 'g' + i, char, name: '', value, category: 'letter', notes: '' }))
+  const pairs: [string, string][] = [
+    ['f', 'ᚠ'],
+    ['u', 'ᚢ'],
+    ['th', 'ᚦ'],
+    ['a', 'ᚨ'],
+    ['r', 'ᚱ'],
+    ['k', 'ᚲ'],
+    ['n', 'ᚾ'],
+    ['i', 'ᛁ'],
+    ['s', 'ᛊ'],
+    ['t', 'ᛏ']
+  ]
+  sc.glyphs = pairs.map(([value, char], i) => ({
+    id: 'g' + i,
+    char,
+    name: '',
+    value,
+    category: 'letter',
+    notes: ''
+  }))
   lang.scripts.push(sc)
   return { lang, sc }
 }
@@ -41,7 +59,9 @@ describe('script mapping', () => {
   })
   it('interlinear carries a script line into exports and templates', () => {
     const { lang, sc } = runic()
-    const project = parseProject(JSON.stringify({ schemaVersion: 1, meta: { name: 'x' }, languages: [lang], sentences: [] })) as Project
+    const project = parseProject(
+      JSON.stringify({ schemaVersion: 1, meta: { name: 'x' }, languages: [lang], sentences: [] })
+    ) as Project
     const s = createSentence(lang.id)
     s.text = 'sun tharf'
     s.translation = { en: 'sun' }
@@ -53,7 +73,14 @@ describe('script mapping', () => {
     expect(sc.id).toBe(project.languages[0].scripts[0].id)
   })
   it('migration adds scripts and scriptForms to old projects', () => {
-    const p = parseProject(JSON.stringify({ schemaVersion: 1, meta: { name: 'x' }, languages: [{ id: 'l', name: 'L' }], lexemes: [{ id: 'x', languageId: 'l', lemma: 'a' }] })) as Project
+    const p = parseProject(
+      JSON.stringify({
+        schemaVersion: 1,
+        meta: { name: 'x' },
+        languages: [{ id: 'l', name: 'L' }],
+        lexemes: [{ id: 'x', languageId: 'l', lemma: 'a' }]
+      })
+    ) as Project
     expect(p.languages[0].scripts).toEqual([])
     expect(p.lexemes[0].scriptForms).toEqual({})
   })
@@ -67,7 +94,10 @@ describe('font parsing', () => {
     expect(guessCategory('3')).toBe('number')
     expect(guessCategory('!')).toBe('punct')
   })
-  const candidates = ['C:/Windows/Fonts/arial.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf']
+  const candidates = [
+    'C:/Windows/Fonts/arial.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+  ]
   const fontPath = candidates.find((p) => existsSync(p))
   it.skipIf(!fontPath)('reads cmap, family and glyph names from a system font', () => {
     const buf = readFileSync(fontPath!)

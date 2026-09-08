@@ -2,7 +2,15 @@
  * CSV 映射导入：把表格的列映射到词位或语素的字段。
  * 不预设任何列名；映射由用户在向导里指定，可存为预设。
  */
-import type { GrammaticalCategory, Id, Lexeme, Morpheme, MorphemeType, PartOfSpeech, Project } from '$lib/core/model'
+import type {
+  GrammaticalCategory,
+  Id,
+  Lexeme,
+  Morpheme,
+  MorphemeType,
+  PartOfSpeech,
+  Project
+} from '$lib/core/model'
 import { createLexeme, createMorpheme, createSense, newId, now } from '$lib/core/factory'
 
 export type FieldSpec =
@@ -85,9 +93,11 @@ export function guessMapping(header: string[], mapping: CsvMapping): CsvMapping 
   const cols = header.map((h): FieldSpec => {
     const k = h.trim().toLowerCase()
     if (!k) return { kind: 'ignore' }
-    if (/^(词头|词|单词|词位|词条|词根|字典形|word|lemma|entry|headword|root|form)$/.test(k)) return { kind: 'lemma' }
+    if (/^(词头|词|单词|词位|词条|词根|字典形|word|lemma|entry|headword|root|form)$/.test(k))
+      return { kind: 'lemma' }
     if (/^(词类|词性|pos|part of speech|category)$/.test(k)) return { kind: 'pos' }
-    if (/^(释义|意思|意义|定义|中文|汉语|meaning|definition|gloss_zh|definition_zh)$/.test(k)) return { kind: 'definition', lang: 'zh' }
+    if (/^(释义|意思|意义|定义|中文|汉语|meaning|definition|gloss_zh|definition_zh)$/.test(k))
+      return { kind: 'definition', lang: 'zh' }
     if (/^(english|definition_en|gloss_en|英文)$/.test(k)) return { kind: 'definition', lang: 'en' }
     if (/^(标签|tags?)$/.test(k)) return { kind: 'tags' }
     if (/^(备注|注|注释|notes?|comment)$/.test(k)) return { kind: 'notes' }
@@ -101,22 +111,40 @@ export function guessMapping(header: string[], mapping: CsvMapping): CsvMapping 
 }
 
 function ensurePos(project: Project, name: string, report: ImportReport): PartOfSpeech {
-  const found = project.posList.find((p) => Object.values(p.name).some((n) => n === name) || p.abbr === name)
+  const found = project.posList.find(
+    (p) => Object.values(p.name).some((n) => n === name) || p.abbr === name
+  )
   if (found) return found
-  const pos: PartOfSpeech = { id: newId(), name: { [guessLang(name)]: name }, abbr: '', paradigmId: null }
+  const pos: PartOfSpeech = {
+    id: newId(),
+    name: { [guessLang(name)]: name },
+    abbr: '',
+    paradigmId: null
+  }
   project.posList.push(pos)
   report.newPos.push(name)
   return pos
 }
 
-function ensureCategoryValue(project: Project, categoryName: string, valueName: string, report: ImportReport): [Id, Id] {
+function ensureCategoryValue(
+  project: Project,
+  categoryName: string,
+  valueName: string,
+  report: ImportReport
+): [Id, Id] {
   let cat = project.categories.find((c) => Object.values(c.name).includes(categoryName))
   if (!cat) {
-    cat = { id: newId(), name: { [guessLang(categoryName)]: categoryName }, values: [] } satisfies GrammaticalCategory
+    cat = {
+      id: newId(),
+      name: { [guessLang(categoryName)]: categoryName },
+      values: []
+    } satisfies GrammaticalCategory
     project.categories.push(cat)
     report.newCategories.push(categoryName)
   }
-  let val = cat.values.find((v) => Object.values(v.name).includes(valueName) || v.abbr === valueName)
+  let val = cat.values.find(
+    (v) => Object.values(v.name).includes(valueName) || v.abbr === valueName
+  )
   if (!val) {
     val = { id: newId(), name: { [guessLang(valueName)]: valueName }, abbr: '' }
     cat.values.push(val)
@@ -155,8 +183,19 @@ const MORPHEME_TYPE_ALIASES: Record<string, MorphemeType> = {
 }
 
 /** 执行导入；直接修改 project，返回报告。 */
-export function applyCsvImport(project: Project, rows: string[][], mapping: CsvMapping): ImportReport {
-  const report: ImportReport = { created: 0, skipped: 0, duplicates: [], newPos: [], newCategories: [], warnings: [] }
+export function applyCsvImport(
+  project: Project,
+  rows: string[][],
+  mapping: CsvMapping
+): ImportReport {
+  const report: ImportReport = {
+    created: 0,
+    skipped: 0,
+    duplicates: [],
+    newPos: [],
+    newCategories: [],
+    warnings: []
+  }
   const data = mapping.hasHeader ? rows.slice(1) : rows
   const keyCol = mapping.columns.findIndex((c) => c.kind === 'lemma')
   if (keyCol < 0) {
@@ -198,7 +237,9 @@ export function applyCsvImport(project: Project, rows: string[][], mapping: CsvM
             lx.posId = ensurePos(project, raw, report).id
             break
           case 'definition':
-            sense.definition[spec.lang] = sense.definition[spec.lang] ? `${sense.definition[spec.lang]}; ${raw}` : raw
+            sense.definition[spec.lang] = sense.definition[spec.lang]
+              ? `${sense.definition[spec.lang]}; ${raw}`
+              : raw
             break
           case 'tags':
             lx.tags.push(...splitTags(raw, mapping.tagSeparator))
@@ -223,7 +264,9 @@ export function applyCsvImport(project: Project, rows: string[][], mapping: CsvM
             lx.forms[spec.slot] = { surface: raw, derived: false, override: true, trace: [] }
             break
           case 'pronunciation': {
-            const ortho = project.languages.find((l) => l.id === mapping.languageId)?.orthographies.find((o) => o.isPrimary)
+            const ortho = project.languages
+              .find((l) => l.id === mapping.languageId)
+              ?.orthographies.find((o) => o.isPrimary)
             if (ortho) lx.pronunciations[ortho.id] = { ipa: raw, irregular: true }
             break
           }
@@ -292,16 +335,32 @@ export function applyCsvImport(project: Project, rows: string[][], mapping: CsvM
 }
 
 /** 从已有词位反推一个 CSV（导出） */
-export function lexemesToRows(project: Project, lexemes: Lexeme[], glossLanguages: string[]): string[][] {
+export function lexemesToRows(
+  project: Project,
+  lexemes: Lexeme[],
+  glossLanguages: string[]
+): string[][] {
   const posName = (id: Id | null): string => {
     const p = project.posList.find((x) => x.id === id)
-    return p ? Object.values(p.name)[0] ?? '' : ''
+    return p ? (Object.values(p.name)[0] ?? '') : ''
   }
-  const header = ['lemma', 'pos', ...glossLanguages.map((l) => `definition_${l}`), 'tags', 'proto', 'notes']
+  const header = [
+    'lemma',
+    'pos',
+    ...glossLanguages.map((l) => `definition_${l}`),
+    'tags',
+    'proto',
+    'notes'
+  ]
   const rows = lexemes.map((l) => [
     l.lemma,
     posName(l.posId),
-    ...glossLanguages.map((g) => l.senses.map((s) => s.definition[g] ?? '').filter(Boolean).join(' | ')),
+    ...glossLanguages.map((g) =>
+      l.senses
+        .map((s) => s.definition[g] ?? '')
+        .filter(Boolean)
+        .join(' | ')
+    ),
     l.tags.join(','),
     l.etymology.protoForm,
     l.notes
@@ -310,8 +369,25 @@ export function lexemesToRows(project: Project, lexemes: Lexeme[], glossLanguage
 }
 
 export function morphemesToRows(morphemes: Morpheme[], glossLanguages: string[]): string[][] {
-  const header = ['form', 'type', 'gloss', ...glossLanguages.map((l) => `meaning_${l}`), 'tags', 'notes']
-  return [header, ...morphemes.map((m) => [m.form, m.type, m.gloss, ...glossLanguages.map((g) => m.meaning[g] ?? ''), m.tags.join(','), m.notes])]
+  const header = [
+    'form',
+    'type',
+    'gloss',
+    ...glossLanguages.map((l) => `meaning_${l}`),
+    'tags',
+    'notes'
+  ]
+  return [
+    header,
+    ...morphemes.map((m) => [
+      m.form,
+      m.type,
+      m.gloss,
+      ...glossLanguages.map((g) => m.meaning[g] ?? ''),
+      m.tags.join(','),
+      m.notes
+    ])
+  ]
 }
 
 export { createSense }

@@ -7,7 +7,17 @@
   import type { ProjectTemplate } from '$lib/core/model'
   import { createLanguage } from '$lib/core/factory'
   import { mdToHtml } from '$lib/core/markdown'
-  import { FolderOpen, FilePlus2, Clock, Trash2, Coffee, ScrollText, User, Link2, ExternalLink } from '@lucide/svelte'
+  import {
+    FolderOpen,
+    FilePlus2,
+    Clock,
+    Trash2,
+    Coffee,
+    ScrollText,
+    User,
+    Link2,
+    ExternalLink
+  } from '@lucide/svelte'
   import changelogRaw from '../../../../CHANGELOG.md?raw'
   import wechatQr from '../assets/img/wechat-qr.png'
   import iconGilatod from '../assets/friends/gilatod.png'
@@ -15,11 +25,28 @@
   import iconCathamos from '../assets/friends/cathamos.png'
 
   const WIKI_URL = 'https://wiki.gilatod.art'
-  const DEV = { name: 'Kinnuch', site: 'https://kinnuch.github.io', github: 'https://github.com/Kinnuch', email: 'kinnuch@pku.edu.cn', bilibili: 'https://space.bilibili.com/204354828', bilibiliName: '凯岩城の冰原狼' }
+  const DEV = {
+    name: 'Kinnuch',
+    site: 'https://kinnuch.github.io',
+    github: 'https://github.com/Kinnuch',
+    email: 'kinnuch@pku.edu.cn',
+    bilibili: 'https://space.bilibili.com/204354828',
+    bilibiliName: '凯岩城の冰原狼'
+  }
   const FRIENDS = [
-    { name: '荏苒之境主站', url: 'https://gilatod.art', icon: iconGilatod, blurb: 'Gilatod，长期合作的朋友的主站。' },
+    {
+      name: '荏苒之境主站',
+      url: 'https://gilatod.art',
+      icon: iconGilatod,
+      blurb: 'Gilatod，长期合作的朋友的主站。'
+    },
     { name: 'Kikomas', url: 'https://kikomas.art', icon: iconKikomas, blurb: '插画与视觉创作。' },
-    { name: 'Cathamos', url: 'https://cathamos.github.io', icon: iconCathamos, blurb: 'Cathamos 的个人站点。' },
+    {
+      name: 'Cathamos',
+      url: 'https://cathamos.github.io',
+      icon: iconCathamos,
+      blurb: 'Cathamos 的个人站点。'
+    },
     { name: 'Sicusa', url: 'https://github.com/sicusa', icon: null, blurb: 'GitHub 主页。' }
   ]
   let footerPanel = $state<'coffee' | 'changelog' | 'dev' | 'friends' | null>(null)
@@ -28,7 +55,8 @@
   const changelogHtml = mdToHtml(changelogRaw)
   const open = (url: string): void => void platform.openExternal(url)
 
-  let { snapshot, onsnapshothandled }: { snapshot: string | null; onsnapshothandled: () => void } = $props()
+  let { snapshot, onsnapshothandled }: { snapshot: string | null; onsnapshothandled: () => void } =
+    $props()
 
   let recent = $state<RecentEntry[]>([])
   let template = $state<ProjectTemplate | null>(null)
@@ -66,7 +94,12 @@
         if (name.trim()) project.meta.name = name.trim()
         projectState.load(project, null)
         projectState.touch()
-        ui.toast(t('lexicon.lexicanterDone', { lexemes: report.lexemes, languages: report.languages.length }))
+        ui.toast(
+          t('lexicon.lexicanterDone', {
+            lexemes: report.lexemes,
+            languages: report.languages.length
+          })
+        )
       } catch (e) {
         ui.error((e as Error).message)
       }
@@ -88,7 +121,10 @@
       uiLocale: i18n.locale,
       familyNames:
         template === 'family'
-          ? { proto: proto.trim() || `Proto-${n}`, daughters: daughters.split('\n').map((s) => s.trim()) }
+          ? {
+              proto: proto.trim() || `Proto-${n}`,
+              daughters: daughters.split('\n').map((s) => s.trim())
+            }
           : undefined
     })
   }
@@ -123,15 +159,21 @@
     </div>
 
     <div class="actions">
-      <button class="btn primary" onclick={() => (template = template ?? 'blank')}><FilePlus2 size={16} />{t('welcome.newProject')}</button>
-      <button class="btn" onclick={() => projectState.open()}><FolderOpen size={16} />{t('welcome.openProject')}</button>
+      <button class="btn primary" onclick={() => (template = template ?? 'blank')}
+        ><FilePlus2 size={16} />{t('welcome.newProject')}</button
+      >
+      <button class="btn" onclick={() => projectState.open()}
+        ><FolderOpen size={16} />{t('welcome.openProject')}</button
+      >
     </div>
 
     <div class="recent">
       <div class="row">
         <h3 class="grow">{t('welcome.recent')}</h3>
         {#if recent.length}
-          <button class="btn ghost icon sm" title={t('welcome.clearRecent')} onclick={clearRecent}><Trash2 size={14} /></button>
+          <button class="btn ghost icon sm" title={t('welcome.clearRecent')} onclick={clearRecent}
+            ><Trash2 size={14} /></button
+          >
         {/if}
       </div>
       {#if recent.length === 0}
@@ -183,7 +225,12 @@
     <h2>{t('welcome.templates.title')}</h2>
     <div class="templates">
       {#each templates as tp (tp.id)}
-        <button class="tpl card" class:active={template === tp.id} disabled={!tp.available} onclick={() => (template = tp.id)}>
+        <button
+          class="tpl card"
+          class:active={template === tp.id}
+          disabled={!tp.available}
+          onclick={() => (template = tp.id)}
+        >
           <strong>{t(`welcome.templates.${tp.id}`)}</strong>
           <span class="muted small">{t(`welcome.templates.${tp.id}Desc`)}</span>
         </button>
@@ -205,7 +252,12 @@
         {#if template === 'lexicanter'}
           <div class="field">
             <label for="deflang">{t('welcome.definitionLang')}</label>
-            <input id="deflang" class="input" bind:value={definitionLang} placeholder={i18n.locale.startsWith('zh') ? 'zh' : 'en'} />
+            <input
+              id="deflang"
+              class="input"
+              bind:value={definitionLang}
+              placeholder={i18n.locale.startsWith('zh') ? 'zh' : 'en'}
+            />
           </div>
         {/if}
         {#if template === 'family'}
@@ -219,8 +271,12 @@
           </div>
         {/if}
         <div class="row">
-          <button class="btn primary" type="submit">{template === 'lexicanter' ? t('welcome.lexicanterPick') : t('welcome.create')}</button>
-          <button class="btn ghost" type="button" onclick={() => (template = null)}>{t('common.cancel')}</button>
+          <button class="btn primary" type="submit"
+            >{template === 'lexicanter' ? t('welcome.lexicanterPick') : t('welcome.create')}</button
+          >
+          <button class="btn ghost" type="button" onclick={() => (template = null)}
+            >{t('common.cancel')}</button
+          >
         </div>
       </form>
     {/if}
@@ -228,10 +284,30 @@
     <div class="footer-spacer"></div>
     <div class="footer">
       <div class="row footer-bar">
-        <button class="btn" class:active={footerPanel === 'coffee'} onclick={() => (footerPanel = footerPanel === 'coffee' ? null : 'coffee')}><Coffee size={16} />{t('welcome.coffee')}</button>
-        <button class="btn" class:active={footerPanel === 'changelog'} onclick={() => (footerPanel = footerPanel === 'changelog' ? null : 'changelog')}><ScrollText size={16} />{t('welcome.changelog')}</button>
-        <button class="btn" class:active={footerPanel === 'dev'} onclick={() => (footerPanel = footerPanel === 'dev' ? null : 'dev')}><User size={16} />{t('welcome.developer')}</button>
-        <button class="btn" class:active={footerPanel === 'friends'} onclick={() => (footerPanel = footerPanel === 'friends' ? null : 'friends')}><Link2 size={16} />{t('welcome.friends')}</button>
+        <button
+          class="btn"
+          class:active={footerPanel === 'coffee'}
+          onclick={() => (footerPanel = footerPanel === 'coffee' ? null : 'coffee')}
+          ><Coffee size={16} />{t('welcome.coffee')}</button
+        >
+        <button
+          class="btn"
+          class:active={footerPanel === 'changelog'}
+          onclick={() => (footerPanel = footerPanel === 'changelog' ? null : 'changelog')}
+          ><ScrollText size={16} />{t('welcome.changelog')}</button
+        >
+        <button
+          class="btn"
+          class:active={footerPanel === 'dev'}
+          onclick={() => (footerPanel = footerPanel === 'dev' ? null : 'dev')}
+          ><User size={16} />{t('welcome.developer')}</button
+        >
+        <button
+          class="btn"
+          class:active={footerPanel === 'friends'}
+          onclick={() => (footerPanel = footerPanel === 'friends' ? null : 'friends')}
+          ><Link2 size={16} />{t('welcome.friends')}</button
+        >
       </div>
       {#if footerPanel === 'coffee'}
         <div class="card panel coffee">
@@ -245,7 +321,9 @@
           <strong>{DEV.name}</strong>
           <button class="link" onclick={() => open(DEV.site)}>{DEV.site}</button>
           <button class="link" onclick={() => open(DEV.github)}>{DEV.github}</button>
-          <button class="link" onclick={() => open(DEV.bilibili)}>Bilibili · {DEV.bilibiliName}</button>
+          <button class="link" onclick={() => open(DEV.bilibili)}
+            >Bilibili · {DEV.bilibiliName}</button
+          >
           <span class="small muted">{DEV.email}</span>
           <span class="small muted">{t('settings.license')} · {t('app.name')} v{version}</span>
         </div>
@@ -253,8 +331,12 @@
         <div class="card panel friends">
           {#each FRIENDS as f (f.url)}
             <button class="friend" onclick={() => open(f.url)}>
-              {#if f.icon}<img src={f.icon} alt={f.name} />{:else}<span class="ficon">{f.name[0]}</span>{/if}
-              <span class="grow"><strong>{f.name}</strong><span class="small muted">{f.blurb}</span></span>
+              {#if f.icon}<img src={f.icon} alt={f.name} />{:else}<span class="ficon"
+                  >{f.name[0]}</span
+                >{/if}
+              <span class="grow"
+                ><strong>{f.name}</strong><span class="small muted">{f.blurb}</span></span
+              >
               <ExternalLink size={13} />
             </button>
           {/each}

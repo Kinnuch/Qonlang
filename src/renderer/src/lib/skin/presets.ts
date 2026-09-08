@@ -14,9 +14,23 @@ export interface Skin {
   mirror: string
 }
 
-export const EMPTY_FONTS: Record<FontSlot, string> = { ui: '', data: '', mono: '', corpusText: '', corpusTr: '', gloss: '', script: '' }
+export const EMPTY_FONTS: Record<FontSlot, string> = {
+  ui: '',
+  data: '',
+  mono: '',
+  corpusText: '',
+  corpusTr: '',
+  gloss: '',
+  script: ''
+}
 
-export const DEFAULT_SKIN: Skin = { preset: 'default', light: {}, dark: {}, fonts: { ...EMPTY_FONTS }, mirror: '' }
+export const DEFAULT_SKIN: Skin = {
+  preset: 'default',
+  light: {},
+  dark: {},
+  fonts: { ...EMPTY_FONTS },
+  mirror: ''
+}
 
 /** 可编辑的颜色变量（顺序即界面顺序） */
 export const SKIN_VARS: { name: string; key: string }[] = [
@@ -70,7 +84,14 @@ const KAI = "'LXGW WenKai', 'KaiTi', 'STKaiti', 'Noto Serif SC', serif"
 const SONG = "'Noto Serif SC', 'Source Han Serif SC', 'SimSun', serif"
 
 export const SKIN_PRESETS: SkinPreset[] = [
-  { id: 'default', name: { zh: '默认', en: 'Default' }, swatch: ['#fafaf7', '#0e9f8a', '#1f1f1f'], light: {}, dark: {}, fonts: {} },
+  {
+    id: 'default',
+    name: { zh: '默认', en: 'Default' },
+    swatch: ['#fafaf7', '#0e9f8a', '#1f1f1f'],
+    light: {},
+    dark: {},
+    fonts: {}
+  },
   {
     id: 'ancient',
     name: { zh: '中国古代', en: 'Classical Chinese' },
@@ -178,7 +199,11 @@ export const SKIN_PRESETS: SkinPreset[] = [
       '--accent-soft': '#2c2244',
       '--accent-text': '#c3acef'
     },
-    fonts: { data: "'Cinzel', 'Gentium Plus', serif", corpusText: "'Gentium Plus', 'Charis SIL', serif", ui: "'Inter', 'Noto Sans SC', sans-serif" }
+    fonts: {
+      data: "'Cinzel', 'Gentium Plus', serif",
+      corpusText: "'Gentium Plus', 'Charis SIL', serif",
+      ui: "'Inter', 'Noto Sans SC', sans-serif"
+    }
   },
   {
     id: 'sea',
@@ -265,23 +290,154 @@ export interface FontEntry {
 
 const GF = 'https://raw.githubusercontent.com/google/fonts/main/ofl/'
 export const FONT_CATALOG: FontEntry[] = [
-  { family: 'LXGW WenKai', file: 'LXGWWenKai-Regular.ttf', url: 'https://github.com/lxgw/LxgwWenKai/releases/download/v1.510/LXGWWenKai-Regular.ttf', desc: { zh: '霞鹜文楷：温润的楷体，适合界面与译文', en: 'A warm Kai-style CJK font, good for UI and translations' }, tags: ['cjk', 'kai'] },
-  { family: 'LXGW WenKai TC', file: 'LXGWWenKaiTC-Regular.ttf', url: GF + 'lxgwwenkaitc/LXGWWenKaiTC-Regular.ttf', desc: { zh: '霞鹜文楷 TC：繁体字形版本', en: 'Traditional-Chinese variant of LXGW WenKai' }, tags: ['cjk', 'kai'] },
-  { family: 'Noto Serif SC', file: 'NotoSerifSC[wght].ttf', url: GF + 'notoserifsc/NotoSerifSC%5Bwght%5D.ttf', desc: { zh: '思源宋体（可变字重）', en: 'Source Han Serif SC (variable weight)' }, tags: ['cjk', 'serif'] },
-  { family: 'Noto Sans SC', file: 'NotoSansSC[wght].ttf', url: GF + 'notosanssc/NotoSansSC%5Bwght%5D.ttf', desc: { zh: '思源黑体（可变字重）', en: 'Source Han Sans SC (variable weight)' }, tags: ['cjk', 'sans'] },
-  { family: 'Ma Shan Zheng', file: 'MaShanZheng-Regular.ttf', url: GF + 'mashanzheng/MaShanZheng-Regular.ttf', desc: { zh: '马善政毛笔楷书', en: 'Brush-style regular script' }, tags: ['cjk', 'brush'] },
-  { family: 'Zhi Mang Xing', file: 'ZhiMangXing-Regular.ttf', url: GF + 'zhimangxing/ZhiMangXing-Regular.ttf', desc: { zh: '志莽行书', en: 'Semi-cursive brush script' }, tags: ['cjk', 'brush'] },
-  { family: 'Long Cang', file: 'LongCang-Regular.ttf', url: GF + 'longcang/LongCang-Regular.ttf', desc: { zh: '龙藏体：手写风', en: 'Handwritten CJK style' }, tags: ['cjk', 'brush'] },
-  { family: 'Charis SIL', file: 'CharisSIL-Regular.ttf', url: GF + 'charissil/CharisSIL-Regular.ttf', desc: { zh: 'SIL 语言学衬线体，IPA 全覆盖', en: 'SIL linguistics serif with full IPA coverage' }, tags: ['latin', 'ipa', 'serif'] },
-  { family: 'Gentium Plus', file: 'GentiumPlus-Regular.ttf', url: GF + 'gentiumplus/GentiumPlus-Regular.ttf', desc: { zh: 'Gentium Plus 完整版（内置的是拉丁子集）', en: 'Full Gentium Plus (the bundled one is a Latin subset)' }, tags: ['latin', 'ipa', 'serif'] },
-  { family: 'Noto Serif', file: 'NotoSerif[wdth,wght].ttf', url: GF + 'notoserif/NotoSerif%5Bwdth,wght%5D.ttf', desc: { zh: 'Noto 衬线体（可变）', en: 'Noto Serif (variable)' }, tags: ['latin', 'serif'] },
-  { family: 'Cinzel', file: 'Cinzel[wght].ttf', url: GF + 'cinzel/Cinzel%5Bwght%5D.ttf', desc: { zh: '罗马碑铭风大写体，西幻标题', en: 'Roman inscription capitals, fantasy titles' }, tags: ['latin', 'display'] },
-  { family: 'Uncial Antiqua', file: 'UncialAntiqua-Regular.ttf', url: GF + 'uncialantiqua/UncialAntiqua-Regular.ttf', desc: { zh: '安色尔体：中世纪手抄本风', en: 'Uncial, medieval manuscript feel' }, tags: ['latin', 'display'] },
-  { family: 'MedievalSharp', file: 'MedievalSharp.ttf', url: GF + 'medievalsharp/MedievalSharp.ttf', desc: { zh: '中世纪哥特风', en: 'Medieval gothic style' }, tags: ['latin', 'display'] },
-  { family: 'Noto Sans Runic', file: 'NotoSansRunic-Regular.ttf', url: GF + 'notosansrunic/NotoSansRunic-Regular.ttf', desc: { zh: '卢恩文字（示例 Aelith 刻文可用）', en: 'Runic block (used by the Aelith example script)' }, tags: ['script'] },
-  { family: 'Noto Sans Symbols 2', file: 'NotoSansSymbols2-Regular.ttf', url: GF + 'notosanssymbols2/NotoSansSymbols2-Regular.ttf', desc: { zh: '各类符号补全', en: 'Miscellaneous symbols' }, tags: ['symbols'] },
-  { family: 'JetBrains Mono', file: 'JetBrainsMono[wght].ttf', url: GF + 'jetbrainsmono/JetBrainsMono%5Bwght%5D.ttf', desc: { zh: '等宽，规则源代码与 gloss 行', en: 'Monospace for rule source and gloss lines' }, tags: ['mono'] }
+  {
+    family: 'LXGW WenKai',
+    file: 'LXGWWenKai-Regular.ttf',
+    url: 'https://github.com/lxgw/LxgwWenKai/releases/download/v1.510/LXGWWenKai-Regular.ttf',
+    desc: {
+      zh: '霞鹜文楷：温润的楷体，适合界面与译文',
+      en: 'A warm Kai-style CJK font, good for UI and translations'
+    },
+    tags: ['cjk', 'kai']
+  },
+  {
+    family: 'LXGW WenKai TC',
+    file: 'LXGWWenKaiTC-Regular.ttf',
+    url: GF + 'lxgwwenkaitc/LXGWWenKaiTC-Regular.ttf',
+    desc: { zh: '霞鹜文楷 TC：繁体字形版本', en: 'Traditional-Chinese variant of LXGW WenKai' },
+    tags: ['cjk', 'kai']
+  },
+  {
+    family: 'Noto Serif SC',
+    file: 'NotoSerifSC[wght].ttf',
+    url: GF + 'notoserifsc/NotoSerifSC%5Bwght%5D.ttf',
+    desc: { zh: '思源宋体（可变字重）', en: 'Source Han Serif SC (variable weight)' },
+    tags: ['cjk', 'serif']
+  },
+  {
+    family: 'Noto Sans SC',
+    file: 'NotoSansSC[wght].ttf',
+    url: GF + 'notosanssc/NotoSansSC%5Bwght%5D.ttf',
+    desc: { zh: '思源黑体（可变字重）', en: 'Source Han Sans SC (variable weight)' },
+    tags: ['cjk', 'sans']
+  },
+  {
+    family: 'Ma Shan Zheng',
+    file: 'MaShanZheng-Regular.ttf',
+    url: GF + 'mashanzheng/MaShanZheng-Regular.ttf',
+    desc: { zh: '马善政毛笔楷书', en: 'Brush-style regular script' },
+    tags: ['cjk', 'brush']
+  },
+  {
+    family: 'Zhi Mang Xing',
+    file: 'ZhiMangXing-Regular.ttf',
+    url: GF + 'zhimangxing/ZhiMangXing-Regular.ttf',
+    desc: { zh: '志莽行书', en: 'Semi-cursive brush script' },
+    tags: ['cjk', 'brush']
+  },
+  {
+    family: 'Long Cang',
+    file: 'LongCang-Regular.ttf',
+    url: GF + 'longcang/LongCang-Regular.ttf',
+    desc: { zh: '龙藏体：手写风', en: 'Handwritten CJK style' },
+    tags: ['cjk', 'brush']
+  },
+  {
+    family: 'Charis SIL',
+    file: 'CharisSIL-Regular.ttf',
+    url: GF + 'charissil/CharisSIL-Regular.ttf',
+    desc: {
+      zh: 'SIL 语言学衬线体，IPA 全覆盖',
+      en: 'SIL linguistics serif with full IPA coverage'
+    },
+    tags: ['latin', 'ipa', 'serif']
+  },
+  {
+    family: 'Gentium Plus',
+    file: 'GentiumPlus-Regular.ttf',
+    url: GF + 'gentiumplus/GentiumPlus-Regular.ttf',
+    desc: {
+      zh: 'Gentium Plus 完整版（内置的是拉丁子集）',
+      en: 'Full Gentium Plus (the bundled one is a Latin subset)'
+    },
+    tags: ['latin', 'ipa', 'serif']
+  },
+  {
+    family: 'Noto Serif',
+    file: 'NotoSerif[wdth,wght].ttf',
+    url: GF + 'notoserif/NotoSerif%5Bwdth,wght%5D.ttf',
+    desc: { zh: 'Noto 衬线体（可变）', en: 'Noto Serif (variable)' },
+    tags: ['latin', 'serif']
+  },
+  {
+    family: 'Cinzel',
+    file: 'Cinzel[wght].ttf',
+    url: GF + 'cinzel/Cinzel%5Bwght%5D.ttf',
+    desc: { zh: '罗马碑铭风大写体，西幻标题', en: 'Roman inscription capitals, fantasy titles' },
+    tags: ['latin', 'display']
+  },
+  {
+    family: 'Uncial Antiqua',
+    file: 'UncialAntiqua-Regular.ttf',
+    url: GF + 'uncialantiqua/UncialAntiqua-Regular.ttf',
+    desc: { zh: '安色尔体：中世纪手抄本风', en: 'Uncial, medieval manuscript feel' },
+    tags: ['latin', 'display']
+  },
+  {
+    family: 'MedievalSharp',
+    file: 'MedievalSharp.ttf',
+    url: GF + 'medievalsharp/MedievalSharp.ttf',
+    desc: { zh: '中世纪哥特风', en: 'Medieval gothic style' },
+    tags: ['latin', 'display']
+  },
+  {
+    family: 'Noto Sans Runic',
+    file: 'NotoSansRunic-Regular.ttf',
+    url: GF + 'notosansrunic/NotoSansRunic-Regular.ttf',
+    desc: {
+      zh: '卢恩文字（示例 Aelith 刻文可用）',
+      en: 'Runic block (used by the Aelith example script)'
+    },
+    tags: ['script']
+  },
+  {
+    family: 'Noto Sans Symbols 2',
+    file: 'NotoSansSymbols2-Regular.ttf',
+    url: GF + 'notosanssymbols2/NotoSansSymbols2-Regular.ttf',
+    desc: { zh: '各类符号补全', en: 'Miscellaneous symbols' },
+    tags: ['symbols']
+  },
+  {
+    family: 'JetBrains Mono',
+    file: 'JetBrainsMono[wght].ttf',
+    url: GF + 'jetbrainsmono/JetBrainsMono%5Bwght%5D.ttf',
+    desc: { zh: '等宽，规则源代码与 gloss 行', en: 'Monospace for rule source and gloss lines' },
+    tags: ['mono']
+  }
 ]
 
 /** 常见系统字体，供字体输入框的提示列表 */
-export const COMMON_SYSTEM_FONTS = ['Inter', 'Gentium Plus', 'Charis SIL', 'Doulos SIL', 'Segoe UI', 'Microsoft YaHei', 'SimSun', 'KaiTi', 'FangSong', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Noto Serif CJK SC', 'Source Han Sans SC', 'Source Han Serif SC', 'Times New Roman', 'Georgia', 'Cambria', 'Consolas', 'Cascadia Code', 'Segoe UI Historic', 'Segoe UI Symbol']
+export const COMMON_SYSTEM_FONTS = [
+  'Inter',
+  'Gentium Plus',
+  'Charis SIL',
+  'Doulos SIL',
+  'Segoe UI',
+  'Microsoft YaHei',
+  'SimSun',
+  'KaiTi',
+  'FangSong',
+  'PingFang SC',
+  'Hiragino Sans GB',
+  'Noto Sans CJK SC',
+  'Noto Serif CJK SC',
+  'Source Han Sans SC',
+  'Source Han Serif SC',
+  'Times New Roman',
+  'Georgia',
+  'Cambria',
+  'Consolas',
+  'Cascadia Code',
+  'Segoe UI Historic',
+  'Segoe UI Symbol'
+]

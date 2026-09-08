@@ -7,7 +7,8 @@ export interface MdOptions {
   resolve?: (name: string) => string | null
 }
 
-const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const esc = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 function inline(text: string, opts: MdOptions): string {
   let s = esc(text)
@@ -15,9 +16,14 @@ function inline(text: string, opts: MdOptions): string {
   s = s.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_m, name: string, label?: string) => {
     const id = opts.resolve?.(name.trim()) ?? null
     const txt = label ?? name
-    return id ? `<a class="wl" data-lexeme="${id}" href="#">${txt}</a>` : `<span class="wl missing">${txt}</span>`
+    return id
+      ? `<a class="wl" data-lexeme="${id}" href="#">${txt}</a>`
+      : `<span class="wl missing">${txt}</span>`
   })
-  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+  s = s.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener">$1</a>'
+  )
   s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
   s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
   s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>')
@@ -43,8 +49,17 @@ export function mdToHtml(md: string, opts: MdOptions = {}): string {
     if (!table) return
     const [head, ...body] = table
     out.push('<table>')
-    out.push('<thead><tr>' + head.map((c) => `<th>${inline(c, opts)}</th>`).join('') + '</tr></thead>')
-    if (body.length) out.push('<tbody>' + body.map((r) => '<tr>' + r.map((c) => `<td>${inline(c, opts)}</td>`).join('') + '</tr>').join('') + '</tbody>')
+    out.push(
+      '<thead><tr>' + head.map((c) => `<th>${inline(c, opts)}</th>`).join('') + '</tr></thead>'
+    )
+    if (body.length)
+      out.push(
+        '<tbody>' +
+          body
+            .map((r) => '<tr>' + r.map((c) => `<td>${inline(c, opts)}</td>`).join('') + '</tr>')
+            .join('') +
+          '</tbody>'
+      )
     out.push('</table>')
     table = null
   }
@@ -76,7 +91,11 @@ export function mdToHtml(md: string, opts: MdOptions = {}): string {
     if (/^\s*\|.*\|\s*$/.test(line)) {
       closeList()
       flushQuote()
-      const cells = line.trim().slice(1, -1).split('|').map((c) => c.trim())
+      const cells = line
+        .trim()
+        .slice(1, -1)
+        .split('|')
+        .map((c) => c.trim())
       if (cells.every((c) => /^:?-{2,}:?$/.test(c))) continue // 分隔行
       if (!table) table = []
       table.push(cells)

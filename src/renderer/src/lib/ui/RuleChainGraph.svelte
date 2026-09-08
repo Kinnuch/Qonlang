@@ -6,7 +6,10 @@
   import { t } from '$lib/i18n/index.svelte'
   import { ruleOrdinals, type ParsedRule, type RuleProgram } from '$lib/engine/sca'
 
-  let { program, selectedLine = $bindable<number | null>(null) }: { program: RuleProgram | null; selectedLine?: number | null } = $props()
+  let {
+    program,
+    selectedLine = $bindable<number | null>(null)
+  }: { program: RuleProgram | null; selectedLine?: number | null } = $props()
 
   interface Node {
     id: string
@@ -49,7 +52,15 @@
       const id = `${col}:${s}`
       let n = nodes.get(id)
       if (!n) {
-        n = { id, col, label: label(s), isClass: /^[A-Z]$|^\{.*\}$|\[.*\]/.test(s), y: 0, x: 0, w: 0 }
+        n = {
+          id,
+          col,
+          label: label(s),
+          isClass: /^[A-Z]$|^\{.*\}$|\[.*\]/.test(s),
+          y: 0,
+          x: 0,
+          w: 0
+        }
         nodes.set(id, n)
         order[col].push(id)
       }
@@ -63,8 +74,21 @@
       }
       if (col < 0) continue
       const from = getNode(col, step.target)
-      const to = getNode(Math.min(col + 1, columns.length - 1), step.replacement === '\\' ? step.target.split('').reverse().join('') : step.replacement === '2' ? step.target + step.target : step.replacement)
-      edges.push({ line: step.line, from: from.id, to: to.id, rule: step, ordinal: ordinals.get(step.line) ?? 0 })
+      const to = getNode(
+        Math.min(col + 1, columns.length - 1),
+        step.replacement === '\\'
+          ? step.target.split('').reverse().join('')
+          : step.replacement === '2'
+            ? step.target + step.target
+            : step.replacement
+      )
+      edges.push({
+        line: step.line,
+        from: from.id,
+        to: to.id,
+        rule: step,
+        ordinal: ordinals.get(step.line) ?? 0
+      })
     }
     // 重心排序：按前驱平均位置排每一列
     const pos = new Map<string, number>()
@@ -73,7 +97,12 @@
       const bary = new Map<string, number>()
       for (const id of order[c]) {
         const preds = edges.filter((e) => e.to === id).map((e) => pos.get(e.from) ?? 0)
-        bary.set(id, preds.length ? preds.reduce((a, b) => a + b, 0) / preds.length : order[c].indexOf(id) + 1000)
+        bary.set(
+          id,
+          preds.length
+            ? preds.reduce((a, b) => a + b, 0) / preds.length
+            : order[c].indexOf(id) + 1000
+        )
       }
       order[c].sort((a, b) => bary.get(a)! - bary.get(b)!)
       order[c].forEach((id, i) => pos.set(id, i))
@@ -88,7 +117,14 @@
         n.w = Math.max(30, Array.from(n.label).length * 9 + 16)
       })
     })
-    return { columns, nodes: [...nodes.values()], edges, width: PAD_X * 2 + columns.length * COL_W, height: PAD_Y + maxRows * ROW_H + 20, nodeById: nodes }
+    return {
+      columns,
+      nodes: [...nodes.values()],
+      edges,
+      width: PAD_X * 2 + columns.length * COL_W,
+      height: PAD_Y + maxRows * ROW_H + 20,
+      nodeById: nodes
+    }
   })
 
   let hover = $state<number | null>(null)
@@ -121,7 +157,13 @@
     <svg width={graph.width} height={graph.height} class="chain">
       {#each graph.columns as c, i (i)}
         <text x={PAD_X + i * COL_W} y={22} class="col">{c}</text>
-        <line x1={PAD_X + i * COL_W - 10} y1={30} x2={PAD_X + i * COL_W - 10} y2={graph.height - 10} class="sep" />
+        <line
+          x1={PAD_X + i * COL_W - 10}
+          y1={30}
+          x2={PAD_X + i * COL_W - 10}
+          y2={graph.height - 10}
+          class="sep"
+        />
       {/each}
       {#each graph.edges as e (e.line)}
         <path
@@ -140,7 +182,12 @@
         </path>
       {/each}
       {#each graph.nodes as n (n.id)}
-        <g class="node" class:cls={n.isClass} class:lit={connected(n.id)} transform={`translate(${n.x}, ${n.y})`}>
+        <g
+          class="node"
+          class:cls={n.isClass}
+          class:lit={connected(n.id)}
+          transform={`translate(${n.x}, ${n.y})`}
+        >
           <rect x="0" y="-11" width={n.w} height="22" rx="11" />
           <text x={n.w / 2} y="4">{n.label}</text>
         </g>
@@ -149,7 +196,9 @@
         {#if selectedLine === e.line || hover === e.line}
           {@const a = graph.nodeById.get(e.from)!}
           {@const b = graph.nodeById.get(e.to)!}
-          <text x={(a.x + a.w + b.x) / 2} y={(a.y + b.y) / 2 - 6} class="elabel">{e.ordinal}: {e.rule.contexts.map((c) => `${c.left}_${c.right}`).join(', ')}</text>
+          <text x={(a.x + a.w + b.x) / 2} y={(a.y + b.y) / 2 - 6} class="elabel"
+            >{e.ordinal}: {e.rule.contexts.map((c) => `${c.left}_${c.right}`).join(', ')}</text
+          >
         {/if}
       {/each}
     </svg>

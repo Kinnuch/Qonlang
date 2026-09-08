@@ -4,11 +4,29 @@
   import { projectState } from '$lib/state/project.svelte'
   import { fontLibrary } from '$lib/state/fonts.svelte'
   import { i18n, t } from '$lib/i18n/index.svelte'
-  import { SKIN_PRESETS, SKIN_VARS, FONT_CATALOG, COMMON_SYSTEM_FONTS, DEFAULT_SKIN, EMPTY_FONTS, type FontSlot, type FontEntry } from '$lib/skin/presets'
+  import {
+    SKIN_PRESETS,
+    SKIN_VARS,
+    FONT_CATALOG,
+    COMMON_SYSTEM_FONTS,
+    DEFAULT_SKIN,
+    EMPTY_FONTS,
+    type FontSlot,
+    type FontEntry
+  } from '$lib/skin/presets'
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import { flashOn } from '$lib/ui/flash'
-  import { Download, Check, Trash2, RotateCcw, FolderPlus, Loader, Save, Pencil } from '@lucide/svelte'
+  import {
+    Download,
+    Check,
+    Trash2,
+    RotateCcw,
+    FolderPlus,
+    Loader,
+    Save,
+    Pencil
+  } from '@lucide/svelte'
   import { newId } from '$lib/core/factory'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -20,7 +38,9 @@
   const theme = $derived(ui.resolvedTheme)
   const zh = $derived(i18n.locale === 'zh')
   const SLOTS: FontSlot[] = ['ui', 'data', 'mono', 'corpusText', 'corpusTr', 'gloss', 'script']
-  const fontOptions = $derived([...new Set([...fontLibrary.fonts.map((f) => f.family), ...COMMON_SYSTEM_FONTS])])
+  const fontOptions = $derived([
+    ...new Set([...fontLibrary.fonts.map((f) => f.family), ...COMMON_SYSTEM_FONTS])
+  ])
   let presetFlash = $state(0)
 
   /** 读出当前主题下某变量的实际值（未覆盖时取计算样式，供取色器显示） */
@@ -32,9 +52,18 @@
   }
   function toHex(c: string): string {
     if (/^#[0-9a-f]{6}$/i.test(c)) return c
-    if (/^#[0-9a-f]{3}$/i.test(c)) return '#' + c.slice(1).split('').map((x) => x + x).join('')
+    if (/^#[0-9a-f]{3}$/i.test(c))
+      return (
+        '#' +
+        c
+          .slice(1)
+          .split('')
+          .map((x) => x + x)
+          .join('')
+      )
     const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
-    if (m) return '#' + [m[1], m[2], m[3]].map((x) => Number(x).toString(16).padStart(2, '0')).join('')
+    if (m)
+      return '#' + [m[1], m[2], m[3]].map((x) => Number(x).toString(16).padStart(2, '0')).join('')
     return '#000000'
   }
   function save(): void {
@@ -71,21 +100,26 @@
     presetFlash++
     save()
   }
-  function saveAsPreset(): void {
-    const name = window.prompt(t('skin.presetName'), '')?.trim()
+  async function saveAsPreset(): Promise<void> {
+    const name = (await ui.prompt(t('skin.presetName'), ''))?.trim()
     if (!name) return
     const existing = userPresets.find((x) => x.name === name)
-    const data = { name, light: { ...skin.light }, dark: { ...skin.dark }, fonts: { ...skin.fonts } }
+    const data = {
+      name,
+      light: { ...skin.light },
+      dark: { ...skin.dark },
+      fonts: { ...skin.fonts }
+    }
     if (existing) Object.assign(existing, data)
     else ui.prefs.skinPresets.push({ id: newId(), ...data })
     skin.preset = (existing ?? ui.prefs.skinPresets[ui.prefs.skinPresets.length - 1]).id
     save()
     ui.toast(t('skin.presetSaved', { name }))
   }
-  function renamePreset(id: string): void {
+  async function renamePreset(id: string): Promise<void> {
     const p = userPresets.find((x) => x.id === id)
     if (!p) return
-    const name = window.prompt(t('skin.presetName'), p.name)?.trim()
+    const name = (await ui.prompt(t('skin.presetName'), p.name))?.trim()
     if (!name) return
     p.name = name
     save()
@@ -109,7 +143,11 @@
   }
   /** 预设卡片的三色：背景 / 强调 / 文字，取浅色配置，缺省回落默认 */
   function swatchOf(p: { light: Record<string, string> }): [string, string, string] {
-    return [p.light['--bg'] || '#fafaf7', p.light['--accent'] || '#0e9f8a', p.light['--text'] || '#1f1f1f']
+    return [
+      p.light['--bg'] || '#fafaf7',
+      p.light['--accent'] || '#0e9f8a',
+      p.light['--text'] || '#1f1f1f'
+    ]
   }
   function reset(): void {
     ui.prefs.skin = structuredClone(DEFAULT_SKIN)
@@ -154,7 +192,11 @@
       <h3>{t('skin.presets')}</h3>
       <div class="presets" use:flashOn={presetFlash}>
         {#each SKIN_PRESETS as p (p.id)}
-          <button class="preset" class:active={skin.preset === p.id} onclick={() => applyPreset(p.id)}>
+          <button
+            class="preset"
+            class:active={skin.preset === p.id}
+            onclick={() => applyPreset(p.id)}
+          >
             <span class="swatch" style:background={p.swatch[0]} style:border-color={p.swatch[1]}>
               <span class="dot" style:background={p.swatch[1]}></span>
               <span class="line" style:background={p.swatch[2]}></span>
@@ -175,8 +217,16 @@
               <span class="pname">{p.name}</span>
             </button>
             <span class="preset-tools">
-              <button class="btn ghost icon sm" title={t('skin.renamePreset')} onclick={() => renamePreset(p.id)}><Pencil size={11} /></button>
-              <button class="btn ghost icon sm" title={t('skin.deletePreset')} onclick={() => deletePreset(p.id)}><Trash2 size={11} /></button>
+              <button
+                class="btn ghost icon sm"
+                title={t('skin.renamePreset')}
+                onclick={() => renamePreset(p.id)}><Pencil size={11} /></button
+              >
+              <button
+                class="btn ghost icon sm"
+                title={t('skin.deletePreset')}
+                onclick={() => deletePreset(p.id)}><Trash2 size={11} /></button
+              >
             </span>
           </div>
         {/each}
@@ -190,15 +240,30 @@
     </section>
 
     <section>
-      <h3>{t('skin.colors')} <span class="small muted">{t('skin.colorsFor', { theme: t(theme === 'dark' ? 'settings.themeDark' : 'settings.themeLight') })}</span></h3>
+      <h3>
+        {t('skin.colors')}
+        <span class="small muted"
+          >{t('skin.colorsFor', {
+            theme: t(theme === 'dark' ? 'settings.themeDark' : 'settings.themeLight')
+          })}</span
+        >
+      </h3>
       <div class="colors">
         {#each SKIN_VARS as v (v.name)}
           {@const cur = currentValue(v.name)}
           <div class="color-row" class:set={!!skin[theme]?.[v.name]}>
-            <input type="color" value={toHex(cur)} oninput={(e) => setVar(v.name, (e.currentTarget as HTMLInputElement).value)} />
+            <input
+              type="color"
+              value={toHex(cur)}
+              oninput={(e) => setVar(v.name, (e.currentTarget as HTMLInputElement).value)}
+            />
             <span class="grow">{t(`skin.vars.${v.key}`)}</span>
             <code class="mono">{cur}</code>
-            {#if skin[theme]?.[v.name]}<button class="btn ghost icon sm" title={t('skin.reset')} onclick={() => clearVar(v.name)}><RotateCcw size={12} /></button>{/if}
+            {#if skin[theme]?.[v.name]}<button
+                class="btn ghost icon sm"
+                title={t('skin.reset')}
+                onclick={() => clearVar(v.name)}><RotateCcw size={12} /></button
+              >{/if}
           </div>
         {/each}
       </div>
@@ -206,12 +271,20 @@
 
     <section>
       <h3>{t('skin.fonts')}</h3>
-      <datalist id="font-options">{#each fontOptions as f (f)}<option value={f}></option>{/each}</datalist>
+      <datalist id="font-options"
+        >{#each fontOptions as f (f)}<option value={f}></option>{/each}</datalist
+      >
       <div class="fonts">
         {#each SLOTS as slot (slot)}
           <label class="font-row">
             <span class="fl">{t(`skin.fontSlots.${slot}`)}</span>
-            <input class="input" list="font-options" value={skin.fonts[slot]} placeholder={t('skin.fontPlaceholder')} onchange={(e) => setFont(slot, (e.currentTarget as HTMLInputElement).value)} />
+            <input
+              class="input"
+              list="font-options"
+              value={skin.fonts[slot]}
+              placeholder={t('skin.fontPlaceholder')}
+              onchange={(e) => setFont(slot, (e.currentTarget as HTMLInputElement).value)}
+            />
           </label>
         {/each}
       </div>
@@ -221,11 +294,18 @@
       <h3>{t('skin.library')}</h3>
       <p class="small muted">{t('skin.libraryHint')}</p>
       <div class="row wrap">
-        <button class="btn sm" onclick={importLocal}><FolderPlus size={14} />{t('skin.importLocal')}</button>
+        <button class="btn sm" onclick={importLocal}
+          ><FolderPlus size={14} />{t('skin.importLocal')}</button
+        >
         <span class="grow"></span>
         <label class="row small muted mirror" title={t('skin.mirrorHint')}>
           {t('skin.mirror')}
-          <input class="input" bind:value={skin.mirror} onchange={save} placeholder="https://ghfast.top/" />
+          <input
+            class="input"
+            bind:value={skin.mirror}
+            onchange={save}
+            placeholder="https://ghfast.top/"
+          />
         </label>
       </div>
       <table class="tbl">
@@ -237,12 +317,22 @@
               <td class="muted small">{zh ? f.desc.zh : f.desc.en}</td>
               <td class="act">
                 {#if inst}
-                  <span class="badge accent"><Check size={12} />{t('skin.installed')} · {mb(inst.size)}</span>
-                  <button class="btn ghost icon sm" title={t('skin.removeFont')} onclick={() => fontLibrary.remove(f.file)}><Trash2 size={13} /></button>
+                  <span class="badge accent"
+                    ><Check size={12} />{t('skin.installed')} · {mb(inst.size)}</span
+                  >
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('skin.removeFont')}
+                    onclick={() => fontLibrary.remove(f.file)}><Trash2 size={13} /></button
+                  >
                 {:else if fontLibrary.isDownloading(f)}
-                  <span class="badge"><Loader size={12} />{t('skin.downloading', { pct: pct(f.file) })}</span>
+                  <span class="badge"
+                    ><Loader size={12} />{t('skin.downloading', { pct: pct(f.file) })}</span
+                  >
                 {:else}
-                  <button class="btn sm" onclick={() => download(f)}><Download size={13} />{t('skin.download')}</button>
+                  <button class="btn sm" onclick={() => download(f)}
+                    ><Download size={13} />{t('skin.download')}</button
+                  >
                 {/if}
               </td>
             </tr>
@@ -252,8 +342,14 @@
               <td class="fam" style:font-family={`"${x.family}"`}>{x.family}</td>
               <td class="muted small">{x.file}</td>
               <td class="act">
-                <span class="badge accent"><Check size={12} />{t('skin.installed')} · {mb(x.size)}</span>
-                <button class="btn ghost icon sm" title={t('skin.removeFont')} onclick={() => fontLibrary.remove(x.file)}><Trash2 size={13} /></button>
+                <span class="badge accent"
+                  ><Check size={12} />{t('skin.installed')} · {mb(x.size)}</span
+                >
+                <button
+                  class="btn ghost icon sm"
+                  title={t('skin.removeFont')}
+                  onclick={() => fontLibrary.remove(x.file)}><Trash2 size={13} /></button
+                >
               </td>
             </tr>
           {/each}
@@ -267,13 +363,26 @@
   <div class="pv card">
     <div class="pv-lemma data">{previewLexeme?.lemma ?? 'lorem'}</div>
     <div class="pv-pos">n.</div>
-    <div class="pv-def">{previewLexeme?.senses[0]?.definition[i18n.locale] ?? (zh ? '词条释义示例' : 'sample definition')}</div>
+    <div class="pv-def">
+      {previewLexeme?.senses[0]?.definition[i18n.locale] ??
+        (zh ? '词条释义示例' : 'sample definition')}
+    </div>
   </div>
   <div class="pv card">
     <div class="pv-text">{previewSentence?.text ?? 'ilenler kasoda jatdu'}</div>
     <div class="pv-gl"><span>ilen-ler</span><span>kaso-da</span><span>jat-du</span></div>
-    <div class="pv-gloss"><span>{zh ? '孩子' : 'child'}-PL</span><span>{zh ? '房子' : 'house'}-LOC</span><span>{zh ? '睡' : 'sleep'}-PST</span></div>
-    <div class="pv-tr">{previewSentence ? Object.values(previewSentence.translation)[0] : zh ? '孩子们在房子里睡了。' : 'The children slept in the house.'}</div>
+    <div class="pv-gloss">
+      <span>{zh ? '孩子' : 'child'}-PL</span><span>{zh ? '房子' : 'house'}-LOC</span><span
+        >{zh ? '睡' : 'sleep'}-PST</span
+      >
+    </div>
+    <div class="pv-tr">
+      {previewSentence
+        ? Object.values(previewSentence.translation)[0]
+        : zh
+          ? '孩子们在房子里睡了。'
+          : 'The children slept in the house.'}
+    </div>
     <div class="pv-scr">ᛁᛚᛖᚾᛚᛖᚱ ᚲᚨᛊᛟᛞᚨ ᛃᚨᛏᛞᚢ</div>
   </div>
   <div class="row wrap">

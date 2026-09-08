@@ -23,13 +23,27 @@
     return project.morphemes.filter((m) => {
       if (langId && m.languageId !== langId) return false
       if (typeFilter && m.type !== typeFilter) return false
-      if (q && !(m.form.toLowerCase().includes(q) || m.gloss.toLowerCase().includes(q) || Object.values(m.meaning).some((v) => v.toLowerCase().includes(q)))) return false
+      if (
+        q &&
+        !(
+          m.form.toLowerCase().includes(q) ||
+          m.gloss.toLowerCase().includes(q) ||
+          Object.values(m.meaning).some((v) => v.toLowerCase().includes(q))
+        )
+      )
+        return false
       return true
     })
   })
   const selected = $derived(project.morphemes.find((m) => m.id === selectedId) ?? null)
   const allTags = $derived([...new Set(project.morphemes.flatMap((m) => m.tags))].sort())
-  const usedBy = $derived(selected ? project.lexemes.filter((l) => l.etymology.sources.some((s) => s.kind === 'morpheme' && s.id === selected.id)) : [])
+  const usedBy = $derived(
+    selected
+      ? project.lexemes.filter((l) =>
+          l.etymology.sources.some((s) => s.kind === 'morpheme' && s.id === selected.id)
+        )
+      : []
+  )
   const glossLangs = $derived(project.settings.glossLanguages)
 
   $effect(() => {
@@ -82,7 +96,8 @@
     <input class="input search" placeholder={t('morphemes.search')} bind:value={query} />
     <select class="select type" bind:value={typeFilter}>
       <option value="">{t('morphemes.allTypes')}</option>
-      {#each MORPHEME_TYPES as mt (mt)}<option value={mt}>{t(`morphemes.types.${mt}`)}</option>{/each}
+      {#each MORPHEME_TYPES as mt (mt)}<option value={mt}>{t(`morphemes.types.${mt}`)}</option
+        >{/each}
     </select>
     <button class="btn primary" onclick={add}><Plus size={16} />{t('morphemes.add')}</button>
   </div>
@@ -106,12 +121,16 @@
         <tbody>
           {#each list as m (m.id)}
             <tr class:sel={selectedId === m.id} onclick={() => (selectedId = m.id)}>
-              <td class="data form">{m.form}{#if m.type === 'circumfix' && m.form2}…{m.form2}{/if}</td>
+              <td class="data form"
+                >{m.form}{#if m.type === 'circumfix' && m.form2}…{m.form2}{/if}</td
+              >
               <td><span class="badge">{t(`morphemes.types.${m.type}`)}</span></td>
               <td class="mono">{m.gloss}</td>
               <td class="meaning">{pickText(m.meaning, glossLangs)}</td>
               {#if !langId}<td class="small muted">{langName(m.languageId)}</td>{/if}
-              <td class="tags-cell">{#each m.tags as tg (tg)}<span class="badge">{tg}</span>{/each}</td>
+              <td class="tags-cell"
+                >{#each m.tags as tg (tg)}<span class="badge">{tg}</span>{/each}</td
+              >
             </tr>
           {/each}
         </tbody>
@@ -125,18 +144,34 @@
   <Portal>
     <div class="field">
       <label for="m-form">{t('morphemes.form')}</label>
-      <input id="m-form" class="input data" bind:value={m.form} oninput={() => projectState.touch()} />
+      <input
+        id="m-form"
+        class="input data"
+        bind:value={m.form}
+        oninput={() => projectState.touch()}
+      />
     </div>
     <div class="row two">
       <div class="field grow">
         <label for="m-type">{t('morphemes.type')}</label>
-        <select id="m-type" class="select" bind:value={m.type} onchange={() => projectState.touch()}>
-          {#each MORPHEME_TYPES as mt (mt)}<option value={mt}>{t(`morphemes.types.${mt}`)}</option>{/each}
+        <select
+          id="m-type"
+          class="select"
+          bind:value={m.type}
+          onchange={() => projectState.touch()}
+        >
+          {#each MORPHEME_TYPES as mt (mt)}<option value={mt}>{t(`morphemes.types.${mt}`)}</option
+            >{/each}
         </select>
       </div>
       <div class="field grow">
         <label for="m-lang">{t('nav.languages')}</label>
-        <select id="m-lang" class="select" bind:value={m.languageId} onchange={() => projectState.touch()}>
+        <select
+          id="m-lang"
+          class="select"
+          bind:value={m.languageId}
+          onchange={() => projectState.touch()}
+        >
           {#each project.languages as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
         </select>
       </div>
@@ -144,28 +179,64 @@
     {#if m.type === 'circumfix' || m.type === 'infix' || m.type === 'pattern'}
       <div class="field">
         <label for="m-form2">{t('morphemes.form2')}</label>
-        <input id="m-form2" class="input data" bind:value={m.form2} oninput={() => projectState.touch()} />
+        <input
+          id="m-form2"
+          class="input data"
+          bind:value={m.form2}
+          oninput={() => projectState.touch()}
+        />
         <span class="hint">{t('morphemes.form2Hint')}</span>
       </div>
     {/if}
     <div class="field">
       <label for="m-gloss">{t('morphemes.gloss')}</label>
-      <input id="m-gloss" class="input mono" bind:value={m.gloss} oninput={() => projectState.touch()} />
+      <input
+        id="m-gloss"
+        class="input mono"
+        bind:value={m.gloss}
+        oninput={() => projectState.touch()}
+      />
     </div>
     <div class="field">
       <span class="small muted">{t('morphemes.meaning')}</span>
-      <LocalizedInput bind:value={m.meaning} languages={glossLangs} onchange={() => projectState.touch()} />
+      <LocalizedInput
+        bind:value={m.meaning}
+        languages={glossLangs}
+        onchange={() => projectState.touch()}
+      />
     </div>
     <div class="field">
       <span class="small muted">{t('morphemes.allomorphs')}</span>
       {#each m.allomorphs as a, i (i)}
         <div class="row allo">
-          <input class="input data" bind:value={a.form} placeholder={t('morphemes.form')} oninput={() => projectState.touch()} />
-          <input class="input data" bind:value={a.environment} placeholder={t('morphemes.environment')} oninput={() => projectState.touch()} />
-          <button class="btn ghost icon sm" onclick={() => { m.allomorphs.splice(i, 1); projectState.touch() }}><X size={14} /></button>
+          <input
+            class="input data"
+            bind:value={a.form}
+            placeholder={t('morphemes.form')}
+            oninput={() => projectState.touch()}
+          />
+          <input
+            class="input data"
+            bind:value={a.environment}
+            placeholder={t('morphemes.environment')}
+            oninput={() => projectState.touch()}
+          />
+          <button
+            class="btn ghost icon sm"
+            onclick={() => {
+              m.allomorphs.splice(i, 1)
+              projectState.touch()
+            }}><X size={14} /></button
+          >
         </div>
       {/each}
-      <button class="btn ghost sm self-start" onclick={() => { m.allomorphs.push({ form: '', environment: '' }); projectState.touch() }}><Plus size={14} />{t('morphemes.addAllomorph')}</button>
+      <button
+        class="btn ghost sm self-start"
+        onclick={() => {
+          m.allomorphs.push({ form: '', environment: '' })
+          projectState.touch()
+        }}><Plus size={14} />{t('morphemes.addAllomorph')}</button
+      >
     </div>
     {#if project.categories.length}
       <div class="field">
@@ -173,9 +244,20 @@
         {#each project.categories as c (c.id)}
           <label class="row feat">
             <span class="grow small">{pickText(c.name, glossLangs)}</span>
-            <select class="select" value={m.features[c.id] ?? ''} onchange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value; if (v) m.features[c.id] = v; else delete m.features[c.id]; projectState.touch() }}>
+            <select
+              class="select"
+              value={m.features[c.id] ?? ''}
+              onchange={(e) => {
+                const v = (e.currentTarget as HTMLSelectElement).value
+                if (v) m.features[c.id] = v
+                else delete m.features[c.id]
+                projectState.touch()
+              }}
+            >
               <option value="">—</option>
-              {#each c.values as v (v.id)}<option value={v.id}>{pickText(v.name, glossLangs)}{v.abbr ? ` (${v.abbr})` : ''}</option>{/each}
+              {#each c.values as v (v.id)}<option value={v.id}
+                  >{pickText(v.name, glossLangs)}{v.abbr ? ` (${v.abbr})` : ''}</option
+                >{/each}
             </select>
           </label>
         {/each}
@@ -183,21 +265,35 @@
     {/if}
     <div class="field">
       <span class="small muted">{t('common.tags')}</span>
-      <TagInput bind:tags={m.tags} suggestions={allTags} placeholder={t('lexicon.tagsPlaceholder')} onchange={() => projectState.touch()} />
+      <TagInput
+        bind:tags={m.tags}
+        suggestions={allTags}
+        placeholder={t('lexicon.tagsPlaceholder')}
+        onchange={() => projectState.touch()}
+      />
     </div>
     <div class="field">
       <label for="m-notes">{t('common.notes')}</label>
-      <textarea id="m-notes" class="textarea" bind:value={m.notes} oninput={() => projectState.touch()}></textarea>
+      <textarea
+        id="m-notes"
+        class="textarea"
+        bind:value={m.notes}
+        oninput={() => projectState.touch()}
+      ></textarea>
     </div>
     <div class="field">
       <span class="small muted">{t('morphemes.usedBy')}</span>
       {#if usedBy.length === 0}
         <span class="small muted">{t('morphemes.unused')}</span>
       {:else}
-        <div class="chips">{#each usedBy as l (l.id)}<span class="badge data">{l.lemma}</span>{/each}</div>
+        <div class="chips">
+          {#each usedBy as l (l.id)}<span class="badge data">{l.lemma}</span>{/each}
+        </div>
       {/if}
     </div>
-    <button class="btn sm danger" onclick={() => remove(m)}><Trash2 size={14} />{t('common.delete')}</button>
+    <button class="btn sm danger" onclick={() => remove(m)}
+      ><Trash2 size={14} />{t('common.delete')}</button
+    >
   </Portal>
 {/if}
 

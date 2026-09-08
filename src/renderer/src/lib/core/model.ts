@@ -101,7 +101,8 @@ export interface Language {
 
 // ───────────────────────── 文字 ─────────────────────────
 
-export type ScriptType = 'alphabet' | 'abjad' | 'abugida' | 'syllabary' | 'logographic' | 'featural' | 'mixed' | 'other'
+export type ScriptType =
+  'alphabet' | 'abjad' | 'abugida' | 'syllabary' | 'logographic' | 'featural' | 'mixed' | 'other'
 
 export interface Glyph {
   id: Id
@@ -180,7 +181,8 @@ export interface SyllableSettings {
 
 export type ProsodyType = 'none' | 'stress' | 'pitch' | 'tone'
 
-export type StressPosition = 'initial' | 'second' | 'final' | 'penult' | 'antepenult' | 'weight' | 'manual'
+export type StressPosition =
+  'initial' | 'second' | 'final' | 'penult' | 'antepenult' | 'weight' | 'manual'
 
 export interface ProsodySettings {
   type: ProsodyType
@@ -263,14 +265,7 @@ export interface PartOfSpeech {
 // ───────────────────────── 语素 ─────────────────────────
 
 export type MorphemeType =
-  | 'root'
-  | 'prefix'
-  | 'suffix'
-  | 'infix'
-  | 'circumfix'
-  | 'clitic'
-  | 'pattern'
-  | 'particle'
+  'root' | 'prefix' | 'suffix' | 'infix' | 'circumfix' | 'clitic' | 'pattern' | 'particle'
 
 export interface Morpheme {
   id: Id
@@ -336,7 +331,8 @@ export interface Sense {
   examples: Id[]
 }
 
-export type EtymologyType = 'root' | 'compound' | 'borrowing' | 'derivation' | 'inherited' | 'unknown'
+export type EtymologyType =
+  'root' | 'compound' | 'borrowing' | 'derivation' | 'inherited' | 'unknown'
 
 export interface Etymology {
   type: EtymologyType
@@ -394,10 +390,30 @@ export interface Adjust {
 export type SlotGenerator =
   | { kind: 'none' }
   | { kind: 'table' }
-  | ({ kind: 'affix'; stem: string; prefix: string; suffix: string; infix: string; infixAt: string } & Adjust)
-  | ({ kind: 'affix-sca'; stem: string; prefix: string; suffix: string; ruleSetId: Id | null; fromStage: string; toStage: string } & Adjust)
+  | ({
+      kind: 'affix'
+      stem: string
+      prefix: string
+      suffix: string
+      infix: string
+      infixAt: string
+    } & Adjust)
+  | ({
+      kind: 'affix-sca'
+      stem: string
+      prefix: string
+      suffix: string
+      ruleSetId: Id | null
+      fromStage: string
+      toStage: string
+    } & Adjust)
   | ({ kind: 'pattern'; stem: string; pattern: string } & Adjust)
-  | ({ kind: 'reduplication'; stem: string; scope: 'full' | 'initial' | 'final'; length: number } & Adjust)
+  | ({
+      kind: 'reduplication'
+      stem: string
+      scope: 'full' | 'initial' | 'final'
+      length: number
+    } & Adjust)
 
 // ───────────────────────── 例句 ─────────────────────────
 

@@ -9,7 +9,12 @@
     diagnostics = [],
     placeholder = '',
     oninput
-  }: { value?: string; diagnostics?: Diagnostic[]; placeholder?: string; oninput?: () => void } = $props()
+  }: {
+    value?: string
+    diagnostics?: Diagnostic[]
+    placeholder?: string
+    oninput?: () => void
+  } = $props()
 
   let textarea = $state<HTMLTextAreaElement | null>(null)
   let scrollTop = $state(0)
@@ -38,9 +43,11 @@
     const trimmed = code.trim()
     if (!trimmed) return `<span class="c">${esc(comment)}</span>`
     if (trimmed.startsWith('#')) return `<span class="c">${esc(raw)}</span>`
-    if (trimmed.startsWith('-*')) return `<span class="m">${esc(code)}</span><span class="c">${esc(comment)}</span>`
+    if (trimmed.startsWith('-*'))
+      return `<span class="m">${esc(code)}</span><span class="c">${esc(comment)}</span>`
     const cls = /^(\s*)(\{[^}]+\}|[A-Z])(\s*=)(.*)$/.exec(code)
-    if (cls) return `${cls[1]}<span class="k">${esc(cls[2])}</span><span class="o">${cls[3]}</span><span class="v">${esc(cls[4])}</span><span class="c">${esc(comment)}</span>`
+    if (cls)
+      return `${cls[1]}<span class="k">${esc(cls[2])}</span><span class="o">${cls[3]}</span><span class="v">${esc(cls[4])}</span><span class="c">${esc(comment)}</span>`
     if (!code.includes('>') && /^\s*\S+\s*\|\s*\S+\s*$/.test(code)) {
       return `<span class="v">${esc(code)}</span><span class="c">${esc(comment)}</span>`
     }
@@ -61,7 +68,8 @@
         ctx = ctx.slice(0, dash)
       }
       out += `<span class="o">/</span><span class="x">${esc(ctx).replace(/_/g, '<b>_</b>')}</span>`
-      if (dash >= 0) out += `<span class="o">-</span><span class="n">${esc(exc).replace(/_/g, '<b>_</b>')}</span>`
+      if (dash >= 0)
+        out += `<span class="o">-</span><span class="n">${esc(exc).replace(/_/g, '<b>_</b>')}</span>`
     }
     return out + `<span class="c">${esc(comment)}</span>`
   }
@@ -104,11 +112,24 @@
   <div class="gutter" style:transform={`translateY(${-scrollTop}px)`}>
     {#each lines as _l, i (i)}
       {@const d = diagByLine.get(i + 1)}
-      <div class="ln" class:err={d?.severity === 'error'} class:warn={d?.severity === 'warning'} title={d?.message}>{i + 1}</div>
+      <div
+        class="ln"
+        class:err={d?.severity === 'error'}
+        class:warn={d?.severity === 'warning'}
+        title={d?.message}
+      >
+        {i + 1}
+      </div>
     {/each}
   </div>
   <div class="body">
-    <pre class="hl" aria-hidden="true" style:transform={`translate(${-scrollLeft}px, ${-scrollTop}px)`}>{#each lines as l, i (i)}{@const d = diagByLine.get(i + 1)}<div class="line" class:err={d?.severity === 'error'}>{@html highlight(l) || '&nbsp;'}</div>{/each}</pre>
+    <pre
+      class="hl"
+      aria-hidden="true"
+      style:transform={`translate(${-scrollLeft}px, ${-scrollTop}px)`}>{#each lines as l, i (i)}{@const d =
+          diagByLine.get(i + 1)}<div
+          class="line"
+          class:err={d?.severity === 'error'}>{@html highlight(l) || '&nbsp;'}</div>{/each}</pre>
     <textarea
       bind:this={textarea}
       bind:value

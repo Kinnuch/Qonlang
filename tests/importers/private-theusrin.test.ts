@@ -7,7 +7,12 @@ import { existsSync, readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
 import { parseCsv } from '$lib/core/csv'
 import { createProject } from '$lib/core/factory'
-import { applyCsvImport, defaultMapping, type CsvMapping, type FieldSpec } from '$lib/importers/csvImport'
+import {
+  applyCsvImport,
+  defaultMapping,
+  type CsvMapping,
+  type FieldSpec
+} from '$lib/importers/csvImport'
 
 const dir = join(__dirname, '..', 'fixtures', 'private')
 const has = existsSync(dir) && readdirSync(dir).some((f) => f.endsWith('.csv'))
@@ -53,7 +58,12 @@ const X_FIELDS: Record<string, FieldSpec> = {
   复数: { kind: 'form', slot: '复数' }
 }
 
-function mappingFor(header: string[], fields: Record<string, FieldSpec>, languageId: string, target: CsvMapping['target']): CsvMapping {
+function mappingFor(
+  header: string[],
+  fields: Record<string, FieldSpec>,
+  languageId: string,
+  target: CsvMapping['target']
+): CsvMapping {
   const m = defaultMapping(languageId, header.length)
   m.target = target
   m.columns = header.map((h) => fields[h.trim()] ?? { kind: 'ignore' })
@@ -61,7 +71,10 @@ function mappingFor(header: string[], fields: Record<string, FieldSpec>, languag
 }
 
 /** 特征存的是 ID，比对前把取值名解析出来附在 JSON 后面 */
-function resolvedJson(project: ReturnType<typeof createProject>, record: { features?: Record<string, string> }): string {
+function resolvedJson(
+  project: ReturnType<typeof createProject>,
+  record: { features?: Record<string, string> }
+): string {
   const names = Object.entries(record.features ?? {}).map(([cid, vid]) => {
     const cat = project.categories.find((c) => c.id === cid)
     const val = cat?.values.find((v) => v.id === vid)
@@ -70,7 +83,14 @@ function resolvedJson(project: ReturnType<typeof createProject>, record: { featu
   return JSON.stringify(record) + '\n' + JSON.stringify(names)
 }
 
-function assertLossless(project: ReturnType<typeof createProject>, rows: string[][], header: string[], fields: Record<string, FieldSpec>, records: unknown[], keyName: string): void {
+function assertLossless(
+  project: ReturnType<typeof createProject>,
+  rows: string[][],
+  header: string[],
+  fields: Record<string, FieldSpec>,
+  records: unknown[],
+  keyName: string
+): void {
   const keyIdx = header.findIndex((h) => fields[h.trim()]?.kind === 'lemma')
   const data = rows.slice(1).filter((r) => (r[keyIdx] ?? '').trim())
   expect(records).toHaveLength(data.length)
@@ -89,7 +109,13 @@ function assertLossless(project: ReturnType<typeof createProject>, rows: string[
 
 describe.skipIf(!has)('Theusrin CSV (private)', () => {
   const read = (name: string): string[][] => parseCsv(readFileSync(join(dir, name), 'utf8')).rows
-  const p = createProject({ name: 'Thsr', template: 'family', appVersion: '0', uiLocale: 'zh', familyNames: { proto: 'PSkr', daughters: ['Theusrin'] } })
+  const p = createProject({
+    name: 'Thsr',
+    template: 'family',
+    appVersion: '0',
+    uiLocale: 'zh',
+    familyNames: { proto: 'PSkr', daughters: ['Theusrin'] }
+  })
   const proto = p.languages[0].id
   const tsr = p.languages[1].id
 
@@ -118,7 +144,12 @@ describe.skipIf(!has)('Theusrin CSV (private)', () => {
 
   it('proto roots (PSkr) import as morphemes losslessly', () => {
     const rows = read('瑟乌丝林语词表 - PSkr.csv')
-    const fields: Record<string, FieldSpec> = { 词根: { kind: 'lemma' }, 释义: { kind: 'definition', lang: 'zh' }, 备注: { kind: 'notes' }, 词性: { kind: 'tags' } }
+    const fields: Record<string, FieldSpec> = {
+      词根: { kind: 'lemma' },
+      释义: { kind: 'definition', lang: 'zh' },
+      备注: { kind: 'notes' },
+      词性: { kind: 'tags' }
+    }
     const m = mappingFor(rows[0], fields, proto, 'morphemes')
     const r = applyCsvImport(p, rows, m)
     expect(r.created).toBeGreaterThan(1200)
@@ -127,7 +158,8 @@ describe.skipIf(!has)('Theusrin CSV (private)', () => {
     expect(p.morphemes).toHaveLength(data.length)
     data.forEach((row, i) => {
       const json = JSON.stringify(p.morphemes[i])
-      for (const v of row.slice(0, 3)) if (v.trim()) expect(json).toContain(JSON.stringify(v.trim()).slice(1, -1))
+      for (const v of row.slice(0, 3))
+        if (v.trim()) expect(json).toContain(JSON.stringify(v.trim()).slice(1, -1))
     })
   })
 })

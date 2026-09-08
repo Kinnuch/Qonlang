@@ -7,7 +7,11 @@ import { languageParseOptions } from '$lib/engine/phon'
 
 const cache = new Map<string, { text: string; classes: string; program: RuleProgram }>()
 
-export function orthoProgram(lang: Language, ortho: Orthography, direction: 'toIpa' | 'fromIpa' = 'toIpa'): RuleProgram | null {
+export function orthoProgram(
+  lang: Language,
+  ortho: Orthography,
+  direction: 'toIpa' | 'fromIpa' = 'toIpa'
+): RuleProgram | null {
   const text = direction === 'toIpa' ? ortho.rulesToIpa : ortho.rulesFromIpa
   if (!text.trim()) return null
   const opts = languageParseOptions(lang)
@@ -45,6 +49,7 @@ export function derivePronunciations(lang: Language, lexeme: Lexeme): boolean {
 /** 整门语言重标音；返回改动的词条数 */
 export function deriveAll(project: Project, lang: Language): number {
   let n = 0
-  for (const l of project.lexemes) if (l.languageId === lang.id && derivePronunciations(lang, l)) n++
+  for (const l of project.lexemes)
+    if (l.languageId === lang.id && derivePronunciations(lang, l)) n++
   return n
 }

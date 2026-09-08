@@ -31,8 +31,33 @@
   import { X, Search, GripHorizontal, Star, Copy, CornerDownLeft, Trash2 } from '@lucide/svelte'
   import { fontCss } from '$lib/script/fonts'
 
-  type Tab = 'pulmonic' | 'nonPulmonic' | 'vowels' | 'diacritics' | 'supra' | 'tones' | 'symbols' | 'latin' | 'compose' | 'recent' | 'saved' | 'project'
-  const TABS: Tab[] = ['pulmonic', 'nonPulmonic', 'vowels', 'diacritics', 'supra', 'tones', 'symbols', 'latin', 'compose', 'recent', 'saved', 'project']
+  type Tab =
+    | 'pulmonic'
+    | 'nonPulmonic'
+    | 'vowels'
+    | 'diacritics'
+    | 'supra'
+    | 'tones'
+    | 'symbols'
+    | 'latin'
+    | 'compose'
+    | 'recent'
+    | 'saved'
+    | 'project'
+  const TABS: Tab[] = [
+    'pulmonic',
+    'nonPulmonic',
+    'vowels',
+    'diacritics',
+    'supra',
+    'tones',
+    'symbols',
+    'latin',
+    'compose',
+    'recent',
+    'saved',
+    'project'
+  ]
   let tab = $state<Tab>('pulmonic')
   let query = $state('')
   let normalize = $state(true)
@@ -113,11 +138,20 @@
   }
 
   const projectPhonemes = $derived(projectState.currentLanguage?.phonemes ?? [])
-  const projectScripts = $derived((projectState.currentLanguage?.scripts ?? []).filter((s) => s.glyphs.length))
+  const projectScripts = $derived(
+    (projectState.currentLanguage?.scripts ?? []).filter((s) => s.glyphs.length)
+  )
 </script>
 
 {#snippet symButton(s: string, info: Sym | undefined, big = false)}
-  <button class="sym" class:big title={title(s, info)} onmousedown={keepFocus} onclick={() => insert(s)} oncontextmenu={(e) => onContext(e, s)}>{show(info ?? s)}</button>
+  <button
+    class="sym"
+    class:big
+    title={title(s, info)}
+    onmousedown={keepFocus}
+    onclick={() => insert(s)}
+    oncontextmenu={(e) => onContext(e, s)}>{show(info ?? s)}</button
+  >
 {/snippet}
 
 {#snippet grid(items: Sym[])}
@@ -129,15 +163,31 @@
 {/snippet}
 
 {#if chars.open}
-  <div class="char-panel card" style:left={`${chars.pos.x}px`} style:bottom={`${chars.pos.y}px`} role="dialog" aria-label={t('chars.title')}>
-    <div class="head" role="toolbar" aria-label={t('chars.title')} tabindex="-1" onpointerdown={startDrag}>
+  <div
+    class="char-panel card"
+    style:left={`${chars.pos.x}px`}
+    style:bottom={`${chars.pos.y}px`}
+    role="dialog"
+    aria-label={t('chars.title')}
+  >
+    <div
+      class="head"
+      role="toolbar"
+      aria-label={t('chars.title')}
+      tabindex="-1"
+      onpointerdown={startDrag}
+    >
       <GripHorizontal size={14} />
       <strong>{t('chars.title')}</strong>
       <label class="search row grow">
         <Search size={14} />
         <input class="input" bind:value={query} placeholder={t('chars.search')} />
       </label>
-      <button class="btn ghost icon sm" onclick={() => (chars.open = false)} title={t('common.close')}><X size={14} /></button>
+      <button
+        class="btn ghost icon sm"
+        onclick={() => (chars.open = false)}
+        title={t('common.close')}><X size={14} /></button
+      >
     </div>
 
     {#if query.trim()}
@@ -159,7 +209,12 @@
     {:else}
       <div class="tabs">
         {#each TABS as tb (tb)}
-          <button class="tab" class:active={tab === tb} onmousedown={keepFocus} onclick={() => (tab = tb)}>{t(`chars.tabs.${tb}`)}</button>
+          <button
+            class="tab"
+            class:active={tab === tb}
+            onmousedown={keepFocus}
+            onclick={() => (tab = tb)}>{t(`chars.tabs.${tb}`)}</button
+          >
         {/each}
       </div>
       <div class="body">
@@ -167,7 +222,10 @@
           <div class="table-wrap">
             <table class="chart">
               <thead>
-                <tr><th></th>{#each PLACES as p (p.en)}<th>{i18n.locale === 'zh' ? p.zh : p.en}</th>{/each}</tr>
+                <tr
+                  ><th></th>{#each PLACES as p (p.en)}<th>{i18n.locale === 'zh' ? p.zh : p.en}</th
+                    >{/each}</tr
+                >
               </thead>
               <tbody>
                 {#each PULMONIC as row, mi (mi)}
@@ -175,8 +233,14 @@
                     <th>{i18n.locale === 'zh' ? MANNERS[mi].zh : MANNERS[mi].en}</th>
                     {#each row as cell, pi (pi)}
                       <td>
-                        {#if cell[0]}{@render symButton(cell[0], { s: cell[0], ...consonantName(mi, pi, false) })}{:else}<span class="ph"></span>{/if}
-                        {#if cell[1]}{@render symButton(cell[1], { s: cell[1], ...consonantName(mi, pi, true) })}{:else}<span class="ph"></span>{/if}
+                        {#if cell[0]}{@render symButton(cell[0], {
+                            s: cell[0],
+                            ...consonantName(mi, pi, false)
+                          })}{:else}<span class="ph"></span>{/if}
+                        {#if cell[1]}{@render symButton(cell[1], {
+                            s: cell[1],
+                            ...consonantName(mi, pi, true)
+                          })}{:else}<span class="ph"></span>{/if}
                       </td>
                     {/each}
                   </tr>
@@ -195,7 +259,10 @@
           <div class="table-wrap">
             <table class="chart">
               <thead>
-                <tr><th></th>{#each BACKNESS as b (b.en)}<th>{i18n.locale === 'zh' ? b.zh : b.en}</th>{/each}</tr>
+                <tr
+                  ><th></th>{#each BACKNESS as b (b.en)}<th>{i18n.locale === 'zh' ? b.zh : b.en}</th
+                    >{/each}</tr
+                >
               </thead>
               <tbody>
                 {#each VOWELS as row, hi (hi)}
@@ -203,8 +270,14 @@
                     <th>{i18n.locale === 'zh' ? HEIGHTS[hi].zh : HEIGHTS[hi].en}</th>
                     {#each row as cell, bi (bi)}
                       <td>
-                        {#if cell[0]}{@render symButton(cell[0], { s: cell[0], ...vowelName(hi, bi, false) })}{:else}<span class="ph"></span>{/if}
-                        {#if cell[1]}{@render symButton(cell[1], { s: cell[1], ...vowelName(hi, bi, true) })}{:else}<span class="ph"></span>{/if}
+                        {#if cell[0]}{@render symButton(cell[0], {
+                            s: cell[0],
+                            ...vowelName(hi, bi, false)
+                          })}{:else}<span class="ph"></span>{/if}
+                        {#if cell[1]}{@render symButton(cell[1], {
+                            s: cell[1],
+                            ...vowelName(hi, bi, true)
+                          })}{:else}<span class="ph"></span>{/if}
                       </td>
                     {/each}
                   </tr>
@@ -227,19 +300,31 @@
         {:else if tab === 'supra'}
           <div class="grid labeled">
             {#each SUPRASEGMENTALS as s (s.s)}
-              <div class="cell">{@render symButton(s.s, s)}<span class="small muted">{i18n.locale === 'zh' ? s.zh : s.en}</span></div>
+              <div class="cell">
+                {@render symButton(s.s, s)}<span class="small muted"
+                  >{i18n.locale === 'zh' ? s.zh : s.en}</span
+                >
+              </div>
             {/each}
           </div>
         {:else if tab === 'tones'}
           <div class="grid labeled">
             {#each TONES as s (s.s)}
-              <div class="cell">{@render symButton(s.s, s)}<span class="small muted">{i18n.locale === 'zh' ? s.zh : s.en}</span></div>
+              <div class="cell">
+                {@render symButton(s.s, s)}<span class="small muted"
+                  >{i18n.locale === 'zh' ? s.zh : s.en}</span
+                >
+              </div>
             {/each}
           </div>
         {:else if tab === 'symbols'}
           <div class="grid labeled">
             {#each SYMBOLS as s (s.s)}
-              <div class="cell">{@render symButton(s.s, s)}<span class="small muted">{i18n.locale === 'zh' ? s.zh : s.en}</span></div>
+              <div class="cell">
+                {@render symButton(s.s, s)}<span class="small muted"
+                  >{i18n.locale === 'zh' ? s.zh : s.en}</span
+                >
+              </div>
             {/each}
           </div>
         {:else if tab === 'latin'}
@@ -260,32 +345,60 @@
               <div class="cps">
                 <span class="small muted">{t('chars.codepoints')}</span>
                 {#each Array.from(composed) as c, i (i)}
-                  <span class="cp small"><span class="mono">{codepoints(c)[0]}</span> {symbolInfo(c) ? (i18n.locale === 'zh' ? symbolInfo(c)!.zh : symbolInfo(c)!.en) : ''}</span>
+                  <span class="cp small"
+                    ><span class="mono">{codepoints(c)[0]}</span>
+                    {symbolInfo(c)
+                      ? i18n.locale === 'zh'
+                        ? symbolInfo(c)!.zh
+                        : symbolInfo(c)!.en
+                      : ''}</span
+                  >
                 {/each}
               </div>
             </div>
             <div class="row">
-              <button class="btn primary sm" disabled={!composed} onmousedown={keepFocus} onclick={insertComposed}><CornerDownLeft size={14} />{t('chars.insert')}</button>
-              <button class="btn sm" disabled={!composed} onclick={copyComposed}><Copy size={14} />{t('chars.copy')}</button>
-              <button class="btn sm" disabled={!composed} onclick={() => chars.save(composed)}><Star size={14} />{t('chars.saveCombo')}</button>
-              <button class="btn ghost sm" onclick={() => (chars.compose = '')}>{t('chars.clear')}</button>
-              <label class="row small muted grow" style="justify-content:flex-end"><input type="checkbox" bind:checked={normalize} />{t('chars.normalize')}</label>
+              <button
+                class="btn primary sm"
+                disabled={!composed}
+                onmousedown={keepFocus}
+                onclick={insertComposed}><CornerDownLeft size={14} />{t('chars.insert')}</button
+              >
+              <button class="btn sm" disabled={!composed} onclick={copyComposed}
+                ><Copy size={14} />{t('chars.copy')}</button
+              >
+              <button class="btn sm" disabled={!composed} onclick={() => chars.save(composed)}
+                ><Star size={14} />{t('chars.saveCombo')}</button
+              >
+              <button class="btn ghost sm" onclick={() => (chars.compose = '')}
+                >{t('chars.clear')}</button
+              >
+              <label class="row small muted grow" style="justify-content:flex-end"
+                ><input type="checkbox" bind:checked={normalize} />{t('chars.normalize')}</label
+              >
             </div>
             <p class="small muted">{t('chars.composeHint')}</p>
             <div class="grid labeled">
               {#each DIACRITICS as s (s.s)}
                 <div class="cell">
-                  <button class="sym" title={title(s.s, s)} onclick={() => appendMark(s.s)}>{show(s)}</button>
+                  <button class="sym" title={title(s.s, s)} onclick={() => appendMark(s.s)}
+                    >{show(s)}</button
+                  >
                   <span class="small muted">{i18n.locale === 'zh' ? s.zh : s.en}</span>
                 </div>
               {/each}
               {#each TONES.filter((x) => x.combining) as s (s.s)}
                 <div class="cell">
-                  <button class="sym" title={title(s.s, s)} onclick={() => appendMark(s.s)}>{show(s)}</button>
+                  <button class="sym" title={title(s.s, s)} onclick={() => appendMark(s.s)}
+                    >{show(s)}</button
+                  >
                   <span class="small muted">{i18n.locale === 'zh' ? s.zh : s.en}</span>
                 </div>
               {/each}
-              <div class="cell"><button class="sym" onclick={() => appendMark('ː')}>ː</button><span class="small muted">{i18n.locale === 'zh' ? '长' : 'long'}</span></div>
+              <div class="cell">
+                <button class="sym" onclick={() => appendMark('ː')}>ː</button><span
+                  class="small muted">{i18n.locale === 'zh' ? '长' : 'long'}</span
+                >
+              </div>
             </div>
           </div>
         {:else if tab === 'recent'}
@@ -304,7 +417,9 @@
               {#each ui.prefs.savedSymbols as s (s)}
                 <span class="saved">
                   {@render symButton(s, undefined)}
-                  <button class="rm" title={t('chars.removeSaved')} onclick={() => chars.unsave(s)}><Trash2 size={11} /></button>
+                  <button class="rm" title={t('chars.removeSaved')} onclick={() => chars.unsave(s)}
+                    ><Trash2 size={11} /></button
+                  >
                 </span>
               {/each}
             </div>
@@ -323,7 +438,13 @@
               <p class="small muted">{t('chars.projectScript')} · {sc.name}</p>
               <div class="grid" style={fontCss(sc)}>
                 {#each sc.glyphs as g (g.id)}
-                  <button class="sym" title={[g.value, g.name].filter(Boolean).join(' · ')} onmousedown={keepFocus} onclick={() => insert(g.char)} oncontextmenu={(e) => onContext(e, g.char)}>{g.char}</button>
+                  <button
+                    class="sym"
+                    title={[g.value, g.name].filter(Boolean).join(' · ')}
+                    onmousedown={keepFocus}
+                    onclick={() => insert(g.char)}
+                    oncontextmenu={(e) => onContext(e, g.char)}>{g.char}</button
+                  >
                 {/each}
               </div>
             {/each}

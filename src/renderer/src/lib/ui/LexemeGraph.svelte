@@ -6,7 +6,11 @@
   import type { Id, Project } from '$lib/core/model'
   import { t, pickText } from '$lib/i18n/index.svelte'
 
-  let { project, lexemeId, onselect }: { project: Project; lexemeId: Id; onselect: (id: Id) => void } = $props()
+  let {
+    project,
+    lexemeId,
+    onselect
+  }: { project: Project; lexemeId: Id; onselect: (id: Id) => void } = $props()
 
   interface GNode {
     key: string
@@ -42,36 +46,137 @@
     const sources: GNode[] = c.etymology.sources.map((s, i): GNode => {
       if (s.kind === 'morpheme') {
         const m = project.morphemes.find((x) => x.id === s.id)
-        return { key: `src${i}`, label: m?.form ?? '?', sub: m ? m.gloss || pickText(m.meaning, glossLangs) : '', lexemeId: null, kind: 'morpheme', edge: t('morphemes.title'), x: 0, y: 0 }
+        return {
+          key: `src${i}`,
+          label: m?.form ?? '?',
+          sub: m ? m.gloss || pickText(m.meaning, glossLangs) : '',
+          lexemeId: null,
+          kind: 'morpheme',
+          edge: t('morphemes.title'),
+          x: 0,
+          y: 0
+        }
       }
       if (s.kind === 'lexeme') {
         const x = project.lexemes.find((y) => y.id === s.id)
-        return { key: `src${i}`, label: x?.lemma ?? '?', sub: x ? defOf(x.id) : '', lexemeId: x?.id ?? null, kind: 'lexeme', edge: t('lexicon.sourceKinds.lexeme'), x: 0, y: 0 }
+        return {
+          key: `src${i}`,
+          label: x?.lemma ?? '?',
+          sub: x ? defOf(x.id) : '',
+          lexemeId: x?.id ?? null,
+          kind: 'lexeme',
+          edge: t('lexicon.sourceKinds.lexeme'),
+          x: 0,
+          y: 0
+        }
       }
-      return { key: `src${i}`, label: s.form, sub: [s.language, s.meaning].filter(Boolean).join(' · '), lexemeId: null, kind: 'external', edge: t('lexicon.sourceKinds.external'), x: 0, y: 0 }
+      return {
+        key: `src${i}`,
+        label: s.form,
+        sub: [s.language, s.meaning].filter(Boolean).join(' · '),
+        lexemeId: null,
+        kind: 'external',
+        edge: t('lexicon.sourceKinds.external'),
+        x: 0,
+        y: 0
+      }
     })
     const derived: GNode[] = project.lexemes
-      .filter((x) => x.id !== c.id && x.etymology.sources.some((s) => s.kind === 'lexeme' && s.id === c.id))
-      .map((x) => ({ key: `der${x.id}`, label: x.lemma, sub: defOf(x.id), lexemeId: x.id, kind: 'lexeme', edge: t(`lexicon.etyTypes.${x.etymology.type}`), x: 0, y: 0 }))
-    const mySources = new Set(c.etymology.sources.filter((s) => s.kind !== 'external').map((s) => (s as { id: Id }).id))
+      .filter(
+        (x) =>
+          x.id !== c.id && x.etymology.sources.some((s) => s.kind === 'lexeme' && s.id === c.id)
+      )
+      .map((x) => ({
+        key: `der${x.id}`,
+        label: x.lemma,
+        sub: defOf(x.id),
+        lexemeId: x.id,
+        kind: 'lexeme',
+        edge: t(`lexicon.etyTypes.${x.etymology.type}`),
+        x: 0,
+        y: 0
+      }))
+    const mySources = new Set(
+      c.etymology.sources.filter((s) => s.kind !== 'external').map((s) => (s as { id: Id }).id)
+    )
     const cognates: GNode[] = project.lexemes
       .filter((x) => x.id !== c.id && !derived.some((d) => d.lexemeId === x.id))
-      .filter((x) => x.etymology.sources.some((s) => s.kind !== 'external' && mySources.has((s as { id: Id }).id)) || (!!c.etymology.protoForm && x.etymology.protoForm === c.etymology.protoForm))
+      .filter(
+        (x) =>
+          x.etymology.sources.some(
+            (s) => s.kind !== 'external' && mySources.has((s as { id: Id }).id)
+          ) ||
+          (!!c.etymology.protoForm && x.etymology.protoForm === c.etymology.protoForm)
+      )
       .slice(0, 24)
-      .map((x) => ({ key: `cog${x.id}`, label: x.lemma, sub: [project.languages.find((l) => l.id === x.languageId)?.abbr, defOf(x.id)].filter(Boolean).join(' · '), lexemeId: x.id, kind: 'lexeme', edge: t('lexicon.groups.cognates'), x: 0, y: 0 }))
+      .map((x) => ({
+        key: `cog${x.id}`,
+        label: x.lemma,
+        sub: [project.languages.find((l) => l.id === x.languageId)?.abbr, defOf(x.id)]
+          .filter(Boolean)
+          .join(' · '),
+        lexemeId: x.id,
+        kind: 'lexeme',
+        edge: t('lexicon.groups.cognates'),
+        x: 0,
+        y: 0
+      }))
     const relations: GNode[] = [
-      ...c.relations.map((r) => ({ key: `rel${r.lexemeId}${r.kind}`, label: project.lexemes.find((x) => x.id === r.lexemeId)?.lemma ?? '?', sub: defOf(r.lexemeId), lexemeId: r.lexemeId, kind: 'lexeme' as const, edge: relLabel(r.kind), x: 0, y: 0 })),
+      ...c.relations.map((r) => ({
+        key: `rel${r.lexemeId}${r.kind}`,
+        label: project.lexemes.find((x) => x.id === r.lexemeId)?.lemma ?? '?',
+        sub: defOf(r.lexemeId),
+        lexemeId: r.lexemeId,
+        kind: 'lexeme' as const,
+        edge: relLabel(r.kind),
+        x: 0,
+        y: 0
+      })),
       ...project.lexemes
-        .filter((x) => x.id !== c.id && x.relations.some((r) => r.lexemeId === c.id) && !c.relations.some((r) => r.lexemeId === x.id))
-        .map((x) => ({ key: `rev${x.id}`, label: x.lemma, sub: defOf(x.id), lexemeId: x.id, kind: 'lexeme' as const, edge: '← ' + relLabel(x.relations.find((r) => r.lexemeId === c.id)!.kind), x: 0, y: 0 }))
+        .filter(
+          (x) =>
+            x.id !== c.id &&
+            x.relations.some((r) => r.lexemeId === c.id) &&
+            !c.relations.some((r) => r.lexemeId === x.id)
+        )
+        .map((x) => ({
+          key: `rev${x.id}`,
+          label: x.lemma,
+          sub: defOf(x.id),
+          lexemeId: x.id,
+          kind: 'lexeme' as const,
+          edge: '← ' + relLabel(x.relations.find((r) => r.lexemeId === c.id)!.kind),
+          x: 0,
+          y: 0
+        }))
     ]
-    const myDefs = new Set(c.senses.flatMap((s) => Object.values(s.definition).map((d) => d.trim()).filter(Boolean)))
+    const myDefs = new Set(
+      c.senses.flatMap((s) =>
+        Object.values(s.definition)
+          .map((d) => d.trim())
+          .filter(Boolean)
+      )
+    )
     const synonyms: GNode[] = myDefs.size
       ? project.lexemes
-          .filter((x) => x.id !== c.id && x.languageId === c.languageId && x.senses.some((s) => Object.values(s.definition).some((d) => myDefs.has(d.trim()))))
+          .filter(
+            (x) =>
+              x.id !== c.id &&
+              x.languageId === c.languageId &&
+              x.senses.some((s) => Object.values(s.definition).some((d) => myDefs.has(d.trim())))
+          )
           .filter((x) => !relations.some((r) => r.lexemeId === x.id))
           .slice(0, 16)
-          .map((x) => ({ key: `syn${x.id}`, label: x.lemma, sub: defOf(x.id), lexemeId: x.id, kind: 'lexeme' as const, edge: t('lexicon.groups.synonyms'), x: 0, y: 0 }))
+          .map((x) => ({
+            key: `syn${x.id}`,
+            label: x.lemma,
+            sub: defOf(x.id),
+            lexemeId: x.id,
+            kind: 'lexeme' as const,
+            edge: t('lexicon.groups.synonyms'),
+            x: 0,
+            y: 0
+          }))
       : []
     return [
       { key: 'sources', nodes: sources, angle: 180 },
@@ -110,7 +215,9 @@
   <p class="muted">{t('lexicon.noGraph')}</p>
 {:else}
   <div class="legend">
-    {#each groups as g (g.key)}<span class="badge">{t(`lexicon.groups.${g.key}`)} {g.nodes.length}</span>{/each}
+    {#each groups as g (g.key)}<span class="badge"
+        >{t(`lexicon.groups.${g.key}`)} {g.nodes.length}</span
+      >{/each}
   </div>
   <div class="wrap">
     <svg viewBox={`0 0 ${W} ${H}`} class="graph">
@@ -122,7 +229,15 @@
       {/each}
       {#each laid as { nodes } (nodes[0]?.key + 'n')}
         {#each nodes as n (n.key)}
-          <g class="node {n.kind}" class:clickable={!!n.lexemeId} transform={`translate(${n.x}, ${n.y})`} role="button" tabindex="-1" onclick={() => n.lexemeId && onselect(n.lexemeId)} onkeydown={(e) => e.key === 'Enter' && n.lexemeId && onselect(n.lexemeId)}>
+          <g
+            class="node {n.kind}"
+            class:clickable={!!n.lexemeId}
+            transform={`translate(${n.x}, ${n.y})`}
+            role="button"
+            tabindex="-1"
+            onclick={() => n.lexemeId && onselect(n.lexemeId)}
+            onkeydown={(e) => e.key === 'Enter' && n.lexemeId && onselect(n.lexemeId)}
+          >
             <rect x="-56" y="-18" width="112" height="36" rx="10" />
             <text y="-2" class="label">{n.label}</text>
             <text y="12" class="sub">{n.sub.length > 16 ? n.sub.slice(0, 15) + '…' : n.sub}</text>
@@ -132,7 +247,9 @@
       <g class="node center" transform={`translate(${cx}, ${cy})`}>
         <rect x="-70" y="-24" width="140" height="48" rx="12" />
         <text y="-4" class="label big">{center.lemma}</text>
-        <text y="14" class="sub">{pickText(center.senses[0]?.definition, glossLangs).slice(0, 18)}</text>
+        <text y="14" class="sub"
+          >{pickText(center.senses[0]?.definition, glossLangs).slice(0, 18)}</text
+        >
       </g>
     </svg>
   </div>

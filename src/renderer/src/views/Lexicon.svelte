@@ -11,8 +11,14 @@
   import { derivePronunciations } from '$lib/core/pronounce'
   import { lexemeScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
-  import { paradigmFor, paradigmSlots, deriveForms, makeContext } from '$lib/engine/morph'
-  import type { EtymologySource, Id, Lexeme } from '$lib/core/model'
+  import {
+    paradigmFor,
+    paradigmSlots,
+    deriveForms,
+    makeContext,
+    type SlotDef
+  } from '$lib/engine/morph'
+  import type { EtymologySource, Id, Lexeme, Paradigm, Script } from '$lib/core/model'
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
@@ -22,7 +28,22 @@
   import LexemeCard from '$lib/ui/LexemeCard.svelte'
   import LexemeGraph from '$lib/ui/LexemeGraph.svelte'
   import Taxonomy from './Taxonomy.svelte'
-  import { Plus, Trash2, X, Copy, Upload, Download, AlertTriangle, Eye, Pencil, Columns3, Waypoints, ArrowLeft, Wand2, RotateCcw } from '@lucide/svelte'
+  import {
+    Plus,
+    Trash2,
+    X,
+    Copy,
+    Upload,
+    Download,
+    AlertTriangle,
+    Eye,
+    Pencil,
+    Columns3,
+    Waypoints,
+    ArrowLeft,
+    Wand2,
+    RotateCcw
+  } from '@lucide/svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -64,7 +85,8 @@
   const inLang = $derived(project.lexemes.filter((l) => !langId || l.languageId === langId))
   const lemmaCounts = $derived.by(() => {
     const m = new Map<string, number>()
-    for (const l of inLang) m.set(l.languageId + ' ' + l.lemma, (m.get(l.languageId + ' ' + l.lemma) ?? 0) + 1)
+    for (const l of inLang)
+      m.set(l.languageId + ' ' + l.lemma, (m.get(l.languageId + ' ' + l.lemma) ?? 0) + 1)
     return m
   })
   const collator = $derived(makeCollator(language?.alphabet ?? []))
@@ -73,7 +95,14 @@
     const arr = inLang.filter((l) => {
       if (posFilter && l.posId !== posFilter) return false
       if (tagFilter && !l.tags.includes(tagFilter)) return false
-      if (q && !(l.lemma.toLowerCase().includes(q) || l.senses.some((s) => Object.values(s.definition).some((d) => d.toLowerCase().includes(q))))) return false
+      if (
+        q &&
+        !(
+          l.lemma.toLowerCase().includes(q) ||
+          l.senses.some((s) => Object.values(s.definition).some((d) => d.toLowerCase().includes(q)))
+        )
+      )
+        return false
       return true
     })
     if (sort === 'alphabet') arr.sort((a, b) => collator(a.lemma, b.lemma))
@@ -83,11 +112,27 @@
   const selected = $derived(project.lexemes.find((l) => l.id === selectedId) ?? null)
   const allTags = $derived([...new Set(project.lexemes.flatMap((l) => l.tags))].sort())
   const isDup = (l: Lexeme): boolean => (lemmaCounts.get(l.languageId + ' ' + l.lemma) ?? 0) > 1
-  const selLang = $derived(selected ? project.languages.find((x) => x.id === selected.languageId) : null)
-  const relationKinds = $derived([...new Set(['synonym', 'antonym', 'related', ...project.lexemes.flatMap((l) => l.relations.map((r) => r.kind))])].filter(Boolean))
+  const selLang = $derived(
+    selected ? project.languages.find((x) => x.id === selected.languageId) : null
+  )
+  const relationKinds = $derived(
+    [
+      ...new Set([
+        'synonym',
+        'antonym',
+        'related',
+        ...project.lexemes.flatMap((l) => l.relations.map((r) => r.kind))
+      ])
+    ].filter(Boolean)
+  )
 
   $effect(() => {
-    inspectorTitle = mode === 'taxonomy' ? t('taxonomy.title') : selected ? selected.lemma || t('lexicon.title') : t('lexicon.title')
+    inspectorTitle =
+      mode === 'taxonomy'
+        ? t('taxonomy.title')
+        : selected
+          ? selected.lemma || t('lexicon.title')
+          : t('lexicon.title')
   })
 
   // ───── 列 ─────
@@ -97,42 +142,69 @@
   }
   const availableColumns = $derived.by((): Col[] => {
     const cols: Col[] = [{ key: 'pos', label: t('lexicon.colPos') }]
-    for (const g of glossLangs) cols.push({ key: `def:${g}`, label: `${t('lexicon.colDefinition')} (${g})` })
-    cols.push({ key: 'tags', label: t('lexicon.colTags') }, { key: 'proto', label: t('lexicon.colProto') }, { key: 'pron', label: t('lexicon.colPron') })
-    for (const c of project.categories) cols.push({ key: `feat:${c.id}`, label: `${t('lexicon.colFeature')}: ${pickText(c.name, glossLangs)}` })
-    for (const lg of project.languages) if (!selLang || lg.id === selLang.id) for (const sc of lg.scripts) cols.push({ key: `script:${sc.id}`, label: t('script.lexiconColumn', { name: sc.name }) })
+    for (const g of glossLangs)
+      cols.push({ key: `def:${g}`, label: `${t('lexicon.colDefinition')} (${g})` })
+    cols.push(
+      { key: 'tags', label: t('lexicon.colTags') },
+      { key: 'proto', label: t('lexicon.colProto') },
+      { key: 'pron', label: t('lexicon.colPron') }
+    )
+    for (const c of project.categories)
+      cols.push({
+        key: `feat:${c.id}`,
+        label: `${t('lexicon.colFeature')}: ${pickText(c.name, glossLangs)}`
+      })
+    for (const lg of project.languages)
+      if (!selLang || lg.id === selLang.id)
+        for (const sc of lg.scripts)
+          cols.push({ key: `script:${sc.id}`, label: t('script.lexiconColumn', { name: sc.name }) })
     const stems = new Set<string>()
     const forms = new Set<string>()
     for (const l of inLang) {
       for (const k of Object.keys(l.stems)) stems.add(k)
       for (const k of Object.keys(l.forms)) forms.add(k)
     }
-    for (const s of [...stems].sort()) cols.push({ key: `stem:${s}`, label: `${t('lexicon.colStem')}: ${s}` })
-    for (const f of [...forms].sort()) cols.push({ key: `form:${f}`, label: `${t('lexicon.colForm')}: ${f}` })
+    for (const s of [...stems].sort())
+      cols.push({ key: `stem:${s}`, label: `${t('lexicon.colStem')}: ${s}` })
+    for (const f of [...forms].sort())
+      cols.push({ key: `form:${f}`, label: `${t('lexicon.colForm')}: ${f}` })
     cols.push({ key: 'updated', label: t('lexicon.colUpdated') })
     return cols
   })
   const activeColumns = $derived.by((): Col[] => {
-    const keys = project.settings.lexiconColumns.length ? project.settings.lexiconColumns : ['pos', `def:${glossLangs[0] ?? 'zh'}`, 'tags']
+    const keys = project.settings.lexiconColumns.length
+      ? project.settings.lexiconColumns
+      : ['pos', `def:${glossLangs[0] ?? 'zh'}`, 'tags']
     return keys.map((k) => availableColumns.find((c) => c.key === k)).filter((c): c is Col => !!c)
   })
   function toggleColumn(key: string): void {
-    const cur = project.settings.lexiconColumns.length ? [...project.settings.lexiconColumns] : activeColumns.map((c) => c.key)
+    const cur = project.settings.lexiconColumns.length
+      ? [...project.settings.lexiconColumns]
+      : activeColumns.map((c) => c.key)
     const idx = cur.indexOf(key)
     if (idx >= 0) cur.splice(idx, 1)
     else cur.push(key)
-    project.settings.lexiconColumns = availableColumns.map((c) => c.key).filter((k) => cur.includes(k))
+    project.settings.lexiconColumns = availableColumns
+      .map((c) => c.key)
+      .filter((k) => cur.includes(k))
     projectState.touch()
   }
   function cell(l: Lexeme, key: string): string {
     if (key === 'pos') return posLabel(l.posId)
     if (key.startsWith('def:')) {
       const g = key.slice(4)
-      return l.senses.map((s) => s.definition[g] ?? '').filter(Boolean).join(' | ')
+      return l.senses
+        .map((s) => s.definition[g] ?? '')
+        .filter(Boolean)
+        .join(' | ')
     }
     if (key === 'tags') return l.tags.join(', ')
     if (key === 'proto') return l.etymology.protoForm
-    if (key === 'pron') return Object.values(l.pronunciations).map((p) => p.ipa).filter(Boolean).join(' / ')
+    if (key === 'pron')
+      return Object.values(l.pronunciations)
+        .map((p) => p.ipa)
+        .filter(Boolean)
+        .join(' / ')
     if (key.startsWith('feat:')) {
       const cid = key.slice(5)
       const vid = l.features[cid]
@@ -149,11 +221,12 @@
     if (key === 'updated') return l.updatedAt.slice(0, 10)
     return ''
   }
-  function scriptOf(id: string) {
+  function scriptOf(id: string): Script | null {
     for (const lg of project.languages) for (const sc of lg.scripts) if (sc.id === id) return sc
     return null
   }
-  const dataCol = (key: string): boolean => key === 'proto' || key === 'pron' || key.startsWith('stem:') || key.startsWith('form:')
+  const dataCol = (key: string): boolean =>
+    key === 'proto' || key === 'pron' || key.startsWith('stem:') || key.startsWith('form:')
 
   function posLabel(id: Id | null): string {
     const p = project.posList.find((x) => x.id === id)
@@ -221,15 +294,16 @@
   }
   function setSourceByText(s: EtymologySource, text: string): void {
     if (s.kind === 'morpheme') s.id = project.morphemes.find((m) => m.form === text)?.id ?? ''
-    else if (s.kind === 'lexeme') s.id = project.lexemes.find((m) => m.lemma === text && m.id !== selectedId)?.id ?? ''
+    else if (s.kind === 'lexeme')
+      s.id = project.lexemes.find((m) => m.lemma === text && m.id !== selectedId)?.id ?? ''
   }
   function relLabel(kind: string): string {
     const k = t(`lexicon.relKinds.${kind}`)
     return k === `lexicon.relKinds.${kind}` ? kind : k
   }
 
-  const paradigmOf = (l: Lexeme) => paradigmFor(project, l)
-  const slotsOf = (l: Lexeme) => {
+  const paradigmOf = (l: Lexeme): Paradigm | null => paradigmFor(project, l)
+  const slotsOf = (l: Lexeme): SlotDef[] => {
     const p = paradigmFor(project, l)
     return p ? paradigmSlots(p, project.categories, glossLangs) : []
   }
@@ -253,7 +327,11 @@
     if (!f) return
     try {
       const file = parseLexc(f.content)
-      const r = mergeLexicanter(project, file, { definitionLang: glossLangs[0] ?? 'en', uiLocale: i18n.locale, appVersion: '' })
+      const r = mergeLexicanter(project, file, {
+        definitionLang: glossLangs[0] ?? 'en',
+        uiLocale: i18n.locale,
+        appVersion: ''
+      })
       touch()
       ui.toast(t('lexicon.lexicanterDone', { lexemes: r.lexemes, languages: r.languages.length }))
     } catch (e) {
@@ -261,8 +339,17 @@
     }
   }
   async function exportCsv(kind: 'lexemes' | 'morphemes'): Promise<void> {
-    const rows = kind === 'lexemes' ? lexemesToRows(project, inLang, glossLangs) : morphemesToRows(project.morphemes.filter((m) => !langId || m.languageId === langId), glossLangs)
-    await platform.saveTextFile(`${language?.name ?? project.meta.name}-${kind}.csv`, '﻿' + toCsv(rows))
+    const rows =
+      kind === 'lexemes'
+        ? lexemesToRows(project, inLang, glossLangs)
+        : morphemesToRows(
+            project.morphemes.filter((m) => !langId || m.languageId === langId),
+            glossLangs
+          )
+    await platform.saveTextFile(
+      `${language?.name ?? project.meta.name}-${kind}.csv`,
+      '﻿' + toCsv(rows)
+    )
   }
   function selectFromCard(id: Id): void {
     selectedId = id
@@ -275,23 +362,39 @@
   <div class="page-head row">
     <h1>{t('lexicon.title')}</h1>
     <div class="seg">
-      <button class:active={mode === 'entries'} onclick={() => (mode = 'entries')}>{t('lexicon.entries')}</button>
-      <button class:active={mode === 'taxonomy'} onclick={() => (mode = 'taxonomy')}>{t('lexicon.taxonomy')}</button>
+      <button class:active={mode === 'entries'} onclick={() => (mode = 'entries')}
+        >{t('lexicon.entries')}</button
+      >
+      <button class:active={mode === 'taxonomy'} onclick={() => (mode = 'taxonomy')}
+        >{t('lexicon.taxonomy')}</button
+      >
     </div>
     {#if mode === 'entries'}
       <div class="seg">
-        <button class:active={!editMode} title={t('lexicon.modeView')} onclick={() => (editMode = false)}><Eye size={14} />{t('lexicon.modeView')}</button>
-        <button class:active={editMode} title={t('lexicon.modeEdit')} onclick={() => (editMode = true)}><Pencil size={14} />{t('lexicon.modeEdit')}</button>
+        <button
+          class:active={!editMode}
+          title={t('lexicon.modeView')}
+          onclick={() => (editMode = false)}><Eye size={14} />{t('lexicon.modeView')}</button
+        >
+        <button
+          class:active={editMode}
+          title={t('lexicon.modeEdit')}
+          onclick={() => (editMode = true)}><Pencil size={14} />{t('lexicon.modeEdit')}</button
+        >
       </div>
     {/if}
     <span class="grow"></span>
     {#if mode === 'entries' && mainView === 'graph'}
-      <button class="btn" onclick={() => (mainView = 'list')}><ArrowLeft size={16} />{t('lexicon.backToList')}</button>
+      <button class="btn" onclick={() => (mainView = 'list')}
+        ><ArrowLeft size={16} />{t('lexicon.backToList')}</button
+      >
     {:else if mode === 'entries'}
       <input class="input search" placeholder={t('lexicon.search')} bind:value={query} />
       <select class="select filter" bind:value={posFilter}>
         <option value="">{t('lexicon.allPos')}</option>
-        {#each project.posList as p (p.id)}<option value={p.id}>{pickText(p.name, glossLangs) || p.abbr}</option>{/each}
+        {#each project.posList as p (p.id)}<option value={p.id}
+            >{pickText(p.name, glossLangs) || p.abbr}</option
+          >{/each}
       </select>
       <select class="select filter" bind:value={tagFilter}>
         <option value="">{t('lexicon.allTags')}</option>
@@ -302,11 +405,19 @@
         <option value="recent">{t('lexicon.sortRecent')}</option>
       </select>
       <div class="menu" class:open={columnsOpen}>
-        <button class="btn" onclick={() => (columnsOpen = !columnsOpen)}><Columns3 size={16} />{t('lexicon.columns')}</button>
+        <button class="btn" onclick={() => (columnsOpen = !columnsOpen)}
+          ><Columns3 size={16} />{t('lexicon.columns')}</button
+        >
         {#if columnsOpen}
           <div class="menu-list card cols">
             {#each availableColumns as c (c.key)}
-              <label class="row"><input type="checkbox" checked={activeColumns.some((a) => a.key === c.key)} onchange={() => toggleColumn(c.key)} />{c.label}</label>
+              <label class="row"
+                ><input
+                  type="checkbox"
+                  checked={activeColumns.some((a) => a.key === c.key)}
+                  onchange={() => toggleColumn(c.key)}
+                />{c.label}</label
+              >
             {/each}
           </div>
         {/if}
@@ -338,7 +449,9 @@
   {:else if mode === 'csv'}
     <div class="scroll"><CsvImportWizard onclose={() => (mode = 'entries')} /></div>
   {:else if mainView === 'graph' && selected}
-    <div class="scroll graph-wrap"><LexemeGraph {project} lexemeId={selected.id} onselect={selectFromCard} /></div>
+    <div class="scroll graph-wrap">
+      <LexemeGraph {project} lexemeId={selected.id} onselect={selectFromCard} />
+    </div>
   {:else if !project.languages.length}
     <p class="muted">{t('lexicon.noLanguage')}</p>
   {:else if list.length === 0}
@@ -356,17 +469,31 @@
         <tbody>
           {#each list.slice(0, limit) as l (l.id)}
             <tr class:sel={selectedId === l.id} onclick={() => (selectedId = l.id)}>
-              <td class="lemma data">{l.lemma || '—'}{#if isDup(l)}<span class="dup" title={t('lexicon.duplicate')}><AlertTriangle size={12} /></span>{/if}</td>
+              <td class="lemma data"
+                >{l.lemma || '—'}{#if isDup(l)}<span class="dup" title={t('lexicon.duplicate')}
+                    ><AlertTriangle size={12} /></span
+                  >{/if}</td
+              >
               {#each activeColumns as c (c.key)}
                 {#if c.key === 'pos'}
-                  <td class="pos">{#if l.posId}<span class="badge">{posLabel(l.posId)}</span>{/if}</td>
+                  <td class="pos"
+                    >{#if l.posId}<span class="badge">{posLabel(l.posId)}</span>{/if}</td
+                  >
                 {:else if c.key === 'tags'}
-                  <td class="tags-cell">{#each l.tags.slice(0, 4) as tg (tg)}<span class="badge">{tg}</span>{/each}</td>
+                  <td class="tags-cell"
+                    >{#each l.tags.slice(0, 4) as tg (tg)}<span class="badge">{tg}</span>{/each}</td
+                  >
                 {:else if c.key.startsWith('script:')}
                   {@const sc = scriptOf(c.key.slice(7))}
-                  <td class="scr" style={sc ? fontCss(sc) : ''} dir={sc?.direction === 'rtl' ? 'rtl' : 'ltr'}>{cell(l, c.key)}</td>
+                  <td
+                    class="scr"
+                    style={sc ? fontCss(sc) : ''}
+                    dir={sc?.direction === 'rtl' ? 'rtl' : 'ltr'}>{cell(l, c.key)}</td
+                  >
                 {:else}
-                  <td class:data={dataCol(c.key)} class:def={c.key.startsWith('def:')}>{cell(l, c.key)}</td>
+                  <td class:data={dataCol(c.key)} class:def={c.key.startsWith('def:')}
+                    >{cell(l, c.key)}</td
+                  >
                 {/if}
               {/each}
             </tr>
@@ -374,7 +501,9 @@
         </tbody>
       </table>
       {#if list.length > limit}
-        <button class="btn ghost sm more" onclick={() => (limit += 300)}>… {list.length - limit}</button>
+        <button class="btn ghost sm more" onclick={() => (limit += 300)}
+          >… {list.length - limit}</button
+        >
       {/if}
     </div>
   {/if}
@@ -384,8 +513,14 @@
   {@const l = selected}
   <Portal>
     <div class="row card-actions">
-      <button class="btn sm" onclick={() => (mainView = mainView === 'graph' ? 'list' : 'graph')}><Waypoints size={14} />{mainView === 'graph' ? t('lexicon.backToList') : t('lexicon.graph')}</button>
-      <button class="btn ghost sm" onclick={() => (editMode = true)}><Pencil size={14} />{t('lexicon.modeEdit')}</button>
+      <button class="btn sm" onclick={() => (mainView = mainView === 'graph' ? 'list' : 'graph')}
+        ><Waypoints size={14} />{mainView === 'graph'
+          ? t('lexicon.backToList')
+          : t('lexicon.graph')}</button
+      >
+      <button class="btn ghost sm" onclick={() => (editMode = true)}
+        ><Pencil size={14} />{t('lexicon.modeEdit')}</button
+      >
     </div>
     <LexemeCard lexeme={l} {project} onselect={selectFromCard} />
   </Portal>
@@ -395,20 +530,38 @@
   {@const l = selected}
   <Portal>
     <div class="row card-actions">
-      <button class="btn sm" onclick={() => (mainView = mainView === 'graph' ? 'list' : 'graph')}><Waypoints size={14} />{mainView === 'graph' ? t('lexicon.backToList') : t('lexicon.graph')}</button>
-      <button class="btn ghost sm" onclick={() => (editMode = false)}><Eye size={14} />{t('lexicon.modeView')}</button>
+      <button class="btn sm" onclick={() => (mainView = mainView === 'graph' ? 'list' : 'graph')}
+        ><Waypoints size={14} />{mainView === 'graph'
+          ? t('lexicon.backToList')
+          : t('lexicon.graph')}</button
+      >
+      <button class="btn ghost sm" onclick={() => (editMode = false)}
+        ><Eye size={14} />{t('lexicon.modeView')}</button
+      >
     </div>
     <div class="field">
       <label for="lx-lemma">{t('lexicon.lemma')}</label>
       <input id="lx-lemma" class="input data big" bind:value={l.lemma} oninput={() => touch(l)} />
-      {#if isDup(l)}<span class="hint warn"><AlertTriangle size={12} /> {t('lexicon.duplicate')}</span>{/if}
+      {#if isDup(l)}<span class="hint warn"
+          ><AlertTriangle size={12} /> {t('lexicon.duplicate')}</span
+        >{/if}
     </div>
     <div class="row two">
       <div class="field grow">
         <label for="lx-pos">{t('lexicon.pos')}</label>
-        <select id="lx-pos" class="select" value={l.posId ?? ''} onchange={(e) => { l.posId = (e.currentTarget as HTMLSelectElement).value || null; touch(l) }}>
+        <select
+          id="lx-pos"
+          class="select"
+          value={l.posId ?? ''}
+          onchange={(e) => {
+            l.posId = (e.currentTarget as HTMLSelectElement).value || null
+            touch(l)
+          }}
+        >
           <option value="">{t('lexicon.noPos')}</option>
-          {#each project.posList as p (p.id)}<option value={p.id}>{pickText(p.name, glossLangs) || p.abbr}</option>{/each}
+          {#each project.posList as p (p.id)}<option value={p.id}
+              >{pickText(p.name, glossLangs) || p.abbr}</option
+            >{/each}
         </select>
       </div>
       <div class="field grow">
@@ -425,9 +578,20 @@
         {#each project.categories as c (c.id)}
           <label class="row feat">
             <span class="grow small">{pickText(c.name, glossLangs)}</span>
-            <select class="select" value={l.features[c.id] ?? ''} onchange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value; if (v) l.features[c.id] = v; else delete l.features[c.id]; touch(l) }}>
+            <select
+              class="select"
+              value={l.features[c.id] ?? ''}
+              onchange={(e) => {
+                const v = (e.currentTarget as HTMLSelectElement).value
+                if (v) l.features[c.id] = v
+                else delete l.features[c.id]
+                touch(l)
+              }}
+            >
               <option value="">—</option>
-              {#each c.values as v (v.id)}<option value={v.id}>{pickText(v.name, glossLangs)}{v.abbr ? ` (${v.abbr})` : ''}</option>{/each}
+              {#each c.values as v (v.id)}<option value={v.id}
+                  >{pickText(v.name, glossLangs)}{v.abbr ? ` (${v.abbr})` : ''}</option
+                >{/each}
             </select>
           </label>
         {/each}
@@ -436,7 +600,12 @@
 
     <div class="field">
       <span class="small muted">{t('common.tags')}</span>
-      <TagInput bind:tags={l.tags} suggestions={allTags} placeholder={t('lexicon.tagsPlaceholder')} onchange={() => touch(l)} />
+      <TagInput
+        bind:tags={l.tags}
+        suggestions={allTags}
+        placeholder={t('lexicon.tagsPlaceholder')}
+        onchange={() => touch(l)}
+      />
     </div>
 
     {#if selLang && selLang.dialects.length}
@@ -444,20 +613,65 @@
         <span class="small muted">{t('lexicon.dialects')}</span>
         <div class="chips">
           {#each selLang.dialects as d (d.id)}
-            <label class="chip-check"><input type="checkbox" checked={l.dialectIds.includes(d.id)} onchange={(e) => { const on = (e.currentTarget as HTMLInputElement).checked; l.dialectIds = on ? [...l.dialectIds, d.id] : l.dialectIds.filter((x) => x !== d.id); touch(l) }} />{d.name}</label>
+            <label class="chip-check"
+              ><input
+                type="checkbox"
+                checked={l.dialectIds.includes(d.id)}
+                onchange={(e) => {
+                  const on = (e.currentTarget as HTMLInputElement).checked
+                  l.dialectIds = on
+                    ? [...l.dialectIds, d.id]
+                    : l.dialectIds.filter((x) => x !== d.id)
+                  touch(l)
+                }}
+              />{d.name}</label
+            >
           {/each}
         </div>
       </div>
     {/if}
 
     <div class="field">
-      <div class="row"><span class="small muted grow">{t('lexicon.senses')}</span><button class="btn ghost sm" onclick={() => { l.senses.push(createSense()); touch(l) }}><Plus size={14} />{t('lexicon.addSense')}</button></div>
+      <div class="row">
+        <span class="small muted grow">{t('lexicon.senses')}</span><button
+          class="btn ghost sm"
+          onclick={() => {
+            l.senses.push(createSense())
+            touch(l)
+          }}><Plus size={14} />{t('lexicon.addSense')}</button
+        >
+      </div>
       {#each l.senses as s, i (s.id)}
         <div class="sense card">
-          <div class="row"><span class="num">{i + 1}</span><span class="grow"></span>{#if l.senses.length > 1}<button class="btn ghost icon sm" onclick={() => { l.senses.splice(i, 1); touch(l) }}><X size={14} /></button>{/if}</div>
-          <LocalizedInput bind:value={s.definition} languages={glossLangs} multiline placeholder={t('lexicon.definition')} onchange={() => touch(l)} />
-          <input class="input" placeholder={t('lexicon.register')} bind:value={s.register} oninput={() => touch(l)} />
-          <TagInput bind:tags={s.tags} suggestions={allTags} placeholder={t('lexicon.senseTags')} onchange={() => touch(l)} />
+          <div class="row">
+            <span class="num">{i + 1}</span><span class="grow"
+            ></span>{#if l.senses.length > 1}<button
+                class="btn ghost icon sm"
+                onclick={() => {
+                  l.senses.splice(i, 1)
+                  touch(l)
+                }}><X size={14} /></button
+              >{/if}
+          </div>
+          <LocalizedInput
+            bind:value={s.definition}
+            languages={glossLangs}
+            multiline
+            placeholder={t('lexicon.definition')}
+            onchange={() => touch(l)}
+          />
+          <input
+            class="input"
+            placeholder={t('lexicon.register')}
+            bind:value={s.register}
+            oninput={() => touch(l)}
+          />
+          <TagInput
+            bind:tags={s.tags}
+            suggestions={allTags}
+            placeholder={t('lexicon.senseTags')}
+            onchange={() => touch(l)}
+          />
         </div>
       {/each}
     </div>
@@ -466,58 +680,178 @@
       <span class="small muted">{t('lexicon.etymology')}</span>
       <div class="row two">
         <select class="select" bind:value={l.etymology.type} onchange={() => touch(l)}>
-          {#each ['root', 'compound', 'borrowing', 'derivation', 'inherited', 'unknown'] as et (et)}<option value={et}>{t(`lexicon.etyTypes.${et}`)}</option>{/each}
+          {#each ['root', 'compound', 'borrowing', 'derivation', 'inherited', 'unknown'] as et (et)}<option
+              value={et}>{t(`lexicon.etyTypes.${et}`)}</option
+            >{/each}
         </select>
-        <input class="input data" placeholder={t('lexicon.protoForm')} bind:value={l.etymology.protoForm} oninput={() => touch(l)} />
+        <input
+          class="input data"
+          placeholder={t('lexicon.protoForm')}
+          bind:value={l.etymology.protoForm}
+          oninput={() => touch(l)}
+        />
       </div>
       {#each l.etymology.sources as s, i (i)}
         <div class="row src">
           <span class="badge">{t(`lexicon.sourceKinds.${s.kind}`)}</span>
           {#if s.kind === 'external'}
-            <input class="input" placeholder={t('lexicon.externalLanguage')} bind:value={s.language} oninput={() => touch(l)} />
-            <input class="input data" placeholder={t('lexicon.externalForm')} bind:value={s.form} oninput={() => touch(l)} />
-            <input class="input" placeholder={t('lexicon.externalMeaning')} bind:value={s.meaning} oninput={() => touch(l)} />
+            <input
+              class="input"
+              placeholder={t('lexicon.externalLanguage')}
+              bind:value={s.language}
+              oninput={() => touch(l)}
+            />
+            <input
+              class="input data"
+              placeholder={t('lexicon.externalForm')}
+              bind:value={s.form}
+              oninput={() => touch(l)}
+            />
+            <input
+              class="input"
+              placeholder={t('lexicon.externalMeaning')}
+              bind:value={s.meaning}
+              oninput={() => touch(l)}
+            />
           {:else}
-            <input class="input data grow" list={s.kind === 'morpheme' ? 'dl-morphemes' : 'dl-lexemes'} value={sourceLabel(s)} placeholder={s.kind === 'morpheme' ? t('lexicon.pickMorpheme') : t('lexicon.pickLexeme')} onchange={(e) => { setSourceByText(s, (e.currentTarget as HTMLInputElement).value); touch(l) }} />
+            <input
+              class="input data grow"
+              list={s.kind === 'morpheme' ? 'dl-morphemes' : 'dl-lexemes'}
+              value={sourceLabel(s)}
+              placeholder={s.kind === 'morpheme'
+                ? t('lexicon.pickMorpheme')
+                : t('lexicon.pickLexeme')}
+              onchange={(e) => {
+                setSourceByText(s, (e.currentTarget as HTMLInputElement).value)
+                touch(l)
+              }}
+            />
           {/if}
-          <button class="btn ghost icon sm" onclick={() => { l.etymology.sources.splice(i, 1); touch(l) }}><X size={14} /></button>
+          <button
+            class="btn ghost icon sm"
+            onclick={() => {
+              l.etymology.sources.splice(i, 1)
+              touch(l)
+            }}><X size={14} /></button
+          >
         </div>
       {/each}
       <div class="row">
-        <button class="btn ghost sm" onclick={() => addSource(l, 'morpheme')}><Plus size={14} />{t('lexicon.sourceKinds.morpheme')}</button>
-        <button class="btn ghost sm" onclick={() => addSource(l, 'lexeme')}><Plus size={14} />{t('lexicon.sourceKinds.lexeme')}</button>
-        <button class="btn ghost sm" onclick={() => addSource(l, 'external')}><Plus size={14} />{t('lexicon.sourceKinds.external')}</button>
+        <button class="btn ghost sm" onclick={() => addSource(l, 'morpheme')}
+          ><Plus size={14} />{t('lexicon.sourceKinds.morpheme')}</button
+        >
+        <button class="btn ghost sm" onclick={() => addSource(l, 'lexeme')}
+          ><Plus size={14} />{t('lexicon.sourceKinds.lexeme')}</button
+        >
+        <button class="btn ghost sm" onclick={() => addSource(l, 'external')}
+          ><Plus size={14} />{t('lexicon.sourceKinds.external')}</button
+        >
       </div>
-      <datalist id="dl-morphemes">{#each project.morphemes as m (m.id)}<option value={m.form}>{m.gloss || pickText(m.meaning, glossLangs)}</option>{/each}</datalist>
-      <datalist id="dl-lexemes">{#each project.lexemes as m (m.id)}{#if m.id !== l.id}<option value={m.lemma}>{pickText(m.senses[0]?.definition, glossLangs)}</option>{/if}{/each}</datalist>
-      <textarea class="textarea" rows="2" placeholder={t('common.notes')} bind:value={l.etymology.notes} oninput={() => touch(l)}></textarea>
+      <datalist id="dl-morphemes"
+        >{#each project.morphemes as m (m.id)}<option value={m.form}
+            >{m.gloss || pickText(m.meaning, glossLangs)}</option
+          >{/each}</datalist
+      >
+      <datalist id="dl-lexemes"
+        >{#each project.lexemes as m (m.id)}{#if m.id !== l.id}<option value={m.lemma}
+              >{pickText(m.senses[0]?.definition, glossLangs)}</option
+            >{/if}{/each}</datalist
+      >
+      <textarea
+        class="textarea"
+        rows="2"
+        placeholder={t('common.notes')}
+        bind:value={l.etymology.notes}
+        oninput={() => touch(l)}
+      ></textarea>
     </div>
 
     <div class="field">
-      <div class="row"><span class="small muted grow">{t('lexicon.relations')}</span><button class="btn ghost sm" onclick={() => { l.relations.push({ kind: 'synonym', lexemeId: '' }); touch(l) }}><Plus size={14} />{t('lexicon.addRelation')}</button></div>
+      <div class="row">
+        <span class="small muted grow">{t('lexicon.relations')}</span><button
+          class="btn ghost sm"
+          onclick={() => {
+            l.relations.push({ kind: 'synonym', lexemeId: '' })
+            touch(l)
+          }}><Plus size={14} />{t('lexicon.addRelation')}</button
+        >
+      </div>
       {#each l.relations as r, i (i)}
         {@const known = relationKinds.includes(r.kind)}
         <div class="row kv">
-          <select class="select kind" value={known ? r.kind : '__custom__'} onchange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value; r.kind = v === '__custom__' ? '' : v; touch(l) }}>
+          <select
+            class="select kind"
+            value={known ? r.kind : '__custom__'}
+            onchange={(e) => {
+              const v = (e.currentTarget as HTMLSelectElement).value
+              r.kind = v === '__custom__' ? '' : v
+              touch(l)
+            }}
+          >
             {#each relationKinds as k (k)}<option value={k}>{relLabel(k)}</option>{/each}
             <option value="__custom__">{t('lexicon.customKind')}</option>
           </select>
           {#if !known}
-            <input class="input kind" bind:value={r.kind} placeholder={t('lexicon.relationKind')} onchange={() => touch(l)} />
+            <input
+              class="input kind"
+              bind:value={r.kind}
+              placeholder={t('lexicon.relationKind')}
+              onchange={() => touch(l)}
+            />
           {/if}
-          <input class="input data grow" list="dl-lexemes" value={project.lexemes.find((x) => x.id === r.lexemeId)?.lemma ?? ''} placeholder={t('lexicon.relationTarget')} onchange={(e) => { r.lexemeId = project.lexemes.find((x) => x.lemma === (e.currentTarget as HTMLInputElement).value && x.id !== l.id)?.id ?? ''; touch(l) }} />
-          <button class="btn ghost icon sm" onclick={() => { l.relations.splice(i, 1); touch(l) }}><X size={14} /></button>
+          <input
+            class="input data grow"
+            list="dl-lexemes"
+            value={project.lexemes.find((x) => x.id === r.lexemeId)?.lemma ?? ''}
+            placeholder={t('lexicon.relationTarget')}
+            onchange={(e) => {
+              r.lexemeId =
+                project.lexemes.find(
+                  (x) => x.lemma === (e.currentTarget as HTMLInputElement).value && x.id !== l.id
+                )?.id ?? ''
+              touch(l)
+            }}
+          />
+          <button
+            class="btn ghost icon sm"
+            onclick={() => {
+              l.relations.splice(i, 1)
+              touch(l)
+            }}><X size={14} /></button
+          >
         </div>
       {/each}
     </div>
 
     <div class="field">
-      <div class="row"><span class="small muted grow">{t('lexicon.stems')}</span><button class="btn ghost sm" onclick={() => { l.stems[''] = ''; touch(l) }}><Plus size={14} />{t('lexicon.addStem')}</button></div>
+      <div class="row">
+        <span class="small muted grow">{t('lexicon.stems')}</span><button
+          class="btn ghost sm"
+          onclick={() => {
+            l.stems[''] = ''
+            touch(l)
+          }}><Plus size={14} />{t('lexicon.addStem')}</button
+        >
+      </div>
       {#each Object.keys(l.stems) as k (k)}
         <div class="row kv">
-          <input class="input" value={k} placeholder={t('lexicon.stemName')} onchange={(e) => { renameKey(l.stems, k, (e.currentTarget as HTMLInputElement).value.trim()); touch(l) }} />
+          <input
+            class="input"
+            value={k}
+            placeholder={t('lexicon.stemName')}
+            onchange={(e) => {
+              renameKey(l.stems, k, (e.currentTarget as HTMLInputElement).value.trim())
+              touch(l)
+            }}
+          />
           <input class="input data" bind:value={l.stems[k]} oninput={() => touch(l)} />
-          <button class="btn ghost icon sm" onclick={() => { delete l.stems[k]; touch(l) }}><X size={14} /></button>
+          <button
+            class="btn ghost icon sm"
+            onclick={() => {
+              delete l.stems[k]
+              touch(l)
+            }}><X size={14} /></button
+          >
         </div>
       {/each}
     </div>
@@ -528,8 +862,31 @@
         {#each selLang.orthographies as o (o.id)}
           <div class="row kv">
             <span class="small oname">{o.name}</span>
-            <input class="input data" value={l.pronunciations[o.id]?.ipa ?? ''} oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; l.pronunciations[o.id] = { ipa: v, irregular: l.pronunciations[o.id]?.irregular ?? true }; touch(l) }} />
-            <label class="row small" title={t('lexicon.irregular')}><input type="checkbox" checked={l.pronunciations[o.id]?.irregular ?? true} onchange={(e) => { l.pronunciations[o.id] = { ipa: l.pronunciations[o.id]?.ipa ?? '', irregular: (e.currentTarget as HTMLInputElement).checked }; touch(l) }} />!</label>
+            <input
+              class="input data"
+              value={l.pronunciations[o.id]?.ipa ?? ''}
+              oninput={(e) => {
+                const v = (e.currentTarget as HTMLInputElement).value
+                l.pronunciations[o.id] = {
+                  ipa: v,
+                  irregular: l.pronunciations[o.id]?.irregular ?? true
+                }
+                touch(l)
+              }}
+            />
+            <label class="row small" title={t('lexicon.irregular')}
+              ><input
+                type="checkbox"
+                checked={l.pronunciations[o.id]?.irregular ?? true}
+                onchange={(e) => {
+                  l.pronunciations[o.id] = {
+                    ipa: l.pronunciations[o.id]?.ipa ?? '',
+                    irregular: (e.currentTarget as HTMLInputElement).checked
+                  }
+                  touch(l)
+                }}
+              />!</label
+            >
           </div>
         {/each}
       </div>
@@ -539,7 +896,21 @@
           {#each selLang.scripts as sc (sc.id)}
             <div class="row kv">
               <span class="small oname">{sc.name}</span>
-              <input class="input scr" style={fontCss(sc)} dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'} value={l.scriptForms?.[sc.id] ?? ''} placeholder={lexemeScript(selLang, sc, l, l.lemma)} title={t('script.overrideHint')} oninput={(e) => { if (!l.scriptForms) l.scriptForms = {}; const v = (e.currentTarget as HTMLInputElement).value; if (v) l.scriptForms[sc.id] = v; else delete l.scriptForms[sc.id]; touch(l) }} />
+              <input
+                class="input scr"
+                style={fontCss(sc)}
+                dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'}
+                value={l.scriptForms?.[sc.id] ?? ''}
+                placeholder={lexemeScript(selLang, sc, l, l.lemma)}
+                title={t('script.overrideHint')}
+                oninput={(e) => {
+                  if (!l.scriptForms) l.scriptForms = {}
+                  const v = (e.currentTarget as HTMLInputElement).value
+                  if (v) l.scriptForms[sc.id] = v
+                  else delete l.scriptForms[sc.id]
+                  touch(l)
+                }}
+              />
             </div>
           {/each}
         </div>
@@ -549,43 +920,100 @@
     <div class="field">
       <div class="row">
         <span class="small muted grow">{t('lexicon.forms')}</span>
-        {#if paradigmOf(l)}<button class="btn ghost sm" onclick={() => deriveNow(l)}><Wand2 size={14} />{t('lexicon.deriveForms')}</button>{/if}
-        <button class="btn ghost sm" onclick={() => { l.forms[''] = { surface: '', derived: false, override: true, trace: [] }; touch(l) }}><Plus size={14} />{t('lexicon.addForm')}</button>
+        {#if paradigmOf(l)}<button class="btn ghost sm" onclick={() => deriveNow(l)}
+            ><Wand2 size={14} />{t('lexicon.deriveForms')}</button
+          >{/if}
+        <button
+          class="btn ghost sm"
+          onclick={() => {
+            l.forms[''] = { surface: '', derived: false, override: true, trace: [] }
+            touch(l)
+          }}><Plus size={14} />{t('lexicon.addForm')}</button
+        >
       </div>
       {#if paradigmOf(l)}
         {#each slotsOf(l) as s (s.key)}
           {@const f = l.forms[s.label]}
           <div class="row kv" title={f?.trace?.join('\n') ?? ''}>
             <span class="slot small">{s.label}</span>
-            <input class="input data" class:derived={f && !f.override} value={f?.surface ?? ''} placeholder="—" oninput={(e) => { l.forms[s.label] = { surface: (e.currentTarget as HTMLInputElement).value, derived: false, override: true, trace: [] }; touch(l) }} />
+            <input
+              class="input data"
+              class:derived={f && !f.override}
+              value={f?.surface ?? ''}
+              placeholder="—"
+              oninput={(e) => {
+                l.forms[s.label] = {
+                  surface: (e.currentTarget as HTMLInputElement).value,
+                  derived: false,
+                  override: true,
+                  trace: []
+                }
+                touch(l)
+              }}
+            />
             {#if f?.override}
-              <button class="btn ghost icon sm" title={t('lexicon.resetDerived')} onclick={() => { delete l.forms[s.label]; deriveNow(l) }}><RotateCcw size={13} /></button>
+              <button
+                class="btn ghost icon sm"
+                title={t('lexicon.resetDerived')}
+                onclick={() => {
+                  delete l.forms[s.label]
+                  deriveNow(l)
+                }}><RotateCcw size={13} /></button
+              >
             {:else if f}
               <span class="badge">{t('lexicon.formsDerived')}</span>
             {/if}
           </div>
         {/each}
-        {#if Object.keys(l.forms).some((k) => !slotsOf(l).some((s) => s.label === k))}<span class="small muted">{t('lexicon.extraForms')}</span>{/if}
+        {#if Object.keys(l.forms).some((k) => !slotsOf(l).some((s) => s.label === k))}<span
+            class="small muted">{t('lexicon.extraForms')}</span
+          >{/if}
       {:else if l.posId}
         <span class="hint">{t('lexicon.noParadigm')}</span>
       {/if}
       {#each Object.keys(l.forms).filter((k) => !slotsOf(l).some((s) => s.label === k)) as k (k)}
         <div class="row kv">
-          <input class="input" value={k} placeholder={t('lexicon.slot')} onchange={(e) => { renameKey(l.forms, k, (e.currentTarget as HTMLInputElement).value.trim()); touch(l) }} />
-          <input class="input data" bind:value={l.forms[k].surface} oninput={() => { l.forms[k].override = true; touch(l) }} />
-          <button class="btn ghost icon sm" onclick={() => { delete l.forms[k]; touch(l) }}><X size={14} /></button>
+          <input
+            class="input"
+            value={k}
+            placeholder={t('lexicon.slot')}
+            onchange={(e) => {
+              renameKey(l.forms, k, (e.currentTarget as HTMLInputElement).value.trim())
+              touch(l)
+            }}
+          />
+          <input
+            class="input data"
+            bind:value={l.forms[k].surface}
+            oninput={() => {
+              l.forms[k].override = true
+              touch(l)
+            }}
+          />
+          <button
+            class="btn ghost icon sm"
+            onclick={() => {
+              delete l.forms[k]
+              touch(l)
+            }}><X size={14} /></button
+          >
         </div>
       {/each}
     </div>
 
     <div class="field">
       <label for="lx-notes">{t('common.notes')}</label>
-      <textarea id="lx-notes" class="textarea" bind:value={l.notes} oninput={() => touch(l)}></textarea>
+      <textarea id="lx-notes" class="textarea" bind:value={l.notes} oninput={() => touch(l)}
+      ></textarea>
     </div>
 
     <div class="row actions">
-      <button class="btn sm" onclick={() => duplicate(l)}><Copy size={14} />{t('soundChanges.duplicate')}</button>
-      <button class="btn sm danger" onclick={() => remove(l)}><Trash2 size={14} />{t('common.delete')}</button>
+      <button class="btn sm" onclick={() => duplicate(l)}
+        ><Copy size={14} />{t('soundChanges.duplicate')}</button
+      >
+      <button class="btn sm danger" onclick={() => remove(l)}
+        ><Trash2 size={14} />{t('common.delete')}</button
+      >
     </div>
   </Portal>
 {/if}

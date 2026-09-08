@@ -27,7 +27,11 @@ class CharState {
       const el = e.target as HTMLElement | null
       if (!el || el.closest('.char-panel')) return
       if (el instanceof HTMLTextAreaElement) this.target = el
-      else if (el instanceof HTMLInputElement && (!el.type || ['text', 'search', 'url', 'email'].includes(el.type))) this.target = el
+      else if (
+        el instanceof HTMLInputElement &&
+        (!el.type || ['text', 'search', 'url', 'email'].includes(el.type))
+      )
+        this.target = el
     }
     document.addEventListener('focusin', onFocus)
     return () => document.removeEventListener('focusin', onFocus)

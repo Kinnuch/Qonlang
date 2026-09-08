@@ -154,7 +154,16 @@ export function createMorpheme(languageId: Id, type: MorphemeType = 'root'): Mor
 }
 
 export function createPhrase(languageId: Id, category = ''): Phrase {
-  return { id: newId(), languageId, category, text: '', translation: {}, pronunciations: {}, variants: [], tags: [] }
+  return {
+    id: newId(),
+    languageId,
+    category,
+    text: '',
+    translation: {},
+    pronunciations: {},
+    variants: [],
+    tags: []
+  }
 }
 
 export function createDoc(languageId: Id | null, title = ''): DocPage {
@@ -271,7 +280,11 @@ export function languageLineage(languages: Language[], id: Id): Language[] {
 }
 
 /** 判断把 childId 挂到 newParentId 下会不会成环 */
-export function wouldCreateCycle(languages: Language[], childId: Id, newParentId: Id | null): boolean {
+export function wouldCreateCycle(
+  languages: Language[],
+  childId: Id,
+  newParentId: Id | null
+): boolean {
   if (!newParentId) return false
   if (childId === newParentId) return true
   const byId = new Map(languages.map((l) => [l.id, l]))

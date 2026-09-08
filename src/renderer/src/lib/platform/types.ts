@@ -68,7 +68,13 @@ export const DEFAULT_PREFS: Prefs = {
   savedSymbols: [],
   csvPresets: [],
   dismissedHints: [],
-  skin: { preset: 'default', light: {}, dark: {}, fonts: { ui: '', data: '', mono: '', corpusText: '', corpusTr: '', gloss: '', script: '' }, mirror: '' },
+  skin: {
+    preset: 'default',
+    light: {},
+    dark: {},
+    fonts: { ui: '', data: '', mono: '', corpusText: '', corpusTr: '', gloss: '', script: '' },
+    mirror: ''
+  },
   skinPresets: []
 }
 
@@ -89,13 +95,23 @@ export interface PlatformAPI {
   /** 打开最近项目；文件不存在或权限被拒返回 null */
   openRecent(entry: RecentEntry): Promise<OpenResult | null>
   /** target 为 null 时弹出另存为对话框；用户取消返回 null */
-  saveProject(target: SaveTarget | null, content: string, suggestedName: string): Promise<SaveTarget | null>
+  saveProject(
+    target: SaveTarget | null,
+    content: string,
+    suggestedName: string
+  ): Promise<SaveTarget | null>
   /** 导出为文件夹格式；用户取消返回 false */
   exportFolder(files: Record<string, string>, suggestedName: string): Promise<boolean>
   /** 让用户选若干文本文件并读出内容（导入用） */
-  readTextFiles(opts: { multiple: boolean; extensions: string[] }): Promise<{ name: string; content: string }[]>
+  readTextFiles(opts: {
+    multiple: boolean
+    extensions: string[]
+  }): Promise<{ name: string; content: string }[]>
   /** 让用户选二进制文件（字体等），内容以 base64 返回 */
-  readBinaryFiles(opts: { multiple: boolean; extensions: string[] }): Promise<{ name: string; base64: string }[]>
+  readBinaryFiles(opts: {
+    multiple: boolean
+    extensions: string[]
+  }): Promise<{ name: string; base64: string }[]>
   /** 用户字体库（应用数据目录 fonts/） */
   listFonts(): Promise<{ file: string; size: number }[]>
   readFont(file: string): Promise<string | null>

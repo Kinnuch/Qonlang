@@ -100,6 +100,7 @@ export function parseCsv(text: string, delimiter?: Delimiter): CsvTable {
 }
 
 export function toCsv(rows: string[][], delimiter: Delimiter = ','): string {
-  const esc = (s: string): string => (/[",\n\r\t;|]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s)
+  const esc = (s: string): string =>
+    /[",\n\r\t;|]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
   return rows.map((r) => r.map(esc).join(delimiter)).join('\n') + '\n'
 }

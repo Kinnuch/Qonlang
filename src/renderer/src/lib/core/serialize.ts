@@ -74,7 +74,8 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
     if (!l.scriptForms || typeof l.scriptForms !== 'object') l.scriptForms = {}
   }
   for (const lang of merged.languages) {
-    if (!lang.prosody) lang.prosody = { type: 'none', stressPosition: 'initial', rules: '', tones: [] }
+    if (!lang.prosody)
+      lang.prosody = { type: 'none', stressPosition: 'initial', rules: '', tones: [] }
     if (!lang.prosody.stressPosition) lang.prosody.stressPosition = 'initial'
     if (!Array.isArray(lang.phonemes)) lang.phonemes = []
     if (!Array.isArray(lang.classes)) lang.classes = []
@@ -104,7 +105,8 @@ export function projectToFolder(p: Project): Record<string, string> {
     'abbreviations.json': j(p.abbreviations)
   }
   // 规则文本各自一份，可直接喂给引擎或其他工具
-  for (const r of p.ruleSets) files[`rules/${safeName(r.name || r.id)}.txt`] = r.text.endsWith('\n') ? r.text : r.text + '\n'
+  for (const r of p.ruleSets)
+    files[`rules/${safeName(r.name || r.id)}.txt`] = r.text.endsWith('\n') ? r.text : r.text + '\n'
   for (const d of p.docs) files[`docs/${safeName(d.title || d.id)}.md`] = d.markdown
   return files
 }
@@ -120,10 +122,15 @@ export function projectFromFolder(files: Record<string, string>): Project {
     if (t == null) return fallback
     return JSON.parse(t) as T
   }
-  const head = read<{ schemaVersion: number; meta: Project['meta']; settings: Project['settings'] }>(
-    'project.json',
-    { schemaVersion: SCHEMA_VERSION, meta: undefined as never, settings: undefined as never }
-  )
+  const head = read<{
+    schemaVersion: number
+    meta: Project['meta']
+    settings: Project['settings']
+  }>('project.json', {
+    schemaVersion: SCHEMA_VERSION,
+    meta: undefined as never,
+    settings: undefined as never
+  })
   const ruleSets = read<Project['ruleSets']>('rule-sets.json', []).map((r) => {
     const text = files[`rules/${safeName(r.name || r.id)}.txt`] ?? ''
     return { ...r, text: text.replace(/\n$/, '') }

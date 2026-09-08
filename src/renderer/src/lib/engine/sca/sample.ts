@@ -72,7 +72,10 @@ export function sampleForRule(program: RuleProgram, rule: ParsedRule): string {
 }
 
 /** 前后形的公共前后缀之外的部分，用于高亮 */
-export function diffSpan(before: string, after: string): { prefix: string; beforeMid: string; afterMid: string; suffix: string } {
+export function diffSpan(
+  before: string,
+  after: string
+): { prefix: string; beforeMid: string; afterMid: string; suffix: string } {
   const a = Array.from(before)
   const b = Array.from(after)
   let p = 0

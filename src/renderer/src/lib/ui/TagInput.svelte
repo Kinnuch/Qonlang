@@ -7,7 +7,12 @@
     suggestions = [],
     placeholder = '',
     onchange
-  }: { tags?: string[]; suggestions?: string[]; placeholder?: string; onchange?: () => void } = $props()
+  }: {
+    tags?: string[]
+    suggestions?: string[]
+    placeholder?: string
+    onchange?: () => void
+  } = $props()
 
   let text = $state('')
   const listId = `tags-${Math.random().toString(36).slice(2, 8)}`
@@ -39,7 +44,11 @@
 
 <div class="tags input">
   {#each tags as tg, i (tg + i)}
-    <span class="tagchip">{tg}<button type="button" aria-label="remove" onclick={() => remove(i)}><X size={11} /></button></span>
+    <span class="tagchip"
+      >{tg}<button type="button" aria-label="remove" onclick={() => remove(i)}
+        ><X size={11} /></button
+      ></span
+    >
   {/each}
   <input list={listId} bind:value={text} {placeholder} onkeydown={onKey} onblur={commit} />
   <datalist id={listId}>

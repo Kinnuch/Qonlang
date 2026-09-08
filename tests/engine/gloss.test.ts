@@ -3,16 +3,39 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { parseProject } from '$lib/core/serialize'
 import { createSentence } from '$lib/core/factory'
-import { tokenize, buildIndex, analyzeToken, analyzeSentence, interlinear, toLeipzig, toLatex, toHtml, toMarkdown, renderTemplate, coverage, corpusStats } from '$lib/engine/gloss'
+import {
+  tokenize,
+  buildIndex,
+  analyzeToken,
+  analyzeSentence,
+  interlinear,
+  toLeipzig,
+  toLatex,
+  toHtml,
+  toMarkdown,
+  renderTemplate,
+  coverage,
+  corpusStats
+} from '$lib/engine/gloss'
 
-const p = parseProject(readFileSync(join(__dirname, '..', '..', 'examples', 'Aelith.laim.json'), 'utf8'))
+const p = parseProject(
+  readFileSync(join(__dirname, '..', '..', 'examples', 'Aelith.laim.json'), 'utf8')
+)
 const L = p.languages[0]
 // 示例文件里的例句可能已确认分析，会影响首选与词频；这里只测引擎本身
 p.sentences = []
 
 describe('tokenize', () => {
   it('splits on whitespace and strips punctuation', () => {
-    expect(tokenize('ilenler kasoda jatdu. “sen nölüm” sördün mü?')).toEqual(['ilenler', 'kasoda', 'jatdu', 'sen', 'nölüm', 'sördün', 'mü'])
+    expect(tokenize('ilenler kasoda jatdu. “sen nölüm” sördün mü?')).toEqual([
+      'ilenler',
+      'kasoda',
+      'jatdu',
+      'sen',
+      'nölüm',
+      'sördün',
+      'mü'
+    ])
   })
 })
 
@@ -20,7 +43,10 @@ describe('analysis', () => {
   const idx = buildIndex(p, L.id)
   const b = p.settings.morphemeBoundaries
   it('finds lemmas, stems and morphemes', () => {
-    expect(analyzeToken(idx, 'kaso', b)[0]).toMatchObject({ slot: null, morphs: [{ form: 'kaso', gloss: '房子' }] })
+    expect(analyzeToken(idx, 'kaso', b)[0]).toMatchObject({
+      slot: null,
+      morphs: [{ form: 'kaso', gloss: '房子' }]
+    })
     expect(analyzeToken(idx, 've', b)[0].morphs[0].gloss).toBe('and')
   })
   it('strips suffix allomorphs, several layers deep', () => {
@@ -31,7 +57,11 @@ describe('analysis', () => {
     ])
     const two = analyzeToken(idx, 'kasolarda', b)[0]
     expect(two.morphs.map((m) => m.gloss)).toEqual(['房子', 'PL', 'LOC'])
-    expect(analyzeToken(idx, 'sördün', b)[0].morphs.map((m) => m.gloss)).toEqual(['看见', 'PST', '2SG.POSS'])
+    expect(analyzeToken(idx, 'sördün', b)[0].morphs.map((m) => m.gloss)).toEqual([
+      '看见',
+      'PST',
+      '2SG.POSS'
+    ])
   })
   it('respects explicit boundaries written in the token', () => {
     const a = analyzeToken(idx, 'kaso-lar', b)[0]
@@ -56,7 +86,11 @@ describe('sentence analysis and rendering', () => {
     expect(coverage(s)).toEqual({ total: 3, resolved: 3, confirmed: 0 })
 
     // 用户改成自定义分析并确认；重分析后保留
-    s.tokens[0].analyses.unshift({ lexemeId: null, slot: null, morphs: [{ form: 'ilenler', gloss: 'kids', morphemeId: null }] })
+    s.tokens[0].analyses.unshift({
+      lexemeId: null,
+      slot: null,
+      morphs: [{ form: 'ilenler', gloss: 'kids', morphemeId: null }]
+    })
     s.tokens[0].chosen = 0
     s.tokens[0].confirmed = true
     analyzeSentence(p, s)
@@ -75,7 +109,9 @@ describe('sentence analysis and rendering', () => {
     expect(toLatex(il)).toContain('\\gll ilen-ler kaso-da jat-du \\\\')
     expect(toHtml(il)).toContain('gl__g">孩子-PL<')
     expect(toMarkdown(il)).toContain('| ilen-ler | kaso-da | jat-du |')
-    expect(renderTemplate('{{#tokens}}{{sep}}{{morphs}}/{{gloss}}{{/tokens}} = {{translation}}', il, s)).toBe('ilen-ler/孩子-PL kaso-da/房子-LOC jat-du/睡-PST = The children slept in the house.')
+    expect(
+      renderTemplate('{{#tokens}}{{sep}}{{morphs}}/{{gloss}}{{/tokens}} = {{translation}}', il, s)
+    ).toBe('ilen-ler/孩子-PL kaso-da/房子-LOC jat-du/睡-PST = The children slept in the house.')
   })
   it('corpus statistics', () => {
     const s = createSentence(L.id)

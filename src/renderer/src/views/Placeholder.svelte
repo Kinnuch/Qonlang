@@ -2,7 +2,8 @@
   import { t } from '$lib/i18n/index.svelte'
   import type { Section } from '$lib/state/ui.svelte'
 
-  let { section, inspectorTitle = $bindable('') }: { section: Section; inspectorTitle?: string } = $props()
+  let { section, inspectorTitle = $bindable('') }: { section: Section; inspectorTitle?: string } =
+    $props()
   $effect(() => {
     inspectorTitle = ''
   })

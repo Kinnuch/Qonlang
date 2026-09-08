@@ -44,13 +44,23 @@
     <div class="grid">
       <div class="field">
         <label for="s-locale">{t('settings.uiLanguage')}</label>
-        <select id="s-locale" class="select" bind:value={ui.prefs.locale} onchange={() => ui.savePrefs()}>
+        <select
+          id="s-locale"
+          class="select"
+          bind:value={ui.prefs.locale}
+          onchange={() => ui.savePrefs()}
+        >
           {#each LOCALES as l (l.code)}<option value={l.code}>{l.label}</option>{/each}
         </select>
       </div>
       <div class="field">
         <label for="s-theme">{t('settings.theme')}</label>
-        <select id="s-theme" class="select" bind:value={ui.prefs.theme} onchange={() => ui.savePrefs()}>
+        <select
+          id="s-theme"
+          class="select"
+          bind:value={ui.prefs.theme}
+          onchange={() => ui.savePrefs()}
+        >
           <option value="system">{t('settings.themeSystem')}</option>
           <option value="light">{t('settings.themeLight')}</option>
           <option value="dark">{t('settings.themeDark')}</option>
@@ -58,11 +68,26 @@
       </div>
       <div class="field">
         <label for="s-autosave">{t('settings.autosave')}</label>
-        <input id="s-autosave" type="number" min="0" step="5" class="input" bind:value={ui.prefs.autosaveSeconds} onchange={() => ui.savePrefs()} />
+        <input
+          id="s-autosave"
+          type="number"
+          min="0"
+          step="5"
+          class="input"
+          bind:value={ui.prefs.autosaveSeconds}
+          onchange={() => ui.savePrefs()}
+        />
       </div>
       <div class="field">
         <label for="s-backups">{t('settings.backupCount')}</label>
-        <input id="s-backups" type="number" min="0" class="input" bind:value={ui.prefs.backupCount} onchange={() => ui.savePrefs()} />
+        <input
+          id="s-backups"
+          type="number"
+          min="0"
+          class="input"
+          bind:value={ui.prefs.backupCount}
+          onchange={() => ui.savePrefs()}
+        />
       </div>
       <label class="row check">
         <input type="checkbox" bind:checked={ui.prefs.reopenLast} onchange={() => ui.savePrefs()} />
@@ -76,26 +101,52 @@
     <div class="grid">
       <div class="field">
         <label for="p-name">{t('settings.projectName')}</label>
-        <input id="p-name" class="input" bind:value={project.meta.name} oninput={() => projectState.touch()} />
+        <input
+          id="p-name"
+          class="input"
+          bind:value={project.meta.name}
+          oninput={() => projectState.touch()}
+        />
       </div>
       <div class="field">
         <label for="p-author">{t('settings.author')}</label>
-        <input id="p-author" class="input" bind:value={project.meta.author} oninput={() => projectState.touch()} />
+        <input
+          id="p-author"
+          class="input"
+          bind:value={project.meta.author}
+          oninput={() => projectState.touch()}
+        />
       </div>
       <div class="field wide">
         <label for="p-desc">{t('settings.description')}</label>
-        <textarea id="p-desc" class="textarea" bind:value={project.meta.description} oninput={() => projectState.touch()}></textarea>
+        <textarea
+          id="p-desc"
+          class="textarea"
+          bind:value={project.meta.description}
+          oninput={() => projectState.touch()}
+        ></textarea>
       </div>
       <div class="field">
         <label for="p-default">{t('settings.defaultLanguage')}</label>
-        <select id="p-default" class="select" bind:value={project.settings.defaultLanguageId} onchange={() => projectState.touch()}>
+        <select
+          id="p-default"
+          class="select"
+          bind:value={project.settings.defaultLanguageId}
+          onchange={() => projectState.touch()}
+        >
           <option value={null}>{t('common.none')}</option>
           {#each project.languages as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
         </select>
       </div>
       <div class="field">
         <label for="p-font">{t('settings.dataFont')}</label>
-        <input id="p-font" class="input" bind:value={project.settings.dataFont} oninput={() => projectState.touch()} placeholder="Gentium Plus" />
+        <input
+          id="p-font"
+          class="input"
+          bind:value={project.settings.dataFont}
+          oninput={() => projectState.touch()}
+          placeholder="Gentium Plus"
+        />
       </div>
       <div class="field">
         <label for="p-gloss">{t('settings.glossLanguages')}</label>
@@ -103,7 +154,12 @@
       </div>
       <div class="field">
         <label for="p-bound">{t('settings.morphemeBoundaries')}</label>
-        <input id="p-bound" class="input data" bind:value={boundaries} onchange={commitBoundaries} />
+        <input
+          id="p-bound"
+          class="input data"
+          bind:value={boundaries}
+          onchange={commitBoundaries}
+        />
       </div>
     </div>
   </section>
@@ -111,7 +167,9 @@
   <section>
     <h3>{t('common.export')}</h3>
     <div class="row">
-      <button class="btn" onclick={() => projectState.exportFolder()}><FolderOutput size={16} />{t('settings.exportFolder')}</button>
+      <button class="btn" onclick={() => projectState.exportFolder()}
+        ><FolderOutput size={16} />{t('settings.exportFolder')}</button
+      >
       <span class="small muted">{t('settings.exportFolderDesc')}</span>
     </div>
   </section>

@@ -5,7 +5,16 @@
   import { platform } from '$lib/platform'
   import { createRuleSet, now } from '$lib/core/factory'
   import type { RuleSet } from '$lib/core/model'
-  import { parseRuleText, runRules, ruleOrdinals, fromYinbianji, fromLexicanter, fromSca2, type RuleProgram, type RunResult } from '$lib/engine/sca'
+  import {
+    parseRuleText,
+    runRules,
+    ruleOrdinals,
+    fromYinbianji,
+    fromLexicanter,
+    fromSca2,
+    type RuleProgram,
+    type RunResult
+  } from '$lib/engine/sca'
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
@@ -13,14 +22,27 @@
   import RuleChainGraph from '$lib/ui/RuleChainGraph.svelte'
   import EvolvePanel from '$lib/ui/EvolvePanel.svelte'
   import { languageParseOptions } from '$lib/engine/phon'
-  import { Plus, Trash2, Download, Upload, Copy, BookOpen, List, Code, GitBranch, Sprout } from '@lucide/svelte'
+  import {
+    Plus,
+    Trash2,
+    Download,
+    Upload,
+    Copy,
+    BookOpen,
+    List,
+    Code,
+    GitBranch,
+    Sprout
+  } from '@lucide/svelte'
   let evolveOpen = $state(false)
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
   const project = $derived(projectState.project!)
   let activeId = $state<string | null>(null)
-  const active = $derived(project.ruleSets.find((r) => r.id === activeId) ?? project.ruleSets[0] ?? null)
+  const active = $derived(
+    project.ruleSets.find((r) => r.id === activeId) ?? project.ruleSets[0] ?? null
+  )
   $effect(() => {
     const id = ui.takePending('ruleSet')
     if (id) activeId = id
@@ -54,7 +76,12 @@
 
   // 测试台（测试词随规则集保存）
   let selectedWord = $state<string | null>(null)
-  const words = $derived((active?.testWords ?? '').split(/[\s,，、]+/).map((w) => w.trim()).filter(Boolean))
+  const words = $derived(
+    (active?.testWords ?? '')
+      .split(/[\s,，、]+/)
+      .map((w) => w.trim())
+      .filter(Boolean)
+  )
   const results = $derived.by((): RunResult[] => {
     if (!program) return []
     try {
@@ -71,14 +98,20 @@
     return cols
   })
   const selected = $derived(results.find((r) => r.input === selectedWord) ?? null)
-  const errorCount = $derived(program?.diagnostics.filter((d) => d.severity === 'error').length ?? 0)
-  const warnCount = $derived(program?.diagnostics.filter((d) => d.severity === 'warning').length ?? 0)
+  const errorCount = $derived(
+    program?.diagnostics.filter((d) => d.severity === 'error').length ?? 0
+  )
+  const warnCount = $derived(
+    program?.diagnostics.filter((d) => d.severity === 'warning').length ?? 0
+  )
 
   let editor = $state<RuleEditor | null>(null)
   let view = $state<'list' | 'chain' | 'source'>('list')
   let selectedLine = $state<number | null>(null)
   const ordinals = $derived(program ? ruleOrdinals(program) : new Map<number, number>())
-  const selectedOrdinal = $derived(selectedLine != null ? (ordinals.get(selectedLine) ?? null) : null)
+  const selectedOrdinal = $derived(
+    selectedLine != null ? (ordinals.get(selectedLine) ?? null) : null
+  )
   /** 推到选中规则为止的形式 */
   const upTo = $derived.by((): RunResult[] | null => {
     if (!program || selectedLine == null) return null
@@ -144,8 +177,10 @@
     for (const f of files) {
       const lower = f.name.toLowerCase()
       const body = f.content
-      if (lower.includes('categor') || (!body.includes('>') && /^[A-Z]=/m.test(body))) category += body + '\n'
-      else if (lower.includes('replace') || (!body.includes('>') && /^\S+\|\S+/m.test(body))) replace += body + '\n'
+      if (lower.includes('categor') || (!body.includes('>') && /^[A-Z]=/m.test(body)))
+        category += body + '\n'
+      else if (lower.includes('replace') || (!body.includes('>') && /^\S+\|\S+/m.test(body)))
+        replace += body + '\n'
       else if (lower.includes('lexicon')) continue
       else {
         rule += body + '\n'
@@ -158,7 +193,12 @@
   async function importConverted(kind: 'lexicanter' | 'sca2' | 'plain'): Promise<void> {
     const [f] = await platform.readTextFiles({ multiple: false, extensions: ['txt'] })
     if (!f) return
-    const text = kind === 'lexicanter' ? fromLexicanter(f.content) : kind === 'sca2' ? fromSca2(f.content) : f.content
+    const text =
+      kind === 'lexicanter'
+        ? fromLexicanter(f.content)
+        : kind === 'sca2'
+          ? fromSca2(f.content)
+          : f.content
     addSet(text, f.name.replace(/\.txt$/i, ''))
   }
 
@@ -193,19 +233,25 @@
     <h1>{t('soundChanges.title')}</h1>
     <div class="tabs grow">
       {#each project.ruleSets as rs (rs.id)}
-        <button class="tab" class:active={active?.id === rs.id} onclick={() => (activeId = rs.id)}>{rs.name || t('soundChanges.untitledSet')}</button>
+        <button class="tab" class:active={active?.id === rs.id} onclick={() => (activeId = rs.id)}
+          >{rs.name || t('soundChanges.untitledSet')}</button
+        >
       {/each}
     </div>
     <div class="menu">
       <button class="btn"><Upload size={16} />{t('soundChanges.import')}</button>
       <div class="menu-list card">
         <button onclick={importYinbianji}>{t('soundChanges.importYinbianji')}</button>
-        <button onclick={() => importConverted('lexicanter')}>{t('soundChanges.importLexicanter')}</button>
+        <button onclick={() => importConverted('lexicanter')}
+          >{t('soundChanges.importLexicanter')}</button
+        >
         <button onclick={() => importConverted('sca2')}>{t('soundChanges.importSca2')}</button>
         <button onclick={() => importConverted('plain')}>{t('soundChanges.importPlain')}</button>
       </div>
     </div>
-    <button class="btn primary" onclick={() => addSet()}><Plus size={16} />{t('soundChanges.newSet')}</button>
+    <button class="btn primary" onclick={() => addSet()}
+      ><Plus size={16} />{t('soundChanges.newSet')}</button
+    >
   </div>
   <Hint id="soundchanges" text={t('soundChanges.hint')} />
 
@@ -219,7 +265,13 @@
       {/if}
       {#if view === 'source'}
         <div class="editor-wrap">
-          <RuleEditor bind:this={editor} bind:value={rs.text} diagnostics={program?.diagnostics ?? []} placeholder={t('soundChanges.editorPlaceholder')} oninput={() => touch(rs)} />
+          <RuleEditor
+            bind:this={editor}
+            bind:value={rs.text}
+            diagnostics={program?.diagnostics ?? []}
+            placeholder={t('soundChanges.editorPlaceholder')}
+            oninput={() => touch(rs)}
+          />
         </div>
       {:else if view === 'chain'}
         <div class="list-wrap">
@@ -227,32 +279,62 @@
         </div>
       {:else}
         <div class="list-wrap">
-          <RuleList bind:text={rs.text} {program} {hits} bind:selectedLine onchange={() => touch(rs)} />
+          <RuleList
+            bind:text={rs.text}
+            {program}
+            {hits}
+            bind:selectedLine
+            onchange={() => touch(rs)}
+          />
         </div>
       {/if}
       <div class="status row">
         <div class="seg">
-          <button class:active={view === 'list'} onclick={() => (view = 'list')}><List size={14} />{t('soundChanges.viewList')}</button>
-          <button class:active={view === 'chain'} onclick={() => (view = 'chain')}><GitBranch size={14} />{t('soundChanges.viewChain')}</button>
-          <button class:active={view === 'source'} onclick={() => (view = 'source')}><Code size={14} />{t('soundChanges.viewSource')}</button>
+          <button class:active={view === 'list'} onclick={() => (view = 'list')}
+            ><List size={14} />{t('soundChanges.viewList')}</button
+          >
+          <button class:active={view === 'chain'} onclick={() => (view = 'chain')}
+            ><GitBranch size={14} />{t('soundChanges.viewChain')}</button
+          >
+          <button class:active={view === 'source'} onclick={() => (view = 'source')}
+            ><Code size={14} />{t('soundChanges.viewSource')}</button
+          >
         </div>
-        <button class="btn sm" class:active={evolveOpen} onclick={() => (evolveOpen = !evolveOpen)}><Sprout size={14} />{t('evolve.title')}</button>
+        <button class="btn sm" class:active={evolveOpen} onclick={() => (evolveOpen = !evolveOpen)}
+          ><Sprout size={14} />{t('evolve.title')}</button
+        >
         <span class="small muted grow">
           {#if program}
-            {t('soundChanges.stats', { rules: program.steps.filter((s) => s.kind === 'rule').length, stages: program.markers.length, classes: program.classes.size })}
+            {t('soundChanges.stats', {
+              rules: program.steps.filter((s) => s.kind === 'rule').length,
+              stages: program.markers.length,
+              classes: program.classes.size
+            })}
           {/if}
         </span>
-        {#if errorCount}<span class="badge err">{t('soundChanges.errors', { n: errorCount })}</span>{/if}
-        {#if warnCount}<span class="badge warn">{t('soundChanges.warnings', { n: warnCount })}</span>{/if}
-        {#if !errorCount && !warnCount}<span class="badge">{t('soundChanges.noDiagnostics')}</span>{/if}
-        <button class="btn ghost sm" onclick={exportText}><Download size={14} />{t('soundChanges.exportText')}</button>
-        <a class="btn ghost sm" href="https://github.com/kinnuch/qonlang/blob/main/docs/rules.md" target="_blank" rel="noreferrer"><BookOpen size={14} />{t('soundChanges.syntaxHelp')}</a>
+        {#if errorCount}<span class="badge err">{t('soundChanges.errors', { n: errorCount })}</span
+          >{/if}
+        {#if warnCount}<span class="badge warn">{t('soundChanges.warnings', { n: warnCount })}</span
+          >{/if}
+        {#if !errorCount && !warnCount}<span class="badge">{t('soundChanges.noDiagnostics')}</span
+          >{/if}
+        <button class="btn ghost sm" onclick={exportText}
+          ><Download size={14} />{t('soundChanges.exportText')}</button
+        >
+        <a
+          class="btn ghost sm"
+          href="https://github.com/kinnuch/qonlang/blob/main/docs/rules.md"
+          target="_blank"
+          rel="noreferrer"><BookOpen size={14} />{t('soundChanges.syntaxHelp')}</a
+        >
       </div>
       {#if program && program.diagnostics.length}
         <ul class="diags">
           {#each program.diagnostics as d (d.line + d.message)}
             <li class:err={d.severity === 'error'}>
-              <button class="link" onclick={() => jump(d.line)}>{t('soundChanges.lineN', { n: d.line })}</button>
+              <button class="link" onclick={() => jump(d.line)}
+                >{t('soundChanges.lineN', { n: d.line })}</button
+              >
               {d.message}
             </li>
           {/each}
@@ -272,30 +354,50 @@
 
     <div class="field">
       <label for="test-input">{t('soundChanges.testInput')}</label>
-      <textarea id="test-input" class="textarea data" bind:value={rs.testWords} placeholder={t('soundChanges.testPlaceholder')} rows="3" onchange={() => touch(rs)}></textarea>
+      <textarea
+        id="test-input"
+        class="textarea data"
+        bind:value={rs.testWords}
+        placeholder={t('soundChanges.testPlaceholder')}
+        rows="3"
+        onchange={() => touch(rs)}
+      ></textarea>
     </div>
 
     {#if results.length}
       <div class="results-head row">
         <h3 class="grow">{t('soundChanges.output')}</h3>
-        <button class="btn ghost icon sm" title={t('soundChanges.copyResults')} onclick={copyResults}><Copy size={14} /></button>
+        <button
+          class="btn ghost icon sm"
+          title={t('soundChanges.copyResults')}
+          onclick={copyResults}><Copy size={14} /></button
+        >
       </div>
       <div class="table-wrap">
         <table class="results">
           <thead>
             <tr>
               <th>{columns[0] || t('soundChanges.output')}</th>
-              {#if upTo && selectedOrdinal != null}<th class="upto">{t('soundChanges.upTo', { n: selectedOrdinal })}</th>{/if}
+              {#if upTo && selectedOrdinal != null}<th class="upto"
+                  >{t('soundChanges.upTo', { n: selectedOrdinal })}</th
+                >{/if}
               {#each columns.slice(1) as c, i (i)}<th>{c || t('soundChanges.output')}</th>{/each}
             </tr>
           </thead>
           <tbody>
             {#each results as r, ri (r.input)}
-              {@const changed = selectedLine != null && r.trace.some((e) => e.line === selectedLine)}
+              {@const changed =
+                selectedLine != null && r.trace.some((e) => e.line === selectedLine)}
               {@const cs = cells(r)}
-              <tr class:sel={selectedWord === r.input} class:changed onclick={() => (selectedWord = r.input)}>
+              <tr
+                class:sel={selectedWord === r.input}
+                class:changed
+                onclick={() => (selectedWord = r.input)}
+              >
                 <td class="data">{cs[0]}</td>
-                {#if upTo && selectedOrdinal != null}<td class="data upto" class:hit={changed}>{upTo[ri]?.output ?? ''}</td>{/if}
+                {#if upTo && selectedOrdinal != null}<td class="data upto" class:hit={changed}
+                    >{upTo[ri]?.output ?? ''}</td
+                  >{/if}
                 {#each cs.slice(1) as c, i (i)}<td class="data">{c}</td>{/each}
               </tr>
             {/each}
@@ -303,7 +405,9 @@
         </table>
       </div>
 
-      <h3 class="trace-head">{selected ? t('soundChanges.traceFor', { word: selected.input }) : t('soundChanges.trace')}</h3>
+      <h3 class="trace-head">
+        {selected ? t('soundChanges.traceFor', { word: selected.input }) : t('soundChanges.trace')}
+      </h3>
       {#if !selected}
         <p class="small muted">{t('soundChanges.pickWord')}</p>
       {:else if selected.trace.length === 0}
@@ -312,11 +416,17 @@
         <ol class="trace">
           {#each selected.trace as e, i (i)}
             <li>
-              <button class="link mono" title={t('soundChanges.lineN', { n: e.line })} onclick={() => (selectedLine = e.line)}>{ordinals.get(e.line) ?? e.line}</button>
+              <button
+                class="link mono"
+                title={t('soundChanges.lineN', { n: e.line })}
+                onclick={() => (selectedLine = e.line)}>{ordinals.get(e.line) ?? e.line}</button
+              >
               <span class="data">{e.before}</span>
               <span class="muted">→</span>
               <span class="data">{e.after}</span>
-              <span class="small muted rule">{e.target || '∅'} → {e.replacement || '∅'}{e.stage ? ` · ${e.stage}` : ''}</span>
+              <span class="small muted rule"
+                >{e.target || '∅'} → {e.replacement || '∅'}{e.stage ? ` · ${e.stage}` : ''}</span
+              >
             </li>
           {/each}
         </ol>
@@ -331,10 +441,14 @@
         {#each stageNames(rs) as m (m)}
           <label class="row binding">
             <span class="mono grow">{m}</span>
-            <select class="select" value={rs.stageLanguages[m] ?? ''} onchange={(e) => {
-              rs.stageLanguages[m] = (e.currentTarget as HTMLSelectElement).value || null
-              touch(rs)
-            }}>
+            <select
+              class="select"
+              value={rs.stageLanguages[m] ?? ''}
+              onchange={(e) => {
+                rs.stageLanguages[m] = (e.currentTarget as HTMLSelectElement).value || null
+                touch(rs)
+              }}
+            >
               <option value="">{t('soundChanges.unbound')}</option>
               {#each project.languages as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
             </select>
@@ -345,9 +459,12 @@
 
     <div class="field">
       <label for="rs-notes">{t('common.notes')}</label>
-      <textarea id="rs-notes" class="textarea" bind:value={rs.notes} oninput={() => touch(rs)}></textarea>
+      <textarea id="rs-notes" class="textarea" bind:value={rs.notes} oninput={() => touch(rs)}
+      ></textarea>
     </div>
-    <button class="btn sm danger" onclick={() => removeSet(rs)}><Trash2 size={14} />{t('soundChanges.deleteSet')}</button>
+    <button class="btn sm danger" onclick={() => removeSet(rs)}
+      ><Trash2 size={14} />{t('soundChanges.deleteSet')}</button
+    >
   </Portal>
 {/if}
 

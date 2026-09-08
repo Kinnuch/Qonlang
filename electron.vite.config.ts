@@ -3,7 +3,9 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
 
-const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as { version: string }
+const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as {
+  version: string
+}
 
 export default defineConfig({
   main: {},

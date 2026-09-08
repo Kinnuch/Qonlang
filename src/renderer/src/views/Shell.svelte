@@ -29,6 +29,7 @@
   import Phrasebook from './Phrasebook.svelte'
   import Docs from './Docs.svelte'
   import CommandPalette from '$lib/ui/CommandPalette.svelte'
+  import PromptDialog from '$lib/ui/PromptDialog.svelte'
   import { ensureScriptFont } from '$lib/script/fonts'
   import Languages from './Languages.svelte'
   import SoundChanges from './SoundChanges.svelte'
@@ -58,7 +59,8 @@
   let inspectorTitle = $state('')
   // 注册各语言内嵌的文字字体
   $effect(() => {
-    for (const l of projectState.project?.languages ?? []) for (const sc of l.scripts) ensureScriptFont(sc)
+    for (const l of projectState.project?.languages ?? [])
+      for (const sc of l.scripts) ensureScriptFont(sc)
   })
 
   // 拖动分隔条调整检视器宽度
@@ -101,26 +103,58 @@
   }
 </script>
 
-<div class="shell" class:no-inspector={!ui.inspectorOpen} class:dragging style:--inspector-w={`${ui.prefs.inspectorWidth}px`}>
+<div
+  class="shell"
+  class:no-inspector={!ui.inspectorOpen}
+  class:dragging
+  style:--inspector-w={`${ui.prefs.inspectorWidth}px`}
+>
   <nav class="nav">
     <button class="nav-logo" title={t('nav.home')} onclick={closeProject}>千</button>
     {#each SECTIONS.filter((s) => s !== 'settings' && s !== 'skin') as s (s)}
       {@const Icon = icons[s]}
-      <button class="nav-btn" class:active={ui.section === s} title={ui.section === s && ui.previousSection ? t('nav.backTo', { name: t(`nav.${ui.previousSection}`) }) : t(`nav.${s}`)} onclick={() => ui.go(s)}>
+      <button
+        class="nav-btn"
+        class:active={ui.section === s}
+        title={ui.section === s && ui.previousSection
+          ? t('nav.backTo', { name: t(`nav.${ui.previousSection}`) })
+          : t(`nav.${s}`)}
+        onclick={() => ui.go(s)}
+      >
         <Icon size={20} />
         <span class="nav-label">{t(`nav.${s}`)}</span>
       </button>
     {/each}
     <div class="grow"></div>
-    <button class="nav-btn" class:active={ui.section === 'skin'} title={ui.section === 'skin' && ui.previousSection ? t('nav.backTo', { name: t(`nav.${ui.previousSection}`) }) : t('nav.skin')} onclick={() => ui.go('skin')}>
+    <button
+      class="nav-btn"
+      class:active={ui.section === 'skin'}
+      title={ui.section === 'skin' && ui.previousSection
+        ? t('nav.backTo', { name: t(`nav.${ui.previousSection}`) })
+        : t('nav.skin')}
+      onclick={() => ui.go('skin')}
+    >
       <Shirt size={20} />
       <span class="nav-label">{t('nav.skin')}</span>
     </button>
-    <button class="nav-btn" class:active={chars.open} title={t('chars.tooltip')} onmousedown={(e) => e.preventDefault()} onclick={() => chars.toggle()}>
+    <button
+      class="nav-btn"
+      class:active={chars.open}
+      title={t('chars.tooltip')}
+      onmousedown={(e) => e.preventDefault()}
+      onclick={() => chars.toggle()}
+    >
       <Keyboard size={20} />
       <span class="nav-label">{t('chars.title')}</span>
     </button>
-    <button class="nav-btn" class:active={ui.section === 'settings'} title={ui.section === 'settings' && ui.previousSection ? t('nav.backTo', { name: t(`nav.${ui.previousSection}`) }) : t('nav.settings')} onclick={() => ui.go('settings')}>
+    <button
+      class="nav-btn"
+      class:active={ui.section === 'settings'}
+      title={ui.section === 'settings' && ui.previousSection
+        ? t('nav.backTo', { name: t(`nav.${ui.previousSection}`) })
+        : t('nav.settings')}
+      onclick={() => ui.go('settings')}
+    >
       <Settings size={20} />
       <span class="nav-label">{t('nav.settings')}</span>
     </button>
@@ -144,60 +178,83 @@
         {/each}
       </select>
     </label>
-    <button class="btn icon" title={t('topbar.saveShortcut')} disabled={projectState.saving} onclick={() => projectState.save()}>
+    <button
+      class="btn icon"
+      title={t('topbar.saveShortcut')}
+      disabled={projectState.saving}
+      onclick={() => projectState.save()}
+    >
       <Save size={16} />
     </button>
-    <button class="btn ghost icon" title={t('nav.inspector')} class:active={ui.inspectorOpen} onclick={() => (ui.inspectorOpen = !ui.inspectorOpen)}>
+    <button
+      class="btn ghost icon"
+      title={t('nav.inspector')}
+      class:active={ui.inspectorOpen}
+      onclick={() => (ui.inspectorOpen = !ui.inspectorOpen)}
+    >
       <PanelRight size={16} />
     </button>
-    <button class="btn ghost icon" title={t('dialog.closeProject')} onclick={closeProject}><X size={16} /></button>
+    <button class="btn ghost icon" title={t('dialog.closeProject')} onclick={closeProject}
+      ><X size={16} /></button
+    >
   </header>
 
   <main class="main">
     <svelte:boundary onerror={(e) => console.error(e)}>
-    {#snippet failed(error, reset)}
-      <div class="crash card">
-        <strong>{t('errors.pageCrashed')}</strong>
-        <pre class="mono">{String((error as Error)?.message ?? error)}</pre>
-        <div class="row wrap">
-          <button class="btn primary sm" onclick={reset}>{t('errors.retry')}</button>
-          <button class="btn sm" onclick={() => { ui.section = 'languages'; reset() }}>{t('errors.goLanguages')}</button>
-          <button class="btn sm" onclick={() => projectState.save()}>{t('common.save')}</button>
+      {#snippet failed(error, reset)}
+        <div class="crash card">
+          <strong>{t('errors.pageCrashed')}</strong>
+          <pre class="mono">{String((error as Error)?.message ?? error)}</pre>
+          <div class="row wrap">
+            <button class="btn primary sm" onclick={reset}>{t('errors.retry')}</button>
+            <button
+              class="btn sm"
+              onclick={() => {
+                ui.section = 'languages'
+                reset()
+              }}>{t('errors.goLanguages')}</button
+            >
+            <button class="btn sm" onclick={() => projectState.save()}>{t('common.save')}</button>
+          </div>
         </div>
-      </div>
-    {/snippet}
-    {#if ui.section === 'languages'}
-      <Languages bind:inspectorTitle />
-    {:else if ui.section === 'soundChanges'}
-      <SoundChanges bind:inspectorTitle />
-    {:else if ui.section === 'script'}
-      <ScriptView bind:inspectorTitle />
-    {:else if ui.section === 'phonology'}
-      <Phonology bind:inspectorTitle />
-    {:else if ui.section === 'paradigms'}
-      <Paradigms bind:inspectorTitle />
-    {:else if ui.section === 'corpus'}
-      <Corpus bind:inspectorTitle />
-    {:else if ui.section === 'phrasebook'}
-      <Phrasebook bind:inspectorTitle />
-    {:else if ui.section === 'docs'}
-      <Docs bind:inspectorTitle />
-    {:else if ui.section === 'morphemes'}
-      <Morphemes bind:inspectorTitle />
-    {:else if ui.section === 'lexicon'}
-      <Lexicon bind:inspectorTitle />
-    {:else if ui.section === 'skin'}
-      <Skin bind:inspectorTitle />
-    {:else if ui.section === 'settings'}
-      <SettingsView bind:inspectorTitle />
-    {:else}
-      <Placeholder section={ui.section} bind:inspectorTitle />
-    {/if}
+      {/snippet}
+      {#if ui.section === 'languages'}
+        <Languages bind:inspectorTitle />
+      {:else if ui.section === 'soundChanges'}
+        <SoundChanges bind:inspectorTitle />
+      {:else if ui.section === 'script'}
+        <ScriptView bind:inspectorTitle />
+      {:else if ui.section === 'phonology'}
+        <Phonology bind:inspectorTitle />
+      {:else if ui.section === 'paradigms'}
+        <Paradigms bind:inspectorTitle />
+      {:else if ui.section === 'corpus'}
+        <Corpus bind:inspectorTitle />
+      {:else if ui.section === 'phrasebook'}
+        <Phrasebook bind:inspectorTitle />
+      {:else if ui.section === 'docs'}
+        <Docs bind:inspectorTitle />
+      {:else if ui.section === 'morphemes'}
+        <Morphemes bind:inspectorTitle />
+      {:else if ui.section === 'lexicon'}
+        <Lexicon bind:inspectorTitle />
+      {:else if ui.section === 'skin'}
+        <Skin bind:inspectorTitle />
+      {:else if ui.section === 'settings'}
+        <SettingsView bind:inspectorTitle />
+      {:else}
+        <Placeholder section={ui.section} bind:inspectorTitle />
+      {/if}
     </svelte:boundary>
   </main>
 
   <aside class="inspector" hidden={!ui.inspectorOpen}>
-    <div class="resizer" role="separator" aria-orientation="vertical" onpointerdown={startDrag}></div>
+    <div
+      class="resizer"
+      role="separator"
+      aria-orientation="vertical"
+      onpointerdown={startDrag}
+    ></div>
     <div class="inspector-head">
       <h3>{inspectorTitle || t('nav.inspector')}</h3>
     </div>
@@ -207,6 +264,7 @@
 <CharPanel />
 <WordPopover />
 <CommandPalette />
+<PromptDialog />
 
 <style>
   .shell {

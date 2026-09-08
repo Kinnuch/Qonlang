@@ -5,7 +5,11 @@
   import { lexemeScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
 
-  let { lexeme, project, onselect }: { lexeme: Lexeme; project: Project; onselect?: (id: Id) => void } = $props()
+  let {
+    lexeme,
+    project,
+    onselect
+  }: { lexeme: Lexeme; project: Project; onselect?: (id: Id) => void } = $props()
 
   const l = $derived(lexeme)
   const glossLangs = $derived(project.settings.glossLanguages)
@@ -16,14 +20,30 @@
       .map(([cid, vid]) => {
         const c = project.categories.find((x) => x.id === cid)
         const v = c?.values.find((x) => x.id === vid)
-        return c && v ? { cat: pickText(c.name, glossLangs), val: pickText(v.name, glossLangs), abbr: v.abbr } : null
+        return c && v
+          ? { cat: pickText(c.name, glossLangs), val: pickText(v.name, glossLangs), abbr: v.abbr }
+          : null
       })
       .filter((x): x is { cat: string; val: string; abbr: string } => !!x)
   )
-  const derivedWords = $derived(project.lexemes.filter((x) => x.etymology.sources.some((s) => s.kind === 'lexeme' && s.id === l.id)))
-  const pron = $derived(lang ? lang.orthographies.map((o) => ({ name: o.name, p: l.pronunciations[o.id] })).filter((x) => x.p?.ipa) : [])
+  const derivedWords = $derived(
+    project.lexemes.filter((x) =>
+      x.etymology.sources.some((s) => s.kind === 'lexeme' && s.id === l.id)
+    )
+  )
+  const pron = $derived(
+    lang
+      ? lang.orthographies
+          .map((o) => ({ name: o.name, p: l.pronunciations[o.id] }))
+          .filter((x) => x.p?.ipa)
+      : []
+  )
   const dialects = $derived(lang ? lang.dialects.filter((d) => l.dialectIds.includes(d.id)) : [])
-  const scripts = $derived(lang ? lang.scripts.map((sc) => ({ sc, text: lexemeScript(lang!, sc, l) })).filter((x) => x.text) : [])
+  const scripts = $derived(
+    lang
+      ? lang.scripts.map((sc) => ({ sc, text: lexemeScript(lang!, sc, l) })).filter((x) => x.text)
+      : []
+  )
 
   function sourceText(s: Lexeme['etymology']['sources'][number]): { text: string; id?: Id } {
     if (s.kind === 'morpheme') {
@@ -34,7 +54,9 @@
       const x = project.lexemes.find((y) => y.id === s.id)
       return { text: x?.lemma ?? '?', id: x?.id }
     }
-    return { text: `${s.language ? s.language + ' ' : ''}${s.form}${s.meaning ? ` ‘${s.meaning}’` : ''}` }
+    return {
+      text: `${s.language ? s.language + ' ' : ''}${s.form}${s.meaning ? ` ‘${s.meaning}’` : ''}`
+    }
   }
   function lemmaOf(id: Id): string {
     return project.lexemes.find((x) => x.id === id)?.lemma ?? '?'
@@ -44,14 +66,25 @@
 <article class="entry">
   <header>
     <h2 class="lemma data">{l.lemma || '—'}</h2>
-    {#each scripts as x (x.sc.id)}<div class="scr" style={fontCss(x.sc)} dir={x.sc.direction === 'rtl' ? 'rtl' : 'ltr'} title={x.sc.name}>{x.text}</div>{/each}
+    {#each scripts as x (x.sc.id)}<div
+        class="scr"
+        style={fontCss(x.sc)}
+        dir={x.sc.direction === 'rtl' ? 'rtl' : 'ltr'}
+        title={x.sc.name}
+      >
+        {x.text}
+      </div>{/each}
     <div class="row meta">
       {#if pos}<span class="pos">{pos.abbr || pickText(pos.name, glossLangs)}</span>{/if}
-      {#each pron as p (p.name)}<span class="ipa data">/{p.p.ipa}/{#if pron.length > 1}<span class="tiny">{p.name}</span>{/if}</span>{/each}
+      {#each pron as p (p.name)}<span class="ipa data"
+          >/{p.p.ipa}/{#if pron.length > 1}<span class="tiny">{p.name}</span>{/if}</span
+        >{/each}
     </div>
     {#if features.length || dialects.length}
       <div class="chips">
-        {#each features as f (f.cat)}<span class="chip" title={f.cat}>{f.val}{#if f.abbr}<span class="tiny">{f.abbr}</span>{/if}</span>{/each}
+        {#each features as f (f.cat)}<span class="chip" title={f.cat}
+            >{f.val}{#if f.abbr}<span class="tiny">{f.abbr}</span>{/if}</span
+          >{/each}
         {#each dialects as d (d.id)}<span class="chip dia">{d.name}</span>{/each}
       </div>
     {/if}
@@ -71,19 +104,24 @@
   </ol>
 
   {#if l.tags.length}
-    <div class="chips">{#each l.tags as tg (tg)}<span class="chip tag">{tg}</span>{/each}</div>
+    <div class="chips">
+      {#each l.tags as tg (tg)}<span class="chip tag">{tg}</span>{/each}
+    </div>
   {/if}
 
   {#if l.etymology.protoForm || l.etymology.sources.length || l.etymology.notes}
     <section>
       <h4>{t('lexicon.etymology')}</h4>
       <p class="ety">
-        {#if l.etymology.type !== 'unknown'}<span class="muted">{t(`lexicon.etyTypes.${l.etymology.type}`)}</span>{/if}
+        {#if l.etymology.type !== 'unknown'}<span class="muted"
+            >{t(`lexicon.etyTypes.${l.etymology.type}`)}</span
+          >{/if}
         {#if l.etymology.protoForm}<span class="data">*{l.etymology.protoForm}</span>{/if}
         {#each l.etymology.sources as s, i (i)}
           {@const st = sourceText(s)}
           <span class="muted">{i === 0 ? '←' : '+'}</span>
-          {#if st.id}<button class="link data" onclick={() => onselect?.(st.id!)}>{st.text}</button>{:else}<span class="data">{st.text}</span>{/if}
+          {#if st.id}<button class="link data" onclick={() => onselect?.(st.id!)}>{st.text}</button
+            >{:else}<span class="data">{st.text}</span>{/if}
         {/each}
       </p>
       {#if l.etymology.notes}<p class="small muted">{l.etymology.notes}</p>{/if}
@@ -99,7 +137,11 @@
             <tr><th>{k}</th><td class="data">{v}</td></tr>
           {/each}
           {#each Object.entries(l.forms) as [k, f] (k)}
-            <tr><th>{k}</th><td class="data">{f.surface}{#if f.derived}<span class="tiny muted"> ⚙</span>{/if}</td></tr>
+            <tr
+              ><th>{k}</th><td class="data"
+                >{f.surface}{#if f.derived}<span class="tiny muted"> ⚙</span>{/if}</td
+              ></tr
+            >
           {/each}
         </tbody>
       </table>
@@ -111,7 +153,16 @@
       <h4>{t('lexicon.relations')}</h4>
       <ul class="rel">
         {#each l.relations as r, i (i)}
-          <li><span class="muted">{t(`lexicon.relKinds.${r.kind}`) === `lexicon.relKinds.${r.kind}` ? r.kind : t(`lexicon.relKinds.${r.kind}`)}</span> <button class="link data" onclick={() => onselect?.(r.lexemeId)}>{lemmaOf(r.lexemeId)}</button></li>
+          <li>
+            <span class="muted"
+              >{t(`lexicon.relKinds.${r.kind}`) === `lexicon.relKinds.${r.kind}`
+                ? r.kind
+                : t(`lexicon.relKinds.${r.kind}`)}</span
+            >
+            <button class="link data" onclick={() => onselect?.(r.lexemeId)}
+              >{lemmaOf(r.lexemeId)}</button
+            >
+          </li>
         {/each}
       </ul>
     </section>
@@ -121,7 +172,9 @@
     <section>
       <h4>{t('lexicon.derivedWordsWords')}</h4>
       <p class="derivedWords">
-        {#each derivedWords as d (d.id)}<button class="link data" onclick={() => onselect?.(d.id)}>{d.lemma}</button>{/each}
+        {#each derivedWords as d (d.id)}<button class="link data" onclick={() => onselect?.(d.id)}
+            >{d.lemma}</button
+          >{/each}
       </p>
     </section>
   {/if}

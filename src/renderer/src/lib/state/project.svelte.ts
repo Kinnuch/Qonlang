@@ -44,7 +44,12 @@ class ProjectState {
     platform.setDirty(false)
   }
 
-  create(opts: Omit<CreateProjectOptions, 'appVersion' | 'uiLocale'> & { appVersion: string; uiLocale: string }): void {
+  create(
+    opts: Omit<CreateProjectOptions, 'appVersion' | 'uiLocale'> & {
+      appVersion: string
+      uiLocale: string
+    }
+  ): void {
     const p = createProject(opts)
     this.load(p, null)
     this.dirty = true
@@ -62,7 +67,11 @@ class ProjectState {
 
   private handleParseError(e: unknown): void {
     if (e instanceof ProjectParseError) {
-      const key = { 'invalid-json': 'invalidJson', 'not-a-project': 'notAProject', 'newer-schema': 'newerSchema' }[e.code]
+      const key = {
+        'invalid-json': 'invalidJson',
+        'not-a-project': 'notAProject',
+        'newer-schema': 'newerSchema'
+      }[e.code]
       ui.error(t(`errors.${key}`))
     } else {
       ui.error(t('errors.openFailed', { msg: (e as Error).message }))

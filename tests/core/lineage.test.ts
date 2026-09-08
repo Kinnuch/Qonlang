@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { createLanguage, languageChildren, languageLineage, wouldCreateCycle } from '$lib/core/factory'
+import {
+  createLanguage,
+  languageChildren,
+  languageLineage,
+  wouldCreateCycle
+} from '$lib/core/factory'
 
 const a = createLanguage({ name: 'A' })
 const b = createLanguage({ name: 'B', parentId: a.id })

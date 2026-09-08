@@ -62,7 +62,8 @@
     const secs = ui.prefs.autosaveSeconds
     if (!secs || secs <= 0) return
     const id = setInterval(() => {
-      if (projectState.dirty && projectState.target && !projectState.saving) void projectState.save()
+      if (projectState.dirty && projectState.target && !projectState.saving)
+        void projectState.save()
     }, secs * 1000)
     return () => clearInterval(id)
   })
