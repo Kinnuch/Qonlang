@@ -66,7 +66,7 @@
   const allTags = $derived([...new Set(project.lexemes.flatMap((l) => l.tags))].sort())
   const isDup = (l: Lexeme): boolean => (lemmaCounts.get(l.languageId + ' ' + l.lemma) ?? 0) > 1
   const selLang = $derived(selected ? project.languages.find((x) => x.id === selected.languageId) : null)
-  const relationKinds = $derived([...new Set(['synonym', 'antonym', 'related', ...project.lexemes.flatMap((l) => l.relations.map((r) => r.kind))])])
+  const relationKinds = $derived([...new Set(['synonym', 'antonym', 'related', ...project.lexemes.flatMap((l) => l.relations.map((r) => r.kind))])].filter(Boolean))
 
   $effect(() => {
     inspectorTitle = mode === 'taxonomy' ? t('taxonomy.title') : selected ? selected.lemma || t('lexicon.title') : t('lexicon.title')
@@ -444,13 +444,19 @@
     <div class="field">
       <div class="row"><span class="small muted grow">{t('lexicon.relations')}</span><button class="btn ghost sm" onclick={() => { l.relations.push({ kind: 'synonym', lexemeId: '' }); touch(l) }}><Plus size={14} />{t('lexicon.addRelation')}</button></div>
       {#each l.relations as r, i (i)}
+        {@const known = relationKinds.includes(r.kind)}
         <div class="row kv">
-          <input class="input kind" list="dl-relkinds" bind:value={r.kind} placeholder={t('lexicon.relationKind')} oninput={() => touch(l)} />
-          <input class="input data" list="dl-lexemes" value={project.lexemes.find((x) => x.id === r.lexemeId)?.lemma ?? ''} placeholder={t('lexicon.relationTarget')} onchange={(e) => { r.lexemeId = project.lexemes.find((x) => x.lemma === (e.currentTarget as HTMLInputElement).value && x.id !== l.id)?.id ?? ''; touch(l) }} />
+          <select class="select kind" value={known ? r.kind : '__custom__'} onchange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value; r.kind = v === '__custom__' ? '' : v; touch(l) }}>
+            {#each relationKinds as k (k)}<option value={k}>{relLabel(k)}</option>{/each}
+            <option value="__custom__">{t('lexicon.customKind')}</option>
+          </select>
+          {#if !known}
+            <input class="input kind" bind:value={r.kind} placeholder={t('lexicon.relationKind')} onchange={() => touch(l)} />
+          {/if}
+          <input class="input data grow" list="dl-lexemes" value={project.lexemes.find((x) => x.id === r.lexemeId)?.lemma ?? ''} placeholder={t('lexicon.relationTarget')} onchange={(e) => { r.lexemeId = project.lexemes.find((x) => x.lemma === (e.currentTarget as HTMLInputElement).value && x.id !== l.id)?.id ?? ''; touch(l) }} />
           <button class="btn ghost icon sm" onclick={() => { l.relations.splice(i, 1); touch(l) }}><X size={14} /></button>
         </div>
       {/each}
-      <datalist id="dl-relkinds">{#each relationKinds as k (k)}<option value={k}>{relLabel(k)}</option>{/each}</datalist>
     </div>
 
     <div class="field">

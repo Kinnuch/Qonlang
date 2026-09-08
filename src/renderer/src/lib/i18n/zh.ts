@@ -325,6 +325,7 @@ export default {
     relationKind: '关系种类',
     relationTarget: '目标词',
     relKinds: { synonym: '同义', antonym: '反义', related: '参见' },
+    customKind: '自定义…',
     graph: '关系图',
     backToList: '返回列表',
     groups: { sources: '来源', derived: '派生 / 复合', cognates: '同源', relations: '标注关系', synonyms: '同义（自动）' },

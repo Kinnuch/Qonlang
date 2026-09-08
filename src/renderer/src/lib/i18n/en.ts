@@ -329,6 +329,7 @@ const en: Dict = {
     relationKind: 'Relation kind',
     relationTarget: 'Target word',
     relKinds: { synonym: 'synonym', antonym: 'antonym', related: 'see also' },
+    customKind: 'Custom…',
     graph: 'Relation graph',
     backToList: 'Back to list',
     groups: { sources: 'Sources', derived: 'Derived / compounds', cognates: 'Cognates', relations: 'Marked relations', synonyms: 'Synonyms (auto)' },
