@@ -69,6 +69,7 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
   ] as const) {
     if (!Array.isArray(merged[key])) (merged as unknown as Record<string, unknown>)[key] = []
   }
+  for (const l of merged.lexemes) if (!Array.isArray(l.relations)) l.relations = []
   return merged
 }
 

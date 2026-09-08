@@ -112,6 +112,7 @@ export function createLexeme(languageId: Id, lemma = ''): Lexeme {
     stems: {},
     forms: {},
     pronunciations: {},
+    relations: [],
     notes: '',
     createdAt: t,
     updatedAt: t
@@ -212,7 +213,8 @@ export function createProject(opts: CreateProjectOptions): Project {
       morphemeBoundaries: ['-', '='],
       abbreviationStyle: 'leipzig',
       exportTemplates: [],
-      dataFont: ''
+      dataFont: '',
+      lexiconColumns: []
     }
   }
 }

@@ -5,11 +5,12 @@
   import { platform } from '$lib/platform'
   import { createRuleSet, now } from '$lib/core/factory'
   import type { RuleSet } from '$lib/core/model'
-  import { parseRuleText, runRules, fromYinbianji, fromLexicanter, fromSca2, type RuleProgram, type RunResult } from '$lib/engine/sca'
+  import { parseRuleText, runRules, ruleOrdinals, fromYinbianji, fromLexicanter, fromSca2, type RuleProgram, type RunResult } from '$lib/engine/sca'
   import Portal from '$lib/ui/Portal.svelte'
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
   import RuleList from '$lib/ui/RuleList.svelte'
-  import { Plus, Trash2, Download, Upload, Copy, BookOpen, List, Code } from '@lucide/svelte'
+  import RuleChainGraph from '$lib/ui/RuleChainGraph.svelte'
+  import { Plus, Trash2, Download, Upload, Copy, BookOpen, List, Code, GitBranch } from '@lucide/svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -60,7 +61,19 @@
   const warnCount = $derived(program?.diagnostics.filter((d) => d.severity === 'warning').length ?? 0)
 
   let editor = $state<RuleEditor | null>(null)
-  let view = $state<'list' | 'source'>('list')
+  let view = $state<'list' | 'chain' | 'source'>('list')
+  let selectedLine = $state<number | null>(null)
+  const ordinals = $derived(program ? ruleOrdinals(program) : new Map<number, number>())
+  const selectedOrdinal = $derived(selectedLine != null ? (ordinals.get(selectedLine) ?? null) : null)
+  /** 推到选中规则为止的形式 */
+  const upTo = $derived.by((): RunResult[] | null => {
+    if (!program || selectedLine == null) return null
+    try {
+      return words.map((w) => runRules(program!, w, { stopAtLine: selectedLine! }))
+    } catch {
+      return null
+    }
+  })
 
   /** 每条规则在测试词上的命中次数 */
   const hits = $derived.by(() => {
@@ -190,14 +203,19 @@
         <div class="editor-wrap">
           <RuleEditor bind:this={editor} bind:value={rs.text} diagnostics={program?.diagnostics ?? []} placeholder={t('soundChanges.editorPlaceholder')} oninput={() => touch(rs)} />
         </div>
+      {:else if view === 'chain'}
+        <div class="list-wrap">
+          <RuleChainGraph {program} bind:selectedLine />
+        </div>
       {:else}
         <div class="list-wrap">
-          <RuleList bind:text={rs.text} {program} {hits} onchange={() => touch(rs)} />
+          <RuleList bind:text={rs.text} {program} {hits} bind:selectedLine onchange={() => touch(rs)} />
         </div>
       {/if}
       <div class="status row">
         <div class="seg">
           <button class:active={view === 'list'} onclick={() => (view = 'list')}><List size={14} />{t('soundChanges.viewList')}</button>
+          <button class:active={view === 'chain'} onclick={() => (view = 'chain')}><GitBranch size={14} />{t('soundChanges.viewChain')}</button>
           <button class:active={view === 'source'} onclick={() => (view = 'source')}><Code size={14} />{t('soundChanges.viewSource')}</button>
         </div>
         <span class="small muted grow">
@@ -247,13 +265,19 @@
         <table class="results">
           <thead>
             <tr>
-              {#each columns as c, i (i)}<th>{c || t('soundChanges.output')}</th>{/each}
+              <th>{columns[0] || t('soundChanges.output')}</th>
+              {#if upTo && selectedOrdinal != null}<th class="upto">{t('soundChanges.upTo', { n: selectedOrdinal })}</th>{/if}
+              {#each columns.slice(1) as c, i (i)}<th>{c || t('soundChanges.output')}</th>{/each}
             </tr>
           </thead>
           <tbody>
-            {#each results as r (r.input)}
-              <tr class:sel={selectedWord === r.input} onclick={() => (selectedWord = r.input)}>
-                {#each cells(r) as c, i (i)}<td class="data">{c}</td>{/each}
+            {#each results as r, ri (r.input)}
+              {@const changed = selectedLine != null && r.trace.some((e) => e.line === selectedLine)}
+              {@const cs = cells(r)}
+              <tr class:sel={selectedWord === r.input} class:changed onclick={() => (selectedWord = r.input)}>
+                <td class="data">{cs[0]}</td>
+                {#if upTo && selectedOrdinal != null}<td class="data upto" class:hit={changed}>{upTo[ri]?.output ?? ''}</td>{/if}
+                {#each cs.slice(1) as c, i (i)}<td class="data">{c}</td>{/each}
               </tr>
             {/each}
           </tbody>
@@ -269,7 +293,7 @@
         <ol class="trace">
           {#each selected.trace as e, i (i)}
             <li>
-              <button class="link mono" onclick={() => jump(e.line)}>{e.line}</button>
+              <button class="link mono" title={t('soundChanges.lineN', { n: e.line })} onclick={() => (selectedLine = e.line)}>{ordinals.get(e.line) ?? e.line}</button>
               <span class="data">{e.before}</span>
               <span class="muted">→</span>
               <span class="data">{e.after}</span>
@@ -485,6 +509,16 @@
   }
   .results tbody tr.sel {
     background: var(--accent-soft);
+  }
+  .results .upto {
+    border-left: 2px solid var(--accent);
+  }
+  .results td.upto.hit {
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+  .results tbody tr.changed td:first-child {
+    box-shadow: inset 3px 0 0 var(--accent);
   }
   .trace-head {
     margin-bottom: 6px;

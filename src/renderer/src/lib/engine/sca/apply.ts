@@ -20,6 +20,8 @@ export interface RunOptions {
   startAt?: string
   /** 推到该阶段为止 */
   stopAt?: string
+  /** 只应用到该文本行号（含）为止的规则 */
+  stopAtLine?: number
   trace?: boolean
 }
 
@@ -91,6 +93,7 @@ export function runRules(program: RuleProgram, word: string, options: RunOptions
   let active = !options.startAt
 
   for (const step of program.steps) {
+    if (options.stopAtLine != null && step.line > options.stopAtLine) break
     if (step.kind === 'marker') {
       if (!active) {
         if (step.name === options.startAt) {
@@ -115,6 +118,20 @@ export function runRules(program: RuleProgram, word: string, options: RunOptions
     }
   }
   return { input: word, output: revertReplacements(current, replacements), stages, trace }
+}
+
+/** 只应用一条规则（预览用）。输入输出都是书写形式（经多合字母替换与还原）。 */
+export function runSingleRule(program: RuleProgram, rule: ParsedRule, word: string): string {
+  const inner = applyReplacements(word, program.replacements)
+  return revertReplacements(applyRule(rule, inner), program.replacements)
+}
+
+/** 规则序号（第 1 条起，不计标记与注释）：文本行号 → 序号 */
+export function ruleOrdinals(program: RuleProgram): Map<number, number> {
+  const m = new Map<number, number>()
+  let n = 0
+  for (const s of program.steps) if (s.kind === 'rule') m.set(s.line, ++n)
+  return m
 }
 
 /** 批量运行；每个词独立 */

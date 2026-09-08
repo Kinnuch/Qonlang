@@ -1,7 +1,8 @@
 <script lang="ts">
   /**
-   * 规则列表视图：把规则文本投影成可逐条编辑的条目。
+   * 规则列表视图：把规则文本投影成可逐条编辑的卡片。
    * 文本仍是唯一真值；这里的每个改动都换算成对某一行的替换 / 插入 / 删除。
+   * 单击选中（联动测试台预览），双击或铅笔进入编辑。
    */
   import { t } from '$lib/i18n/index.svelte'
   import {
@@ -11,19 +12,26 @@
     formatReplacementLine,
     parseClassLine,
     parseReplacementLine,
+    ruleOrdinals,
+    runSingleRule,
+    sampleForRule,
+    diffSpan,
     type ParsedLine,
     type ParsedRule,
     type RuleDraft,
     type RuleProgram
   } from '$lib/engine/sca'
-  import { Plus, Trash2, ChevronUp, ChevronDown, Copy, Check, X, AlertTriangle } from '@lucide/svelte'
+  import { Plus, Trash2, ChevronUp, ChevronDown, Copy, Check, X, AlertTriangle, Pencil, RotateCcw } from '@lucide/svelte'
 
   let {
     text = $bindable(''),
     program,
     hits = new Map<number, number>(),
+    selectedLine = $bindable<number | null>(null),
     onchange
-  }: { text?: string; program: RuleProgram | null; hits?: Map<number, number>; onchange?: () => void } = $props()
+  }: { text?: string; program: RuleProgram | null; hits?: Map<number, number>; selectedLine?: number | null; onchange?: () => void } = $props()
+
+  const ordinals = $derived(program ? ruleOrdinals(program) : new Map<number, number>())
 
   // ───── 文本行操作 ─────
   function lines(): string[] {
@@ -65,7 +73,6 @@
   interface Section {
     marker: (ParsedLine & { kind: 'marker' }) | null
     items: ParsedLine[]
-    /** 段落最后一行的行号（用于「在此段末尾添加」） */
     endLine: number
   }
   const sections = $derived.by((): Section[] => {
@@ -99,9 +106,11 @@
   let classDraft = $state({ name: '', members: '' })
   let editingDigraph = $state<number | null | 'new'>(null)
   let digraphDraft = $state({ from: '', to: '' })
+  let replayKey = $state(0)
 
   function openRule(r: ParsedRule): void {
     editingLine = r.line
+    selectedLine = r.line
     draft = {
       target: r.target,
       replacement: r.replacement,
@@ -119,6 +128,7 @@
   function addRuleAfter(line: number): void {
     const l = insertAfter(line, ' > ')
     editingLine = l
+    selectedLine = l
     draft = { target: '', replacement: '', contexts: [{ left: '', right: '' }], exception: null, comment: '' }
   }
   function addStageAfter(line: number): void {
@@ -128,6 +138,7 @@
   }
   function removeRule(line: number): void {
     if (editingLine === line) editingLine = null
+    if (selectedLine === line) selectedLine = null
     deleteLine(line)
   }
   function duplicateRule(r: ParsedRule): void {
@@ -139,6 +150,7 @@
     if (other < 1 || other > ls.length) return
     swapLines(line, other)
     if (editingLine === line) editingLine = other
+    if (selectedLine === line) selectedLine = other
   }
   function insertClassName(name: string): void {
     const token = name.length === 1 ? name : `{${name}}`
@@ -159,13 +171,23 @@
     return ctx.map((c) => `${c.left}_${c.right}`).join(' , ')
   }
 
+  /** 选中规则的示例与变化 */
+  const preview = $derived.by(() => {
+    if (!program || selectedLine == null) return null
+    const r = program.steps.find((s) => s.kind === 'rule' && s.line === selectedLine) as ParsedRule | undefined
+    if (!r) return null
+    const sample = sampleForRule(program, r)
+    if (!sample) return { sample, after: sample, diff: null }
+    const after = runSingleRule(program, r, sample)
+    return { sample, after, diff: after === sample ? null : diffSpan(sample, after) }
+  })
+
   // 音类
   function openClass(line: number | 'new'): void {
     editingClass = line
     if (line === 'new') classDraft = { name: '', members: '' }
     else {
-      const raw = lines()[line - 1]
-      const p = parseClassLine(raw)
+      const p = parseClassLine(lines()[line - 1])
       classDraft = { name: p?.name ?? '', members: p ? (p.members.some((m) => Array.from(m).length > 1) ? p.members.join(' ') : p.members.join('')) : '' }
     }
   }
@@ -370,32 +392,68 @@
           {#if editingLine === r.line}
             {@render ruleForm(r.line)}
           {:else}
-            <div class="rule row" role="button" tabindex="0" onclick={() => openRule(r)} onkeydown={(e) => e.key === 'Enter' && openRule(r)}>
-              <span class="num mono">{r.line}</span>
-              <span class="rule-body data">
-                {#if !r.target && !r.replacement}
-                  <span class="muted">{t('soundChanges.emptyRule')}</span>
-                {:else}
-                  <span class="tg">{r.target || '∅'}</span>
-                  <span class="muted">→</span>
-                  <span class="rp">{r.replacement === '\\' ? '⇄' : r.replacement === '2' ? '×2' : r.replacement || '∅'}</span>
-                  <span class="muted">/</span>
-                  <span class="ctx">{describeCtx(r)}</span>
-                  {#if r.exception}<span class="muted">−</span><span class="exc">{r.exception.left}_{r.exception.right}</span>{/if}
-                {/if}
-              </span>
-              {#if r.comment}<span class="small muted comment">{r.comment}</span>{/if}
-              {#if hits.get(r.line)}<span class="badge accent">{t('soundChanges.hits', { n: hits.get(r.line)! })}</span>{/if}
-              <span class="actions">
-                <button class="btn ghost icon sm" title={t('soundChanges.moveUp')} onclick={(e) => { e.stopPropagation(); moveRule(r.line, -1) }}><ChevronUp size={14} /></button>
-                <button class="btn ghost icon sm" title={t('soundChanges.moveDown')} onclick={(e) => { e.stopPropagation(); moveRule(r.line, 1) }}><ChevronDown size={14} /></button>
-                <button class="btn ghost icon sm" title={t('soundChanges.duplicate')} onclick={(e) => { e.stopPropagation(); duplicateRule(r) }}><Copy size={14} /></button>
-                <button class="btn ghost icon sm danger" title={t('soundChanges.deleteRule')} onclick={(e) => { e.stopPropagation(); removeRule(r.line) }}><Trash2 size={14} /></button>
-              </span>
+            <div
+              class="rule card"
+              class:selected={selectedLine === r.line}
+              role="button"
+              tabindex="0"
+              onclick={() => (selectedLine = selectedLine === r.line ? null : r.line)}
+              ondblclick={() => openRule(r)}
+              onkeydown={(e) => e.key === 'Enter' && openRule(r)}
+            >
+              <div class="rule-main row">
+                <span class="num">{ordinals.get(r.line) ?? ''}</span>
+                <span class="rule-body data">
+                  {#if !r.target && !r.replacement}
+                    <span class="muted">{t('soundChanges.emptyRule')}</span>
+                  {:else}
+                    <span class="tg">{r.target || '∅'}</span>
+                    <span class="muted">→</span>
+                    <span class="rp">{r.replacement === '\\' ? '⇄' : r.replacement === '2' ? '×2' : r.replacement || '∅'}</span>
+                    <span class="muted">/</span>
+                    <span class="ctx">{describeCtx(r)}</span>
+                    {#if r.exception}<span class="muted">−</span><span class="exc">{r.exception.left}_{r.exception.right}</span>{/if}
+                  {/if}
+                </span>
+                {#if r.comment}<span class="small muted comment">{r.comment}</span>{/if}
+                {#if hits.get(r.line)}<span class="badge accent">{t('soundChanges.hits', { n: hits.get(r.line)! })}</span>{/if}
+                <span class="actions">
+                  <button class="btn ghost icon sm" title={t('soundChanges.editRule')} onclick={(e) => { e.stopPropagation(); openRule(r) }}><Pencil size={14} /></button>
+                  <button class="btn ghost icon sm" title={t('soundChanges.moveUp')} onclick={(e) => { e.stopPropagation(); moveRule(r.line, -1) }}><ChevronUp size={14} /></button>
+                  <button class="btn ghost icon sm" title={t('soundChanges.moveDown')} onclick={(e) => { e.stopPropagation(); moveRule(r.line, 1) }}><ChevronDown size={14} /></button>
+                  <button class="btn ghost icon sm" title={t('soundChanges.duplicate')} onclick={(e) => { e.stopPropagation(); duplicateRule(r) }}><Copy size={14} /></button>
+                  <button class="btn ghost icon sm danger" title={t('soundChanges.deleteRule')} onclick={(e) => { e.stopPropagation(); removeRule(r.line) }}><Trash2 size={14} /></button>
+                </span>
+              </div>
+              {#if selectedLine === r.line && preview}
+                <div class="preview row">
+                  <span class="small muted">{t('soundChanges.sample')}</span>
+                  {#if !preview.sample}
+                    <span class="small muted">{t('soundChanges.noPreview')}</span>
+                  {:else if !preview.diff}
+                    <span class="data">{preview.sample}</span>
+                    <span class="small muted">{t('soundChanges.noPreview')}</span>
+                  {:else}
+                    {#key replayKey}
+                      <span class="morph data">
+                        <span>{preview.diff.prefix}</span>
+                        <span class="seg">
+                          <span class="old">{preview.diff.beforeMid || '∅'}</span>
+                          <span class="new">{preview.diff.afterMid || '∅'}</span>
+                        </span>
+                        <span>{preview.diff.suffix}</span>
+                      </span>
+                    {/key}
+                    <span class="muted">→</span>
+                    <span class="data result">{preview.after}</span>
+                    <button class="btn ghost icon sm" title={t('soundChanges.replay')} onclick={(e) => { e.stopPropagation(); replayKey++ }}><RotateCcw size={13} /></button>
+                  {/if}
+                </div>
+              {/if}
             </div>
           {/if}
         {:else if item.kind === 'error'}
-          <div class="rule err row">
+          <div class="rule card err row">
             <span class="num mono">{item.line}</span>
             <AlertTriangle size={14} />
             <input class="input data grow" value={item.raw} onchange={(e) => replaceLine(item.line, (e.currentTarget as HTMLInputElement).value)} />
@@ -403,7 +461,7 @@
             <button class="btn ghost icon sm danger" onclick={() => removeRule(item.line)}><Trash2 size={14} /></button>
           </div>
         {:else if item.kind === 'comment'}
-          <div class="note row"><span class="num mono">{item.line}</span><span class="small muted">{item.raw.replace(/^\s*[;#]\s?/, '')}</span></div>
+          <div class="note row"><span class="small muted">{item.raw.replace(/^\s*[;#]\s?/, '')}</span></div>
         {/if}
       {/each}
 
@@ -495,7 +553,7 @@
   .stage {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 6px;
   }
   .stage-head {
     padding: 6px 0 2px;
@@ -520,28 +578,44 @@
     width: 240px;
   }
   .rule {
-    gap: 10px;
-    padding: 2px 8px;
-    min-height: 30px;
-    border-radius: var(--radius-sm);
+    padding: 6px 10px;
     cursor: pointer;
-  }
-  .rule .actions .btn {
-    padding: 2px;
+    transition:
+      border-color 0.12s,
+      box-shadow 0.12s;
   }
   .rule:hover {
-    background: var(--bg-hover);
+    border-color: var(--border-strong);
+  }
+  .rule.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .rule.err {
     color: var(--danger);
     cursor: default;
+    gap: 10px;
+  }
+  .rule-main {
+    gap: 10px;
+    min-height: 26px;
   }
   .num {
-    width: 28px;
-    text-align: right;
-    color: var(--text-3);
+    min-width: 24px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--bg-sunken);
+    color: var(--text-2);
     font-size: 11px;
+    font-family: var(--font-mono);
+    display: inline-grid;
+    place-items: center;
     flex: none;
+  }
+  .rule.selected .num {
+    background: var(--accent);
+    color: #fff;
   }
   .mono {
     font-family: var(--font-mono);
@@ -585,15 +659,77 @@
     display: none;
     gap: 0;
   }
-  .rule:hover .actions {
+  .rule:hover .actions,
+  .rule.selected .actions {
     display: inline-flex;
+  }
+  .actions .btn {
+    padding: 2px;
   }
   .note {
     gap: 10px;
-    padding: 2px 8px;
+    padding: 0 10px;
   }
   .stage-foot {
-    padding: 2px 0 0 28px;
+    padding: 2px 0 0 4px;
+  }
+  .preview {
+    gap: 10px;
+    margin-top: 6px;
+    padding: 6px 10px;
+    border-top: 1px dashed var(--border);
+    font-size: 16px;
+  }
+  .morph {
+    display: inline-flex;
+    align-items: baseline;
+  }
+  .seg {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 2px;
+    padding: 0 3px;
+    border-radius: 4px;
+    background: var(--accent-soft);
+  }
+  .seg .old {
+    color: var(--danger);
+    animation: strike 1.6s ease forwards;
+  }
+  .seg .new {
+    display: inline-block;
+    color: var(--accent-text);
+    font-weight: 600;
+    animation: fadeIn 1.6s ease forwards;
+  }
+  @keyframes strike {
+    0%,
+    45% {
+      opacity: 1;
+      text-decoration: none;
+    }
+    75%,
+    100% {
+      opacity: 0.45;
+      text-decoration: line-through;
+    }
+  }
+  @keyframes fadeIn {
+    0%,
+    45% {
+      opacity: 0;
+      max-width: 0;
+      transform: translateY(6px);
+    }
+    75%,
+    100% {
+      opacity: 1;
+      max-width: 4em;
+      transform: translateY(0);
+    }
+  }
+  .result {
+    font-weight: 600;
   }
   .form {
     padding: 12px 14px;

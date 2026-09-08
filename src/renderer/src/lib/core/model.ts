@@ -61,6 +61,8 @@ export interface ProjectSettings {
   exportTemplates: ExportTemplate[]
   /** 语言数据默认字体（IPA 需完整覆盖） */
   dataFont: string
+  /** 词库列表显示的列（键见 Lexicon 页）；空则用默认 */
+  lexiconColumns: string[]
 }
 
 export interface ExportTemplate {
@@ -272,9 +274,16 @@ export interface Lexeme {
   forms: Record<string, InflectedForm>
   /** orthographyId → 发音 */
   pronunciations: Record<Id, Pronunciation>
+  /** 用户标注的词间关系（同义、反义、参见……种类自定义） */
+  relations: LexemeRelation[]
   notes: string
   createdAt: string
   updatedAt: string
+}
+
+export interface LexemeRelation {
+  kind: string
+  lexemeId: Id
 }
 
 export interface Sense {
