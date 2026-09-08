@@ -525,6 +525,7 @@ const en: Dict = {
     toStage: 'To stage',
     patternHint: 'C1, C2… refer to the nth stem consonant, bare C takes the next consonant, V likewise; everything else is literal. E.g. C1aC2aC3, maCCuC',
     scopes: { full: 'Whole stem', initial: 'Initial part', final: 'Final part' },
+    length: 'Segments',
     inherited: 'inherited',
     bindPos: 'Bound parts of speech',
     inheritsFrom: 'Inherits from',

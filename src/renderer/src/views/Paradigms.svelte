@@ -284,41 +284,59 @@
                     </select>
                     {#if isInherited(s.key)}<span class="badge">{t('paradigms.inherited')}</span>{/if}
                   </td>
-                  <td class="params">
-                    {#if g.kind === 'affix' || g.kind === 'affix-sca' || g.kind === 'pattern' || g.kind === 'reduplication'}
-                      <input class="input p stem" list="dl-stems" placeholder={t('paradigms.stem')} bind:value={g.stem} oninput={touch} />
-                    {/if}
-                    {#if g.kind === 'affix' || g.kind === 'affix-sca'}
-                      <input class="input p data" placeholder={t('paradigms.prefix')} bind:value={g.prefix} oninput={touch} />
-                      <input class="input p data" placeholder={t('paradigms.suffix')} bind:value={g.suffix} oninput={touch} />
-                    {/if}
-                    {#if g.kind === 'affix'}
-                      <input class="input p data" placeholder={t('paradigms.infix')} bind:value={g.infix} oninput={touch} />
-                      <input class="input p tiny" placeholder={t('paradigms.infixAt')} title={t('paradigms.infixAtHint')} bind:value={g.infixAt} oninput={touch} />
-                    {/if}
-                    {#if g.kind === 'affix-sca'}
-                      <select class="select p" bind:value={g.ruleSetId} onchange={touch}>
-                        <option value={null}>{t('paradigms.ruleSet')}</option>
-                        {#each project.ruleSets as rs (rs.id)}<option value={rs.id}>{rs.name}</option>{/each}
-                      </select>
-                      <select class="select p tiny" bind:value={g.fromStage} onchange={touch}>
-                        <option value="">{t('paradigms.fromStage')}</option>
-                        {#each stageNames(g.ruleSetId) as st (st)}<option value={st}>{st}</option>{/each}
-                      </select>
-                      <select class="select p tiny" bind:value={g.toStage} onchange={touch}>
-                        <option value="">{t('paradigms.toStage')}</option>
-                        {#each stageNames(g.ruleSetId) as st (st)}<option value={st}>{st}</option>{/each}
-                      </select>
-                    {/if}
-                    {#if g.kind === 'pattern'}
-                      <input class="input p data" placeholder="C1aC2aC3" title={t('paradigms.patternHint')} bind:value={g.pattern} oninput={touch} />
-                    {/if}
-                    {#if g.kind === 'reduplication'}
-                      <select class="select p" bind:value={g.scope} onchange={touch}>
-                        {#each ['full', 'initial', 'final'] as sc (sc)}<option value={sc}>{t(`paradigms.scopes.${sc}`)}</option>{/each}
-                      </select>
-                      {#if g.scope !== 'full'}<input type="number" min="1" class="input p tiny" bind:value={g.length} onchange={touch} />{/if}
-                    {/if}
+                  <td>
+                    <div class="formula">
+                      <div class="frow">
+                      {#if g.kind === 'affix' || g.kind === 'affix-sca'}
+                        <label class="pf"><span>{t('paradigms.prefix')}</span><input class="input data" bind:value={g.prefix} oninput={touch} /></label>
+                        <span class="op">+</span>
+                        <label class="pf"><span>{t('paradigms.stem')}</span><input class="input" list="dl-stems" placeholder="lemma" bind:value={g.stem} oninput={touch} /></label>
+                        <span class="op">+</span>
+                        <label class="pf"><span>{t('paradigms.suffix')}</span><input class="input data" bind:value={g.suffix} oninput={touch} /></label>
+                      {:else if g.kind === 'pattern' || g.kind === 'reduplication'}
+                        <label class="pf"><span>{t('paradigms.stem')}</span><input class="input" list="dl-stems" placeholder="lemma" bind:value={g.stem} oninput={touch} /></label>
+                      {/if}
+                      {#if g.kind === 'affix'}
+                        <span class="op">·</span>
+                        <label class="pf"><span>{t('paradigms.infix')}</span><input class="input data" bind:value={g.infix} oninput={touch} /></label>
+                        <label class="pf sm"><span>{t('paradigms.infixAt')}</span><input class="input" placeholder="V1" title={t('paradigms.infixAtHint')} bind:value={g.infixAt} oninput={touch} /></label>
+                      {/if}
+                      </div>
+                      {#if g.kind === 'affix-sca' || g.kind === 'pattern' || g.kind === 'reduplication'}
+                      <div class="frow">
+                      {#if g.kind === 'affix-sca'}
+                        <span class="op arrow">→</span>
+                        <label class="pf wide"><span>{t('paradigms.ruleSet')}</span>
+                          <select class="select" bind:value={g.ruleSetId} onchange={touch}>
+                            <option value={null}>—</option>
+                            {#each project.ruleSets as rs (rs.id)}<option value={rs.id}>{rs.name}</option>{/each}
+                          </select></label>
+                        <label class="pf sm"><span>{t('paradigms.fromStage')}</span>
+                          <select class="select" bind:value={g.fromStage} onchange={touch}>
+                            <option value="">—</option>
+                            {#each stageNames(g.ruleSetId) as st (st)}<option value={st}>{st}</option>{/each}
+                          </select></label>
+                        <label class="pf sm"><span>{t('paradigms.toStage')}</span>
+                          <select class="select" bind:value={g.toStage} onchange={touch}>
+                            <option value="">—</option>
+                            {#each stageNames(g.ruleSetId) as st (st)}<option value={st}>{st}</option>{/each}
+                          </select></label>
+                      {/if}
+                      {#if g.kind === 'pattern'}
+                        <span class="op arrow">→</span>
+                        <label class="pf wide"><span>{t('paradigms.kinds.pattern')}</span><input class="input data" placeholder="C1aC2aC3" title={t('paradigms.patternHint')} bind:value={g.pattern} oninput={touch} /></label>
+                      {/if}
+                      {#if g.kind === 'reduplication'}
+                        <span class="op arrow">→</span>
+                        <label class="pf"><span>{t('paradigms.kinds.reduplication')}</span>
+                          <select class="select" bind:value={g.scope} onchange={touch}>
+                            {#each ['full', 'initial', 'final'] as sc (sc)}<option value={sc}>{t(`paradigms.scopes.${sc}`)}</option>{/each}
+                          </select></label>
+                        {#if g.scope !== 'full'}<label class="pf sm"><span>{t('paradigms.length')}</span><input type="number" min="1" class="input" bind:value={g.length} onchange={touch} /></label>{/if}
+                      {/if}
+                      </div>
+                      {/if}
+                    </div>
                   </td>
                   <td>
                     <div class="adjust">
@@ -513,20 +531,61 @@
     padding-top: 3px;
     padding-bottom: 3px;
   }
-  .params {
+  .formula {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 4px;
   }
-  .p {
-    width: 120px;
-    padding: 3px 6px;
+  .frow {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    white-space: nowrap;
   }
-  .p.stem {
-    width: 90px;
+  .pf {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    width: 96px;
   }
-  .p.tiny {
-    width: 84px;
+  .pf.sm {
+    width: 72px;
+  }
+  .pf.wide {
+    width: 170px;
+  }
+  .pf > span {
+    font-size: 10px;
+    line-height: 1.2;
+    color: var(--text-3);
+    padding-left: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pf .input,
+  .pf .select {
+    height: 28px;
+    padding: 2px 7px;
+    font-size: 13px;
+    border-radius: 6px;
+  }
+  .pf .select {
+    padding-right: 22px;
+    background-position: right 6px center;
+  }
+  .pf .input.data {
+    font-size: 14px;
+  }
+  .op {
+    color: var(--text-3);
+    padding: 0 1px 6px;
+    font-size: 14px;
+    user-select: none;
+  }
+  .op.arrow {
+    color: var(--accent-text);
+    padding-left: 4px;
   }
   .adjust {
     display: flex;
@@ -536,10 +595,35 @@
   }
   .adj {
     min-height: 28px;
-    padding: 3px 6px;
+    height: 28px;
+    padding: 4px 7px;
     font-family: var(--font-mono);
     font-size: 12px;
+    border-radius: 6px;
     resize: vertical;
+  }
+  .slots {
+    width: auto;
+    min-width: 100%;
+  }
+  .slots td {
+    vertical-align: top;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    white-space: nowrap;
+  }
+  .slots td:first-child {
+    padding-top: 22px;
+  }
+  .slots .kind {
+    margin-top: 13px;
+  }
+  .slots td.label,
+  .slots td.mono {
+    padding-top: 22px;
+  }
+  .slots tbody tr:nth-child(even) {
+    background: var(--bg-sunken);
   }
   .mono {
     font-family: var(--font-mono);

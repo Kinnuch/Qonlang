@@ -521,6 +521,7 @@ export default {
     toStage: '截止阶段',
     patternHint: 'C1、C2…引用词干第 n 个辅音，bare C 依次取下一个辅音，V 同理；其余字面。如 C1aC2aC3、maCCuC',
     scopes: { full: '整体重叠', initial: '词首部分', final: '词尾部分' },
+    length: '音段数',
     inherited: '继承',
     bindPos: '绑定词类',
     inheritsFrom: '继承自',
