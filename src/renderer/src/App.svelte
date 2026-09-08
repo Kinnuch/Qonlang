@@ -18,6 +18,11 @@
   onMount(() => {
     const stopTheme = ui.watchSystemTheme()
     const stopChars = chars.install()
+    platform.onMenu((a) => {
+      if (a === 'save' && projectState.project) void projectState.save()
+      else if (a === 'saveAs' && projectState.project) void projectState.save(true)
+      else if (a === 'open') void projectState.open()
+    })
     void (async () => {
       await ui.loadPrefs()
       fontLibrary.onProgress()

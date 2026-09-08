@@ -285,6 +285,9 @@ export const webPlatform: PlatformAPI = {
   onFontProgress() {
     /* 浏览器版不报进度 */
   },
+  onMenu() {
+    /* 网页版没有应用菜单 */
+  },
   async exportPdf(html) {
     const w = window.open('', '_blank')
     if (!w) return false

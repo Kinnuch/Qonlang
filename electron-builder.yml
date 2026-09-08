@@ -1,5 +1,6 @@
 appId: io.github.kinnuch.qonlang
 productName: Qonlang
+copyright: Copyright © 2026 Kinnuch · MIT
 directories:
   buildResources: build
 files:
@@ -8,6 +9,9 @@ files:
   - '!tests/*'
   - '!docs/*'
   - '!dist/*'
+  - '!examples/*'
+  - '!scripts/*'
+  - '!.github/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!vite.web.config.ts'
   - '!vitest.config.ts'
@@ -17,8 +21,13 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+
+# ── Windows ──
 win:
   executableName: Qonlang
+  icon: build/icon.ico
+  target:
+    - nsis
 nsis:
   artifactName: Qonlang-${version}-setup.${ext}
   shortcutName: 千语集
@@ -26,12 +35,37 @@ nsis:
   createDesktopShortcut: always
   oneClick: false
   allowToChangeInstallationDirectory: true
+
+# ── macOS ──
+# 不签名、不公证（没有 Apple 开发者账号）。用户首次打开需右键「打开」或 xattr -cr。
 mac:
+  icon: build/icon.icns
+  category: public.app-category.education
+  artifactName: Qonlang-${version}-mac-${arch}.${ext}
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  identity: null
   entitlementsInherit: build/entitlements.mac.plist
   notarize: false
+  darkModeSupport: true
 dmg:
-  artifactName: Qonlang-${version}.${ext}
+  artifactName: Qonlang-${version}-mac-${arch}.${ext}
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+# ── Linux ──
 linux:
+  icon: build/icon.png
   target:
     - AppImage
     - deb
@@ -39,4 +73,5 @@ linux:
   category: Utility
 appImage:
   artifactName: Qonlang-${version}.${ext}
+
 npmRebuild: false

@@ -20,6 +20,10 @@
 ### Ctrl+K 命令面板
 - 跨页面搜索词条、语素、例句、短语、文档、规则集、范式、语言，回车跳到对应页面并选中；也可直接输入页面名导航或执行保存等命令
 
+### macOS 与发布流程
+- macOS 构建配置（dmg + zip，Intel 与 Apple Silicon，不签名），应用菜单（Cmd+C/V/Z、文件、视图、帮助→使用指南），`sh dev.sh`
+- GitHub Actions：推 `v*` tag 自动在 Windows 与 macOS 打包并发布 Release；`npm run release` 一键打 tag；每次 push 跑 lint / typecheck / 测试
+
 ### 使用指南
 - 每个页面右下角有「使用指南」链接，首页底部也有；音变页「语法说明」改指向指南的规则语言章节。指南托管在作者网站 https://kinnuch.github.io/cerf/qonlang/ ，按模块分 14 页
 

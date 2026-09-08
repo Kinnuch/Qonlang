@@ -21,7 +21,18 @@ npm run build:web  # 网页版静态文件 → dist/web
 ```
 
 Windows 下若 PowerShell 提示「禁止运行脚本」，双击 `dev.cmd` 启动开发版，或改用 `npm.cmd run dev`；
-免安装版：`npm run pack:win` 打出 `dist/win-unpacked/Qonlang.exe`；安装包：`npm run installer:win` 打出 `dist/Qonlang-<版本>-setup.exe`（NSIS，可选安装目录，桌面快捷方式「千语集」）。
+## 打包与发布
+
+| 平台 | 本机命令 | 产物 |
+|---|---|---|
+| Windows 免安装 | `npm run pack:win` | `dist/win-unpacked/Qonlang.exe` |
+| Windows 安装包 | `npm run installer:win` | `dist/Qonlang-<版本>-setup.exe`（NSIS，可选目录，桌面快捷方式「千语集」） |
+| macOS | `npm run installer:mac`（须在 macOS 上运行） | `dist/Qonlang-<版本>-mac-x64.dmg`、`-arm64.dmg` 及对应 `.zip` |
+
+**正式发布用 GitHub Actions 同时出两个平台**：`npm run release`（或手动 `git tag v0.3.0 && git push origin v0.3.0`）。
+推 tag 后 `.github/workflows/release.yml` 会在 Windows 与 macOS 的 runner 上各自打包，并把 Windows 安装包、macOS 的 dmg / zip（Intel 与 Apple Silicon）一起挂到同名 GitHub Release。
+
+macOS 版没有签名与公证（没有 Apple 开发者账号），首次打开会被 Gatekeeper 拦：右键应用 →「打开」，或在终端执行 `xattr -cr /Applications/Qonlang.app`。macOS / Linux 从源码运行用 `sh dev.sh`。
 
 ## 结构
 

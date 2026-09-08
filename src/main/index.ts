@@ -1,4 +1,13 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, net } from 'electron'
+import {
+  app,
+  shell,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  net,
+  Menu,
+  type MenuItemConstructorOptions
+} from 'electron'
 import { join, basename, dirname } from 'path'
 import { promises as fs } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -419,8 +428,99 @@ function registerIpc(): void {
   ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
 }
 
+const GUIDE_URL = 'https://kinnuch.github.io/cerf/qonlang/'
+
+/** 应用菜单：macOS 靠它提供 Cmd+C/V/Z、隐藏、退出；Windows / Linux 上被 autoHideMenuBar 隐藏，按 Alt 可见 */
+function buildMenu(): void {
+  const isMac = process.platform === 'darwin'
+  const tpl: MenuItemConstructorOptions[] = []
+  if (isMac) {
+    tpl.push({
+      label: app.name,
+      submenu: [
+        { role: 'about', label: '关于千语集 / About Qonlang' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    })
+  }
+  tpl.push(
+    {
+      label: '文件 / File',
+      submenu: [
+        {
+          label: '保存 / Save',
+          accelerator: 'CmdOrCtrl+S',
+          click: () => mainWindow?.webContents.send('menu:save')
+        },
+        {
+          label: '另存为 / Save As…',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: () => mainWindow?.webContents.send('menu:saveAs')
+        },
+        {
+          label: '打开 / Open…',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => mainWindow?.webContents.send('menu:open')
+        },
+        { type: 'separator' },
+        isMac ? { role: 'close' } : { role: 'quit' }
+      ]
+    },
+    {
+      label: '编辑 / Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'delete' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: '视图 / View',
+      submenu: [
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+        { type: 'separator' },
+        { role: 'toggleDevTools' }
+      ]
+    },
+    {
+      label: '窗口 / Window',
+      submenu: isMac
+        ? [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, { role: 'front' }]
+        : [{ role: 'minimize' }]
+    },
+    {
+      label: '帮助 / Help',
+      submenu: [
+        { label: '使用指南 / User guide', click: () => void shell.openExternal(GUIDE_URL) },
+        {
+          label: 'GitHub',
+          click: () => void shell.openExternal('https://github.com/Kinnuch/Qonlang')
+        }
+      ]
+    }
+  )
+  Menu.setApplicationMenu(Menu.buildFromTemplate(tpl))
+}
+
 app.whenReady().then(() => {
   electronApp.setAppUserModelId(APP_ID)
+  buildMenu()
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
   registerIpc()
   createWindow()

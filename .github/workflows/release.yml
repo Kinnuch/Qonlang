@@ -1,0 +1,64 @@
+# 打 tag（v0.3.0 这种）或手动触发时，同时在 Windows 与 macOS 上出安装包，
+# 并把两个平台的产物挂到同名 GitHub Release 上。
+name: Release installers
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            script: build:win
+            artifact: windows
+            files: |
+              dist/*-setup.exe
+          - os: macos-latest
+            script: build:mac
+            artifact: macos
+            files: |
+              dist/*.dmg
+              dist/*-mac-*.zip
+    runs-on: ${{ matrix.os }}
+    env:
+      # 没有签名证书：跳过 macOS 签名与公证
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run ${{ matrix.script }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: List
+        run: ls -R artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Qonlang ${{ github.ref_name }}
+          files: |
+            artifacts/windows/*
+            artifacts/macos/*
+          generate_release_notes: true
