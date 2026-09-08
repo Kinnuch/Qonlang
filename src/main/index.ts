@@ -279,6 +279,21 @@ function registerIpc(): void {
     return out
   })
 
+  ipcMain.handle('export:pdf', async (_e, html: string, suggestedName: string) => {
+    const r = await dialog.showSaveDialog(mainWindow!, { defaultPath: join(app.getPath('documents'), suggestedName), filters: [{ name: 'PDF', extensions: ['pdf'] }] })
+    if (r.canceled || !r.filePath) return false
+    const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
+    try {
+      await win.loadURL('data:text/html;charset=utf-8;base64,' + Buffer.from(html, 'utf8').toString('base64'))
+      await new Promise((res) => setTimeout(res, 400))
+      const pdf = await win.webContents.printToPDF({ printBackground: true, pageSize: 'A4' })
+      await fs.writeFile(r.filePath, pdf)
+      return true
+    } finally {
+      win.destroy()
+    }
+  })
+
   ipcMain.handle('file:saveText', async (_e, suggestedName: string, content: string) => {
     const r = await dialog.showSaveDialog(mainWindow!, { defaultPath: join(app.getPath('documents'), suggestedName) })
     if (r.canceled || !r.filePath) return false

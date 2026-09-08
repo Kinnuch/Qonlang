@@ -13,6 +13,8 @@ import {
   type ProjectTemplate,
   type RuleSet,
   type Sentence,
+  type Phrase,
+  type DocPage,
   type Script,
   type Sense
 } from './model'
@@ -149,6 +151,14 @@ export function createMorpheme(languageId: Id, type: MorphemeType = 'root'): Mor
     tags: [],
     notes: ''
   }
+}
+
+export function createPhrase(languageId: Id, category = ''): Phrase {
+  return { id: newId(), languageId, category, text: '', translation: {}, pronunciations: {}, variants: [], tags: [] }
+}
+
+export function createDoc(languageId: Id | null, title = ''): DocPage {
+  return { id: newId(), languageId, title, markdown: '', updatedAt: now() }
 }
 
 export function createSentence(languageId: Id): Sentence {

@@ -103,6 +103,8 @@ export interface PlatformAPI {
   deleteFont(file: string): Promise<void>
   downloadFont(url: string, file: string): Promise<{ ok: boolean; error?: string }>
   onFontProgress(cb: (p: { file: string; received: number; total: number }) => void): void
+  /** 把 HTML 渲染成 PDF 存盘（桌面版）或打开打印窗口（网页版）；用户取消返回 false */
+  exportPdf(html: string, suggestedName: string): Promise<boolean>
   /** 把文本存成文件；用户取消返回 false */
   saveTextFile(suggestedName: string, content: string): Promise<boolean>
 

@@ -36,6 +36,7 @@ src/renderer/    界面（Svelte 5 + TypeScript）
   src/lib/engine/    音变、音系、形态、gloss 引擎（纯 TS）
   src/lib/script/    自定义文字：字体解析、内嵌字体、转写→文字映射
   src/lib/skin/      皮肤预设与可下载字体目录（均为 OFL）
+  src/lib/export/    词典导出（HTML / Markdown / PDF / 模板）
   src/views/         各页面
 tests/           Vitest
 docs/            大纲与规则语言文档

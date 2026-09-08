@@ -35,6 +35,10 @@
   $effect(() => {
     inspectorTitle = selected ? selected.form || t('morphemes.title') : t('morphemes.title')
   })
+  $effect(() => {
+    const id = ui.takePending('morpheme')
+    if (id) selectedId = id
+  })
 
   function langName(id: Id): string {
     return project.languages.find((l) => l.id === id)?.name ?? ''

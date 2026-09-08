@@ -18,13 +18,17 @@
     PanelRight,
     X,
     Keyboard,
-    Shirt
+    Shirt,
+    Quote
   } from '@lucide/svelte'
   import { chars } from '$lib/state/chars.svelte'
   import CharPanel from '$lib/ui/CharPanel.svelte'
   import WordPopover from '$lib/ui/WordPopover.svelte'
   import ScriptView from './ScriptView.svelte'
   import Skin from './Skin.svelte'
+  import Phrasebook from './Phrasebook.svelte'
+  import Docs from './Docs.svelte'
+  import CommandPalette from '$lib/ui/CommandPalette.svelte'
   import { ensureScriptFont } from '$lib/script/fonts'
   import Languages from './Languages.svelte'
   import SoundChanges from './SoundChanges.svelte'
@@ -45,6 +49,7 @@
     lexicon: BookOpen,
     paradigms: Table2,
     corpus: MessageSquareQuote,
+    phrasebook: Quote,
     docs: FileText,
     skin: Shirt,
     settings: Settings
@@ -161,6 +166,10 @@
       <Paradigms bind:inspectorTitle />
     {:else if ui.section === 'corpus'}
       <Corpus bind:inspectorTitle />
+    {:else if ui.section === 'phrasebook'}
+      <Phrasebook bind:inspectorTitle />
+    {:else if ui.section === 'docs'}
+      <Docs bind:inspectorTitle />
     {:else if ui.section === 'morphemes'}
       <Morphemes bind:inspectorTitle />
     {:else if ui.section === 'lexicon'}
@@ -184,6 +193,7 @@
 </div>
 <CharPanel />
 <WordPopover />
+<CommandPalette />
 
 <style>
   .shell {

@@ -11,14 +11,20 @@
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
   import RuleList from '$lib/ui/RuleList.svelte'
   import RuleChainGraph from '$lib/ui/RuleChainGraph.svelte'
+  import EvolvePanel from '$lib/ui/EvolvePanel.svelte'
   import { languageParseOptions } from '$lib/engine/phon'
-  import { Plus, Trash2, Download, Upload, Copy, BookOpen, List, Code, GitBranch } from '@lucide/svelte'
+  import { Plus, Trash2, Download, Upload, Copy, BookOpen, List, Code, GitBranch, Sprout } from '@lucide/svelte'
+  let evolveOpen = $state(false)
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
   const project = $derived(projectState.project!)
   let activeId = $state<string | null>(null)
   const active = $derived(project.ruleSets.find((r) => r.id === activeId) ?? project.ruleSets[0] ?? null)
+  $effect(() => {
+    const id = ui.takePending('ruleSet')
+    if (id) activeId = id
+  })
   $effect(() => {
     if (active && activeId !== active.id) activeId = active.id
   })
@@ -208,6 +214,9 @@
   {:else}
     {@const rs = active}
     <div class="workspace">
+      {#if evolveOpen}
+        <EvolvePanel ruleSet={rs} {program} onclose={() => (evolveOpen = false)} />
+      {/if}
       {#if view === 'source'}
         <div class="editor-wrap">
           <RuleEditor bind:this={editor} bind:value={rs.text} diagnostics={program?.diagnostics ?? []} placeholder={t('soundChanges.editorPlaceholder')} oninput={() => touch(rs)} />
@@ -227,6 +236,7 @@
           <button class:active={view === 'chain'} onclick={() => (view = 'chain')}><GitBranch size={14} />{t('soundChanges.viewChain')}</button>
           <button class:active={view === 'source'} onclick={() => (view = 'source')}><Code size={14} />{t('soundChanges.viewSource')}</button>
         </div>
+        <button class="btn sm" class:active={evolveOpen} onclick={() => (evolveOpen = !evolveOpen)}><Sprout size={14} />{t('evolve.title')}</button>
         <span class="small muted grow">
           {#if program}
             {t('soundChanges.stats', { rules: program.steps.filter((s) => s.kind === 'rule').length, stages: program.markers.length, classes: program.classes.size })}

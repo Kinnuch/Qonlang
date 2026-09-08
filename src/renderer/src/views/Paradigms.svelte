@@ -22,6 +22,10 @@
   let activeId = $state<Id | null>(null)
   const active = $derived(project.paradigms.find((p) => p.id === activeId) ?? project.paradigms[0] ?? null)
   $effect(() => {
+    const id = ui.takePending('paradigm')
+    if (id) activeId = id
+  })
+  $effect(() => {
     if (active && activeId !== active.id) activeId = active.id
   })
   let view = $state<'slots' | 'report'>('slots')

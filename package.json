@@ -1,6 +1,6 @@
 {
   "name": "qonlang",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "千语集 Qonlang — a workbench for every conlanger: lexicon, sound changes, phonology, paradigms, glossing.",
   "main": "./out/main/index.js",
   "author": {

@@ -12,6 +12,7 @@ export type Section =
   | 'lexicon'
   | 'paradigms'
   | 'corpus'
+  | 'phrasebook'
   | 'docs'
   | 'skin'
   | 'settings'
@@ -25,6 +26,7 @@ export const SECTIONS: Section[] = [
   'lexicon',
   'paradigms',
   'corpus',
+  'phrasebook',
   'docs',
   'skin',
   'settings'
@@ -63,6 +65,22 @@ class UiState {
   pendingImport = $state<'csv' | null>(null)
   /** 跳到词库页时要选中的词位 */
   pendingLexemeId = $state<string | null>(null)
+  /** 命令面板等跳转后要选中的对象：各页面按 kind 取走 */
+  pendingSelect = $state<{ kind: string; id: string } | null>(null)
+  /** 命令面板开关 */
+  paletteOpen = $state(false)
+  /** 跳到某页并选中某对象 */
+  jump(section: Section, kind: string, id: string): void {
+    if (kind === 'lexeme') this.pendingLexemeId = id
+    else this.pendingSelect = { kind, id }
+    if (this.section !== section) this.go(section)
+  }
+  takePending(kind: string): string | null {
+    if (this.pendingSelect?.kind !== kind) return null
+    const id = this.pendingSelect.id
+    this.pendingSelect = null
+    return id
+  }
   prefs = $state<Prefs>({ ...DEFAULT_PREFS })
   prefsLoaded = $state(false)
   toasts = $state<Toast[]>([])

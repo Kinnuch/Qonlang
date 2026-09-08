@@ -14,7 +14,7 @@
   import iconCathamos from '../assets/friends/cathamos.png'
 
   const WIKI_URL = 'https://wiki.gilatod.art'
-  const DEV = { name: 'Kinnuch', site: 'https://kinnuch.github.io', github: 'https://github.com/Kinnuch', email: 'kinnuch@pku.edu.cn' }
+  const DEV = { name: 'Kinnuch', site: 'https://kinnuch.github.io', github: 'https://github.com/Kinnuch', email: 'kinnuch@pku.edu.cn', bilibili: 'https://space.bilibili.com/204354828', bilibiliName: '凯岩城の冰原狼' }
   const FRIENDS = [
     { name: '荏苒之境主站', url: 'https://gilatod.art', icon: iconGilatod, blurb: 'Gilatod，长期合作的朋友的主站。' },
     { name: 'Kikomas', url: 'https://kikomas.art', icon: iconKikomas, blurb: '插画与视觉创作。' },
@@ -24,40 +24,6 @@
   let footerPanel = $state<'coffee' | 'changelog' | 'dev' | 'friends' | null>(null)
 
   /** 极简 Markdown：标题、列表、段落 */
-  function mdToHtml(md: string): string {
-    const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    const lines = md.split(/\r?\n/)
-    let html = ''
-    let inList = false
-    for (const raw of lines) {
-      const line = raw.trimEnd()
-      const h = /^(#{1,4})\s+(.*)$/.exec(line)
-      if (h) {
-        if (inList) {
-          html += '</ul>'
-          inList = false
-        }
-        html += `<h${h[1].length + 1}>${esc(h[2])}</h${h[1].length + 1}>`
-        continue
-      }
-      const li = /^\s*[-*]\s+(.*)$/.exec(line)
-      if (li) {
-        if (!inList) {
-          html += '<ul>'
-          inList = true
-        }
-        html += `<li>${esc(li[1]).replace(/`([^`]+)`/g, '<code>$1</code>')}</li>`
-        continue
-      }
-      if (inList) {
-        html += '</ul>'
-        inList = false
-      }
-      if (line.trim()) html += `<p>${esc(line)}</p>`
-    }
-    if (inList) html += '</ul>'
-    return html
-  }
   const changelogHtml = mdToHtml(changelogRaw)
   const open = (url: string): void => void platform.openExternal(url)
 
@@ -278,6 +244,7 @@
           <strong>{DEV.name}</strong>
           <button class="link" onclick={() => open(DEV.site)}>{DEV.site}</button>
           <button class="link" onclick={() => open(DEV.github)}>{DEV.github}</button>
+          <button class="link" onclick={() => open(DEV.bilibili)}>Bilibili · {DEV.bilibiliName}</button>
           <span class="small muted">{DEV.email}</span>
           <span class="small muted">{t('settings.license')} · {t('app.name')} v{version}</span>
         </div>

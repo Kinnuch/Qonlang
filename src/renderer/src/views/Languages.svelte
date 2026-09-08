@@ -24,6 +24,10 @@
     // 初次进入时选中当前语言
     if (!selectedId && projectState.currentLanguageId) selectedId = projectState.currentLanguageId
   })
+  $effect(() => {
+    const id = ui.takePending('language')
+    if (id) selectedId = id
+  })
 
   function counts(l: Language): string {
     return t('languages.counts', {

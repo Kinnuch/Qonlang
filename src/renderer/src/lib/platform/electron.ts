@@ -70,6 +70,9 @@ export const electronPlatform: PlatformAPI = {
   onFontProgress(cb) {
     bridge().on('fonts:progress', (p) => cb(p as { file: string; received: number; total: number }))
   },
+  async exportPdf(html, suggestedName) {
+    return (await bridge().invoke('export:pdf', html, suggestedName)) as boolean
+  },
   async saveTextFile(suggestedName, content) {
     return (await bridge().invoke('file:saveText', suggestedName, content)) as boolean
   },

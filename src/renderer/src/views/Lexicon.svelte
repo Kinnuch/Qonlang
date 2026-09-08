@@ -18,6 +18,7 @@
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import CsvImportWizard from '$lib/ui/CsvImportWizard.svelte'
+  import DictExport from '$lib/ui/DictExport.svelte'
   import LexemeCard from '$lib/ui/LexemeCard.svelte'
   import LexemeGraph from '$lib/ui/LexemeGraph.svelte'
   import Taxonomy from './Taxonomy.svelte'
@@ -30,7 +31,7 @@
   const language = $derived(projectState.currentLanguage)
   const glossLangs = $derived(project.settings.glossLanguages)
 
-  let mode = $state<'entries' | 'taxonomy' | 'csv'>('entries')
+  let mode = $state<'entries' | 'taxonomy' | 'csv' | 'export'>('entries')
   let editMode = $state(false)
   let mainView = $state<'list' | 'graph'>('list')
   let selectedId = $state<Id | null>(null)
@@ -45,6 +46,11 @@
     if (ui.pendingImport === 'csv') {
       ui.pendingImport = null
       mode = 'csv'
+    }
+    if (ui.pendingSelect?.kind === 'new' && ui.pendingSelect.id === 'lexeme') {
+      ui.pendingSelect = null
+      mode = 'entries'
+      add()
     }
     if (ui.pendingLexemeId) {
       selectedId = ui.pendingLexemeId
@@ -317,6 +323,7 @@
         <div class="menu-list card hover">
           <button onclick={() => exportCsv('lexemes')}>{t('lexicon.exportCsv')}</button>
           <button onclick={() => exportCsv('morphemes')}>{t('lexicon.exportMorphemesCsv')}</button>
+          {#if language}<button onclick={() => (mode = 'export')}>{t('dict.menu')}</button>{/if}
         </div>
       </div>
       <button class="btn primary" onclick={add}><Plus size={16} />{t('lexicon.add')}</button>
@@ -326,6 +333,8 @@
 
   {#if mode === 'taxonomy'}
     <div class="scroll"><Taxonomy /></div>
+  {:else if mode === 'export' && language}
+    <div class="scroll"><DictExport {language} onclose={() => (mode = 'entries')} /></div>
   {:else if mode === 'csv'}
     <div class="scroll"><CsvImportWizard onclose={() => (mode = 'entries')} /></div>
   {:else if mainView === 'graph' && selected}
@@ -457,7 +466,7 @@
       <span class="small muted">{t('lexicon.etymology')}</span>
       <div class="row two">
         <select class="select" bind:value={l.etymology.type} onchange={() => touch(l)}>
-          {#each ['root', 'compound', 'borrowing', 'derivation', 'unknown'] as et (et)}<option value={et}>{t(`lexicon.etyTypes.${et}`)}</option>{/each}
+          {#each ['root', 'compound', 'borrowing', 'derivation', 'inherited', 'unknown'] as et (et)}<option value={et}>{t(`lexicon.etyTypes.${et}`)}</option>{/each}
         </select>
         <input class="input data" placeholder={t('lexicon.protoForm')} bind:value={l.etymology.protoForm} oninput={() => touch(l)} />
       </div>

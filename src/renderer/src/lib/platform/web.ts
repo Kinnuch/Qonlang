@@ -273,6 +273,15 @@ export const webPlatform: PlatformAPI = {
   onFontProgress() {
     /* 浏览器版不报进度 */
   },
+  async exportPdf(html) {
+    const w = window.open('', '_blank')
+    if (!w) return false
+    w.document.open()
+    w.document.write(html)
+    w.document.close()
+    setTimeout(() => w.print(), 300)
+    return true
+  },
   async saveTextFile(suggestedName, content) {
     if (window.showSaveFilePicker) {
       try {

@@ -336,7 +336,7 @@ export interface Sense {
   examples: Id[]
 }
 
-export type EtymologyType = 'root' | 'compound' | 'borrowing' | 'derivation' | 'unknown'
+export type EtymologyType = 'root' | 'compound' | 'borrowing' | 'derivation' | 'inherited' | 'unknown'
 
 export interface Etymology {
   type: EtymologyType

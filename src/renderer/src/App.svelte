@@ -86,6 +86,9 @@
     } else if (e.key === '\\') {
       e.preventDefault()
       ui.inspectorOpen = !ui.inspectorOpen
+    } else if (e.key === 'k' || e.key === 'K') {
+      e.preventDefault()
+      if (projectState.project) ui.paletteOpen = !ui.paletteOpen
     } else if (e.key === 'i' || e.key === 'I') {
       e.preventDefault()
       chars.toggle()

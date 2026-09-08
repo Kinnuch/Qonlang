@@ -46,6 +46,13 @@
   $effect(() => {
     inspectorTitle = mode === 'abbr' ? t('corpus.abbr.title') : mode === 'stats' ? t('corpus.modes.stats') : selected ? t('corpus.sentence') : t('corpus.title')
   })
+  $effect(() => {
+    const id = ui.takePending('sentence')
+    if (id) {
+      selectedId = id
+      mode = 'entries'
+    }
+  })
   // 选中尚未分析的句子时自动分析
   $effect(() => {
     if (selected && selected.tokens.length === 0 && selected.text.trim()) {
