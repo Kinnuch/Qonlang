@@ -307,7 +307,7 @@
             {t('soundChanges.stats', {
               rules: program.steps.filter((s) => s.kind === 'rule').length,
               stages: program.markers.length,
-              classes: program.classes.size
+              classes: [...program.classes.keys()].filter((k) => !k.startsWith('@')).length
             })}
           {/if}
         </span>
