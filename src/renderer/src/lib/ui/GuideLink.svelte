@@ -30,6 +30,8 @@
     font-size: 12px;
     cursor: pointer;
     margin-left: 4px;
+    white-space: nowrap;
+    flex: none;
   }
   .guide:hover {
     color: var(--accent-text);

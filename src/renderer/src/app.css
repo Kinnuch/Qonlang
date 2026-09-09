@@ -250,6 +250,15 @@ button {
   box-shadow: var(--shadow);
 }
 
+.page-head h1,
+.page-head .badge {
+  white-space: nowrap;
+  flex: none;
+}
+.page-head {
+  flex-wrap: wrap;
+}
+
 .badge {
   display: inline-block;
   padding: 1px 6px;

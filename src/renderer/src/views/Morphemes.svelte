@@ -362,13 +362,18 @@
     height: 100%;
   }
   .page-head {
-    gap: 10px;
+    gap: 8px;
+    flex-wrap: wrap;
   }
   .search {
-    width: 220px;
+    width: 200px;
+    min-width: 140px;
+    flex: 1 1 160px;
+    max-width: 260px;
   }
   .type {
-    width: 140px;
+    width: auto;
+    min-width: 110px;
   }
   .table-wrap {
     flex: 1;
