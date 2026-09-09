@@ -58,6 +58,8 @@ export interface Prefs {
   examplesPerEntry: number
   /** 各类可拖动面板的尺寸记忆：键 → 像素 */
   panelSizes: Record<string, number>
+  /** 词条卡里给构形推导出来的形式标一个齿轮 */
+  showDerivedMark: boolean
 }
 
 export interface CsvPreset {
@@ -93,7 +95,8 @@ export const DEFAULT_PREFS: Prefs = {
   highlightDuplicates: true,
   showHelpDots: true,
   examplesPerEntry: 3,
-  panelSizes: {}
+  panelSizes: {},
+  showDerivedMark: true
 }
 
 export interface AppInfo {

@@ -535,6 +535,19 @@ const en: Dict = {
     pasted: '(pasted content)'
   },
   script: {
+    packing: {
+      title: 'Syllable packing (CV / VC syllabaries)',
+      hint: 'Skips the rule chain and packs the transcription into syllables using the glyph readings: two-segment consonant+vowel readings become the cells, longer readings are taken whole first.',
+      enabled: 'Render by syllable packing',
+      killer: 'Killer (vowel-cancelling) reading',
+      dummyVowel: 'Borrowed vowel',
+      marked: 'Letters needing a mark (space separated)',
+      vowels: 'Vowels (space separated)',
+      letters: 'Transcription units (space separated, digraphs included)',
+      letterMap: 'Spelling → glyph letter, one per line, e.g. dh=th',
+      lengths: 'How many copies a vowel gets, e.g. á é = 2',
+      baseVowels: 'Base vowel of a long vowel, e.g. á=a'
+    },
     title: 'Script',
     hint: 'Define the writing system here: import a font or paste a glyph list, give each glyph a transliteration value, and the mapping rules will turn transliterations in the lexicon and corpus into script automatically. Fonts can be embedded in the project file.',
     empty: 'This language has no script yet. Create one, or keep using romanization.',
@@ -1057,6 +1070,7 @@ const en: Dict = {
     reopenLast: 'Reopen last project on launch',
     highlightDuplicates: 'Highlight duplicate entries (off leaves only the warning icon)',
     showHelpDots: 'Show the “?” usage hints next to panels',
+    showDerivedMark: 'Mark paradigm-derived forms with a gear ⚙ on the entry card',
     examplesPerEntry: 'Examples shown under an entry',
     projectName: 'Project name',
     author: 'Author',

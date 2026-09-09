@@ -513,6 +513,19 @@ export default {
     pasted: '（粘贴的内容）'
   },
   script: {
+    packing: {
+      title: '音节拼合（CV / VC 音节文字）',
+      hint: '开启后不走规则链，而是按字形读音把转写拼成音节：读音里一辅一元的当拼格，更长的读音优先整块取用。',
+      enabled: '按音节拼合渲染',
+      killer: '消音符的读音',
+      dummyVowel: '借用的元音',
+      marked: '要标出的清音（空格分隔）',
+      vowels: '元音（空格分隔）',
+      letters: '转写的切分单位（空格分隔，含二合字母）',
+      letterMap: '写法 → 字形字母，每行一条，如 dh=th',
+      lengths: '元音写几份，如 á é = 2',
+      baseVowels: '长元音的基础元音，如 á=a'
+    },
     title: '文字',
     hint: '在这里定义语言的书写系统：导入字体或粘贴字符表，填上每个字形的转写值，「映射规则」就会自动把词库、语料里的转写变成文字。字体可内嵌进项目文件，换机器也能显示。',
     empty: '这门语言还没有文字。新建一套，或先用拉丁转写。',
@@ -1020,6 +1033,7 @@ export default {
     reopenLast: '启动时打开上次的项目',
     highlightDuplicates: '高亮重复词条（关掉只留黄色叹号）',
     showHelpDots: '显示板块旁的「?」用法提示',
+    showDerivedMark: '词条卡里给构形推导出来的形式标齿轮 ⚙',
     examplesPerEntry: '词条下方默认显示的例句条数',
     projectName: '项目名称',
     author: '作者',

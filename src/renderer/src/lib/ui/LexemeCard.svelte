@@ -2,6 +2,7 @@
   /** 显示模式下的词条卡：只读、简约，把录入模式记录的信息排版出来 */
   import type { Id, Lexeme, Project } from '$lib/core/model'
   import { t, pickText } from '$lib/i18n/index.svelte'
+  import { ui } from '$lib/state/ui.svelte'
   import { lexemeScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
 
@@ -162,7 +163,9 @@
           {#each Object.entries(l.forms) as [k, f] (k)}
             <tr
               ><th>{k}</th><td class="data"
-                >{f.surface}{#if f.derived}<span class="tiny muted"> ⚙</span>{/if}</td
+                >{f.surface}{#if f.derived && ui.prefs.showDerivedMark}<span class="tiny muted">
+                    ⚙</span
+                  >{/if}</td
               ></tr
             >
           {/each}

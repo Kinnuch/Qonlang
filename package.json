@@ -35,6 +35,7 @@
     "test:watch": "vitest",
     "typecheck:web": "svelte-check --tsconfig ./tsconfig.web.json",
     "examples": "esbuild scripts/make-examples.ts --bundle --platform=node --format=esm --alias:$lib=./src/renderer/src/lib --outfile=dist/make-examples.mjs && node dist/make-examples.mjs",
+    "diag:kessar": "esbuild scripts/diag-kessar.ts --bundle --platform=node --format=cjs --alias:$lib=./src/renderer/src/lib --outfile=dist/diag-kessar.cjs && node dist/diag-kessar.cjs",
     "diag:gloss": "esbuild scripts/diag-gloss.ts --bundle --platform=node --format=cjs --alias:$lib=./src/renderer/src/lib --outfile=dist/diag-gloss.cjs && node dist/diag-gloss.cjs",
     "examples:theusrin": "esbuild scripts/make-theusrin.ts --bundle --platform=node --format=cjs --alias:$lib=./src/renderer/src/lib --outfile=dist/make-theusrin.cjs && node dist/make-theusrin.cjs"
   },

@@ -5,7 +5,7 @@
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { platform } from '$lib/platform'
   import { createScript, newId } from '$lib/core/factory'
-  import type { Glyph, Script, ScriptType } from '$lib/core/model'
+  import type { Glyph, Script, ScriptPacking, ScriptType } from '$lib/core/model'
   import { parseFont, guessCategory } from '$lib/script/fontParse'
   import { ensureScriptFont, fontCss, fontDataUrl, base64ToBuffer } from '$lib/script/fonts'
   import { autoMappingLines, expandRules, renderScript } from '$lib/script/render'
@@ -218,6 +218,23 @@
     const cat = (await ui.prompt(t('script.bulkCategoryPrompt'), ''))?.trim()
     if (cat === undefined || cat === null) return
     for (const g of script.glyphs) if (multiGlyphs.includes(g.id)) g.category = cat
+    touch()
+  }
+  /** 改一项音节拼合设置；第一次改时补齐默认值 */
+  function setPacking(key: string, value: string | boolean): void {
+    if (!script) return
+    const cur: ScriptPacking = script.packing ?? {
+      enabled: false,
+      killer: '',
+      letterMap: '',
+      marked: '',
+      lengths: '',
+      baseVowels: '',
+      dummyVowel: 'a',
+      letters: '',
+      vowels: ''
+    }
+    script.packing = { ...cur, [key]: value }
     touch()
   }
   function removeGlyph(g: Glyph): void {
@@ -460,6 +477,88 @@
           </div>
         {/if}
       </div>
+      <details class="pack">
+        <summary class="small muted">{t('script.packing.title')}</summary>
+        <p class="small muted">{t('script.packing.hint')}</p>
+        <label class="row check"
+          ><input
+            type="checkbox"
+            checked={script.packing?.enabled ?? false}
+            onchange={(e) => setPacking('enabled', (e.currentTarget as HTMLInputElement).checked)}
+          />{t('script.packing.enabled')}</label
+        >
+        {#if script.packing?.enabled}
+          <div class="grid2">
+            <label class="field"
+              ><span>{t('script.packing.killer')}</span><input
+                class="input data"
+                value={script.packing.killer}
+                oninput={(e) => setPacking('killer', (e.currentTarget as HTMLInputElement).value)}
+              /></label
+            >
+            <label class="field"
+              ><span>{t('script.packing.dummyVowel')}</span><input
+                class="input data"
+                value={script.packing.dummyVowel}
+                oninput={(e) =>
+                  setPacking('dummyVowel', (e.currentTarget as HTMLInputElement).value)}
+              /></label
+            >
+            <label class="field"
+              ><span>{t('script.packing.marked')}</span><input
+                class="input data"
+                value={script.packing.marked}
+                oninput={(e) => setPacking('marked', (e.currentTarget as HTMLInputElement).value)}
+              /></label
+            >
+            <label class="field"
+              ><span>{t('script.packing.vowels')}</span><input
+                class="input data"
+                value={script.packing.vowels}
+                oninput={(e) => setPacking('vowels', (e.currentTarget as HTMLInputElement).value)}
+              /></label
+            >
+          </div>
+          <label class="field"
+            ><span>{t('script.packing.letters')}</span><input
+              class="input data"
+              value={script.packing.letters}
+              oninput={(e) => setPacking('letters', (e.currentTarget as HTMLInputElement).value)}
+            /></label
+          >
+          <div class="grid2">
+            <label class="field"
+              ><span>{t('script.packing.letterMap')}</span><textarea
+                class="textarea data"
+                rows="4"
+                value={script.packing.letterMap}
+                oninput={(e) =>
+                  setPacking('letterMap', (e.currentTarget as HTMLTextAreaElement).value)}
+              ></textarea></label
+            >
+            <div class="col">
+              <label class="field"
+                ><span>{t('script.packing.lengths')}</span><textarea
+                  class="textarea data"
+                  rows="2"
+                  value={script.packing.lengths}
+                  oninput={(e) =>
+                    setPacking('lengths', (e.currentTarget as HTMLTextAreaElement).value)}
+                ></textarea></label
+              >
+              <label class="field"
+                ><span>{t('script.packing.baseVowels')}</span><textarea
+                  class="textarea data"
+                  rows="2"
+                  value={script.packing.baseVowels}
+                  oninput={(e) =>
+                    setPacking('baseVowels', (e.currentTarget as HTMLTextAreaElement).value)}
+                ></textarea></label
+              >
+            </div>
+          </div>
+        {/if}
+      </details>
       <details class="auto">
         <summary class="small muted">{t('script.autoRules', { n: autoLines.length })}</summary>
         <pre class="mono">{autoLines.join('\n')}</pre>
@@ -653,6 +752,22 @@
 {/if}
 
 <style>
+  .pack {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .pack .grid2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 6px 12px;
+  }
+  .pack .col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
   .bulk {
     gap: 8px;
     padding: 4px 0;

@@ -113,6 +113,14 @@
         />
         {t('settings.showHelpDots')}
       </label>
+      <label class="row check">
+        <input
+          type="checkbox"
+          bind:checked={ui.prefs.showDerivedMark}
+          onchange={() => ui.savePrefs()}
+        />
+        {t('settings.showDerivedMark')}
+      </label>
       <div class="field">
         <label for="s-examples">{t('settings.examplesPerEntry')}</label>
         <input

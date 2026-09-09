@@ -135,6 +135,32 @@ export interface Script {
    */
   rules: string
   notes: string
+  /** 音节拼合（CV / VC 音节文字用），不填就只按规则走 */
+  packing?: ScriptPacking
+}
+
+/**
+ * 音节文字的拼合设置。可拼的格子直接从字形读音里推，
+ * 这里只补软件推不出来的几件事：消音符、清浊对、元音长度。
+ */
+export interface ScriptPacking {
+  enabled: boolean
+  /** 消音符（特殊功能符号）的读音值，用来标清音或去掉元音 */
+  killer: string
+  /** 写法 → 字形字母，每行「dh=th」；用来把浊音、二合字母折成字形表里的字母 */
+  letterMap: string
+  /** 需要靠重复或消音符标出来的字母，空格分隔（一般是有清浊对立的清音） */
+  marked: string
+  /** 元音写几份，每行「á é = 2」 */
+  lengths: string
+  /** 长元音对应的基础元音，每行「á = a」 */
+  baseVowels: string
+  /** 辅音没有元音可拼时借用的元音 */
+  dummyVowel: string
+  /** 转写的切分单位，空格分隔（含二合字母）；留空则用语言的音位表 */
+  letters: string
+  /** 哪些单位算元音，空格分隔；留空则用语言的元音音位 */
+  vowels: string
 }
 
 export interface Phoneme {

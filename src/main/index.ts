@@ -37,6 +37,7 @@ interface Prefs {
   showHelpDots: boolean
   examplesPerEntry: number
   panelSizes: Record<string, number>
+  showDerivedMark: boolean
 }
 const DEFAULT_PREFS: Prefs = {
   locale: 'zh',
@@ -61,7 +62,8 @@ const DEFAULT_PREFS: Prefs = {
   highlightDuplicates: true,
   showHelpDots: true,
   examplesPerEntry: 3,
-  panelSizes: {}
+  panelSizes: {},
+  showDerivedMark: true
 }
 
 interface RecentEntry {

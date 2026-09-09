@@ -305,13 +305,14 @@ Tsr.digraphs = [
 
 rom.rulesToIpa = [
   '; 正字法 → 音位。多合字母已在「音系 → 音类」里声明，这里直接写字母。',
+  '; 合字 x 要先换掉，否则会把 ch 换出来的 x 一起吃掉',
+  'x > kθ',
   'th > θ',
   'dh > ð',
   'ch > x',
   'rh > r̥',
   'lh > l̥',
   'ds > dz',
-  'x > kθ',
   'c > k',
   'ñ > ŋ',
   'w > β',
@@ -1082,6 +1083,43 @@ const label = (numAbbr: string, caseAbbr: string) => {
   gm('ar-', 'prefix', 'INS', '用……', '工具 / 媒介介词')
   gm('tar-', 'prefix', 'AUG', '大化', '口语缩为 ta’')
   gm('al-', 'prefix', 'DIM', '小化', '口语缩为 a’')
+}
+
+// ── 科飒尔文的音节拼合设置（规则见语法书《书写规则》） ──
+{
+  const fn = kessar.glyphs.find((g) => g.category === '功能')
+  if (fn && !fn.value) fn.value = '∅'
+  kessar.packing = {
+    enabled: true,
+    killer: '∅',
+    letterMap: [
+      'b=p',
+      'd=t',
+      'g=c',
+      'dh=th',
+      'z=s',
+      'ch=h',
+      'lh=l',
+      'rh=r',
+      'ds=s',
+      'x=c',
+      'ñ=n',
+      'j=i'
+    ].join('\n'),
+    marked: 'p t c s th lh rh ds',
+    lengths: ['á é í ó ú = 2', 'â ê î ô û = 3'].join('\n'),
+    baseVowels: ['á=a', 'é=e', 'í=i', 'ó=o', 'ú=u', 'â=a', 'ê=e', 'î=i', 'ô=o', 'û=u'].join('\n'),
+    dummyVowel: 'a',
+    letters:
+      'th dh ch lh rh ds á é í ó ú â ê î ô û a e i o u b c d f g h j l m n p r s t w x ñ ' + "' ·",
+    vowels: 'a e i o u á é í ó ú â ê î ô û'
+  }
+  kessar.rules = [
+    '; 科飒尔文按「音节拼合」渲染：字形读音里凡是一辅一元的都是拼格，',
+    '; 更长的读音（本征音、二分音）优先整块取用。清浊、消音符的写法见下面的设置。',
+    '; 语法书《书写规则》：短元音在辅音之间写两次，半长 / 全长元音在中央多写一次；',
+    '; 清音跨两格出现，浊音只出现一次；词首清音与没有元音的辅音配特殊功能符号 ∅。'
+  ].join('\n')
 }
 
 // ───────────────────────── 语料：语法书里的 gloss 例句 ─────────────────────────
