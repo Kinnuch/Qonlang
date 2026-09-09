@@ -11,7 +11,7 @@
   import LexemeCard from './LexemeCard.svelte'
   import { etymologyText } from '$lib/core/etymology'
   import type { Id } from '$lib/core/model'
-  import { BookOpen, Blocks } from '@lucide/svelte'
+  import { BookOpen, Blocks, X } from '@lucide/svelte'
 
   const project = $derived(projectState.project)
   const lexeme = $derived(
@@ -59,15 +59,37 @@
     const top = below + H > window.innerHeight - 12 ? Math.max(12, r.top - H - 8) : below
     return `left:${left}px;top:${top}px;width:${W}px;max-height:${H}px`
   })
+  let popEl = $state<HTMLElement | null>(null)
+  // 钉住之后：点别处或按 Esc 收起
+  $effect(() => {
+    if (!wordHover.pinned) return
+    const onDown = (e: PointerEvent): void => {
+      if (popEl && !popEl.contains(e.target as Node)) wordHover.hide(true)
+    }
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') wordHover.hide(true)
+    }
+    window.addEventListener('pointerdown', onDown, true)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('pointerdown', onDown, true)
+      window.removeEventListener('keydown', onKey)
+    }
+  })
+
   function openInLexicon(): void {
     if (lexeme) {
-      ui.pendingLexemeId = lexeme.id
-      projectState.currentLanguageId = lexeme.languageId
+      const id = lexeme.id
+      const langId = lexeme.languageId
       wordHover.hide(true)
-      ui.go('lexicon')
+      projectState.currentLanguageId = langId
+      ui.jump('lexicon', 'lexeme', id)
     } else if (morpheme) {
+      const id = morpheme.id
+      const langId = morpheme.languageId
       wordHover.hide(true)
-      ui.jump('morphemes', 'morpheme', morpheme.id)
+      projectState.currentLanguageId = langId
+      ui.jump('morphemes', 'morpheme', id)
     }
   }
 </script>
@@ -75,12 +97,18 @@
 {#if (lexeme || morpheme) && wordHover.rect}
   <div
     class="pop card"
+    bind:this={popEl}
     {style}
     role="dialog"
     tabindex="-1"
     onmouseenter={() => wordHover.keep()}
     onmouseleave={() => wordHover.hide()}
   >
+    {#if wordHover.pinned}
+      <button class="pin-close btn ghost icon sm" onclick={() => wordHover.hide(true)}
+        ><X size={14} /></button
+      >
+    {/if}
     <div class="body">
       {#if lexeme}
         <LexemeCard {lexeme} project={project!} />
@@ -118,7 +146,9 @@
     {/if}
     <div class="foot">
       <button class="btn sm" onclick={openInLexicon}
-        ><BookOpen size={14} />{t('corpus.openInLexicon')}</button
+        ><BookOpen size={14} />{morpheme
+          ? t('corpus.openInMorphemes')
+          : t('corpus.openInLexicon')}</button
       >
     </div>
   </div>
@@ -128,6 +158,8 @@
   .pop {
     position: fixed;
     z-index: 70;
+    /* 切换成分时高度会变，给个下限，免得卡片突然缩到鼠标外面 */
+    min-height: 180px;
     display: flex;
     flex-direction: column;
     box-shadow: var(--shadow-lg);
@@ -186,6 +218,12 @@
     font-family: var(--font-ui);
     font-size: 11px;
     color: var(--text-3);
+  }
+  .pin-close {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
   }
   .foot {
     padding: 8px 12px;

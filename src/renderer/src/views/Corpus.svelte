@@ -214,6 +214,10 @@
       if (byForm) return { lexemeId: byForm }
       const rev = reverseDerive(tk.surface, affixes, (form) => lookupByForm(form, gloss))
       if (rev) return { lexemeId: rev.lexemeId }
+      // 词条里找不到就查语素：限定词、小品词这类都在语素表里
+      const key = tk.surface.normalize('NFC').toLowerCase()
+      const mo = idx.morphemes.get(key)?.[0]
+      if (mo) return { morphemeId: mo.id }
     }
     return mid ? { morphemeId: mid } : null
   }

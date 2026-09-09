@@ -17,6 +17,7 @@ const en: Dict = {
     cancel: 'Cancel',
     delete: 'Delete',
     rename: 'Rename',
+    noResults: 'No matches',
     undo: 'Undo',
     close: 'Close',
     ok: 'OK',
@@ -366,6 +367,7 @@ const en: Dict = {
     addSource: 'Add source',
     sourceKinds: { morpheme: 'morpheme', lexeme: 'lexeme', external: 'custom source' },
     pickMorpheme: 'Pick a morpheme…',
+    searchSource: 'Search morphemes or entries…',
     pickLexeme: 'Pick a lexeme…',
     externalLanguage: 'Language',
     externalForm: 'Form',
@@ -859,8 +861,9 @@ const en: Dict = {
       beforeLast: 'before the last segment'
     },
     slots: 'Slots',
-    pipeline: 'Pipeline (start from the stem, add one step at a time)',
+    pipeline: 'Pipeline',
     addStep: 'Add step',
+    expandAdjust: 'Expand / collapse',
     steps: {
       prefix: 'prefix',
       suffix: 'suffix',
@@ -976,6 +979,7 @@ const en: Dict = {
       'Placeholders: {{text}} {{translation}} {{source}} {{morphs}} {{gloss}}; per-word block {{#tokens}}…{{/tokens}} with {{surface}} {{morphs}} {{gloss}} {{sep}}',
     deleted: 'Deleted sentence',
     openInLexicon: 'Open in lexicon',
+    openInMorphemes: 'Open in Morphemes',
     hint: 'Changes in the lexicon, morphemes and paradigms feed the automatic analysis here; a confirmed analysis becomes the first choice for the same word in other sentences. Hover a word to see its entry, click to jump to the lexicon.',
     stats: {
       frequency: 'Word frequency',

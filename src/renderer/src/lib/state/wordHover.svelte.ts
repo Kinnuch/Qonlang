@@ -16,11 +16,17 @@ class WordHover {
   rect = $state<DOMRect | null>(null)
   /** 调用方给的切分（优先于卡片自己按词源推的） */
   parts = $state<HoverPart[]>([])
+  /**
+   * 钉住：点过卡片里的成分之后，卡片高度会变，鼠标很容易落到卡片外面，
+   * 这时候再按「鼠标离开就收」处理就会闪没。钉住后只有点别处或按 Esc 才关。
+   */
+  pinned = $state(false)
   private showTimer: ReturnType<typeof setTimeout> | null = null
   private hideTimer: ReturnType<typeof setTimeout> | null = null
 
   show(lexemeId: Id, rect: DOMRect, parts: HoverPart[] = []): void {
     this.cancel()
+    this.pinned = false
     this.showTimer = setTimeout(() => {
       this.lexemeId = lexemeId
       this.morphemeId = null
@@ -30,6 +36,7 @@ class WordHover {
   }
   showMorpheme(morphemeId: Id, rect: DOMRect, parts: HoverPart[] = []): void {
     this.cancel()
+    this.pinned = false
     this.showTimer = setTimeout(() => {
       this.morphemeId = morphemeId
       this.lexemeId = null
@@ -42,15 +49,18 @@ class WordHover {
     this.cancel()
     this.lexemeId = target.lexemeId ?? null
     this.morphemeId = target.morphemeId ?? null
+    this.pinned = true
   }
   keep(): void {
     if (this.hideTimer) clearTimeout(this.hideTimer)
     this.hideTimer = null
   }
   hide(now = false): void {
+    if (this.pinned && !now) return
     if (this.showTimer) clearTimeout(this.showTimer)
     this.showTimer = null
     if (now) {
+      this.pinned = false
       this.lexemeId = null
       this.morphemeId = null
       this.rect = null

@@ -246,7 +246,8 @@ function expand(
       let j = i + 1
       while (j < chars.length && chars[j] !== '}') j++
       const name = chars.slice(i + 1, j).join('')
-      const members = classes.get('{' + name + '}')
+      // 长名音类存成 {名字}；@语素 也常被写成 {@名字}，两种键都试
+      const members = classes.get('{' + name + '}') ?? classes.get(name)
       if (members) pushClass({ name, members }, null)
       else {
         opts.warn(`未定义的音类 {${name}}`)

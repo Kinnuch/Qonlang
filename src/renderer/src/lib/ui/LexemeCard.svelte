@@ -341,18 +341,25 @@
   .forms {
     border-collapse: collapse;
     font-size: 13px;
+    width: 100%;
+    table-layout: fixed;
   }
   .forms th {
     text-align: left;
     font-weight: 500;
     color: var(--text-2);
-    padding: 2px 12px 2px 0;
+    padding: 4px 10px 4px 8px;
     white-space: nowrap;
+    width: 40%;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
   }
   .forms td {
-    padding: 2px 0;
+    padding: 4px 8px 4px 0;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    word-break: break-word;
   }
-  .forms tr:nth-child(even) {
+  .forms tr:nth-child(even) th,
+  .forms tr:nth-child(even) td {
     background: var(--bg-sunken);
   }
   .rel {

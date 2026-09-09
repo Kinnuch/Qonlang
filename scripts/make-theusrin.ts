@@ -844,9 +844,43 @@ function protoEtymology(form: string): Pick<Etymology, 'sources' | 'stages'> {
     stages: parts.slice(1).map((f) => ({ id: newId(), form: f, type: 'soundChange', notes: '' }))
   }
 }
-const setForm = (l: Lexeme, slot: string, surface: string) => {
-  const s = surface.trim()
-  if (s) l.forms[slot] = { surface: s, derived: false, override: true, trace: [] }
+/** 词头表（T 表的「词头」列），长的排前面，用来把屈折形拆成「词头·词干」 */
+const HEADS: string[] = (() => {
+  const rows = csv('瑟乌丝林语词表 - Thsr T..csv')
+  const out = new Set<string>()
+  for (const r of byHeader(rows)) {
+    const h = (r['词头'] ?? '').trim()
+    if (h && h !== '∅') out.add(h.replace(/·/g, '').toLowerCase())
+  }
+  return [...out].sort((a, b) => b.length - a.length)
+})()
+
+/**
+ * 语法书里屈折形写作「词头·词干」（có·ubs），词表里连写成 cóubs。
+ * 优先按这个词自己的词头切；切不出来再按词头表里最长的那个。
+ */
+function withHeadDot(form: string, lemma: string): string {
+  const f = form.trim()
+  if (!f || f.includes('·')) return f
+  const low = f.toLowerCase()
+  const lemmaLow = lemma.toLowerCase()
+  const cut = (h: string): string | null =>
+    h && low.startsWith(h) && f.length - h.length > 1
+      ? f.slice(0, h.length) + '·' + f.slice(h.length)
+      : null
+  // 字典形自己标了词头，屈折形照它切
+  if (lemmaLow.includes('·')) return cut(lemmaLow.split('·')[0]) ?? f
+  // 字典形没标：只有当屈折形比字典形多出一个词头时才切，
+  // 否则那几个字母本来就是词干的一部分（字典形会一起带着）
+  const added = HEADS.find((h) => low.startsWith(h) && !lemmaLow.startsWith(h))
+  return added ? (cut(added) ?? f) : f
+}
+
+const setForm = (l: Lexeme, slot: string, surface: string, headed = false) => {
+  const raw = surface.trim()
+  if (!raw) return
+  const s = headed ? withHeadDot(raw, l.lemma) : raw
+  l.forms[slot] = { surface: s, derived: false, override: true, trace: [] }
 }
 const label = (numAbbr: string, caseAbbr: string) => {
   const n = catNumber.values.find((v) => v.abbr === numAbbr)!.name.zh
@@ -885,10 +919,10 @@ const label = (numAbbr: string, caseAbbr: string) => {
       const s = (r[col] ?? '').replace(/-$/, '').trim()
       if (s) l.stems[name] = s
     }
-    setForm(l, label('SG', 'TR'), r['及物格'] ?? '')
-    setForm(l, label('SG', 'NOMS'), r['不及物格'] ?? '')
-    setForm(l, label('SG', 'ABE'), r['欠格'] ?? '')
-    setForm(l, label('SG', 'OBL'), r['斜格'] ?? '')
+    setForm(l, label('SG', 'TR'), r['及物格'] ?? '', true)
+    setForm(l, label('SG', 'NOMS'), r['不及物格'] ?? '', true)
+    setForm(l, label('SG', 'ABE'), r['欠格'] ?? '', true)
+    setForm(l, label('SG', 'OBL'), r['斜格'] ?? '', true)
     // 复数列依次是 及物 / 不及物 / 欠格 /（斜格）
     const pls = (r['复数'] ?? '')
       .split(/[,，]/)
@@ -901,11 +935,11 @@ const label = (numAbbr: string, caseAbbr: string) => {
       ['PL', 'OBL']
     ]
     pls.forEach((v, i) => {
-      if (order[i]) setForm(l, label(order[i][0], order[i][1]), v)
+      if (order[i]) setForm(l, label(order[i][0], order[i][1]), v, true)
     })
-    if (pls.length === 3 && pls[1]) setForm(l, label('PL', 'OBL'), pls[1])
+    if (pls.length === 3 && pls[1]) setForm(l, label('PL', 'OBL'), pls[1], true)
     if (l.forms[label('SG', 'OBL')]?.surface === '' && r['不及物格'])
-      setForm(l, label('SG', 'OBL'), r['不及物格'])
+      setForm(l, label('SG', 'OBL'), r['不及物格'], true)
     p.lexemes.push(l)
   }
 }
@@ -1008,7 +1042,36 @@ const label = (numAbbr: string, caseAbbr: string) => {
       }
     }
   }
-  // 词头与限定词 → 语素
+  // 限定词（单数 / 复数 / 全指 / 领属）→ 语素，语料里出现得很频繁
+  const detCols: [string, string, string][] = [
+    ['单数限定', 'DET.SG', '单数限定'],
+    ['复数限定', 'DET.PL', '复数限定'],
+    ['全指', 'DET.ALL', '全指限定'],
+    ['领属', 'GEN', '领属']
+  ]
+  const detSeen = new Map<string, Morpheme>()
+  for (const r of list) {
+    for (const [col, gloss, zh] of detCols) {
+      for (const raw of (r[col] ?? '').split(/[,，/]/)) {
+        // 「e(s)」这种括号写法算两个形式
+        for (const form of expandParens(raw.trim())) {
+          const f = form.trim()
+          if (!f || f === '∅') continue
+          const key = gloss + '|' + f.toLowerCase()
+          if (detSeen.has(key)) continue
+          const m = createMorpheme(Tsr.id, 'particle')
+          m.form = f
+          m.gloss = gloss
+          m.meaning = { zh }
+          m.tags = ['限定词']
+          m.notes = r['词头'] ? `搭配词头 ${r['词头']}` : ''
+          detSeen.set(key, m)
+          p.morphemes.push(m)
+        }
+      }
+    }
+  }
+  // 词头 → 语素
   for (const r of list) {
     const head = r['词头']
     if (!head) continue

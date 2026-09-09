@@ -10,6 +10,7 @@
     type Etymology,
     type EtymologySource,
     type Id,
+    type Morpheme,
     type Project
   } from '$lib/core/model'
   import { Plus, X, ArrowRight } from '@lucide/svelte'
@@ -34,18 +35,73 @@
   /** 词根来源按惯例加星号 */
   const star = $derived(etymology.type === 'root' ? '*' : '')
 
+  /** 语素的完整写法：环缀是「前半…后半」 */
+  function morphemeLabel(m: Morpheme): string {
+    return m.type === 'circumfix' && m.form2 ? `${m.form}…${m.form2}` : m.form
+  }
   function sourceText(s: EtymologySource): string {
-    if (s.kind === 'morpheme') return project.morphemes.find((m) => m.id === s.id)?.form ?? ''
+    if (s.kind === 'morpheme') {
+      const m = project.morphemes.find((x) => x.id === s.id)
+      return m ? morphemeLabel(m) : ''
+    }
     if (s.kind === 'lexeme') return project.lexemes.find((m) => m.id === s.id)?.lemma ?? ''
     return s.form
   }
-  function setSourceByText(s: EtymologySource, text: string): void {
-    const v = text.trim()
-    if (s.kind === 'morpheme')
-      s.id = project.morphemes.find((m) => m.form === v.replace(/^\*/, ''))?.id ?? ''
-    else if (s.kind === 'lexeme')
-      s.id = project.lexemes.find((m) => m.lemma === v && m.id !== ownerId)?.id ?? ''
-    else s.form = v
+  /** 正在挑来源的那一条（按序号），以及搜索词 */
+  let picking = $state<number | null>(null)
+  let query = $state('')
+  const matches = $derived.by(() => {
+    if (picking === null) return []
+    const src = etymology.sources[picking]
+    if (!src || src.kind === 'external') return []
+    const q = query.trim().toLowerCase()
+    if (src.kind === 'morpheme') {
+      const all = project.morphemes.filter((m) => m.id !== ownerId)
+      const hit = q
+        ? all.filter(
+            (m) =>
+              morphemeLabel(m).toLowerCase().includes(q) ||
+              m.form2.toLowerCase().includes(q) ||
+              m.gloss.toLowerCase().includes(q) ||
+              // 也能按「环缀」「后缀」这类类型名搜
+              t(`morphemes.types.${m.type}`).includes(q) ||
+              m.tags.some((x) => x.toLowerCase().includes(q)) ||
+              Object.values(m.meaning).some((v) => v.toLowerCase().includes(q))
+          )
+        : all
+      return hit.slice(0, 30).map((m) => ({
+        id: m.id,
+        label: morphemeLabel(m),
+        tag: t(`morphemes.types.${m.type}`),
+        note: m.gloss || pickText(m.meaning, glossLangs)
+      }))
+    }
+    const all = project.lexemes.filter((l) => l.id !== ownerId)
+    const hit = q
+      ? all.filter(
+          (l) =>
+            l.lemma.toLowerCase().includes(q) ||
+            l.senses.some((se) =>
+              Object.values(se.definition).some((d) => d.toLowerCase().includes(q))
+            )
+        )
+      : all
+    return hit.slice(0, 30).map((l) => ({
+      id: l.id,
+      label: l.lemma,
+      tag: '',
+      note: pickText(l.senses[0]?.definition, glossLangs)
+    }))
+  })
+  function startPick(i: number): void {
+    picking = picking === i ? null : i
+    query = ''
+  }
+  function choose(i: number, id: Id): void {
+    const src = etymology.sources[i]
+    if (!src || src.kind === 'external') return
+    src.id = id
+    picking = null
     syncRelations()
     onchange()
   }
@@ -149,16 +205,37 @@
       {:else}
         <span class="badge">{t(`lexicon.sourceKinds.${s.kind}`)}</span>
         {#if s.kind === 'morpheme' && star}<span class="star">*</span>{/if}
-        <input
-          class="input data grow"
-          list={s.kind === 'morpheme' ? 'dl-ety-morphemes' : 'dl-ety-lexemes'}
-          value={sourceText(s)}
-          placeholder={s.kind === 'morpheme' ? t('lexicon.pickMorpheme') : t('lexicon.pickLexeme')}
-          onchange={(e) => setSourceByText(s, (e.currentTarget as HTMLInputElement).value)}
-        />
+        <button
+          class="input data grow pick"
+          class:empty={!sourceText(s)}
+          onclick={() => startPick(i)}
+          >{sourceText(s) ||
+            (s.kind === 'morpheme' ? t('lexicon.pickMorpheme') : t('lexicon.pickLexeme'))}</button
+        >
       {/if}
       <button class="btn ghost icon sm" onclick={() => removeSource(i)}><X size={14} /></button>
     </div>
+    {#if picking === i}
+      <div class="picker card">
+        <input
+          class="input"
+          placeholder={t('lexicon.searchSource')}
+          bind:value={query}
+          onkeydown={(e) => e.key === 'Escape' && (picking = null)}
+        />
+        <div class="hits">
+          {#each matches as m (m.id)}
+            <button class="hit" onclick={() => choose(i, m.id)}>
+              <span class="data">{m.label}</span>
+              {#if m.tag}<span class="badge">{m.tag}</span>{/if}
+              <span class="small muted grow note">{m.note}</span>
+            </button>
+          {:else}
+            <span class="small muted pad">{t('common.noResults')}</span>
+          {/each}
+        </div>
+      </div>
+    {/if}
   {/each}
 
   <div class="row wrap">
@@ -201,17 +278,6 @@
       >
     </div>
   {/each}
-
-  <datalist id="dl-ety-morphemes"
-    >{#each project.morphemes as m (m.id)}<option value={m.form}
-        >{m.gloss || pickText(m.meaning, glossLangs)}</option
-      >{/each}</datalist
-  >
-  <datalist id="dl-ety-lexemes"
-    >{#each project.lexemes as m (m.id)}{#if m.id !== ownerId}<option value={m.lemma}
-          >{pickText(m.senses[0]?.definition, glossLangs)}</option
-        >{/if}{/each}</datalist
-  >
 
   <textarea
     class="textarea"
@@ -258,6 +324,49 @@
   }
   .star {
     color: var(--text-3);
+  }
+  .pick {
+    text-align: left;
+    cursor: pointer;
+  }
+  .pick.empty {
+    color: var(--text-3);
+  }
+  .picker {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
+    margin: -2px 0 4px;
+  }
+  .hits {
+    display: flex;
+    flex-direction: column;
+    max-height: 200px;
+    overflow: auto;
+  }
+  .hit {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 3px 6px;
+    border: 0;
+    background: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+  }
+  .hit:hover {
+    background: var(--bg-hover);
+  }
+  .hit .note {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pad {
+    padding: 4px 6px;
   }
   .wrap {
     flex-wrap: wrap;

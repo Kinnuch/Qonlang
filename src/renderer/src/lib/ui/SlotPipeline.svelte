@@ -6,7 +6,7 @@
   import { t } from '$lib/i18n/index.svelte'
   import { newId } from '$lib/core/factory'
   import type { Id, MorphStep, MorphStepKind, RuleSet } from '$lib/core/model'
-  import { Plus, X, ChevronLeft, ChevronRight } from '@lucide/svelte'
+  import { Plus, X, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from '@lucide/svelte'
 
   let {
     stem = $bindable(),
@@ -34,6 +34,8 @@
   ]
 
   let adding = $state(false)
+  /** 展开成多行的微调步骤 */
+  let expanded = $state<string | null>(null)
 
   function make(kind: MorphStepKind): MorphStep {
     const id: Id = newId()
@@ -92,10 +94,37 @@
     <span class="arrow">→</span>
     <div class="step">
       <span class="tag">{t(`paradigms.steps.${st.kind}`)}</span>
-      {#if st.kind === 'prefix' || st.kind === 'suffix' || st.kind === 'adjust'}
+      {#if st.kind === 'adjust'}
+        {#if expanded === st.id}
+          <textarea
+            class="textarea data adj"
+            rows="4"
+            placeholder={t('paradigms.adjustPlaceholder')}
+            title={t('paradigms.adjustHint')}
+            bind:value={st.text}
+            oninput={onchange}
+          ></textarea>
+        {:else}
+          <input
+            class="input data"
+            placeholder={t('paradigms.adjustPlaceholder')}
+            title={st.text || t('paradigms.adjustHint')}
+            bind:value={st.text}
+            oninput={onchange}
+          />
+        {/if}
+        <button
+          class="btn ghost icon xs"
+          title={t('paradigms.expandAdjust')}
+          onclick={() => (expanded = expanded === st.id ? null : st.id)}
+          >{#if expanded === st.id}<Minimize2 size={12} />{:else}<Maximize2
+              size={12}
+            />{/if}</button
+        >
+      {:else if st.kind === 'prefix' || st.kind === 'suffix'}
         <input
           class="input data"
-          placeholder={st.kind === 'adjust' ? t('paradigms.adjustPlaceholder') : '@语素 / -s'}
+          placeholder="@语素 / -s"
           bind:value={st.text}
           oninput={onchange}
         />
@@ -241,6 +270,12 @@
   }
   .step .input.num {
     width: 46px;
+  }
+  .step .adj {
+    width: 260px;
+    font-size: 12px;
+    line-height: 1.5;
+    resize: vertical;
   }
   .add {
     position: relative;

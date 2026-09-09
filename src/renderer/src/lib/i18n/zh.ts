@@ -13,6 +13,7 @@ export default {
     cancel: '取消',
     delete: '删除',
     rename: '重命名',
+    noResults: '没有匹配项',
     undo: '撤销',
     close: '关闭',
     ok: '确定',
@@ -347,6 +348,7 @@ export default {
     addSource: '添加来源',
     sourceKinds: { morpheme: '语素', lexeme: '词条', external: '自定义来源' },
     pickMorpheme: '选择语素…',
+    searchSource: '搜索语素或词条…',
     pickLexeme: '选择词位…',
     externalLanguage: '语言',
     externalForm: '形式',
@@ -827,14 +829,15 @@ export default {
       beforeLast: '最后一个音段之前'
     },
     slots: '槽位',
-    pipeline: '流水线（从词干开始，一步一步加）',
-    addStep: '加一步',
+    pipeline: '流水线',
+    addStep: '增加步骤',
+    expandAdjust: '展开 / 收起',
     steps: {
       prefix: '前缀',
       suffix: '后缀',
       infix: '中缀',
       circumfix: '环缀',
-      sca: '跑音变',
+      sca: '音变',
       pattern: '模板',
       reduplication: '重叠',
       adjust: '微调'
@@ -847,7 +850,7 @@ export default {
     generator: '生成器',
     params: '参数',
     kinds: {
-      pipeline: '组合',
+      pipeline: '组合（流水线）',
       none: '无',
       table: '查表（手填）',
       affix: '拼接',
@@ -943,6 +946,7 @@ export default {
       '占位符：{{text}} {{translation}} {{source}} {{morphs}} {{gloss}}；逐词块 {{#tokens}}…{{/tokens}} 内可用 {{surface}} {{morphs}} {{gloss}} {{sep}}',
     deleted: '已删除例句',
     openInLexicon: '在词库中查看',
+    openInMorphemes: '在语素中查看',
     hint: '词库、语素、构形里的改动都会影响这里的自动分析；确认过的分析会成为其他句子里同一个词的首选。悬停任一词可查看词条，点击可跳到词库。',
     stats: {
       frequency: '词频',
