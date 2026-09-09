@@ -305,6 +305,17 @@
   // ───── 列宽（记忆在用户偏好里） ─────
   const colWidths = $derived(ui.prefs.lexiconColWidths ?? {})
   const hasWidths = $derived(Object.keys(colWidths).length > 0)
+  /**
+   * 固定布局要有确定的表格宽度才会照 <col> 分配；
+   * 写 width:max-content 的话浏览器会退回按内容分配，拖了像没反应。
+   */
+  const tableWidth = $derived.by(() => {
+    if (!hasWidths) return 0
+    const keys = ['lemma', ...activeColumns.map((c) => c.key)]
+    let sum = sort === 'custom' ? 56 : 0
+    for (const k of keys) sum += colWidths[k] ?? 120
+    return sum
+  })
   const colStyle = (key: string): string => (colWidths[key] ? `width:${colWidths[key]}px` : '')
   let resizing: { key: string; x: number; w: number } | null = null
   function startResize(e: PointerEvent, key: string): void {
@@ -725,7 +736,7 @@
       </div>
     {/if}
     <div class="scroll">
-      <table class="tbl" class:fixed={hasWidths}>
+      <table class="tbl" class:fixed={hasWidths} style={hasWidths ? `width:${tableWidth}px` : ''}>
         <colgroup>
           {#if sort === 'custom'}<col style="width:56px" />{/if}
           <col style={colStyle('lemma')} />
@@ -1376,10 +1387,8 @@
     position: relative;
   }
   .tbl.fixed {
+    /* 宽度由脚本按各列之和给出，见 tableWidth */
     table-layout: fixed;
-    /* 列宽定死之后表格按内容宽度走，容器横向滚动，最后一列才拖得动 */
-    width: max-content;
-    min-width: 100%;
   }
   .tbl.fixed td {
     overflow: hidden;

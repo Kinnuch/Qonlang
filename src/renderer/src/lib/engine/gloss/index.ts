@@ -28,6 +28,12 @@ export function tokenize(text: string): string[] {
 }
 
 const strip = (s: string): string => s.replace(/^[-=]+|[-=]+$/g, '')
+/** 去掉附加符（é → e）：语料里的重音标记与词典未必一致 */
+export const foldDiacritics = (s: string): string =>
+  s
+    .normalize('NFD')
+    .replace(/\p{M}+/gu, '')
+    .normalize('NFC')
 /** 索引键：去首尾边界符、NFC、小写 */
 const norm = (s: string): string => strip(s).normalize('NFC').toLowerCase()
 
@@ -56,6 +62,8 @@ function formKeys(raw: string, boundaries: string[], prefixes: string[]): string
   const base = norm(raw)
   if (!base) return []
   const out = new Set([base])
+  const folded = foldDiacritics(base)
+  if (folded !== base) out.add(folded)
   // 「alch(elch)」这类括号写法：括号内外都算一个形式
   const paren = /^([^()（）]*)[（(]([^)）]+)[)）]([^()（）]*)$/.exec(base)
   if (paren) {

@@ -1389,8 +1389,10 @@ function splitFlow(
   const m = /^(顺流|逆流|滞流|扩流|换流)<([^>]*)>(.*)$/.exec(gloss)
   if (!m) return null
   const [, flow, person, rest] = m
-  const forms = FLOW_PERSON[flow]?.[person]
-  if (!forms) return null
+  const table = FLOW_PERSON[flow]
+  if (!table) return null
+  // 人称不在表里（语法书没列的「三双」之类）时，退到这个语流的其他前缀
+  const forms = table[person] ?? [...new Set(Object.values(table).flat())]
   const low = surface.toLowerCase()
   const pick = [...forms].sort((a, b) => b.length - a.length).find((f) => low.startsWith(f))
   if (!forms.length || pick === undefined) {
@@ -1447,12 +1449,12 @@ function splitHead(
       { form: rest, gloss: gloss.slice(gi + 1), morphemeId: null }
     ]
   }
-  // gloss 压成一整条：只有当这个词头已经在语素表里时才拆，免得把名词词头也拆开
+  // gloss 压成一整条：照样按中点拆开，认得出来的词头挂上语素，
+  // 认不出来的也拆——至少词干那一段能查到词条
   const known = headMorphemes.get(head.toLowerCase())
-  if (!known) return [{ form: surface, gloss, morphemeId: null }]
-  const m = p.morphemes.find((x) => x.id === known)
+  const m = known ? p.morphemes.find((x) => x.id === known) : null
   return [
-    { form: head + '·', gloss: m?.gloss ?? '', morphemeId: known },
+    { form: head + '·', gloss: m?.gloss ?? '', morphemeId: known ?? null },
     { form: rest, gloss, morphemeId: null }
   ]
 }
@@ -1535,6 +1537,19 @@ if (md) {
     let t = ''
     for (const h of heads) if (h.pos < i) t = h.title
     return t
+  }
+  // 先扫一遍：把 gloss 里标了「头·干」的动词头都登记成语素，
+  // 免得同一个头在前面的句子里因为 gloss 压成一个词而漏掉
+  for (const m of md.matchAll(glossRe)) {
+    for (const w of [...m[0].matchAll(wordRe)]) {
+      const lat = plain(w[2] ?? '')
+        .replace(/^[（(]/, '')
+        .replace(/[.,!?；。，！？）)]+$/g, '')
+      const gl = plain(w[4] ?? '')
+      const si = lat.indexOf('·')
+      const gi = gl.indexOf('·')
+      if (si > 0 && gi > 0) headMorpheme(lat.slice(0, si), gl.slice(0, gi))
+    }
   }
   for (const m of md.matchAll(glossRe)) {
     const block = m[0]

@@ -3,11 +3,12 @@
   import { ui } from '$lib/state/ui.svelte'
   import { i18n, t, pickText } from '$lib/i18n/index.svelte'
   import { createSentence, createLexeme, newId } from '$lib/core/factory'
-  import type { Analysis, Id, Sentence, Token } from '$lib/core/model'
+  import type { Analysis, Id, Sentence, Token, Lexeme } from '$lib/core/model'
   import {
     analyzeSentence,
     analyzeToken,
     buildIndex,
+    foldDiacritics,
     interlinear,
     toLeipzig,
     toMarkdown,
@@ -214,12 +215,39 @@
       if (byForm) return { lexemeId: byForm }
       const rev = reverseDerive(tk.surface, affixes, (form) => lookupByForm(form, gloss))
       if (rev) return { lexemeId: rev.lexemeId }
+      // 再试剥一个语素前缀 / 后缀（语流前缀、格缀这些都在语素表里）
+      const byAffix = stripMorphemeAffix(tk.surface, gloss)
+      if (byAffix) return { lexemeId: byAffix }
+      // 还不行就逐段试：已确认的切分里，词干那一段往往才是词典里的形式
+      for (const m of a?.morphs ?? []) {
+        const seg = m.form.replace(/^[-=·']+|[-=·']+$/g, '')
+        if (seg.length < 2) continue
+        const hit = lookupByForm(seg, m.gloss || gloss) ?? stripMorphemeAffix(seg, m.gloss || gloss)
+        if (hit) return { lexemeId: hit }
+      }
       // 词条里找不到就查语素：限定词、小品词这类都在语素表里
       const key = tk.surface.normalize('NFC').toLowerCase()
       const mo = idx.morphemes.get(key)?.[0]
       if (mo) return { morphemeId: mo.id }
     }
     return mid ? { morphemeId: mid } : null
+  }
+  /** 剥掉一个已知的语素前缀或后缀再查一次 */
+  function stripMorphemeAffix(surface: string, gloss: string): Id | null {
+    const idx = hoverIndexOf()
+    if (!idx) return null
+    const w = surface.normalize('NFC').toLowerCase()
+    for (const { form } of idx.prefixes)
+      if (form && w.startsWith(form) && w.length - form.length > 1) {
+        const hit = lookupByForm(w.slice(form.length), gloss)
+        if (hit) return hit
+      }
+    for (const { form } of idx.suffixes)
+      if (form && w.endsWith(form) && w.length - form.length > 1) {
+        const hit = lookupByForm(w.slice(0, w.length - form.length), gloss)
+        if (hit) return hit
+      }
+    return null
   }
   /**
    * 按形式查词条：同形的候选还要跟标注的意思对得上才认，
@@ -229,11 +257,13 @@
     const idx = hoverIndexOf()
     if (!idx) return null
     const key = form.normalize('NFC').toLowerCase()
-    const cands = [
-      ...(idx.lemma.get(key) ?? []),
-      ...(idx.forms.get(key) ?? []).map((f) => f.lexeme),
-      ...(idx.stems.get(key) ?? [])
+    const folded = foldDiacritics(key)
+    const pool = (k: string): Lexeme[] => [
+      ...(idx.lemma.get(k) ?? []),
+      ...(idx.forms.get(k) ?? []).map((f) => f.lexeme),
+      ...(idx.stems.get(k) ?? [])
     ]
+    const cands = pool(key).length ? pool(key) : pool(folded)
     const good = cands.find((l) => lexemeMatchesGloss(l, gloss))
     return good ? good.id : null
   }

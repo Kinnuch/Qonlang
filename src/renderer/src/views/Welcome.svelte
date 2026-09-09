@@ -9,6 +9,7 @@
   import { mdToHtml } from '$lib/core/markdown'
   import { guideUrl } from '$lib/core/guide'
   import {
+    X,
     FolderOpen,
     FilePlus2,
     Clock,
@@ -317,48 +318,83 @@
           ><Link2 size={16} />{t('welcome.friends')}</button
         >
       </div>
-      {#if footerPanel === 'coffee'}
-        <div class="card panel coffee">
-          <img src={wechatQr} alt="WeChat Pay" />
-          <p class="small muted">{t('welcome.scanWechat')}</p>
-        </div>
-      {:else if footerPanel === 'changelog'}
-        <div class="card panel md">{@html changelogHtml}</div>
-      {:else if footerPanel === 'dev'}
-        <div class="card panel dev">
-          <strong>{DEV.name}</strong>
-          <button class="link" onclick={() => open(DEV.site)}>{DEV.site}</button>
-          <button class="link" onclick={() => open(DEV.github)}>{DEV.github}</button>
-          <button class="link" onclick={() => open(DEV.bilibili)}
-            >Bilibili · {DEV.bilibiliName}</button
-          >
-          <span class="small muted">{DEV.email}</span>
-          <span class="small muted">{t('settings.license')} · {t('app.name')} v{version}</span>
-        </div>
-      {:else if footerPanel === 'friends'}
-        <div class="card panel friends">
-          {#each FRIENDS as f (f.url)}
-            <button class="friend" onclick={() => open(f.url)}>
-              {#if f.icon}<img src={f.icon} alt={f.name} />{:else}<span class="ficon"
-                  >{f.name[0]}</span
-                >{/if}
-              <span class="grow"
-                ><strong>{f.name}</strong><span class="small muted">{f.blurb}</span></span
-              >
-              <ExternalLink size={13} />
-            </button>
-          {/each}
-        </div>
-      {/if}
     </div>
   </main>
+
+  {#if footerPanel}
+    <aside class="side-panel" style:--panel-w={`${ui.prefs.inspectorWidth}px`}>
+      <div class="panel-head row">
+        <strong class="grow"
+          >{t(`welcome.${footerPanel === 'dev' ? 'developer' : footerPanel}`)}</strong
+        >
+        <button class="btn ghost icon sm" onclick={() => (footerPanel = null)}
+          ><X size={16} /></button
+        >
+      </div>
+      <div class="panel-body">
+        {#if footerPanel === 'coffee'}
+          <div class="card panel coffee">
+            <img src={wechatQr} alt="WeChat Pay" />
+            <p class="small muted">{t('welcome.scanWechat')}</p>
+          </div>
+        {:else if footerPanel === 'changelog'}
+          <div class="card panel md">{@html changelogHtml}</div>
+        {:else if footerPanel === 'dev'}
+          <div class="card panel dev">
+            <strong>{DEV.name}</strong>
+            <button class="link" onclick={() => open(DEV.site)}>{DEV.site}</button>
+            <button class="link" onclick={() => open(DEV.github)}>{DEV.github}</button>
+            <button class="link" onclick={() => open(DEV.bilibili)}
+              >Bilibili · {DEV.bilibiliName}</button
+            >
+            <span class="small muted">{DEV.email}</span>
+            <span class="small muted">{t('settings.license')} · {t('app.name')} v{version}</span>
+          </div>
+        {:else if footerPanel === 'friends'}
+          <div class="card panel friends">
+            {#each FRIENDS as f (f.url)}
+              <button class="friend" onclick={() => open(f.url)}>
+                {#if f.icon}<img src={f.icon} alt={f.name} />{:else}<span class="ficon"
+                    >{f.name[0]}</span
+                  >{/if}
+                <span class="grow"
+                  ><strong>{f.name}</strong><span class="small muted">{f.blurb}</span></span
+                >
+                <ExternalLink size={13} />
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </aside>
+  {/if}
 </div>
 
 <style>
   .welcome {
     height: 100%;
     display: grid;
-    grid-template-columns: 320px 1fr;
+    grid-template-columns: 320px 1fr auto;
+  }
+  .side-panel {
+    /* 与检视器同宽，但窗口窄时让主区留得住 */
+    width: min(var(--panel-w, 360px), 34vw);
+    border-left: 1px solid var(--border);
+    background: var(--bg-elev);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .panel-head {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 14px 16px;
   }
   .side {
     background: var(--bg-elev);
@@ -436,9 +472,10 @@
     width: auto;
   }
   .main {
-    padding: 40px 48px;
+    padding: 40px clamp(20px, 4vw, 48px);
     overflow: auto;
     max-width: 880px;
+    min-width: 0;
   }
   .restore {
     padding: 14px 16px;
@@ -490,6 +527,7 @@
   .banner {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 14px;
     width: 100%;
     padding: 14px 18px;
@@ -509,6 +547,8 @@
   }
   .banner-text {
     flex: 1;
+    /* 窄的时候让链接换行，而不是把这句话挤成一行几个字 */
+    min-width: 220px;
     font-family: var(--font-data);
     font-size: 16px;
     letter-spacing: 0.02em;
@@ -542,7 +582,10 @@
     color: var(--accent-text);
   }
   .panel {
-    padding: 16px 20px;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
     animation: rise 0.18s ease-out;
   }
   @keyframes rise {
