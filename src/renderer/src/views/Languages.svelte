@@ -14,6 +14,7 @@
   import Portal from '$lib/ui/Portal.svelte'
   import LanguageNode from './LanguageNode.svelte'
   import { Plus, Trash2, Star, X } from '@lucide/svelte'
+  import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -97,7 +98,9 @@
 
 <div class="page">
   <div class="page-head row">
-    <h1 class="grow">{t('languages.title')}</h1>
+    <h1>{t('languages.title')}</h1>
+    <GuideLink section="languages" />
+    <span class="grow"></span>
     <button class="btn primary" onclick={() => add(null)}
       ><Plus size={16} />{t('languages.addLanguage')}</button
     >

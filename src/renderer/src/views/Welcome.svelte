@@ -167,6 +167,9 @@
       <button class="btn" onclick={() => projectState.open()}
         ><FolderOpen size={16} />{t('welcome.openProject')}</button
       >
+      <button class="btn" onclick={() => open(guideUrl('welcome'))}
+        ><BookOpen size={16} />{t('common.guide')}</button
+      >
     </div>
 
     <div class="recent">

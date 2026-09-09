@@ -28,6 +28,8 @@ export function tokenize(text: string): string[] {
 }
 
 const strip = (s: string): string => s.replace(/^[-=]+|[-=]+$/g, '')
+/** 索引键：去首尾边界符、NFC、小写 */
+const norm = (s: string): string => strip(s).normalize('NFC').toLowerCase()
 
 /** 词位的简短 gloss：第一义项的第一段（按 ; ， 。 , 切） */
 export function lexemeGloss(l: Lexeme, glossLangs: string[]): string {
@@ -59,8 +61,8 @@ export function buildIndex(project: Project, languageId: Id): GlossIndex {
   }
   for (const l of project.lexemes) {
     if (l.languageId !== languageId) continue
-    if (l.lemma) push(idx.lemma, strip(l.lemma), l)
-    for (const s of Object.values(l.stems)) if (s) push(idx.stems, strip(s), l)
+    if (l.lemma) push(idx.lemma, norm(l.lemma), l)
+    for (const s of Object.values(l.stems)) if (s) push(idx.stems, norm(s), l)
     const para = paradigmFor(project, l)
     const abbrs = new Map<string, string>()
     if (para)
@@ -68,14 +70,24 @@ export function buildIndex(project: Project, languageId: Id): GlossIndex {
         abbrs.set(s.label, s.abbr)
     for (const [slot, f] of Object.entries(l.forms)) {
       for (const v of f.surface.split(/[,，;；/]\s*/)) {
-        const s = strip(v.trim().replace(/^\*/, ''))
+        const s = norm(v.trim().replace(/^\*/, ''))
         if (s) push(idx.forms, s, { lexeme: l, slot, abbr: abbrs.get(slot) ?? slot })
       }
     }
   }
-  for (const m of project.morphemes) {
-    if (m.languageId !== languageId) continue
-    const forms = [m.form, ...m.allomorphs.map((a) => a.form)].map(strip).filter(Boolean)
+  // 本语言的语素优先；找不到时退到祖语链上的语素（词根表常放在祖语）
+  const lineage: Id[] = [languageId]
+  let cur = project.languages.find((l) => l.id === languageId)
+  while (cur?.parentId && !lineage.includes(cur.parentId)) {
+    lineage.push(cur.parentId)
+    cur = project.languages.find((l) => l.id === cur!.parentId)
+  }
+  const ordered = [...project.morphemes].sort(
+    (a, b) => lineage.indexOf(a.languageId) - lineage.indexOf(b.languageId)
+  )
+  for (const m of ordered) {
+    if (!lineage.includes(m.languageId)) continue
+    const forms = [m.form, ...m.allomorphs.map((a) => a.form)].map(norm).filter(Boolean)
     for (const f of new Set(forms)) {
       push(idx.morphemes, f, m)
       if (m.type === 'suffix' || m.type === 'clitic') idx.suffixes.push({ form: f, morpheme: m })
@@ -193,6 +205,7 @@ export function analyzeToken(idx: GlossIndex, surface: string, boundaries: strin
     }
   }
   for (const a of idx.confirmed.get(surface) ?? []) add(a)
+  surface = surface.normalize('NFC')
   // 用户已在词里写了边界：按边界切，每段整词匹配，不猜
   const bset = boundaries.filter((b) => b && b !== ' ')
   const hasBoundary = bset.some((b) => surface.includes(b))
@@ -202,7 +215,7 @@ export function analyzeToken(idx: GlossIndex, surface: string, boundaries: strin
     const morphs: Analysis['morphs'] = []
     let lexemeId: Id | null = null
     for (const p of parts) {
-      const cands = wholeWord(idx, p)
+      const cands = wholeWord(idx, p.toLowerCase())
       const c = cands[0]
       if (c) {
         morphs.push(...c.morphs)
@@ -211,7 +224,7 @@ export function analyzeToken(idx: GlossIndex, surface: string, boundaries: strin
     }
     add({ lexemeId, slot: null, morphs })
   }
-  const plain = strip(surface)
+  const plain = norm(surface)
   const cands = stripAffixes(idx, plain, 2)
   // 排序：先候选来源顺序（已确认 > 词头/屈折形/词干/语素 > 剥离），再语素少者优先
   cands.sort((a, b) => a.morphs.length - b.morphs.length)

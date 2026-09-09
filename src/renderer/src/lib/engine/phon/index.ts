@@ -2,7 +2,7 @@
  * 音系引擎：音段切分、音节划分、重音、配列检查、随机造词。
  * 全部由语言自己的数据驱动（音位表、音类、模板、配列表），不预设任何语言。
  */
-import type { Language, Phoneme, Phonotactics, StressPosition } from '$lib/core/model'
+import type { Language, Phoneme, Phonotactics, Project, StressPosition } from '$lib/core/model'
 import type { ParseOptions } from '../sca/parse'
 import { inferFeatures } from '$lib/ipa/features'
 
@@ -277,15 +277,32 @@ export function generateWords(pt: Phonotactics, opts: GenerateOptions): string[]
 // ───────────────────────── 与规则语言衔接 ─────────────────────────
 
 /** 一门语言的音类与多合字母，作为规则解析的基础选项 */
-export function languageParseOptions(lang: Language | null | undefined): ParseOptions {
+export function languageParseOptions(
+  lang: Language | null | undefined,
+  project?: Project | null
+): ParseOptions {
   if (!lang) return {}
   const classes: Record<string, string[]> = {}
   for (const c of lang.classes) if (c.name && c.members.length) classes[c.name] = c.members
+  const morphemes: Record<string, string[]> = {}
+  if (project) {
+    const stripH = (s: string): string => s.replace(/^[-=]+|[-=]+$/g, '')
+    for (const m of project.morphemes) {
+      if (m.languageId !== lang.id) continue
+      const forms = [
+        ...new Set([m.form, ...m.allomorphs.map((a) => a.form)].map(stripH).filter(Boolean))
+      ]
+      if (!forms.length) continue
+      for (const key of [m.gloss, stripH(m.form)])
+        if (key && !morphemes[key]) morphemes[key] = forms
+    }
+  }
   return {
     classes,
     replacements: lang.digraphs
       .filter((d) => d.from && d.to)
-      .map((d) => [d.from, d.to] as [string, string])
+      .map((d) => [d.from, d.to] as [string, string]),
+    morphemes
   }
 }
 

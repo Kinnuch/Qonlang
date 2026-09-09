@@ -20,21 +20,21 @@
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
   import RuleList from '$lib/ui/RuleList.svelte'
   import RuleChainGraph from '$lib/ui/RuleChainGraph.svelte'
+  import Menu from '$lib/ui/Menu.svelte'
   import EvolvePanel from '$lib/ui/EvolvePanel.svelte'
   import { languageParseOptions } from '$lib/engine/phon'
-  import { guideUrl } from '$lib/core/guide'
   import {
     Plus,
     Trash2,
     Download,
     Upload,
     Copy,
-    BookOpen,
     List,
     Code,
     GitBranch,
     Sprout
   } from '@lucide/svelte'
+  import GuideLink from '$lib/ui/GuideLink.svelte'
   let evolveOpen = $state(false)
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -65,7 +65,7 @@
   })
   $effect(() => {
     const text = active?.text ?? ''
-    const opts = languageParseOptions(baseLanguage)
+    const opts = languageParseOptions(baseLanguage, project)
     if (parseTimer) clearTimeout(parseTimer)
     parseTimer = setTimeout(() => {
       program = parseRuleText(text, opts)
@@ -232,6 +232,7 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('soundChanges.title')}</h1>
+    <GuideLink section="soundChanges" />
     <div class="tabs grow">
       {#each project.ruleSets as rs (rs.id)}
         <button class="tab" class:active={active?.id === rs.id} onclick={() => (activeId = rs.id)}
@@ -239,17 +240,14 @@
         >
       {/each}
     </div>
-    <div class="menu">
-      <button class="btn"><Upload size={16} />{t('soundChanges.import')}</button>
-      <div class="menu-list card">
-        <button onclick={importYinbianji}>{t('soundChanges.importYinbianji')}</button>
-        <button onclick={() => importConverted('lexicanter')}
-          >{t('soundChanges.importLexicanter')}</button
-        >
-        <button onclick={() => importConverted('sca2')}>{t('soundChanges.importSca2')}</button>
-        <button onclick={() => importConverted('plain')}>{t('soundChanges.importPlain')}</button>
-      </div>
-    </div>
+    <Menu label={t('soundChanges.import')} icon={Upload}>
+      <button onclick={importYinbianji}>{t('soundChanges.importYinbianji')}</button>
+      <button onclick={() => importConverted('lexicanter')}
+        >{t('soundChanges.importLexicanter')}</button
+      >
+      <button onclick={() => importConverted('sca2')}>{t('soundChanges.importSca2')}</button>
+      <button onclick={() => importConverted('plain')}>{t('soundChanges.importPlain')}</button>
+    </Menu>
     <button class="btn primary" onclick={() => addSet()}
       ><Plus size={16} />{t('soundChanges.newSet')}</button
     >
@@ -275,7 +273,7 @@
           />
         </div>
       {:else if view === 'chain'}
-        <div class="list-wrap">
+        <div class="list-wrap chain">
           <RuleChainGraph {program} bind:selectedLine />
         </div>
       {:else}
@@ -321,12 +319,6 @@
           >{/if}
         <button class="btn ghost sm" onclick={exportText}
           ><Download size={14} />{t('soundChanges.exportText')}</button
-        >
-        <a
-          class="btn ghost sm"
-          href={guideUrl('soundChanges', 'rule-language')}
-          target="_blank"
-          rel="noreferrer"><BookOpen size={14} />{t('soundChanges.syntaxHelp')}</a
         >
       </div>
       {#if program && program.diagnostics.length}
@@ -501,35 +493,6 @@
     background: var(--accent-soft);
     color: var(--accent-text);
   }
-  .menu {
-    position: relative;
-  }
-  .menu-list {
-    display: none;
-    position: absolute;
-    right: 0;
-    top: calc(100% + 4px);
-    min-width: 260px;
-    padding: 4px;
-    z-index: 10;
-    flex-direction: column;
-    box-shadow: var(--shadow-lg);
-  }
-  .menu:hover .menu-list,
-  .menu:focus-within .menu-list {
-    display: flex;
-  }
-  .menu-list button {
-    text-align: left;
-    border: 0;
-    background: transparent;
-    padding: 6px 10px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-  }
-  .menu-list button:hover {
-    background: var(--bg-hover);
-  }
   .workspace {
     flex: 1;
     min-height: 0;
@@ -548,6 +511,11 @@
     min-height: 0;
     overflow: auto;
     padding-right: 4px;
+  }
+  .list-wrap.chain {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
   .seg {
     display: inline-flex;

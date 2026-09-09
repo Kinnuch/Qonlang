@@ -25,6 +25,10 @@
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import CsvImportWizard from '$lib/ui/CsvImportWizard.svelte'
   import DictExport from '$lib/ui/DictExport.svelte'
+  import Menu from '$lib/ui/Menu.svelte'
+  import ImageCropper from '$lib/ui/ImageCropper.svelte'
+  import { prepareImage } from '$lib/core/images'
+  import { newId } from '$lib/core/factory'
   import LexemeCard from '$lib/ui/LexemeCard.svelte'
   import LexemeGraph from '$lib/ui/LexemeGraph.svelte'
   import Taxonomy from './Taxonomy.svelte'
@@ -42,8 +46,12 @@
     Waypoints,
     ArrowLeft,
     Wand2,
-    RotateCcw
+    RotateCcw,
+    ChevronUp,
+    ChevronDown,
+    ImagePlus
   } from '@lucide/svelte'
+  import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -59,9 +67,8 @@
   let query = $state('')
   let posFilter = $state('')
   let tagFilter = $state('')
-  let sort = $state<'alphabet' | 'recent'>('alphabet')
+  let sort = $state<'alphabet' | 'recent' | 'pos' | 'custom'>('alphabet')
   let limit = $state(300)
-  let columnsOpen = $state(false)
 
   $effect(() => {
     if (ui.pendingImport === 'csv') {
@@ -106,7 +113,12 @@
       return true
     })
     if (sort === 'alphabet') arr.sort((a, b) => collator(a.lemma, b.lemma))
-    else arr.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    else if (sort === 'recent') arr.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    else if (sort === 'pos')
+      arr.sort(
+        (a, b) => posLabel(a.posId).localeCompare(posLabel(b.posId)) || collator(a.lemma, b.lemma)
+      )
+    // custom：保持项目里的数组顺序
     return arr
   })
   const selected = $derived(project.lexemes.find((l) => l.id === selectedId) ?? null)
@@ -220,6 +232,43 @@
     }
     if (key === 'updated') return l.updatedAt.slice(0, 10)
     return ''
+  }
+  function moveLexeme(l: Lexeme, dir: -1 | 1): void {
+    const i = list.indexOf(l)
+    const j = i + dir
+    if (i < 0 || j < 0 || j >= list.length) return
+    const a = project.lexemes.indexOf(l)
+    const b = project.lexemes.indexOf(list[j])
+    ;[project.lexemes[a], project.lexemes[b]] = [project.lexemes[b], project.lexemes[a]]
+    projectState.touch()
+  }
+  // 配图
+  let cropReq = $state<{
+    img: HTMLImageElement
+    mime: string
+    resolve: (v: string | null) => void
+  } | null>(null)
+  function cropAsync(img: HTMLImageElement, mime: string): Promise<string | null> {
+    return new Promise((resolve) => (cropReq = { img, mime, resolve }))
+  }
+  async function addImages(l: Lexeme): Promise<void> {
+    const files = await platform.readBinaryFiles({
+      multiple: true,
+      extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp']
+    })
+    const size = project.settings.imageSize
+    for (const f of files) {
+      try {
+        const p = await prepareImage(f.base64, f.name, size)
+        const url = p.needsCrop ? await cropAsync(p.img, p.mime) : p.dataUrl
+        if (!url) continue
+        if (!l.images) l.images = []
+        l.images.push({ id: newId(), dataUrl: url, caption: '' })
+        touch(l)
+      } catch (e) {
+        ui.error(String(e))
+      }
+    }
   }
   function scriptOf(id: string): Script | null {
     for (const lg of project.languages) for (const sc of lg.scripts) if (sc.id === id) return sc
@@ -361,6 +410,7 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('lexicon.title')}</h1>
+    <GuideLink section="lexicon" />
     <div class="seg">
       <button class:active={mode === 'entries'} onclick={() => (mode = 'entries')}
         >{t('lexicon.entries')}</button
@@ -403,40 +453,29 @@
       <select class="select filter sm" bind:value={sort} title={t('lexicon.sort')}>
         <option value="alphabet">{t('lexicon.sortAlphabet')}</option>
         <option value="recent">{t('lexicon.sortRecent')}</option>
+        <option value="pos">{t('lexicon.sortPos')}</option>
+        <option value="custom">{t('lexicon.sortCustom')}</option>
       </select>
-      <div class="menu" class:open={columnsOpen}>
-        <button class="btn" onclick={() => (columnsOpen = !columnsOpen)}
-          ><Columns3 size={16} />{t('lexicon.columns')}</button
-        >
-        {#if columnsOpen}
-          <div class="menu-list card cols">
-            {#each availableColumns as c (c.key)}
-              <label class="row"
-                ><input
-                  type="checkbox"
-                  checked={activeColumns.some((a) => a.key === c.key)}
-                  onchange={() => toggleColumn(c.key)}
-                />{c.label}</label
-              >
-            {/each}
-          </div>
-        {/if}
-      </div>
-      <div class="menu">
-        <button class="btn"><Upload size={16} />{t('lexicon.import')}</button>
-        <div class="menu-list card hover">
-          <button onclick={() => (mode = 'csv')}>{t('lexicon.importCsv')}</button>
-          <button onclick={importLexicanter}>{t('lexicon.importLexicanter')}</button>
-        </div>
-      </div>
-      <div class="menu">
-        <button class="btn"><Download size={16} />{t('common.export')}</button>
-        <div class="menu-list card hover">
-          <button onclick={() => exportCsv('lexemes')}>{t('lexicon.exportCsv')}</button>
-          <button onclick={() => exportCsv('morphemes')}>{t('lexicon.exportMorphemesCsv')}</button>
-          {#if language}<button onclick={() => (mode = 'export')}>{t('dict.menu')}</button>{/if}
-        </div>
-      </div>
+      <Menu label={t('lexicon.columns')} icon={Columns3} wide>
+        {#each availableColumns as c (c.key)}
+          <label data-keep-open
+            ><input
+              type="checkbox"
+              checked={activeColumns.some((a) => a.key === c.key)}
+              onchange={() => toggleColumn(c.key)}
+            />{c.label}</label
+          >
+        {/each}
+      </Menu>
+      <Menu label={t('lexicon.import')} icon={Upload}>
+        <button onclick={() => (mode = 'csv')}>{t('lexicon.importCsv')}</button>
+        <button onclick={importLexicanter}>{t('lexicon.importLexicanter')}</button>
+      </Menu>
+      <Menu label={t('common.export')} icon={Download}>
+        <button onclick={() => exportCsv('lexemes')}>{t('lexicon.exportCsv')}</button>
+        <button onclick={() => exportCsv('morphemes')}>{t('lexicon.exportMorphemesCsv')}</button>
+        {#if language}<button onclick={() => (mode = 'export')}>{t('dict.menu')}</button>{/if}
+      </Menu>
       <button class="btn primary" onclick={add}><Plus size={16} />{t('lexicon.add')}</button>
     {/if}
   </div>
@@ -461,7 +500,8 @@
     <div class="scroll">
       <table class="tbl">
         <thead>
-          <tr>
+          <tr
+            >{#if sort === 'custom'}<th></th>{/if}
             <th>{t('lexicon.lemma')}</th>
             {#each activeColumns as c (c.key)}<th>{c.label}</th>{/each}
           </tr>
@@ -469,6 +509,26 @@
         <tbody>
           {#each list.slice(0, limit) as l (l.id)}
             <tr class:sel={selectedId === l.id} onclick={() => (selectedId = l.id)}>
+              {#if sort === 'custom'}
+                <td class="mv">
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('lexicon.moveUp')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      moveLexeme(l, -1)
+                    }}><ChevronUp size={12} /></button
+                  >
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('lexicon.moveDown')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      moveLexeme(l, 1)
+                    }}><ChevronDown size={12} /></button
+                  >
+                </td>
+              {/if}
               <td class="lemma data"
                 >{l.lemma || '—'}{#if isDup(l)}<span class="dup" title={t('lexicon.duplicate')}
                     ><AlertTriangle size={12} /></span
@@ -1002,6 +1062,39 @@
     </div>
 
     <div class="field">
+      <div class="row">
+        <span class="small muted grow">{t('images.title')}</span>
+        <button class="btn ghost sm" onclick={() => addImages(l)}
+          ><ImagePlus size={14} />{t('images.add')}</button
+        >
+      </div>
+      {#each l.images ?? [] as im, i (im.id)}
+        <div class="row img-row">
+          <img src={im.dataUrl} alt="" />
+          <input
+            class="input grow"
+            placeholder={t('images.caption')}
+            bind:value={im.caption}
+            oninput={() => touch(l)}
+          />
+          <button
+            class="btn ghost icon sm"
+            onclick={() => {
+              l.images.splice(i, 1)
+              touch(l)
+            }}><X size={14} /></button
+          >
+        </div>
+      {/each}
+      <p class="tiny muted">
+        {t('images.sizeHint', {
+          w: project.settings.imageSize.width,
+          h: project.settings.imageSize.height
+        })}
+      </p>
+    </div>
+
+    <div class="field">
       <label for="lx-notes">{t('common.notes')}</label>
       <textarea id="lx-notes" class="textarea" bind:value={l.notes} oninput={() => touch(l)}
       ></textarea>
@@ -1018,7 +1111,41 @@
   </Portal>
 {/if}
 
+{#if cropReq}
+  <ImageCropper
+    img={cropReq.img}
+    mime={cropReq.mime}
+    size={project.settings.imageSize}
+    onresult={(u) => {
+      cropReq?.resolve(u)
+      cropReq = null
+    }}
+    oncancel={() => {
+      cropReq?.resolve(null)
+      cropReq = null
+    }}
+  />
+{/if}
+
 <style>
+  .img-row {
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .img-row img {
+    width: 64px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+  .mv {
+    width: 44px;
+    white-space: nowrap;
+  }
+  .tiny {
+    font-size: 11px;
+  }
   .scr {
     font-size: 18px;
     line-height: 1.3;
@@ -1063,49 +1190,6 @@
   }
   .filter.sm {
     width: 105px;
-  }
-  .menu {
-    position: relative;
-  }
-  .menu-list {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 4px);
-    min-width: 220px;
-    padding: 4px;
-    z-index: 10;
-    flex-direction: column;
-    box-shadow: var(--shadow-lg);
-    display: flex;
-  }
-  .menu-list.hover {
-    display: none;
-  }
-  .menu:hover .menu-list.hover,
-  .menu:focus-within .menu-list.hover {
-    display: flex;
-  }
-  .menu-list button {
-    text-align: left;
-    border: 0;
-    background: transparent;
-    padding: 6px 10px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-  }
-  .menu-list button:hover {
-    background: var(--bg-hover);
-  }
-  .menu-list.cols {
-    max-height: 360px;
-    overflow: auto;
-    gap: 2px;
-  }
-  .menu-list.cols label {
-    gap: 8px;
-    padding: 3px 8px;
-    font-size: 13px;
-    white-space: nowrap;
   }
   .scroll {
     flex: 1;

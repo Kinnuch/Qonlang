@@ -22,6 +22,11 @@
       if (a === 'save' && projectState.project) void projectState.save()
       else if (a === 'saveAs' && projectState.project) void projectState.save(true)
       else if (a === 'open') void projectState.open()
+      else if (a === 'undo') projectState.undo()
+      else if (a === 'redo') projectState.redo()
+      else if (a === 'back') ui.back()
+      else if (a === 'palette' && projectState.project) ui.paletteOpen = !ui.paletteOpen
+      else if (a === 'chars') chars.toggle()
     })
     void (async () => {
       await ui.loadPrefs()
@@ -80,9 +85,30 @@
     return () => clearTimeout(id)
   })
 
+  function isEditable(el: EventTarget | null): boolean {
+    const h = el as HTMLElement | null
+    return !!h && (h.tagName === 'INPUT' || h.tagName === 'TEXTAREA' || h.isContentEditable)
+  }
   function onKeydown(e: KeyboardEvent): void {
     const mod = e.ctrlKey || e.metaKey
+    if (e.altKey && e.key === 'ArrowLeft' && projectState.project) {
+      e.preventDefault()
+      ui.back()
+      return
+    }
     if (!mod) return
+    // 撤销 / 重做：焦点在输入框里时交给输入框自己的撤销
+    if ((e.key === 'z' || e.key === 'Z') && !isEditable(e.target) && projectState.project) {
+      e.preventDefault()
+      if (e.shiftKey) projectState.redo()
+      else projectState.undo()
+      return
+    }
+    if ((e.key === 'y' || e.key === 'Y') && !isEditable(e.target) && projectState.project) {
+      e.preventDefault()
+      projectState.redo()
+      return
+    }
     if (e.key === 's' || e.key === 'S') {
       e.preventDefault()
       if (projectState.project) void projectState.save(e.shiftKey)

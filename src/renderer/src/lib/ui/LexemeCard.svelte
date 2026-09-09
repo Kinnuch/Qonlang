@@ -63,7 +63,15 @@
   }
 </script>
 
-<article class="entry">
+<article class="entry" class:has-img={!!l.images?.length}>
+  {#if l.images?.[0]}
+    <img
+      class="hero"
+      src={l.images[0].dataUrl}
+      alt={l.images[0].caption}
+      title={l.images[0].caption}
+    />
+  {/if}
   <header>
     <h2 class="lemma data">{l.lemma || '—'}</h2>
     {#each scripts as x (x.sc.id)}<div
@@ -89,6 +97,16 @@
       </div>
     {/if}
   </header>
+
+  {#if (l.images?.length ?? 0) > 1}
+    <div class="thumbs">
+      {#each l.images.slice(1) as im (im.id)}<img
+          src={im.dataUrl}
+          alt={im.caption}
+          title={im.caption}
+        />{/each}
+    </div>
+  {/if}
 
   <ol class="senses">
     {#each l.senses as s (s.id)}
@@ -192,6 +210,34 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    position: relative;
+  }
+  .hero {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 160px;
+    max-height: 160px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  .entry.has-img header {
+    padding-right: 172px;
+    min-height: 120px;
+  }
+  .thumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .thumbs img {
+    width: 96px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--border);
   }
   header {
     display: flex;

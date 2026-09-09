@@ -8,11 +8,14 @@
   import { transcribe } from '$lib/core/pronounce'
   import { renderScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
+  import { buildIndex, analyzeToken, tokenize } from '$lib/engine/gloss'
+  import { wordHover } from '$lib/state/wordHover.svelte'
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import { Plus, Trash2, X, Wand2 } from '@lucide/svelte'
+  import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -44,6 +47,27 @@
   })
   const selected = $derived(project.phrasebook.find((p) => p.id === selectedId) ?? null)
   const allTags = $derived([...new Set(project.phrasebook.flatMap((p) => p.tags))].sort())
+  const gidx = $derived(language ? buildIndex(project, language.id) : null)
+  function lexemeFor(word: string): Id | null {
+    if (!gidx) return null
+    const w = tokenize(word)[0]
+    if (!w) return null
+    return (
+      analyzeToken(gidx, w, project.settings.morphemeBoundaries).find((a) => a.lexemeId)
+        ?.lexemeId ?? null
+    )
+  }
+  function hoverWord(e: MouseEvent, word: string): void {
+    const id = lexemeFor(word)
+    if (id) wordHover.show(id, (e.currentTarget as HTMLElement).getBoundingClientRect())
+  }
+  function clickWord(e: MouseEvent, word: string): void {
+    const id = lexemeFor(word)
+    if (!id) return
+    e.stopPropagation()
+    wordHover.hide(true)
+    ui.jump('lexicon', 'lexeme', id)
+  }
 
   $effect(() => {
     inspectorTitle = selected ? t('phrasebook.phrase') : t('phrasebook.title')
@@ -106,6 +130,7 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('phrasebook.title')}</h1>
+    <GuideLink section="phrasebook" />
     <span class="grow"></span>
     <input class="input search" placeholder={t('phrasebook.search')} bind:value={query} />
     <button class="btn primary" onclick={add}><Plus size={16} />{t('phrasebook.add')}</button>
@@ -156,7 +181,18 @@
                     </div>{/if}
                 {/each}
                 <div class="row">
-                  <span class="data text grow">{p.text || '—'}</span>
+                  <span class="data text grow words"
+                    >{#each p.text.split(/(\s+)/) as w, i (i)}{#if w.trim()}<span
+                          class="w"
+                          class:link={!!lexemeFor(w)}
+                          role="link"
+                          tabindex="-1"
+                          onmouseenter={(e) => hoverWord(e, w)}
+                          onmouseleave={() => wordHover.hide()}
+                          onclick={(e) => clickWord(e, w)}
+                          onkeydown={() => {}}>{w}</span
+                        >{:else}{w}{/if}{/each}{#if !p.text}—{/if}</span
+                  >
                   {#if p.category && !category}<span class="badge">{p.category}</span>{/if}
                 </div>
                 {#each language.orthographies as o (o.id)}
@@ -271,6 +307,14 @@
 {/if}
 
 <style>
+  .link {
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .link:hover {
+    background: var(--accent-soft);
+    color: var(--accent-text);
+  }
   .page {
     padding: 20px 24px;
     display: flex;

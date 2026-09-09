@@ -49,6 +49,20 @@ class UiState {
   previousSection = $state<Section | null>(null)
   inspectorOpen = $state(true)
 
+  /** 去过的页面（最多 50 条），供「返回」 */
+  navHistory = $state<Section[]>([])
+  canBack = $derived(this.navHistory.length > 0)
+  resetHistory(): void {
+    this.navHistory = []
+    this.previousSection = null
+  }
+  back(): void {
+    const prev = this.navHistory.pop()
+    if (!prev) return
+    this.navHistory = [...this.navHistory]
+    this.previousSection = this.section
+    this.section = prev
+  }
   go(s: Section): void {
     if (s === this.section) {
       if (this.previousSection && this.previousSection !== s) {
@@ -59,6 +73,7 @@ class UiState {
       return
     }
     this.previousSection = this.section
+    this.navHistory = [...this.navHistory.slice(-49), this.section]
     this.section = s
   }
   /** 新建项目后要自动打开的导入向导 */

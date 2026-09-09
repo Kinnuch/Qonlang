@@ -10,6 +10,7 @@
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import { Plus, Trash2, Download, Eye, Pencil, Columns2, FileText } from '@lucide/svelte'
+  import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -102,6 +103,7 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('docs.title')}</h1>
+    <GuideLink section="docs" />
     <span class="grow"></span>
     {#if selected}
       <div class="seg">

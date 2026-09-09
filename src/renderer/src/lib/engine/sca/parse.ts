@@ -149,6 +149,8 @@ export interface ParseOptions {
   classes?: Record<string, string[]>
   /** 外部提供的多合字母 */
   replacements?: [string, string][]
+  /** 可用 @名 引用的语素：名（gloss 或去掉连字符的形式）→ 各异体形 */
+  morphemes?: Record<string, string[]>
 }
 
 const CLASS_LINE = /^(\{[^}]+\}|[A-Z])\s*=(.*)$/
@@ -251,6 +253,17 @@ function expand(
         out += '\\{' + name.replace(RE_ESCAPE, '\\$&') + '\\}'
       }
       i = j
+    } else if (c === '@') {
+      let j = i + 1
+      while (j < chars.length && /[\p{L}\p{N}_\-.]/u.test(chars[j])) j++
+      const name = chars.slice(i + 1, j).join('')
+      const members = classes.get('@' + name)
+      if (members) pushClass({ name: '@' + name, members }, null)
+      else {
+        opts.warn(`未定义的语素 @${name}`)
+        out += '@' + name.replace(RE_ESCAPE, '\\$&')
+      }
+      i = j - 1
     } else if (c === '[') {
       let j = i + 1
       while (j < chars.length && chars[j] !== ']') j++
@@ -289,6 +302,17 @@ function parseReplacement(s: string, classes: Map<string, string[]>): Replacemen
       if (text) parts.push({ kind: 'text', text })
       text = ''
       parts.push({ kind: 'class', ref: { name: c, members: classes.get(c)! } })
+    } else if (c === '@') {
+      let j = i + 1
+      while (j < chars.length && /[\p{L}\p{N}_\-.]/u.test(chars[j])) j++
+      const name = chars.slice(i + 1, j).join('')
+      const members = classes.get('@' + name)
+      if (members) {
+        if (text) parts.push({ kind: 'text', text })
+        text = ''
+        parts.push({ kind: 'class', ref: { name: '@' + name, members } })
+      } else text += '@' + name
+      i = j - 1
     } else text += c
   }
   if (text) parts.push({ kind: 'text', text })
@@ -315,6 +339,9 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
   for (const [k, v] of Object.entries(options.classes ?? {}))
     classes.set(k.length === 1 ? k : `{${k.replace(/^\{|\}$/g, '')}}`, v)
   const replacements: [string, string][] = [...(options.replacements ?? [])]
+  // @语素 作为一种音类：成员是它的各异体形
+  for (const [name, forms] of Object.entries(options.morphemes ?? {}))
+    if (forms.length) classes.set('@' + name, forms)
   const rawLines = text.split(/\r?\n/)
   const diagnostics: Diagnostic[] = []
 

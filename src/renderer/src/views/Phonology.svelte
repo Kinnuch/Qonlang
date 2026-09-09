@@ -32,6 +32,7 @@
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import { Plus, Trash2, X, Wand2, RefreshCw, Copy, List, Code, Check } from '@lucide/svelte'
+  import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -200,7 +201,7 @@
       return
     }
     const text = orthoDir === 'toIpa' ? ortho.rulesToIpa : ortho.rulesFromIpa
-    const opts = languageParseOptions(lang)
+    const opts = languageParseOptions(lang, project)
     const id = setTimeout(() => {
       orthoProgram = parseRuleText(text, opts)
     }, 120)
@@ -349,7 +350,7 @@
   function orthoProgramOf(o: Orthography, dir: 'toIpa' | 'fromIpa'): RuleProgram | null {
     if (!lang) return null
     const text = dir === 'toIpa' ? o.rulesToIpa : o.rulesFromIpa
-    return text.trim() ? parseRuleText(text, languageParseOptions(lang)) : null
+    return text.trim() ? parseRuleText(text, languageParseOptions(lang, project)) : null
   }
   function addGenerated(g: { ipa: string; spelt: string | null }): void {
     if (!lang) return
@@ -387,6 +388,7 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('nav.phonology')}</h1>
+    <GuideLink section="phonology" />
     {#if lang}<span class="badge" style:background={lang.color} style:color="#fff">{lang.name}</span
       >{/if}
     <div class="seg">

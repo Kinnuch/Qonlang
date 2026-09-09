@@ -210,6 +210,8 @@
     margin-bottom: 6px;
   }
   .wrap {
+    flex: 1;
+    min-height: 0;
     overflow: auto;
     border: 1px solid var(--border);
     border-radius: var(--radius);

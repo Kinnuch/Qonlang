@@ -131,6 +131,7 @@ export function createLexeme(languageId: Id, lemma = ''): Lexeme {
     pronunciations: {},
     relations: [],
     scriptForms: {},
+    images: [],
     notes: '',
     createdAt: t,
     updatedAt: t
@@ -249,7 +250,8 @@ export function createProject(opts: CreateProjectOptions): Project {
       abbreviationStyle: 'leipzig',
       exportTemplates: [],
       dataFont: '',
-      lexiconColumns: []
+      lexiconColumns: [],
+      imageSize: { width: 320, height: 240 }
     }
   }
 }

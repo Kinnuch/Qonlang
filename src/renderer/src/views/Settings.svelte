@@ -5,6 +5,7 @@
   import { ui } from '$lib/state/ui.svelte'
   import { t, LOCALES } from '$lib/i18n/index.svelte'
   import { FolderOutput } from '@lucide/svelte'
+  import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
   $effect(() => {
@@ -37,7 +38,10 @@
 </script>
 
 <div class="page">
-  <h1>{t('settings.title')}</h1>
+  <div class="row">
+    <h1>{t('settings.title')}</h1>
+    <GuideLink section="settings" />
+  </div>
 
   <section>
     <h3>{t('settings.app')}</h3>
@@ -147,6 +151,29 @@
           oninput={() => projectState.touch()}
           placeholder="Gentium Plus"
         />
+      </div>
+      <div class="field">
+        <label for="p-imgw">{t('settings.imageSize')}</label>
+        <div class="row">
+          <input
+            id="p-imgw"
+            type="number"
+            min="32"
+            step="8"
+            class="input"
+            bind:value={project.settings.imageSize.width}
+            onchange={() => projectState.touch()}
+          />
+          <span class="muted">×</span>
+          <input
+            type="number"
+            min="32"
+            step="8"
+            class="input"
+            bind:value={project.settings.imageSize.height}
+            onchange={() => projectState.touch()}
+          />
+        </div>
       </div>
       <div class="field">
         <label for="p-gloss">{t('settings.glossLanguages')}</label>

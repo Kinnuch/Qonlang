@@ -6,6 +6,7 @@ import {
   dialog,
   net,
   Menu,
+  clipboard,
   type MenuItemConstructorOptions
 } from 'electron'
 import { join, basename, dirname } from 'path'
@@ -14,6 +15,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
 const APP_ID = 'io.github.kinnuch.qonlang'
+const GUIDE_URL = 'https://kinnuch.github.io/cerf/qonlang/'
 const RECENT_MAX = 10
 
 interface Prefs {
@@ -203,6 +205,61 @@ function createWindow(): void {
         forceClose = true
         mainWindow?.close()
       }
+    })()
+  })
+
+  // 右键菜单：编辑角色 + 常用命令
+  mainWindow.webContents.on('context-menu', (_e, params) => {
+    void (async () => {
+      const prefs = await getPrefs()
+      const zh = prefs.locale.startsWith('zh')
+      const L = (z: string, e: string): string => (zh ? z : e)
+      const send = (a: string) => () => mainWindow?.webContents.send('menu', a)
+      const items: MenuItemConstructorOptions[] = []
+      if (params.isEditable) {
+        items.push(
+          { role: 'undo', label: L('撤销输入', 'Undo typing'), enabled: params.editFlags.canUndo },
+          { role: 'redo', label: L('重做输入', 'Redo typing'), enabled: params.editFlags.canRedo },
+          { type: 'separator' },
+          { role: 'cut', label: L('剪切', 'Cut'), enabled: params.editFlags.canCut },
+          { role: 'copy', label: L('复制', 'Copy'), enabled: params.editFlags.canCopy },
+          { role: 'paste', label: L('粘贴', 'Paste'), enabled: params.editFlags.canPaste },
+          { role: 'selectAll', label: L('全选', 'Select all') },
+          { type: 'separator' }
+        )
+      } else if (params.selectionText) {
+        items.push({ role: 'copy', label: L('复制', 'Copy') }, { type: 'separator' })
+      }
+      if (params.linkURL) {
+        items.push(
+          { label: L('复制链接', 'Copy link'), click: () => clipboard.writeText(params.linkURL) },
+          { type: 'separator' }
+        )
+      }
+      items.push(
+        {
+          label: L('撤销上一步改动', 'Undo last change'),
+          accelerator: 'CmdOrCtrl+Z',
+          click: send('undo')
+        },
+        { label: L('重做', 'Redo'), accelerator: 'CmdOrCtrl+Y', click: send('redo') },
+        { label: L('返回上一页', 'Back'), accelerator: 'Alt+Left', click: send('back') },
+        { type: 'separator' },
+        {
+          label: L('命令面板', 'Command palette'),
+          accelerator: 'CmdOrCtrl+K',
+          click: send('palette')
+        },
+        {
+          label: L('字符面板', 'Character panel'),
+          accelerator: 'CmdOrCtrl+I',
+          click: send('chars')
+        },
+        { label: L('保存', 'Save'), accelerator: 'CmdOrCtrl+S', click: send('save') },
+        { type: 'separator' },
+        { label: L('使用指南', 'User guide'), click: () => void shell.openExternal(GUIDE_URL) }
+      )
+      Menu.buildFromTemplate(items).popup({ window: mainWindow! })
     })()
   })
 
@@ -428,8 +485,6 @@ function registerIpc(): void {
   ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
 }
 
-const GUIDE_URL = 'https://kinnuch.github.io/cerf/qonlang/'
-
 /** 应用菜单：macOS 靠它提供 Cmd+C/V/Z、隐藏、退出；Windows / Linux 上被 autoHideMenuBar 隐藏，按 Alt 可见 */
 function buildMenu(): void {
   const isMac = process.platform === 'darwin'
@@ -457,17 +512,17 @@ function buildMenu(): void {
         {
           label: '保存 / Save',
           accelerator: 'CmdOrCtrl+S',
-          click: () => mainWindow?.webContents.send('menu:save')
+          click: () => mainWindow?.webContents.send('menu', 'save')
         },
         {
           label: '另存为 / Save As…',
           accelerator: 'CmdOrCtrl+Shift+S',
-          click: () => mainWindow?.webContents.send('menu:saveAs')
+          click: () => mainWindow?.webContents.send('menu', 'saveAs')
         },
         {
           label: '打开 / Open…',
           accelerator: 'CmdOrCtrl+O',
-          click: () => mainWindow?.webContents.send('menu:open')
+          click: () => mainWindow?.webContents.send('menu', 'open')
         },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' }

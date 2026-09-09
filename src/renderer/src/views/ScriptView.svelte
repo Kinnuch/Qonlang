@@ -27,6 +27,7 @@
     Code,
     X
   } from '@lucide/svelte'
+  import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -107,13 +108,16 @@
       return
     }
     const text = expandRules(script)
-    const opts = languageParseOptions(lang)
+    const opts = languageParseOptions(lang, project)
     const id = setTimeout(() => (program = parseRuleText(text, opts)), 120)
     return () => clearTimeout(id)
   })
   const userProgram = $derived.by(() => {
     if (!lang || !script) return null
-    return parseRuleText(script.rules.replace(/^\s*@glyphs\s*$/m, ''), languageParseOptions(lang))
+    return parseRuleText(
+      script.rules.replace(/^\s*@glyphs\s*$/m, ''),
+      languageParseOptions(lang, project)
+    )
   })
   const autoLines = $derived(script ? autoMappingLines(script) : [])
   const testResults = $derived.by(() => {
@@ -275,6 +279,7 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('script.title')}</h1>
+    <GuideLink section="script" />
     {#if lang}<span class="badge" style:background={lang.color} style:color="#fff">{lang.name}</span
       >{/if}
     {#if lang}

@@ -6,9 +6,11 @@
   import type { Id, Morpheme, MorphemeType } from '$lib/core/model'
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
+  import { makeCollator } from '$lib/core/collate'
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
-  import { Plus, Trash2, X } from '@lucide/svelte'
+  import { Plus, Trash2, X, ChevronUp, ChevronDown } from '@lucide/svelte'
+  import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -17,8 +19,10 @@
   let selectedId = $state<Id | null>(null)
   let typeFilter = $state<MorphemeType | ''>('')
   let query = $state('')
+  let sort = $state<'alphabet' | 'type' | 'custom'>('alphabet')
+  const collator = $derived(makeCollator(projectState.currentLanguage?.alphabet ?? []))
 
-  const list = $derived.by(() => {
+  const filtered = $derived.by(() => {
     const q = query.trim().toLowerCase()
     return project.morphemes.filter((m) => {
       if (langId && m.languageId !== langId) return false
@@ -35,6 +39,27 @@
       return true
     })
   })
+  const list = $derived.by(() => {
+    const arr = [...filtered]
+    if (sort === 'alphabet')
+      arr.sort((a, b) => collator(a.form.replace(/^[-=]+/, ''), b.form.replace(/^[-=]+/, '')))
+    else if (sort === 'type')
+      arr.sort(
+        (a, b) =>
+          MORPHEME_TYPES.indexOf(a.type) - MORPHEME_TYPES.indexOf(b.type) ||
+          collator(a.form, b.form)
+      )
+    return arr
+  })
+  function move(m: Morpheme, dir: -1 | 1): void {
+    const i = list.indexOf(m)
+    const j = i + dir
+    if (i < 0 || j < 0 || j >= list.length) return
+    const a = project.morphemes.indexOf(m)
+    const b = project.morphemes.indexOf(list[j])
+    ;[project.morphemes[a], project.morphemes[b]] = [project.morphemes[b], project.morphemes[a]]
+    projectState.touch()
+  }
   const selected = $derived(project.morphemes.find((m) => m.id === selectedId) ?? null)
   const allTags = $derived([...new Set(project.morphemes.flatMap((m) => m.tags))].sort())
   const usedBy = $derived(
@@ -91,6 +116,7 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('morphemes.title')}</h1>
+    <GuideLink section="morphemes" />
     <span class="badge">{t('morphemes.count', { n: list.length })}</span>
     <span class="grow"></span>
     <input class="input search" placeholder={t('morphemes.search')} bind:value={query} />
@@ -98,6 +124,11 @@
       <option value="">{t('morphemes.allTypes')}</option>
       {#each MORPHEME_TYPES as mt (mt)}<option value={mt}>{t(`morphemes.types.${mt}`)}</option
         >{/each}
+    </select>
+    <select class="select type" bind:value={sort} title={t('lexicon.sort')}>
+      <option value="alphabet">{t('lexicon.sortAlphabet')}</option>
+      <option value="type">{t('morphemes.sortType')}</option>
+      <option value="custom">{t('lexicon.sortCustom')}</option>
     </select>
     <button class="btn primary" onclick={add}><Plus size={16} />{t('morphemes.add')}</button>
   </div>
@@ -116,6 +147,7 @@
             <th>{t('morphemes.meaning')}</th>
             {#if !langId}<th>{t('nav.languages')}</th>{/if}
             <th></th>
+            {#if sort === 'custom'}<th></th>{/if}
           </tr>
         </thead>
         <tbody>
@@ -131,6 +163,26 @@
               <td class="tags-cell"
                 >{#each m.tags as tg (tg)}<span class="badge">{tg}</span>{/each}</td
               >
+              {#if sort === 'custom'}
+                <td class="mv">
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('lexicon.moveUp')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      move(m, -1)
+                    }}><ChevronUp size={12} /></button
+                  >
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('lexicon.moveDown')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      move(m, 1)
+                    }}><ChevronDown size={12} /></button
+                  >
+                </td>
+              {/if}
             </tr>
           {/each}
         </tbody>
@@ -298,6 +350,10 @@
 {/if}
 
 <style>
+  .mv {
+    width: 44px;
+    white-space: nowrap;
+  }
   .page {
     padding: 20px 24px;
     display: flex;

@@ -28,6 +28,7 @@
     Pencil
   } from '@lucide/svelte'
   import { newId } from '$lib/core/factory'
+  import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
   $effect(() => {
@@ -182,6 +183,7 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('skin.title')}</h1>
+    <GuideLink section="skin" />
     <span class="grow"></span>
     <button class="btn ghost sm" onclick={reset}><RotateCcw size={14} />{t('skin.reset')}</button>
   </div>

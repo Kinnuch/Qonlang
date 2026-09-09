@@ -19,7 +19,10 @@
     X,
     Keyboard,
     Shirt,
-    Quote
+    Quote,
+    ArrowLeft,
+    Undo2,
+    Redo2
   } from '@lucide/svelte'
   import { chars } from '$lib/state/chars.svelte'
   import CharPanel from '$lib/ui/CharPanel.svelte'
@@ -30,7 +33,6 @@
   import Docs from './Docs.svelte'
   import CommandPalette from '$lib/ui/CommandPalette.svelte'
   import PromptDialog from '$lib/ui/PromptDialog.svelte'
-  import { guideUrl } from '$lib/core/guide'
   import { ensureScriptFont } from '$lib/script/fonts'
   import Languages from './Languages.svelte'
   import SoundChanges from './SoundChanges.svelte'
@@ -58,6 +60,31 @@
   }
 
   let inspectorTitle = $state('')
+  /** 只横向溢出的区域（表格、链图）普通滚轮直接横向滚；既能竖滚又能横滚的区域，竖向到头后再横向滚 */
+  function hwheel(node: HTMLElement): { destroy(): void } {
+    const onWheel = (e: WheelEvent): void => {
+      if (e.shiftKey || e.ctrlKey || !e.deltaY || e.deltaX) return
+      let el = e.target as HTMLElement | null
+      while (el && el !== node) {
+        const cs = getComputedStyle(el)
+        const ox = cs.overflowX
+        if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1) {
+          const canScrollY = el.scrollHeight > el.clientHeight + 1
+          const atEnd =
+            e.deltaY > 0 ? el.scrollTop + el.clientHeight >= el.scrollHeight - 1 : el.scrollTop <= 0
+          if (!canScrollY || atEnd) {
+            const before = el.scrollLeft
+            el.scrollLeft += e.deltaY
+            if (el.scrollLeft !== before) e.preventDefault()
+          }
+          return
+        }
+        el = el.parentElement
+      }
+    }
+    node.addEventListener('wheel', onWheel, { passive: false })
+    return { destroy: () => node.removeEventListener('wheel', onWheel) }
+  }
   // 注册各语言内嵌的文字字体
   $effect(() => {
     for (const l of projectState.project?.languages ?? [])
@@ -163,6 +190,24 @@
 
   <header class="topbar">
     <div class="row grow">
+      <button
+        class="btn ghost icon"
+        title={t('common.backPage')}
+        disabled={!ui.canBack}
+        onclick={() => ui.back()}><ArrowLeft size={16} /></button
+      >
+      <button
+        class="btn ghost icon"
+        title={t('common.undo') + ' (Ctrl+Z)'}
+        disabled={!projectState.canUndo}
+        onclick={() => projectState.undo()}><Undo2 size={16} /></button
+      >
+      <button
+        class="btn ghost icon"
+        title={t('common.redo') + ' (Ctrl+Y)'}
+        disabled={!projectState.canRedo}
+        onclick={() => projectState.redo()}><Redo2 size={16} /></button
+      >
       <strong class="pname">{projectState.project?.meta.name || t('app.untitled')}</strong>
       {#if projectState.dirty}
         <span class="badge">{t('common.unsaved')}</span>
@@ -200,7 +245,7 @@
     >
   </header>
 
-  <main class="main">
+  <main class="main" use:hwheel>
     <svelte:boundary onerror={(e) => console.error(e)}>
       {#snippet failed(error, reset)}
         <div class="crash card">
@@ -247,14 +292,6 @@
         <Placeholder section={ui.section} bind:inspectorTitle />
       {/if}
     </svelte:boundary>
-    <a
-      class="guide"
-      href={guideUrl(ui.section)}
-      target="_blank"
-      rel="noreferrer"
-      title={t('common.guideTitle', { name: t(`nav.${ui.section}`) })}
-      ><BookOpen size={14} />{t('common.guide')}</a
-    >
   </main>
 
   <aside class="inspector" hidden={!ui.inspectorOpen}>
@@ -336,7 +373,11 @@
   }
   .nav-label {
     font-size: 10px;
-    line-height: 1;
+    line-height: 1.1;
+    text-align: center;
+    padding: 0 3px;
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
   .topbar {
     grid-area: top;
@@ -379,30 +420,6 @@
     grid-area: main;
     overflow: auto;
     min-width: 0;
-    position: relative;
-  }
-  .guide {
-    position: absolute;
-    right: 18px;
-    bottom: 12px;
-    z-index: 5;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--bg-elev);
-    color: var(--text-2);
-    font-size: 12px;
-    text-decoration: none;
-    box-shadow: var(--shadow);
-    opacity: 0.85;
-  }
-  .guide:hover {
-    opacity: 1;
-    color: var(--accent-text);
-    border-color: var(--accent);
   }
   .inspector {
     grid-area: insp;

@@ -43,6 +43,7 @@ export function t(key: string, params?: Record<string, string | number>): string
 /** 多语言字段取值：按项目的释义语言顺序，再按界面语言，最后任意一个 */
 export function pickText(text: Record<string, string> | undefined, order: string[] = []): string {
   if (!text) return ''
-  for (const l of [...order, locale]) if (text[l]) return text[l]
+  // 界面语言优先，其次按项目的释义语言顺序
+  for (const l of [locale, ...order]) if (text[l]) return text[l]
   return Object.values(text).find(Boolean) ?? ''
 }

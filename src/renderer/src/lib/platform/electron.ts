@@ -1,4 +1,12 @@
-import type { AppInfo, OpenResult, PlatformAPI, Prefs, RecentEntry, SaveTarget } from './types'
+import type {
+  AppInfo,
+  OpenResult,
+  PlatformAPI,
+  Prefs,
+  RecentEntry,
+  SaveTarget,
+  MenuAction
+} from './types'
 import { DEFAULT_PREFS } from './types'
 
 type Bridge = {
@@ -74,9 +82,7 @@ export const electronPlatform: PlatformAPI = {
     bridge().on('fonts:progress', (p) => cb(p as { file: string; received: number; total: number }))
   },
   onMenu(cb) {
-    bridge().on('menu:save', () => cb('save'))
-    bridge().on('menu:saveAs', () => cb('saveAs'))
-    bridge().on('menu:open', () => cb('open'))
+    bridge().on('menu', (a) => cb(a as MenuAction))
   },
   async exportPdf(html, suggestedName) {
     return (await bridge().invoke('export:pdf', html, suggestedName)) as boolean

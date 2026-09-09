@@ -63,6 +63,8 @@ export interface ProjectSettings {
   dataFont: string
   /** 词库列表显示的列（键见 Lexicon 页）；空则用默认 */
   lexiconColumns: string[]
+  /** 词条配图的统一尺寸（像素） */
+  imageSize: { width: number; height: number }
 }
 
 export interface ExportTemplate {
@@ -310,11 +312,19 @@ export interface Lexeme {
   pronunciations: Record<Id, Pronunciation>
   /** scriptId → 手工指定的文字写法（覆盖自动映射）；缺省时按文字规则自动生成 */
   scriptForms: Record<Id, string>
+  /** 配图（data URL，尺寸统一为 settings.imageSize） */
+  images: LexemeImage[]
   /** 用户标注的词间关系（同义、反义、参见……种类自定义） */
   relations: LexemeRelation[]
   notes: string
   createdAt: string
   updatedAt: string
+}
+
+export interface LexemeImage {
+  id: Id
+  dataUrl: string
+  caption: string
 }
 
 export interface LexemeRelation {

@@ -112,7 +112,7 @@ export function makeContext(project: Project, language: Language): MorphContext 
     program: (id) => {
       if (!cache.has(id)) {
         const rs = project.ruleSets.find((r) => r.id === id)
-        cache.set(id, rs ? parseRuleText(rs.text, languageParseOptions(language)) : null)
+        cache.set(id, rs ? parseRuleText(rs.text, languageParseOptions(language, project)) : null)
       }
       return cache.get(id) ?? null
     }
@@ -159,7 +159,7 @@ export function selectAllomorph(
   stem: string,
   side: 'prefix' | 'suffix'
 ): { form: string; note: string } {
-  const opts = languageParseOptions(ctx.language)
+  const opts = languageParseOptions(ctx.language, ctx.project)
   for (const a of m.allomorphs) {
     const env = a.environment.trim()
     if (!env) continue
@@ -272,7 +272,7 @@ export function applyAdjust(
 ): string {
   if (!text || !text.trim()) return surface
   let s = surface
-  const opts = languageParseOptions(ctx.language)
+  const opts = languageParseOptions(ctx.language, ctx.project)
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim()
     if (!line || line.startsWith(';')) continue

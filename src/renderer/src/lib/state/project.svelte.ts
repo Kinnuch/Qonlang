@@ -20,6 +20,76 @@ class ProjectState {
   /** 顶栏选中的当前语言；null 表示全部 */
   currentLanguageId = $state<Id | null>(null)
 
+  // ── 撤销 / 重做：每次改动（去抖 400ms）把改动前的整份项目 JSON 压栈 ──
+  private committed = ''
+  private history: string[] = []
+  private future: string[] = []
+  private commitTimer: ReturnType<typeof setTimeout> | null = null
+  canUndo = $state(false)
+  canRedo = $state(false)
+  /** 撤销次数（供界面在撤销后闪一下） */
+  undoTick = $state(0)
+
+  private serializeNow(): string {
+    return JSON.stringify($state.snapshot(this.project))
+  }
+  private resetHistory(): void {
+    this.history = []
+    this.future = []
+    this.canUndo = false
+    this.canRedo = false
+    this.committed = this.project ? this.serializeNow() : ''
+  }
+  private scheduleCommit(): void {
+    if (this.commitTimer) clearTimeout(this.commitTimer)
+    this.commitTimer = setTimeout(() => this.commit(), 400)
+  }
+  private commit(): void {
+    this.commitTimer = null
+    if (!this.project) return
+    const now = this.serializeNow()
+    if (now === this.committed) return
+    this.history.push(this.committed)
+    if (this.history.length > 60) this.history.shift()
+    this.future = []
+    this.committed = now
+    this.canUndo = true
+    this.canRedo = false
+  }
+  private restore(json: string): void {
+    const p = parseProject(json)
+    const lang = this.currentLanguageId
+    this.project = p
+    this.currentLanguageId =
+      lang && p.languages.some((l) => l.id === lang) ? lang : (p.languages[0]?.id ?? null)
+    this.committed = json
+    if (!this.dirty) {
+      this.dirty = true
+      platform.setDirty(true)
+    }
+    this.undoTick++
+  }
+  undo(): void {
+    if (this.commitTimer) {
+      clearTimeout(this.commitTimer)
+      this.commit()
+    }
+    const prev = this.history.pop()
+    if (prev === undefined) return
+    this.future.push(this.committed)
+    this.restore(prev)
+    this.canUndo = this.history.length > 0
+    this.canRedo = true
+  }
+  redo(): void {
+    const next = this.future.pop()
+    if (next === undefined) return
+    this.history.push(this.committed)
+    this.restore(next)
+    this.canUndo = true
+    this.canRedo = this.future.length > 0
+  }
+
   get currentLanguage(): Language | null {
     if (!this.project || !this.currentLanguageId) return null
     return this.project.languages.find((l) => l.id === this.currentLanguageId) ?? null
@@ -33,6 +103,7 @@ class ProjectState {
   touch(): void {
     if (!this.project) return
     this.project.meta.updatedAt = now()
+    this.scheduleCommit()
     if (!this.dirty) {
       this.dirty = true
       platform.setDirty(true)
@@ -62,6 +133,8 @@ class ProjectState {
     this.currentLanguageId = p.settings.defaultLanguageId ?? p.languages[0]?.id ?? null
     this.lastSavedAt = target ? p.meta.updatedAt : null
     this.markClean()
+    this.resetHistory()
+    ui.resetHistory()
     ui.section = 'languages'
   }
 

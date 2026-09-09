@@ -69,9 +69,11 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
   ] as const) {
     if (!Array.isArray(merged[key])) (merged as unknown as Record<string, unknown>)[key] = []
   }
+  if (!merged.settings.imageSize) merged.settings.imageSize = { width: 320, height: 240 }
   for (const l of merged.lexemes) {
     if (!Array.isArray(l.relations)) l.relations = []
     if (!l.scriptForms || typeof l.scriptForms !== 'object') l.scriptForms = {}
+    if (!Array.isArray(l.images)) l.images = []
   }
   for (const lang of merged.languages) {
     if (!lang.prosody)

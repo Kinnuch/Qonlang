@@ -1,7 +1,7 @@
 <script lang="ts">
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
-  import { t, pickText } from '$lib/i18n/index.svelte'
+  import { i18n, t, pickText } from '$lib/i18n/index.svelte'
   import { createSentence, createLexeme, newId } from '$lib/core/factory'
   import type { Analysis, Id, Sentence, Token } from '$lib/core/model'
   import {
@@ -37,6 +37,7 @@
     Check,
     Sparkles
   } from '@lucide/svelte'
+  import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -246,7 +247,7 @@
 
   const exportText = $derived.by(() => {
     if (!selected) return ''
-    const il = interlinear(project, selected)
+    const il = interlinear(project, selected, i18n.locale)
     switch (exportFormat) {
       case 'leipzig':
         return toLeipzig(il)
@@ -311,6 +312,7 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('corpus.title')}</h1>
+    <GuideLink section="corpus" />
     <div class="seg">
       <button class:active={mode === 'entries'} onclick={() => (mode = 'entries')}
         >{t('corpus.modes.entries')}</button
@@ -507,7 +509,7 @@
                 </div>
               {/each}
             </div>
-            <p class="tr">{interlinear(project, s).translation}</p>
+            <p class="tr">{interlinear(project, s, i18n.locale).translation}</p>
           {/if}
         </div>
       {/if}
@@ -559,7 +561,7 @@
                 <span class="badge" class:accent={done}>{c.confirmed}/{c.total}</span>
               </div>
               {#if done}
-                {@const il = interlinear(project, s)}
+                {@const il = interlinear(project, s, i18n.locale)}
                 <div class="gl" class:slide-in={justConfirmed === s.id}>
                   {#each il.words as w, i (i)}<span class="gw"
                       ><span class="data m">{w.morphs}</span><span class="g">{w.gloss}</span></span

@@ -1,4 +1,6 @@
 import type { Skin, UserSkinPreset } from '$lib/skin/presets'
+
+export type MenuAction = 'save' | 'saveAs' | 'open' | 'undo' | 'redo' | 'palette' | 'chars' | 'back'
 /**
  * 平台适配层：渲染层只认这个接口，不直接碰 Node 或浏览器专有 API。
  * Electron 实现走 IPC；网页实现走 File System Access API + IndexedDB。
@@ -120,7 +122,7 @@ export interface PlatformAPI {
   downloadFont(url: string, file: string): Promise<{ ok: boolean; error?: string }>
   onFontProgress(cb: (p: { file: string; received: number; total: number }) => void): void
   /** 应用菜单触发的动作（桌面版）：save / saveAs / open */
-  onMenu(cb: (action: 'save' | 'saveAs' | 'open') => void): void
+  onMenu(cb: (action: MenuAction) => void): void
   /** 把 HTML 渲染成 PDF 存盘（桌面版）或打开打印窗口（网页版）；用户取消返回 false */
   exportPdf(html: string, suggestedName: string): Promise<boolean>
   /** 把文本存成文件；用户取消返回 false */

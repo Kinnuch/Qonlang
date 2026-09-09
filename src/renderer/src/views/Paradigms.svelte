@@ -31,6 +31,7 @@
     X,
     Minus
   } from '@lucide/svelte'
+  import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -302,6 +303,7 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('paradigms.title')}</h1>
+    <GuideLink section="paradigms" />
     <div class="tabs grow">
       {#each project.paradigms as p (p.id)}
         <button
@@ -892,6 +894,7 @@
     flex-direction: column;
     gap: 3px;
     min-width: 150px;
+    padding-top: 17px; /* 与参数列的小标签行对齐 */
   }
   .adj {
     min-height: 28px;
