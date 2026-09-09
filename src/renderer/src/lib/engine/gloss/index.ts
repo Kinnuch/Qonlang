@@ -47,6 +47,30 @@ function push<K, V>(m: Map<K, V[]>, k: K, v: V): void {
   else m.set(k, [v])
 }
 
+/**
+ * 一个词形的等价写法，都进索引：
+ * 原样、去掉内部边界符、按边界切出来的段、以及剥掉一个已知前缀后的余部。
+ * 语料里常见的省略写法（词头脱落、连字符写法）才对得上词典里的形式。
+ */
+function formKeys(raw: string, boundaries: string[], prefixes: string[]): string[] {
+  const base = norm(raw)
+  if (!base) return []
+  const out = new Set([base])
+  const bset = boundaries.filter((b) => b && b !== ' ')
+  if (bset.some((b) => base.includes(b))) {
+    const re = new RegExp(`[${bset.map((b) => b.replace(/[\\\]^-]/g, '\\$&')).join('')}]`, 'g')
+    out.add(base.replace(re, ''))
+    for (const part of base.split(re)) if (part.length > 1) out.add(part)
+  }
+  // 词头脱落：dictionary 里写成一个词的形式，正文里可能只剩后半段
+  for (const pre of prefixes) {
+    if (pre.length < 1 || !base.startsWith(pre)) continue
+    const rest = base.slice(pre.length).replace(/^[-=·'’]+/, '')
+    if (rest.length > 1) out.add(rest)
+  }
+  return [...out]
+}
+
 export function buildIndex(project: Project, languageId: Id): GlossIndex {
   const glossLangs = project.settings.glossLanguages
   const idx: GlossIndex = {
@@ -59,10 +83,21 @@ export function buildIndex(project: Project, languageId: Id): GlossIndex {
     confirmed: new Map(),
     glossLangs
   }
+  const boundaries = project.settings.morphemeBoundaries
+  // 本语言（含祖语）的前缀与附着词，用来还原脱落词头的写法
+  const prefixForms = [
+    ...new Set(
+      project.morphemes
+        .filter((m) => m.type === 'prefix' || m.type === 'clitic')
+        .map((m) => norm(m.form))
+        .filter((f) => f.length > 0)
+    )
+  ]
   for (const l of project.lexemes) {
     if (l.languageId !== languageId) continue
-    if (l.lemma) push(idx.lemma, norm(l.lemma), l)
-    for (const s of Object.values(l.stems)) if (s) push(idx.stems, norm(s), l)
+    for (const k of formKeys(l.lemma, boundaries, prefixForms)) push(idx.lemma, k, l)
+    for (const st of Object.values(l.stems))
+      for (const k of formKeys(st, boundaries, prefixForms)) push(idx.stems, k, l)
     const para = paradigmFor(project, l)
     const abbrs = new Map<string, string>()
     if (para)
@@ -70,8 +105,8 @@ export function buildIndex(project: Project, languageId: Id): GlossIndex {
         abbrs.set(s.label, s.abbr)
     for (const [slot, f] of Object.entries(l.forms)) {
       for (const v of f.surface.split(/[,，;；/]\s*/)) {
-        const s = norm(v.trim().replace(/^\*/, ''))
-        if (s) push(idx.forms, s, { lexeme: l, slot, abbr: abbrs.get(slot) ?? slot })
+        for (const k of formKeys(v.trim().replace(/^\*/, ''), boundaries, prefixForms))
+          push(idx.forms, k, { lexeme: l, slot, abbr: abbrs.get(slot) ?? slot })
       }
     }
   }

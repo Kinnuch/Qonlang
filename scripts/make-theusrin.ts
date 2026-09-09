@@ -165,6 +165,8 @@ const p: Project = createProject({
 })
 p.languages = []
 p.settings.glossLanguages = ['zh', 'en']
+// 中点分隔词头与词干，撇号接附着词；两者都算语素边界，语料切分与索引都要认
+p.settings.morphemeBoundaries = ['-', '=', '·', "'"]
 p.meta.author = 'Kinnuch'
 p.meta.description =
   '希克林语系北支的瑟乌丝林语（Theusrin）。音系、科飒尔文、四格系统、动词焦点与整条音变链均取自 kinnuch.github.io 的语法书，词库来自作者的词表。'
@@ -478,34 +480,39 @@ function parseGlyphs(): RawGlyph[] {
   for (const row of tables(bipartite).flat()) {
     for (let i = 0; i + 1 < row.length; i += 2) {
       const ch = /<span class="kessar">([^<]*)<\/span>/.exec(row[i])?.[1]
-      const read = plain(row[i + 1])
+      const read = plain(row[i + 1]).trim()
       if (ch && read && read !== '对应的二分音')
         out.push({ char: ch, sense: '', read, cat: '二分音' })
     }
   }
-  // 特征音：三张矩阵，读音 = 行标 + 列标（仅元音表只有列标）
+  // 特征音：三张矩阵。仅元音表读音就是表头；
+  // 「先\后」表的读音是 行(元音) + 列(辅音)，「后\先」表反过来是 列(辅音) + 行(元音)。
   const feat = slice(sec, '#### 特征音', '#### 二分音')
   for (const tbl of tables(feat)) {
-    if (!tbl.length) continue
-    const head = tbl[0].map((c) => plain(c).replace(/\*\*/g, ''))
+    if (tbl.length < 2) continue
+    const head = tbl[0].map((c) => plain(c).replace(/\*\*/g, '').trim())
+    const corner = head[0] ?? ''
     const onlyVowels = head.every((h) => /^[aeiou]$/.test(h))
-    for (const row of tbl.slice(onlyVowels ? 1 : 1)) {
-      for (let i = 0; i < row.length; i++) {
-        const ch = /<span class="kessar">([^<]*)<\/span>/.exec(row[i])?.[1]
-        if (!ch) continue
-        const col = head[i] ?? ''
-        const rowLabel = onlyVowels ? '' : plain(row[0]).replace(/\*\*/g, '')
-        const read = onlyVowels ? col : rowLabel + col
-        if (read && !/[\\/先后]/.test(read)) out.push({ char: ch, sense: '', read, cat: '特征音' })
-      }
-    }
     if (onlyVowels) {
-      // 仅元音表：表头即读音，数据行是字形
       for (const row of tbl.slice(1))
         for (let i = 0; i < row.length; i++) {
           const ch = /<span class="kessar">([^<]*)<\/span>/.exec(row[i])?.[1]
           if (ch && head[i]) out.push({ char: ch, sense: '', read: head[i], cat: '特征音' })
         }
+      continue
+    }
+    const vowelFirst = corner.includes('先') && corner.indexOf('先') < corner.indexOf('后')
+    for (const row of tbl.slice(1)) {
+      const rowLabel = plain(row[0]).replace(/\*\*/g, '').trim()
+      if (!rowLabel) continue
+      for (let i = 1; i < row.length; i++) {
+        const ch = /<span class="kessar">([^<]*)<\/span>/.exec(row[i])?.[1]
+        const col = head[i] ?? ''
+        if (!ch || !col || col === '\\') continue
+        const read = vowelFirst ? rowLabel + col : col + rowLabel
+        if (/^[a-zàáâéèêíìîóòôúùûñç]+$/i.test(read))
+          out.push({ char: ch, sense: '', read, cat: '特征音' })
+      }
     }
   }
   // 数字与运算符
@@ -531,7 +538,6 @@ function parseGlyphs(): RawGlyph[] {
 {
   const raws = parseGlyphs()
   const seenChar = new Map<string, Glyph>()
-  const usedValue = new Set<string>()
   const order = ['本征音', '二分音', '特征音', '数字', '符号']
   raws.sort((a, b) => order.indexOf(a.cat) - order.indexOf(b.cat))
   for (const r of raws) {
@@ -549,11 +555,7 @@ function parseGlyphs(): RawGlyph[] {
     if (!g.name && r.sense) g.name = r.sense
     // 一个字形可以有多个读音（本征音 / 二分音 / 特征音），全部记进 value，映射时按最长优先
     const own = new Set(g.value.split('/').filter(Boolean))
-    for (const rd of reads) {
-      if (usedValue.has(rd) || own.has(rd)) continue
-      usedValue.add(rd)
-      own.add(rd)
-    }
+    for (const rd of reads) own.add(rd)
     g.value = [...own].join('/')
     if (r.cat !== g.category) g.notes = [g.notes, `另为${r.cat}`].filter(Boolean).join('；')
   }
@@ -1084,16 +1086,306 @@ const label = (numAbbr: string, caseAbbr: string) => {
 
 // ───────────────────────── 语料：语法书里的 gloss 例句 ─────────────────────────
 
-const lexIndex = new Map<string, Id>()
+/**
+ * 例句里的词要挂到正确的词条上。同一个写法常有多个词条（gwauch 既是「气体.欠格」
+ * 又是「呼喊.弱焦点」），所以按语法书给的 gloss 打分挑最像的那个。
+ */
+interface LexCand {
+  id: Id
+  slot: string
+  def: string
+}
+const headForms = p.morphemes
+  .filter((m) => m.languageId === Tsr.id && m.type === 'prefix')
+  .map((m) => m.form.replace(/[·\-]/g, '').toLowerCase())
+  .filter(Boolean)
+/**
+ * 一个词形的各种等价写法：原样、去中点、去掉词头之后的词干。
+ * 只取词头之后的部分——第一段是词头，单独拿它去匹配会撞上一堆别的词。
+ */
+function keyVariants(raw: string): string[] {
+  const base = raw.trim().toLowerCase()
+  if (!base) return []
+  const out = new Set<string>([base])
+  if (base.includes('·')) {
+    out.add(base.replace(/·/g, ''))
+    const segs = base.split('·')
+    for (const seg of segs.slice(1)) if (seg.length > 1) out.add(seg)
+  }
+  const flat = base.replace(/·/g, '')
+  for (const h of headForms)
+    if (h && flat.startsWith(h) && flat.length - h.length > 1) out.add(flat.slice(h.length))
+  return [...out]
+}
+const lexCands = new Map<string, LexCand[]>()
+function addCand(raw: string, cand: LexCand): void {
+  for (const part of raw.split(/[,，/]/)) {
+    for (const k of keyVariants(part)) {
+      const arr = lexCands.get(k)
+      if (arr) {
+        if (!arr.some((x) => x.id === cand.id && x.slot === cand.slot)) arr.push(cand)
+      } else lexCands.set(k, [cand])
+    }
+  }
+}
 for (const l of p.lexemes) {
   if (l.languageId !== Tsr.id) continue
-  const keys = [l.lemma, ...Object.values(l.forms).map((f) => f.surface)]
-  for (const k of keys)
-    for (const part of k.split(/[,，/]/)) {
-      const key = part.trim().replace(/·/g, '').toLowerCase()
-      if (key && !lexIndex.has(key)) lexIndex.set(key, l.id)
-    }
+  const def = l.senses
+    .map((se) => se.definition['zh'] ?? '')
+    .filter(Boolean)
+    .join('；')
+  addCand(l.lemma, { id: l.id, slot: '', def })
+  for (const st of Object.values(l.stems)) addCand(st, { id: l.id, slot: '', def })
+  for (const [slot, f] of Object.entries(l.forms)) addCand(f.surface, { id: l.id, slot, def })
 }
+/** 按 gloss 文本给候选打分：槽位名与释义里的词出现得越多越像 */
+function pickLexeme(surface: string, gloss: string): Id | null {
+  const seen = new Set<string>()
+  const cands: (LexCand & { exact: boolean })[] = []
+  const keys = keyVariants(surface)
+  for (const [ki, k] of keys.entries())
+    for (const c of lexCands.get(k) ?? []) {
+      const sig = c.id + '|' + c.slot
+      if (seen.has(sig)) continue
+      seen.add(sig)
+      cands.push({ ...c, exact: ki === 0 })
+    }
+  if (!cands.length) return null
+  if (!gloss) return cands[0].id
+  const g = gloss.toLowerCase()
+  let best = cands[0]
+  let bestScore = -1
+  for (const c of cands) {
+    let score = c.exact ? 2 : 0
+    for (const part of c.slot.split('.')) if (part && g.includes(part.toLowerCase())) score += 3
+    for (const piece of c.def.split(/[；;，,、]/))
+      if (piece.replace(/^\d+/, '').length > 1 && g.includes(piece.replace(/^\d+/, ''))) score += 2
+    if (score > bestScore) {
+      bestScore = score
+      best = c
+    }
+  }
+  return best.id
+}
+
+// ─── 语流 × 人称的合并前缀（语法书《人称中缀》一节的表） ───
+const FLOW_PERSON: Record<string, Record<string, string[]>> = {
+  顺流: {
+    '三单.回指': ['e'],
+    '三单.祂': ['w', 'u'],
+    一单: ['m'],
+    '二单.亲': ['d'],
+    '二单.敬': ['ei'],
+    '三单.有生': [],
+    一复: ['a'],
+    二复: ['o'],
+    三复: ['s'],
+    '三单.无生': ['eu']
+  },
+  逆流: {
+    '三单.回指': ['ae'],
+    '三单.祂': ['aw'],
+    一单: ['am'],
+    '二单.亲': ['ad'],
+    '二单.敬': ['ai'],
+    '三单.有生': ['a'],
+    一复: ['á'],
+    二复: ['ao'],
+    三复: ['as'],
+    '三单.无生': ['au']
+  },
+  扩流: {
+    '三单.回指': ['ie'],
+    '三单.祂': ['iw'],
+    一单: ['im'],
+    '二单.亲': ['id'],
+    '二单.敬': ['í'],
+    '三单.有生': ['i'],
+    一复: ['ia'],
+    二复: ['io'],
+    三复: ['is'],
+    '三单.无生': ['ieu']
+  },
+  换流: {
+    '三单.回指': ['we'],
+    '三单.祂': ['ú'],
+    一单: ['um'],
+    '二单.亲': ['ud'],
+    '二单.敬': ['ui'],
+    '三单.有生': ['wu', 'u', 'w'],
+    一复: ['wa'],
+    二复: ['wo'],
+    三复: ['us'],
+    '三单.无生': ['weu']
+  },
+  滞流: {
+    '三单.回指': ['é'],
+    '三单.祂': ['ew'],
+    一单: ['em'],
+    '二单.亲': ['ed'],
+    '二单.敬': ['é'],
+    '三单.有生': ['e'],
+    一复: ['ea'],
+    二复: ['eo'],
+    三复: ['es'],
+    '三单.无生': ['oe']
+  }
+}
+const flowMorphemes = new Map<string, Id>()
+/** 语流 + 人称的合并前缀单独建一个语素，语料里点得开、也能在语素页查 */
+function flowMorpheme(flow: string, person: string, form: string): Id {
+  const key = flow + '<' + person + '>'
+  const hit = flowMorphemes.get(key)
+  if (hit) return hit
+  const m = createMorpheme(Tsr.id, 'prefix')
+  m.form = form ? form + '-' : '∅-'
+  m.gloss = key
+  m.meaning = { zh: key }
+  m.notes = '语流与人称的合并前缀：语法书《人称中缀》一节'
+  p.morphemes.push(m)
+  flowMorphemes.set(key, m.id)
+  return m.id
+}
+/** gloss 形如「顺流<三单.祂>停留.强焦点」时，按表里的前缀把动词干拆开 */
+function splitFlow(
+  surface: string,
+  gloss: string
+): { morphs: { form: string; gloss: string; morphemeId: Id | null }[]; stem: string } | null {
+  const m = /^(顺流|逆流|滞流|扩流|换流)<([^>]*)>(.*)$/.exec(gloss)
+  if (!m) return null
+  const [, flow, person, rest] = m
+  const forms = FLOW_PERSON[flow]?.[person]
+  if (!forms) return null
+  const low = surface.toLowerCase()
+  const pick = [...forms].sort((a, b) => b.length - a.length).find((f) => low.startsWith(f))
+  if (!forms.length || pick === undefined) {
+    // 零前缀（或表里查不到）：不拆，但词干就是整个词形
+    return { morphs: [{ form: surface, gloss, morphemeId: null }], stem: surface }
+  }
+  const stem = surface.slice(pick.length)
+  if (!stem) return { morphs: [{ form: surface, gloss, morphemeId: null }], stem: surface }
+  return {
+    morphs: [
+      {
+        form: pick + '-',
+        gloss: flow + '<' + person + '>',
+        morphemeId: flowMorpheme(flow, person, pick)
+      },
+      { form: stem, gloss: rest, morphemeId: null }
+    ],
+    stem
+  }
+}
+
+/** 动词头（时体式感音那一截）按语法书的 gloss 建成语素，语料里就能认出来 */
+const headMorphemes = new Map<string, Id>()
+function headMorpheme(form: string, gloss: string): Id {
+  const key = form.toLowerCase()
+  const hit = headMorphemes.get(key)
+  if (hit) return hit
+  const m = createMorpheme(Tsr.id, 'prefix')
+  m.form = form + '·'
+  m.gloss = gloss.replace(/[=]/g, '').replace(/-/g, '-')
+  m.meaning = { zh: gloss }
+  m.notes = '动词头：语法书《动词结构》一节'
+  p.morphemes.push(m)
+  headMorphemes.set(key, m.id)
+  return m.id
+}
+function splitHead(
+  surface: string,
+  gloss: string
+): { form: string; gloss: string; morphemeId: Id | null }[] {
+  const si = surface.indexOf('·')
+  const head = surface.slice(0, si)
+  const rest = surface.slice(si + 1)
+  if (!head || !rest) return [{ form: surface, gloss, morphemeId: null }]
+  const gi = gloss.indexOf('·')
+  if (gi > 0) {
+    // 语法书的 gloss 也带中点：两边一一对应
+    return [
+      {
+        form: head + '·',
+        gloss: gloss.slice(0, gi),
+        morphemeId: headMorpheme(head, gloss.slice(0, gi))
+      },
+      { form: rest, gloss: gloss.slice(gi + 1), morphemeId: null }
+    ]
+  }
+  // gloss 压成一整条：只有当这个词头已经在语素表里时才拆，免得把名词词头也拆开
+  const known = headMorphemes.get(head.toLowerCase())
+  if (!known) return [{ form: surface, gloss, morphemeId: null }]
+  const m = p.morphemes.find((x) => x.id === known)
+  return [
+    { form: head + '·', gloss: m?.gloss ?? '', morphemeId: known },
+    { form: rest, gloss, morphemeId: null }
+  ]
+}
+
+/** 语素表：按形式查，用来给拆出来的段挂上语素 */
+const morphByForm = new Map<string, Id>()
+function indexMorphemes(): void {
+  morphByForm.clear()
+  for (const m of p.morphemes) {
+    if (m.languageId !== Tsr.id) continue
+    for (const f of [m.form, ...m.allomorphs.map((a) => a.form)]) {
+      const k = f.replace(/[-=·]/g, '').toLowerCase()
+      if (k && !morphByForm.has(k)) morphByForm.set(k, m.id)
+    }
+  }
+}
+/**
+ * 语法书里 aen-re-anar / em'to 这类写法，gloss 的分段与词形一一对应
+ * （阳光-属于-天海日、环绕=你.及物格），段数相同就照着拆。
+ */
+function zipSplit(
+  surface: string,
+  gloss: string,
+  sep: RegExp,
+  glossSep: RegExp
+): { form: string; gloss: string; morphemeId: Id | null }[] | null {
+  const parts = surface.split(sep)
+  const glosses = gloss.split(glossSep)
+  if (parts.length < 2 || parts.length !== glosses.length) return null
+  return parts.map((form, i) => ({
+    form,
+    gloss: glosses[i],
+    morphemeId: morphByForm.get(form.replace(/[-=·]/g, '').toLowerCase()) ?? null
+  }))
+}
+
+/** 一个词形拆成语素：先分动词头，再分语流人称前缀 */
+function morphsOf(
+  surface: string,
+  gloss: string
+): {
+  morphs: { form: string; gloss: string; morphemeId: Id | null }[]
+  stem: string
+} {
+  const zipped = zipSplit(surface, gloss, /-/g, /-/g) ?? zipSplit(surface, gloss, /'/g, /=/g)
+  if (zipped) {
+    const main = zipped.reduce((a, b) => (b.form.length > a.form.length ? b : a)).form
+    return { morphs: zipped, stem: main }
+  }
+  const parts = surface.includes('·')
+    ? splitHead(surface, gloss)
+    : [{ form: surface, gloss, morphemeId: null as Id | null }]
+  const out: { form: string; gloss: string; morphemeId: Id | null }[] = []
+  let stem = surface
+  for (const part of parts) {
+    const f = splitFlow(part.form, part.gloss)
+    if (f) {
+      out.push(...f.morphs)
+      stem = f.stem
+    } else {
+      out.push(part)
+      if (!part.form.endsWith('·')) stem = part.form
+    }
+  }
+  return { morphs: out, stem }
+}
+
+indexMorphemes()
 
 if (md) {
   const glossRe = /<div class="gloss"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/g
@@ -1135,14 +1427,16 @@ if (md) {
     if (spell) s.extraLines.push({ label: '科飒尔文拼写', text: spell })
     s.tokens = words.map((w) => {
       const surface = w.lat.replace(/^[（(]/, '').replace(/[.,!?；。，！？）)]+$/g, '')
-      const key = surface.replace(/·/g, '').toLowerCase()
+      const gloss = w.morph || '?'
+      // gloss 里也带中点，说明这个词是「动词头·动词干」，拆成两个语素
+      const { morphs, stem } = morphsOf(surface, gloss)
       return {
         surface,
         analyses: [
           {
-            lexemeId: lexIndex.get(key) ?? null,
+            lexemeId: pickLexeme(surface, gloss) ?? pickLexeme(stem, gloss),
             slot: null,
-            morphs: [{ form: surface, gloss: w.morph || '?', morphemeId: null }]
+            morphs
           }
         ],
         chosen: 0,
