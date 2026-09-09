@@ -56,6 +56,12 @@ function formKeys(raw: string, boundaries: string[], prefixes: string[]): string
   const base = norm(raw)
   if (!base) return []
   const out = new Set([base])
+  // 「alch(elch)」这类括号写法：括号内外都算一个形式
+  const paren = /^([^()（）]*)[（(]([^)）]+)[)）]([^()（）]*)$/.exec(base)
+  if (paren) {
+    const [, a, inner, b] = paren
+    for (const v of [a + b, a + inner + b, inner]) if (v.length > 1) out.add(v)
+  }
   const bset = boundaries.filter((b) => b && b !== ' ')
   if (bset.some((b) => base.includes(b))) {
     const re = new RegExp(`[${bset.map((b) => b.replace(/[\\\]^-]/g, '\\$&')).join('')}]`, 'g')

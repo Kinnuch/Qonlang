@@ -311,6 +311,20 @@
     e.preventDefault()
     e.stopPropagation()
     const th = (e.currentTarget as HTMLElement).parentElement as HTMLElement
+    // 先把每一列此刻的实际宽度都记下来。只给被拖的那列设宽度的话，
+    // 表格一转成固定布局，其余列就会被平均分配。
+    const head = th.parentElement
+    if (head) {
+      const cells = [...head.children] as HTMLElement[]
+      const keys = ['lemma', ...activeColumns.map((c) => c.key)]
+      const offset = cells.length - keys.length
+      const widths = { ...ui.prefs.lexiconColWidths }
+      cells.forEach((cell, i) => {
+        const k = keys[i - offset]
+        if (k && !widths[k]) widths[k] = Math.round(cell.getBoundingClientRect().width)
+      })
+      ui.prefs.lexiconColWidths = widths
+    }
     resizing = { key, x: e.clientX, w: th.getBoundingClientRect().width }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
@@ -1352,7 +1366,7 @@
   .grip {
     position: absolute;
     top: 0;
-    right: -3px;
+    right: 0;
     width: 7px;
     height: 100%;
     cursor: col-resize;
@@ -1363,6 +1377,9 @@
   }
   .tbl.fixed {
     table-layout: fixed;
+    /* 列宽定死之后表格按内容宽度走，容器横向滚动，最后一列才拖得动 */
+    width: max-content;
+    min-width: 100%;
   }
   .tbl.fixed td {
     overflow: hidden;

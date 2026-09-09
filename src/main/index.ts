@@ -38,6 +38,8 @@ interface Prefs {
   examplesPerEntry: number
   panelSizes: Record<string, number>
   showDerivedMark: boolean
+  checkUpdates: boolean
+  skippedVersion: string
 }
 const DEFAULT_PREFS: Prefs = {
   locale: 'zh',
@@ -63,7 +65,9 @@ const DEFAULT_PREFS: Prefs = {
   showHelpDots: true,
   examplesPerEntry: 3,
   panelSizes: {},
-  showDerivedMark: true
+  showDerivedMark: true,
+  checkUpdates: true,
+  skippedVersion: ''
 }
 
 interface RecentEntry {
@@ -127,6 +131,78 @@ async function readJson<T>(file: string, fallback: T): Promise<T> {
 async function writeJson(file: string, v: unknown): Promise<void> {
   await fs.mkdir(dirname(file), { recursive: true })
   await fs.writeFile(file, JSON.stringify(v, null, 2), 'utf8')
+}
+
+export interface UpdateInfo {
+  version: string
+  url: string
+  notes: string
+}
+
+/** 「0.6.1」这类版本号比大小；只比数字段 */
+function newerThan(a: string, b: string): boolean {
+  const pa = a.split(/[.-]/).map((x) => Number(x) || 0)
+  const pb = b.split(/[.-]/).map((x) => Number(x) || 0)
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0)
+    if (d) return d > 0
+  }
+  return false
+}
+
+/** 问 GitHub 最新的 Release；离线或出错就当没有更新，不打扰用户 */
+function fetchLatestRelease(): Promise<UpdateInfo | null> {
+  return new Promise((resolve) => {
+    const req = net.request({
+      url: 'https://api.github.com/repos/Kinnuch/Qonlang/releases/latest',
+      redirect: 'follow'
+    })
+    req.setHeader('User-Agent', 'Qonlang')
+    req.setHeader('Accept', 'application/vnd.github+json')
+    const timer = setTimeout(() => {
+      req.abort()
+      resolve(null)
+    }, 8000)
+    req.on('response', (res) => {
+      if (res.statusCode !== 200) {
+        clearTimeout(timer)
+        return resolve(null)
+      }
+      const chunks: Buffer[] = []
+      res.on('data', (c: Buffer) => chunks.push(c))
+      res.on('end', () => {
+        clearTimeout(timer)
+        try {
+          const j = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+            tag_name?: string
+            html_url?: string
+            body?: string
+          }
+          const version = (j.tag_name ?? '').replace(/^v/, '')
+          if (!version) return resolve(null)
+          resolve({
+            version,
+            url: j.html_url ?? 'https://github.com/Kinnuch/Qonlang/releases',
+            notes: (j.body ?? '').slice(0, 1200)
+          })
+        } catch {
+          resolve(null)
+        }
+      })
+    })
+    req.on('error', () => {
+      clearTimeout(timer)
+      resolve(null)
+    })
+    req.end()
+  })
+}
+
+/** 有比当前版本新的就返回，否则 null */
+async function checkUpdate(): Promise<UpdateInfo | null> {
+  const rel = await fetchLatestRelease()
+  if (!rel) return null
+  return newerThan(rel.version, app.getVersion()) ? rel : null
 }
 
 async function getPrefs(): Promise<Prefs> {
@@ -561,6 +637,7 @@ function registerIpc(): void {
 
   ipcMain.handle('shell:showInFolder', (_e, path: string) => shell.showItemInFolder(path))
   ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
+  ipcMain.handle('app:checkUpdate', () => checkUpdate())
 }
 
 /** 应用菜单：macOS 靠它提供 Cmd+C/V/Z、隐藏、退出；Windows / Linux 上被 autoHideMenuBar 隐藏，按 Alt 可见 */

@@ -25,6 +25,7 @@
   import { flashOn } from '$lib/ui/flash'
   import { wordHover, type HoverPart } from '$lib/state/wordHover.svelte'
   import { paradigmAffixes, reverseDerive } from '$lib/engine/morph/reverse'
+  import { lexemeMatchesGloss } from '$lib/core/glossMatch'
   import { renderScript, sentenceScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
   import {
@@ -208,17 +209,29 @@
       a?.morphs.find((m) => m.morphemeId)?.morphemeId ??
       elsewhere?.morphs.find((m) => m.morphemeId)?.morphemeId
     if (idx) {
-      const key = tk.surface.normalize('NFC').toLowerCase()
-      const hit =
-        idx.lemma.get(key)?.[0] ?? idx.stems.get(key)?.[0] ?? idx.forms.get(key)?.[0]?.lexeme
-      if (hit) return { lexemeId: hit.id }
-      const rev = reverseDerive(tk.surface, affixes, (form) => {
-        const l = idx.lemma.get(form)?.[0] ?? idx.stems.get(form)?.[0]
-        return l ? l.id : null
-      })
+      const gloss = a?.morphs.map((m) => m.gloss).join(' ') ?? ''
+      const byForm = lookupByForm(tk.surface, gloss)
+      if (byForm) return { lexemeId: byForm }
+      const rev = reverseDerive(tk.surface, affixes, (form) => lookupByForm(form, gloss))
       if (rev) return { lexemeId: rev.lexemeId }
     }
     return mid ? { morphemeId: mid } : null
+  }
+  /**
+   * 按形式查词条：同形的候选还要跟标注的意思对得上才认，
+   * 一个都对不上就宁可不给，免得悬浮出毫不相干的词。
+   */
+  function lookupByForm(form: string, gloss: string): Id | null {
+    const idx = hoverIndexOf()
+    if (!idx) return null
+    const key = form.normalize('NFC').toLowerCase()
+    const cands = [
+      ...(idx.lemma.get(key) ?? []),
+      ...(idx.forms.get(key) ?? []).map((f) => f.lexeme),
+      ...(idx.stems.get(key) ?? [])
+    ]
+    const good = cands.find((l) => lexemeMatchesGloss(l, gloss))
+    return good ? good.id : null
   }
   /**
    * 悬浮卡底部的切分：优先用这个词已确认的分析，
@@ -239,9 +252,7 @@
         .replace(/^[-=·']+|[-=·']+$/g, '')
       const mo = idx?.morphemes.get(key)?.[0]
       if (mo) return { label: m.form, gloss: m.gloss, morphemeId: mo.id }
-      const lx =
-        idx?.lemma.get(key)?.[0] ?? idx?.forms.get(key)?.[0]?.lexeme ?? idx?.stems.get(key)?.[0]
-      return { label: m.form, gloss: m.gloss, lexemeId: lx?.id ?? null }
+      return { label: m.form, gloss: m.gloss, lexemeId: lookupByForm(key, m.gloss) }
     })
   }
   /** 便宜的可点判断：重的反推留到真正悬浮时再做 */

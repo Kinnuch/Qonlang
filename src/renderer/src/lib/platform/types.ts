@@ -58,6 +58,10 @@ export interface Prefs {
   examplesPerEntry: number
   /** 各类可拖动面板的尺寸记忆：键 → 像素 */
   panelSizes: Record<string, number>
+  /** 启动时检查新版本 */
+  checkUpdates: boolean
+  /** 用户选择跳过的版本号 */
+  skippedVersion: string
   /** 词条卡里给构形推导出来的形式标一个齿轮 */
   showDerivedMark: boolean
 }
@@ -96,7 +100,15 @@ export const DEFAULT_PREFS: Prefs = {
   showHelpDots: true,
   examplesPerEntry: 3,
   panelSizes: {},
-  showDerivedMark: true
+  showDerivedMark: true,
+  checkUpdates: true,
+  skippedVersion: ''
+}
+
+export interface UpdateInfo {
+  version: string
+  url: string
+  notes: string
 }
 
 export interface AppInfo {
@@ -167,4 +179,6 @@ export interface PlatformAPI {
 
   showInFolder(path: string): Promise<void>
   openExternal(url: string): Promise<void>
+  /** 查有没有新版本；网页版或离线时返回 null */
+  checkUpdate(): Promise<UpdateInfo | null>
 }

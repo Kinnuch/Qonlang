@@ -131,6 +131,8 @@ class UiState {
     this.prefs.showHelpDots ??= true
     this.prefs.examplesPerEntry ??= 3
     this.prefs.showDerivedMark ??= true
+    this.prefs.checkUpdates ??= true
+    this.prefs.skippedVersion ??= ''
     i18n.locale = this.prefs.locale as LocaleCode
     this.prefsLoaded = true
     this.applyTheme()

@@ -1156,15 +1156,23 @@ function keyVariants(raw: string): string[] {
   return [...out]
 }
 const lexCands = new Map<string, LexCand[]>()
+/** 「alch(elch)」这种括号写法拆成两个形式；括号内外都可能是正文 */
+function expandParens(x: string): string[] {
+  const m = /^([^()（）]*)[（(]([^)）]+)[)）]([^()（）]*)$/.exec(x.trim())
+  if (!m) return [x]
+  const [, a, inner, b] = m
+  return [a + b, a + inner + b, inner].filter(Boolean)
+}
 function addCand(raw: string, cand: LexCand): void {
-  for (const part of raw.split(/[,，/]/)) {
-    for (const k of keyVariants(part)) {
-      const arr = lexCands.get(k)
-      if (arr) {
-        if (!arr.some((x) => x.id === cand.id && x.slot === cand.slot)) arr.push(cand)
-      } else lexCands.set(k, [cand])
+  for (const one of raw.split(/[,，/]/))
+    for (const part of expandParens(one)) {
+      for (const k of keyVariants(part)) {
+        const arr = lexCands.get(k)
+        if (arr) {
+          if (!arr.some((x) => x.id === cand.id && x.slot === cand.slot)) arr.push(cand)
+        } else lexCands.set(k, [cand])
+      }
     }
-  }
 }
 for (const l of p.lexemes) {
   if (l.languageId !== Tsr.id) continue
@@ -1176,33 +1184,59 @@ for (const l of p.lexemes) {
   for (const st of Object.values(l.stems)) addCand(st, { id: l.id, slot: '', def })
   for (const [slot, f] of Object.entries(l.forms)) addCand(f.surface, { id: l.id, slot, def })
 }
-/** 按 gloss 文本给候选打分：槽位名与释义里的词出现得越多越像 */
-function pickLexeme(surface: string, gloss: string): Id | null {
+/** 中文片段：去掉编号、【】标记与语法符号后切出来的词 */
+function cjkPieces(text: string): string[] {
+  return text
+    .replace(/【[^】]*】/g, ' ')
+    .replace(/\d+/g, ' ')
+    .split(/[-=<>·.．,，、;；:：()（）\s“”"'…]+/)
+    .map((x) => x.trim())
+    .filter((x) => x.length > 0 && /[一-鿿]/.test(x))
+}
+/** 释义与 gloss 说的是不是同一件事：任一方的片段出现在另一方里就算 */
+function defHit(def: string, gloss: string): boolean {
+  const dp = cjkPieces(def)
+  const gp = cjkPieces(gloss)
+  if (!dp.length || !gp.length) return false
+  for (const d of dp) for (const g of gp) if (d.includes(g) || g.includes(d)) return true
+  return false
+}
+
+/**
+ * 按 gloss 给候选打分。释义对得上是硬指标——同一个写法常常既是某个名词的格形、
+ * 又是某个动词的焦点形，只看槽位名会挂到毫不相干的词上。
+ * `surfaces` 从最可靠的写法排起（一般是拆出来的词干在前）。
+ */
+function pickLexeme(surfaces: string[], gloss: string): Id | null {
   const seen = new Set<string>()
   const cands: (LexCand & { exact: boolean })[] = []
-  const keys = keyVariants(surface)
-  for (const [ki, k] of keys.entries())
-    for (const c of lexCands.get(k) ?? []) {
-      const sig = c.id + '|' + c.slot
-      if (seen.has(sig)) continue
-      seen.add(sig)
-      cands.push({ ...c, exact: ki === 0 })
-    }
+  for (const [si, surface] of surfaces.entries()) {
+    if (!surface) continue
+    for (const [ki, k] of keyVariants(surface).entries())
+      for (const c of lexCands.get(k) ?? []) {
+        const sig = c.id + '|' + c.slot
+        if (seen.has(sig)) continue
+        seen.add(sig)
+        cands.push({ ...c, exact: si === 0 && ki === 0 })
+      }
+  }
   if (!cands.length) return null
-  if (!gloss) return cands[0].id
-  const g = gloss.toLowerCase()
+  if (!gloss || gloss === '?') return cands[0].id
   let best = cands[0]
   let bestScore = -1
   for (const c of cands) {
-    let score = c.exact ? 2 : 0
-    for (const part of c.slot.split('.')) if (part && g.includes(part.toLowerCase())) score += 3
-    for (const piece of c.def.split(/[；;，,、]/))
-      if (piece.replace(/^\d+/, '').length > 1 && g.includes(piece.replace(/^\d+/, ''))) score += 2
+    let score = c.exact ? 1 : 0
+    if (defHit(c.def, gloss)) score += 6
+    for (const part of c.slot.split('.')) if (part && gloss.includes(part)) score += 2
     if (score > bestScore) {
       bestScore = score
       best = c
     }
   }
+  // gloss 里带中文却一条释义都对不上，多半是撞了同形——宁可不挂
+  const hasCjk = /[\u4e00-\u9fff]/.test(gloss)
+  if (hasCjk && bestScore < 6) return null
+  if (bestScore < 1) return null
   return best.id
 }
 
@@ -1472,7 +1506,7 @@ if (md) {
         surface,
         analyses: [
           {
-            lexemeId: pickLexeme(surface, gloss) ?? pickLexeme(stem, gloss),
+            lexemeId: pickLexeme([stem, surface], gloss),
             slot: null,
             morphs
           }

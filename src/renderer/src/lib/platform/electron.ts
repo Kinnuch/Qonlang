@@ -5,7 +5,8 @@ import type {
   Prefs,
   RecentEntry,
   SaveTarget,
-  MenuAction
+  MenuAction,
+  UpdateInfo
 } from './types'
 import { DEFAULT_PREFS } from './types'
 
@@ -133,6 +134,9 @@ export const electronPlatform: PlatformAPI = {
   },
   async openExternal(url) {
     await bridge().invoke('shell:openExternal', url)
+  },
+  async checkUpdate() {
+    return (await bridge().invoke('app:checkUpdate')) as UpdateInfo | null
   }
 }
 

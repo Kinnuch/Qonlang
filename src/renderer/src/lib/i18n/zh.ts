@@ -282,6 +282,13 @@ export default {
     exported: '已导出纯欣赏副本',
     suffix: '欣赏版'
   },
+  update: {
+    title: '有新版本 v{version}',
+    body: '下载安装包覆盖安装即可，当前项目文件不会被动到。',
+    download: '去下载',
+    later: '稍后再说',
+    skip: '跳过这个版本'
+  },
   tips: {
     senses: '一个词的不同意思各占一条。列表里会显示成「1、… 2、…」，导出词典时也按这个顺序。',
     etymology:
@@ -1031,6 +1038,7 @@ export default {
     autosave: '自动保存间隔（秒，0 为关闭）',
     backupCount: '保留备份份数',
     reopenLast: '启动时打开上次的项目',
+    checkUpdates: '启动时检查新版本（只提示，不会自动安装）',
     highlightDuplicates: '高亮重复词条（关掉只留黄色叹号）',
     showHelpDots: '显示板块旁的「?」用法提示',
     showDerivedMark: '词条卡里给构形推导出来的形式标齿轮 ⚙',

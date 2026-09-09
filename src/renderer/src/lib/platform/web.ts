@@ -357,6 +357,10 @@ export const webPlatform: PlatformAPI = {
   },
   async openExternal(url) {
     window.open(url, '_blank', 'noopener')
+  },
+  async checkUpdate() {
+    // 网页版跟着页面走，没有安装包要更新
+    return null
   }
 }
 

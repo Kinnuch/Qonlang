@@ -100,6 +100,17 @@
       <label class="row check">
         <input
           type="checkbox"
+          bind:checked={ui.prefs.checkUpdates}
+          onchange={() => {
+            ui.prefs.skippedVersion = ''
+            void ui.savePrefs()
+          }}
+        />
+        {t('settings.checkUpdates')}
+      </label>
+      <label class="row check">
+        <input
+          type="checkbox"
           bind:checked={ui.prefs.highlightDuplicates}
           onchange={() => ui.savePrefs()}
         />

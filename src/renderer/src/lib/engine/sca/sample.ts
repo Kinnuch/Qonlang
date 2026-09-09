@@ -39,14 +39,27 @@ function concretize(s: string, classes: Map<string, string[]>): string {
       let j = i + 1
       while (j < cs.length && cs[j] !== '}') j++
       const name = cs.slice(i + 1, j).join('')
-      out += classes.get('{' + name + '}')?.[0] ?? ''
+      // 长名音类存成 {名字}，@语素 音类存成 @名字，两种键都试
+      const members = classes.get('{' + name + '}') ?? classes.get(name)
+      out += pickMember(members)
       i = j + 1
       continue
     }
     if (c >= 'A' && c <= 'Z' && classes.has(c)) {
-      out += classes.get(c)![0] ?? ''
+      out += pickMember(classes.get(c))
       i++
       continue
+    }
+    if (c === '@') {
+      // 裸写的 @语素
+      let j = i + 1
+      while (j < cs.length && /[^\s_#]/.test(cs[j])) j++
+      const members = classes.get(cs.slice(i, j).join(''))
+      if (members) {
+        out += pickMember(members)
+        i = j
+        continue
+      }
     }
     if ('#?*+^$'.includes(c)) {
       i++
@@ -56,6 +69,12 @@ function concretize(s: string, classes: Map<string, string[]>): string {
     i++
   }
   return out
+}
+
+/** 取音类的第一个成员；语素的异体形常带边界符，示例里去掉 */
+function pickMember(members?: string[]): string {
+  const m = members?.find((x) => x.replace(/[-=·]/g, '').length > 0)
+  return (m ?? '').replace(/[-=·]/g, '')
 }
 
 function pickNotIn(excluded: string[], classes: Map<string, string[]>): string {

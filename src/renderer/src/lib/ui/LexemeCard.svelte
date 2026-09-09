@@ -14,6 +14,9 @@
 
   const l = $derived(lexeme)
   const glossLangs = $derived(project.settings.glossLanguages)
+  // 留空的词干与屈折形不占位置
+  const filledStems = $derived(Object.entries(l.stems).filter(([, v]) => v.trim()))
+  const filledForms = $derived(Object.entries(l.forms).filter(([, f]) => f.surface.trim()))
   const lang = $derived(project.languages.find((x) => x.id === l.languageId))
   const pos = $derived(project.posList.find((p) => p.id === l.posId))
   const features = $derived(
@@ -152,15 +155,15 @@
     </section>
   {/if}
 
-  {#if Object.keys(l.stems).length || Object.keys(l.forms).length}
+  {#if filledStems.length || filledForms.length}
     <section>
       <h4>{t('lexicon.forms')}</h4>
       <table class="forms">
         <tbody>
-          {#each Object.entries(l.stems) as [k, v] (k)}
+          {#each filledStems as [k, v] (k)}
             <tr><th>{k}</th><td class="data">{v}</td></tr>
           {/each}
-          {#each Object.entries(l.forms) as [k, f] (k)}
+          {#each filledForms as [k, f] (k)}
             <tr
               ><th>{k}</th><td class="data"
                 >{f.surface}{#if f.derived && ui.prefs.showDerivedMark}<span class="tiny muted">

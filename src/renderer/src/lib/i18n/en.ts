@@ -294,6 +294,13 @@ const en: Dict = {
     exported: 'Read-only copy exported',
     suffix: 'readonly'
   },
+  update: {
+    title: 'Version {version} is available',
+    body: 'Download the installer and install over the current one; your project files are untouched.',
+    download: 'Download',
+    later: 'Later',
+    skip: 'Skip this version'
+  },
   tips: {
     senses:
       'One meaning per sense. Lists show them as “1. … 2. …” and dictionary exports keep this order.',
@@ -1068,6 +1075,7 @@ const en: Dict = {
     autosave: 'Autosave interval (seconds, 0 = off)',
     backupCount: 'Backups to keep',
     reopenLast: 'Reopen last project on launch',
+    checkUpdates: 'Check for updates at startup (a notice only, nothing installs itself)',
     highlightDuplicates: 'Highlight duplicate entries (off leaves only the warning icon)',
     showHelpDots: 'Show the “?” usage hints next to panels',
     showDerivedMark: 'Mark paradigm-derived forms with a gear ⚙ on the entry card',
