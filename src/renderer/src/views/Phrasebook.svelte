@@ -16,6 +16,7 @@
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import { Plus, Trash2, X, Wand2 } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -264,7 +265,9 @@
     </div>
     <div class="field">
       <div class="row">
-        <span class="small muted grow">{t('phrasebook.variants')}</span><button
+        <span class="small muted">{t('phrasebook.variants')}</span><HelpDot key="variants" /><span
+          class="grow"
+        ></span><button
           class="btn ghost sm"
           onclick={() => {
             p.variants.push({ text: '', note: '' })

@@ -116,7 +116,13 @@ export function applyEvolution(
     if (r.existing) {
       if (a.updateExisting && r.existing.lemma !== r.output) {
         r.existing.lemma = r.output
-        r.existing.etymology.protoForm = r.input
+        if (!r.existing.etymology.stages.some((x) => x.form === r.input))
+          r.existing.etymology.stages.unshift({
+            id: crypto.randomUUID(),
+            form: r.input,
+            type: 'soundChange',
+            notes: ''
+          })
         r.existing.updatedAt = stamp
         updated++
       } else skipped++

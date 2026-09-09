@@ -32,6 +32,7 @@
     Minus
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -316,6 +317,18 @@
         >
       {/each}
     </div>
+    {#if view === 'report'}
+      <button class="btn" onclick={() => (view = 'slots')}
+        ><ArrowLeft size={16} />{t('paradigms.backToSlots')}</button
+      >
+    {:else}
+      <button
+        class="btn"
+        disabled={!active || !boundLexemes.length}
+        title={t('paradigms.reportHint')}
+        onclick={runReport}><ClipboardCheck size={16} />{t('paradigms.report')}</button
+      >
+    {/if}
     <button class="btn primary" onclick={addParadigm}
       ><Plus size={16} />{t('paradigms.newParadigm')}</button
     >
@@ -665,9 +678,9 @@
 
     <div class="field">
       <div class="row">
-        <span class="small muted grow">{t('paradigms.testBench')}</span><span class="small muted"
-          >{boundLexemes.length}</span
-        >
+        <span class="small muted">{t('paradigms.testBench')}</span><HelpDot key="testBench" /><span
+          class="grow"
+        ></span><span class="small muted">{boundLexemes.length}</span>
       </div>
       <input
         class="input data"
@@ -707,9 +720,6 @@
     <div class="row wrap">
       <button class="btn sm" disabled={!boundLexemes.length} onclick={deriveAllBound}
         ><Play size={14} />{t('paradigms.deriveAll', { n: boundLexemes.length })}</button
-      >
-      <button class="btn sm" disabled={!boundLexemes.length} onclick={runReport}
-        ><ClipboardCheck size={14} />{t('paradigms.report')}</button
       >
     </div>
     <button class="btn sm danger" onclick={() => removeParadigm(p)}

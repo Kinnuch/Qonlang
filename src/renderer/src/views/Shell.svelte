@@ -21,6 +21,7 @@
     Shirt,
     Quote,
     ArrowLeft,
+    Eye,
     Undo2,
     Redo2
   } from '@lucide/svelte'
@@ -134,6 +135,7 @@
 <div
   class="shell"
   class:no-inspector={!ui.inspectorOpen}
+  class:readonly={projectState.readOnly}
   class:dragging
   style:--inspector-w={`${ui.prefs.inspectorWidth}px`}
 >
@@ -209,6 +211,11 @@
         onclick={() => projectState.redo()}><Redo2 size={16} /></button
       >
       <strong class="pname">{projectState.project?.meta.name || t('app.untitled')}</strong>
+      {#if projectState.readOnly}
+        <span class="badge ro" title={t('readonly.hint')}
+          ><Eye size={12} />{t('readonly.badge')}</span
+        >
+      {/if}
       {#if projectState.dirty}
         <span class="badge">{t('common.unsaved')}</span>
       {:else if projectState.lastSavedAt}
@@ -224,14 +231,16 @@
         {/each}
       </select>
     </label>
-    <button
-      class="btn icon"
-      title={t('topbar.saveShortcut')}
-      disabled={projectState.saving}
-      onclick={() => projectState.save()}
-    >
-      <Save size={16} />
-    </button>
+    {#if !projectState.readOnly}
+      <button
+        class="btn icon"
+        title={t('topbar.saveShortcut')}
+        disabled={projectState.saving}
+        onclick={() => projectState.save()}
+      >
+        <Save size={16} />
+      </button>
+    {/if}
     <button
       class="btn ghost icon"
       title={t('nav.inspector')}
@@ -313,6 +322,26 @@
 <PromptDialog />
 
 <style>
+  .badge.ro {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  /* 纯欣赏模式：藏起编辑入口，检视器里的输入框只读 */
+  .shell.readonly :global(.btn.primary),
+  .shell.readonly :global(.btn.danger) {
+    display: none;
+  }
+  .shell.readonly :global(.inspector input),
+  .shell.readonly :global(.inspector textarea),
+  .shell.readonly :global(.inspector select),
+  .shell.readonly :global(.inspector .btn.ghost.sm),
+  .shell.readonly :global(.inspector .btn.ghost.icon) {
+    pointer-events: none;
+    opacity: 0.75;
+  }
   .shell {
     height: 100%;
     display: grid;

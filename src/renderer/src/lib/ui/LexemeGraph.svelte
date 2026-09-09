@@ -81,6 +81,42 @@
         y: 0
       }
     })
+    // 语素本身的词源：把语素的来源也挂到这一圈，语素与词条的图就连起来了
+    for (const [i, s] of c.etymology.sources.entries()) {
+      if (s.kind !== 'morpheme') continue
+      const m = project.morphemes.find((x) => x.id === s.id)
+      for (const [j, ms] of (m?.etymology.sources ?? []).entries()) {
+        const form =
+          ms.kind === 'morpheme'
+            ? (project.morphemes.find((x) => x.id === ms.id)?.form ?? '?')
+            : ms.kind === 'lexeme'
+              ? (project.lexemes.find((x) => x.id === ms.id)?.lemma ?? '?')
+              : ms.form
+        if (!form) continue
+        sources.push({
+          key: `msrc${i}-${j}`,
+          label: form,
+          sub: m ? m.form : '',
+          lexemeId: ms.kind === 'lexeme' ? ms.id : null,
+          kind: ms.kind === 'lexeme' ? 'lexeme' : ms.kind === 'morpheme' ? 'morpheme' : 'external',
+          edge: t(`lexicon.etyTypes.${m ? m.etymology.type : 'unknown'}`),
+          x: 0,
+          y: 0
+        })
+      }
+      for (const st of m?.etymology.stages ?? [])
+        if (st.form)
+          sources.push({
+            key: `mstage${i}-${st.id}`,
+            label: st.form,
+            sub: m ? m.form : '',
+            lexemeId: null,
+            kind: 'external',
+            edge: t('lexicon.etyAddStage'),
+            x: 0,
+            y: 0
+          })
+    }
     const derived: GNode[] = project.lexemes
       .filter(
         (x) =>
@@ -106,7 +142,12 @@
           x.etymology.sources.some(
             (s) => s.kind !== 'external' && mySources.has((s as { id: Id }).id)
           ) ||
-          (!!c.etymology.protoForm && x.etymology.protoForm === c.etymology.protoForm)
+          x.etymology.sources.some(
+            (s) =>
+              s.kind === 'external' &&
+              !!s.form &&
+              c.etymology.sources.some((cs) => cs.kind === 'external' && cs.form === s.form)
+          )
       )
       .slice(0, 24)
       .map((x) => ({

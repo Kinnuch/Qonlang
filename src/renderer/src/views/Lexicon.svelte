@@ -62,6 +62,7 @@
     Merge
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -845,7 +846,7 @@
 
     {#if project.categories.length}
       <div class="field">
-        <span class="small muted">{t('lexicon.features')}</span>
+        <span class="small muted">{t('lexicon.features')}</span><HelpDot key="features" />
         {#each project.categories as c (c.id)}
           <label class="row feat">
             <span class="grow small">{pickText(c.name, glossLangs)}</span>
@@ -904,7 +905,9 @@
 
     <div class="field">
       <div class="row">
-        <span class="small muted grow">{t('lexicon.senses')}</span><button
+        <span class="small muted">{t('lexicon.senses')}</span><HelpDot key="senses" /><span
+          class="grow"
+        ></span><button
           class="btn ghost sm"
           onclick={() => {
             l.senses.push(createSense())
@@ -946,7 +949,7 @@
     </div>
 
     <div class="field">
-      <span class="small muted">{t('lexicon.etymology')}</span>
+      <span class="small muted">{t('lexicon.etymology')}</span><HelpDot key="etymology" />
       <EtymologyEditor
         bind:etymology={l.etymology}
         {project}
@@ -959,7 +962,9 @@
 
     <div class="field">
       <div class="row">
-        <span class="small muted grow">{t('lexicon.relations')}</span><button
+        <span class="small muted">{t('lexicon.relations')}</span><HelpDot key="relations" /><span
+          class="grow"
+        ></span><button
           class="btn ghost sm"
           onclick={() => {
             l.relations.push({ kind: 'synonym', lexemeId: '' })
@@ -1016,7 +1021,9 @@
 
     <div class="field">
       <div class="row">
-        <span class="small muted grow">{t('lexicon.stems')}</span><button
+        <span class="small muted">{t('lexicon.stems')}</span><HelpDot key="stems" /><span
+          class="grow"
+        ></span><button
           class="btn ghost sm"
           onclick={() => {
             l.stems[''] = ''
@@ -1049,7 +1056,9 @@
 
     {#if selLang}
       <div class="field">
-        <span class="small muted">{t('lexicon.pronunciations')}</span>
+        <span class="small muted">{t('lexicon.pronunciations')}</span><HelpDot
+          key="pronunciations"
+        />
         {#each selLang.orthographies as o (o.id)}
           <div class="row kv">
             <span class="small oname">{o.name}</span>
@@ -1110,7 +1119,9 @@
 
     <div class="field">
       <div class="row">
-        <span class="small muted grow">{t('lexicon.forms')}</span>
+        <span class="small muted">{t('lexicon.forms')}</span><HelpDot key="forms" /><span
+          class="grow"
+        ></span>
         {#if paradigmOf(l)}<button class="btn ghost sm" onclick={() => deriveNow(l)}
             ><Wand2 size={14} />{t('lexicon.deriveForms')}</button
           >{/if}
@@ -1194,7 +1205,9 @@
 
     <div class="field">
       <div class="row">
-        <span class="small muted grow">{t('images.title')}</span>
+        <span class="small muted">{t('images.title')}</span><HelpDot key="images" /><span
+          class="grow"
+        ></span>
         <button class="btn ghost sm" onclick={() => addImages(l)}
           ><ImagePlus size={14} />{t('images.add')}</button
         >

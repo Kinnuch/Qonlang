@@ -4,7 +4,7 @@
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t, LOCALES } from '$lib/i18n/index.svelte'
-  import { FolderOutput } from '@lucide/svelte'
+  import { Eye, FolderOutput } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -97,6 +97,34 @@
         <input type="checkbox" bind:checked={ui.prefs.reopenLast} onchange={() => ui.savePrefs()} />
         {t('settings.reopenLast')}
       </label>
+      <label class="row check">
+        <input
+          type="checkbox"
+          bind:checked={ui.prefs.highlightDuplicates}
+          onchange={() => ui.savePrefs()}
+        />
+        {t('settings.highlightDuplicates')}
+      </label>
+      <label class="row check">
+        <input
+          type="checkbox"
+          bind:checked={ui.prefs.showHelpDots}
+          onchange={() => ui.savePrefs()}
+        />
+        {t('settings.showHelpDots')}
+      </label>
+      <div class="field">
+        <label for="s-examples">{t('settings.examplesPerEntry')}</label>
+        <input
+          id="s-examples"
+          type="number"
+          min="0"
+          max="20"
+          class="input"
+          bind:value={ui.prefs.examplesPerEntry}
+          onchange={() => ui.savePrefs()}
+        />
+      </div>
     </div>
   </section>
 
@@ -198,6 +226,12 @@
         ><FolderOutput size={16} />{t('settings.exportFolder')}</button
       >
       <span class="small muted">{t('settings.exportFolderDesc')}</span>
+    </div>
+    <div class="row">
+      <button class="btn" onclick={() => projectState.exportReadOnly()}
+        ><Eye size={16} />{t('readonly.export')}</button
+      >
+      <span class="small muted">{t('readonly.exportDesc')}</span>
     </div>
   </section>
 

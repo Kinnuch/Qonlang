@@ -284,6 +284,39 @@ const en: Dict = {
     search: 'Search form, gloss, meaning',
     count: '{n} items'
   },
+  readonly: {
+    badge: 'Read-only',
+    hint: 'This file was exported for viewing only; edits are not saved',
+    blocked: 'Read-only project: changes are not allowed',
+    export: 'Export a read-only copy',
+    exportDesc: 'Save a copy marked read-only, so others can browse but not edit it',
+    exported: 'Read-only copy exported',
+    suffix: 'readonly'
+  },
+  tips: {
+    senses:
+      'One meaning per sense. Lists show them as “1. … 2. …” and dictionary exports keep this order.',
+    etymology:
+      'Reads as “source > stage… > this word”. Pick a type first, then the source: roots come from morphemes, compounds from two lexemes. Stages record historical in-between forms.',
+    relations:
+      'Hand-written links such as synonym or antonym. Picking a lexeme source in the etymology adds a matching relation automatically.',
+    stems: 'Stems used for derivation, e.g. strong and weak. Paradigm generators can name a stem.',
+    pronunciations:
+      'Derived from the orthography rules in Phonology; tick “irregular” to keep a hand-written value.',
+    forms:
+      'Forms produced by the paradigm. Hand-edited ones are marked as overrides and can be reset.',
+    images:
+      'Pictures for the entry, resized on import to the size set in Settings, with optional cropping.',
+    features:
+      'Values for dimensions such as gender, number and case. Paradigms combine them into slots.',
+    extraLines:
+      'Free lines such as a literal translation or a note; they travel with the sentence on export.',
+    corpusExport: 'Export aligned glosses following the Leipzig rules, as Markdown, HTML or LaTeX.',
+    testBench: 'Run one stem through the current paradigm and see every intermediate form.',
+    variants: 'Other ways of saying the same phrase, with a note on when each is used.',
+    tones: 'Tone values and how they are written; they feed into pronunciation derivation.',
+    dialects: 'Dialects only affect tagging and filtering; they do not create a separate language.'
+  },
   lexicon: {
     hint: 'The pronunciation column comes from Phonology orthography rules, the script column from Script mapping rules, and slot panels from Paradigms bound to a part of speech; hovering a word in Corpus jumps back here.',
     title: 'Lexicon',
@@ -329,7 +362,7 @@ const en: Dict = {
     externalLanguage: 'Language',
     externalForm: 'Form',
     externalMeaning: 'Meaning',
-    protoForm: 'Proto-form',
+    protoForm: 'Etymology source',
     stems: 'Stems',
     addStem: 'Add stem',
     stemName: 'Stem name',
@@ -383,7 +416,7 @@ const en: Dict = {
     colPos: 'Part of speech',
     colDefinition: 'Definition',
     colTags: 'Tags',
-    colProto: 'Proto-form',
+    colProto: 'Etymology',
     colPron: 'Pronunciation',
     colUpdated: 'Updated',
     colFeature: 'Dimension',
@@ -457,7 +490,7 @@ const en: Dict = {
       definition: 'Definition',
       tags: 'Tags',
       notes: 'Notes',
-      protoForm: 'Proto-form',
+      protoForm: 'Etymology source',
       etymologyNotes: 'Etymology notes',
       stem: 'Stem',
       form: 'Inflected form',
@@ -829,6 +862,8 @@ const en: Dict = {
     missing: 'Not stored',
     examples: 'Differing examples',
     backToSlots: 'Back to slots',
+    reportHint:
+      'Run every word bound to this paradigm and compare derived forms with what is stored',
     deleted: 'Deleted paradigm “{name}”',
     hint: 'Once a paradigm is bound to a part of speech, entries of that class get a slot panel in the lexicon edit mode; derived forms feed the entry card and corpus glosses. Generators can reference affixes from Morphemes and rule sets from Sound changes.',
     affixHint:
@@ -995,6 +1030,9 @@ const en: Dict = {
     autosave: 'Autosave interval (seconds, 0 = off)',
     backupCount: 'Backups to keep',
     reopenLast: 'Reopen last project on launch',
+    highlightDuplicates: 'Highlight duplicate entries (off leaves only the warning icon)',
+    showHelpDots: 'Show the “?” usage hints next to panels',
+    examplesPerEntry: 'Examples shown under an entry',
     projectName: 'Project name',
     author: 'Author',
     description: 'Description',

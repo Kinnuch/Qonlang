@@ -15,6 +15,7 @@
   import LanguageNode from './LanguageNode.svelte'
   import { Plus, Trash2, Star, X } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -197,7 +198,9 @@
     </div>
     <div class="field">
       <div class="row">
-        <span class="small muted grow">{t('languages.dialects')}</span><button
+        <span class="small muted">{t('languages.dialects')}</span><HelpDot key="dialects" /><span
+          class="grow"
+        ></span><button
           class="btn ghost sm"
           onclick={() => {
             lang.dialects.push({ id: newId(), name: '', abbr: '' })

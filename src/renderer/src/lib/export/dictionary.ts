@@ -62,7 +62,6 @@ export function collectEntries(project: Project, lang: Language, o: DictOptions)
       ...Object.entries(l.forms).map(([k, f]) => ({ label: k, text: f.surface }))
     ].filter((f) => f.text)
     const ety: string[] = []
-    if (l.etymology.protoForm) ety.push('*' + l.etymology.protoForm)
     for (const s of l.etymology.sources) {
       if (s.kind === 'lexeme') ety.push(project.lexemes.find((x) => x.id === s.id)?.lemma ?? '?')
       else if (s.kind === 'morpheme')
@@ -78,7 +77,9 @@ export function collectEntries(project: Project, lang: Language, o: DictOptions)
       script: o.includeScript && script ? lexemeScript(lang, script, l) : '',
       senses,
       forms,
-      etymology: ety.join(' + '),
+      etymology: [ety.join(' + '), ...l.etymology.stages.map((x) => x.form).filter(Boolean)].join(
+        ' > '
+      ),
       initial: first.toLocaleUpperCase()
     }
   })

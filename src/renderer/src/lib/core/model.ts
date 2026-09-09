@@ -44,6 +44,8 @@ export interface ProjectMeta {
   template: ProjectTemplate
   /** 写入该文件的软件版本 */
   appVersion: string
+  /** 纯欣赏模式：导入后只能阅览，不能改动也不会保存 */
+  readOnly?: boolean
 }
 
 export type ProjectTemplate = 'blank' | 'family' | 'lexicanter' | 'csv'

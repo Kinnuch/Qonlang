@@ -11,6 +11,8 @@
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import { Plus, Trash2, X, ChevronUp, ChevronDown } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
+  import EtymologyEditor from '$lib/ui/EtymologyEditor.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -321,6 +323,17 @@
         bind:tags={m.tags}
         suggestions={allTags}
         placeholder={t('lexicon.tagsPlaceholder')}
+        onchange={() => projectState.touch()}
+      />
+    </div>
+    <div class="field">
+      <span class="small muted">{t('lexicon.etymology')}</span><HelpDot key="etymology" />
+      <EtymologyEditor
+        bind:etymology={m.etymology}
+        {project}
+        ownerId={m.id}
+        ownerForm={m.form}
+        {glossLangs}
         onchange={() => projectState.touch()}
       />
     </div>

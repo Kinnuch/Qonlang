@@ -33,6 +33,7 @@
   import Hint from '$lib/ui/Hint.svelte'
   import { Plus, Trash2, X, Wand2, RefreshCw, Copy, List, Code, Check } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -698,7 +699,9 @@
         {#if lang.prosody.type === 'tone'}
           <div class="tones">
             <div class="row">
-              <span class="small muted grow">{t('phonology.tones')}</span><button
+              <span class="small muted">{t('phonology.tones')}</span><HelpDot key="tones" /><span
+                class="grow"
+              ></span><button
                 class="btn ghost sm"
                 onclick={() => {
                   lang!.prosody.tones.push({ id: newId(), name: '', letter: '', digits: '' })

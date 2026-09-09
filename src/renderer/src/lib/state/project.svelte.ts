@@ -99,9 +99,17 @@ class ProjectState {
     return this.target?.name ?? (this.project?.meta.name || t('app.untitled')) + PROJECT_EXTENSION
   }
 
+  /** 纯欣赏模式：文件带只读标记时为真 */
+  get readOnly(): boolean {
+    return !!this.project?.meta.readOnly
+  }
   /** 每次修改项目数据后调用 */
   touch(): void {
     if (!this.project) return
+    if (this.readOnly) {
+      ui.toast(t('readonly.blocked'))
+      return
+    }
     this.project.meta.updatedAt = now()
     this.scheduleCommit()
     if (!this.dirty) {
@@ -198,6 +206,10 @@ class ProjectState {
 
   async save(saveAs = false): Promise<boolean> {
     if (!this.project || this.saving) return false
+    if (this.readOnly && !saveAs) {
+      ui.toast(t('readonly.blocked'))
+      return false
+    }
     this.saving = true
     try {
       const content = serializeProject($state.snapshot(this.project) as Project)
@@ -218,8 +230,18 @@ class ProjectState {
   }
 
   async snapshot(): Promise<void> {
-    if (!this.project || !this.dirty) return
+    if (!this.project || !this.dirty || this.readOnly) return
     await platform.saveSnapshot(serializeProject($state.snapshot(this.project) as Project))
+  }
+
+  /** 纯欣赏模式导出：另存一份带只读标记的项目文件 */
+  async exportReadOnly(): Promise<void> {
+    if (!this.project) return
+    const copy = $state.snapshot(this.project) as Project
+    copy.meta = { ...copy.meta, readOnly: true }
+    const name = (copy.meta.name || 'qonlang') + '-' + t('readonly.suffix') + PROJECT_EXTENSION
+    const ok = await platform.saveTextFile(name, serializeProject(copy))
+    if (ok) ui.toast(t('readonly.exported'))
   }
 
   async exportFolder(): Promise<void> {

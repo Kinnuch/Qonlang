@@ -127,19 +127,21 @@
     </div>
   {/if}
 
-  {#if l.etymology.protoForm || l.etymology.sources.length || l.etymology.notes}
+  {#if l.etymology.sources.length || l.etymology.stages.length || l.etymology.notes}
     <section>
       <h4>{t('lexicon.etymology')}</h4>
       <p class="ety">
         {#if l.etymology.type !== 'unknown'}<span class="muted"
             >{t(`lexicon.etyTypes.${l.etymology.type}`)}</span
           >{/if}
-        {#if l.etymology.protoForm}<span class="data">*{l.etymology.protoForm}</span>{/if}
         {#each l.etymology.sources as s, i (i)}
           {@const st = sourceText(s)}
           <span class="muted">{i === 0 ? '←' : '+'}</span>
           {#if st.id}<button class="link data" onclick={() => onselect?.(st.id!)}>{st.text}</button
             >{:else}<span class="data">{st.text}</span>{/if}
+        {/each}
+        {#each l.etymology.stages as st (st.id)}
+          {#if st.form}<span class="muted">&gt;</span><span class="data">{st.form}</span>{/if}
         {/each}
       </p>
       {#if l.etymology.notes}<p class="small muted">{l.etymology.notes}</p>{/if}

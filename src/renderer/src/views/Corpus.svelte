@@ -38,6 +38,7 @@
     Sparkles
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -655,7 +656,9 @@
     </div>
     <div class="field">
       <div class="row">
-        <span class="small muted grow">{t('corpus.extraLines')}</span><button
+        <span class="small muted">{t('corpus.extraLines')}</span><HelpDot key="extraLines" /><span
+          class="grow"
+        ></span><button
           class="btn ghost sm"
           onclick={() => {
             s.extraLines.push({ label: '', text: '' })
@@ -689,7 +692,9 @@
 
     <div class="field export">
       <div class="row">
-        <span class="small muted grow">{t('corpus.export')}</span>
+        <span class="small muted">{t('corpus.export')}</span><HelpDot key="corpusExport" /><span
+          class="grow"
+        ></span>
         <select class="select fmt" bind:value={exportFormat}>
           {#each ['leipzig', 'markdown', 'html', 'latex', 'template'] as f (f)}<option value={f}
               >{t(`corpus.formats.${f}`)}</option
