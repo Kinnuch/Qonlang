@@ -177,6 +177,7 @@ export function createSentence(languageId: Id): Sentence {
     languageId,
     text: '',
     orthoTexts: {},
+    scriptForms: {},
     translation: {},
     source: '',
     tags: [],

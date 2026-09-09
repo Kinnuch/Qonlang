@@ -51,6 +51,7 @@ src/renderer/    界面（Svelte 5 + TypeScript）
   src/lib/skin/      皮肤预设与可下载字体目录（均为 OFL）
   src/lib/export/    词典导出（HTML / Markdown / PDF / 模板）
   src/views/         各页面
+scripts/         示例项目生成器（make-examples.ts / make-theusrin.ts）
 tests/           Vitest
 docs/            大纲与规则语言文档
 ```

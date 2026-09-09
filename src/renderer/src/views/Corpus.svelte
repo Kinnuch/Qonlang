@@ -24,7 +24,7 @@
   import Hint from '$lib/ui/Hint.svelte'
   import { flashOn } from '$lib/ui/flash'
   import { wordHover } from '$lib/state/wordHover.svelte'
-  import { renderScript } from '$lib/script/render'
+  import { renderScript, sentenceScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
   import {
     Plus,
@@ -429,7 +429,7 @@
             >
           </div>
           {#each language.scripts as sc (sc.id)}
-            {@const st = renderScript(language, sc, s.text)}
+            {@const st = sentenceScript(language, sc, s)}
             {#if st}<div
                 class="scr"
                 style={fontCss(sc)}
@@ -531,7 +531,7 @@
               onkeydown={(e) => e.key === 'Enter' && (selectedId = s.id)}
             >
               {#each language.scripts as sc (sc.id)}
-                {@const st = renderScript(language, sc, s.text)}
+                {@const st = sentenceScript(language, sc, s)}
                 {#if st}<div
                     class="scr"
                     style={fontCss(sc)}
@@ -600,6 +600,31 @@
       <span class="small muted">{t('corpus.translation')}</span>
       <LocalizedInput bind:value={s.translation} languages={glossLangs} onchange={touch} />
     </div>
+    {#if language && language.scripts.length}
+      <div class="field">
+        <span class="small muted">{t('script.override')}</span>
+        {#each language.scripts as sc (sc.id)}
+          <div class="row kv">
+            <span class="small oname">{sc.name}</span>
+            <input
+              class="input scr"
+              style={fontCss(sc)}
+              dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'}
+              value={s.scriptForms?.[sc.id] ?? ''}
+              placeholder={renderScript(language, sc, s.text)}
+              title={t('script.overrideHint')}
+              oninput={(e) => {
+                if (!s.scriptForms) s.scriptForms = {}
+                const v = (e.currentTarget as HTMLInputElement).value
+                if (v) s.scriptForms[sc.id] = v
+                else delete s.scriptForms[sc.id]
+                touch()
+              }}
+            />
+          </div>
+        {/each}
+      </div>
+    {/if}
     {#if language && language.orthographies.length > 1}
       <div class="field">
         <span class="small muted">{t('corpus.orthoTexts')}</span>

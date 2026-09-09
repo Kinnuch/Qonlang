@@ -433,6 +433,8 @@ export interface Sentence {
   text: string
   /** orthographyId → 文本 */
   orthoTexts: Record<Id, string>
+  /** scriptId → 手工指定的文字写法（覆盖自动映射） */
+  scriptForms: Record<Id, string>
   translation: LocalizedText
   source: string
   tags: string[]

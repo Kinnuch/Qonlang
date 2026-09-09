@@ -1,12 +1,11 @@
 /**
  * 生成示例 / 夹具项目文件：
- *   examples/Aelith.laim.json           黏着先验语（虚构测试数据）
- *   examples/Tsahun.laim.json           孤立声调语（虚构测试数据）
- *   examples/private/Theusrin.laim.json 瑟乌丝林语（需要 tests/fixtures/private 里的 CSV，不入库）
+ *   examples/Aelith.laim.json  黏着先验语（虚构测试数据）
+ *   examples/Tsahun.laim.json  孤立声调语（虚构测试数据）
  *
- * 运行：npm run examples
+ * 运行：npm run examples。瑟乌丝林语见 scripts/make-theusrin.ts。
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import {
   createProject,
@@ -15,18 +14,9 @@ import {
   createRuleSet,
   createSentence,
   createScript,
-  newId,
-  now
+  newId
 } from '$lib/core/factory'
 import { serializeProject } from '$lib/core/serialize'
-import { parseCsv } from '$lib/core/csv'
-import {
-  applyCsvImport,
-  defaultMapping,
-  type CsvMapping,
-  type FieldSpec
-} from '$lib/importers/csvImport'
-import { fromYinbianji } from '$lib/engine/sca'
 import { inferFeatures } from '$lib/ipa/features'
 import type { GrammaticalCategory, Id, PartOfSpeech, Project } from '$lib/core/model'
 
@@ -520,24 +510,22 @@ function makeTsahun(): void {
     ].join('\n'),
     isPrimary: false
   })
-  L.phonemes = 'p t k t͡s m n ŋ s h l w j a i u e o'
-    .split(' ')
-    .map((s) => ({
-      id: newId(),
-      symbol: s,
-      features:
-        s === 't͡s'
-          ? {
-              type: 'consonant',
-              voice: 'voiceless',
-              place: 'alveolar',
-              manner: 'affricate',
-              syllabic: 'no'
-            }
-          : inferFeatures(s),
-      graphemes: {},
-      notes: ''
-    }))
+  L.phonemes = 'p t k t͡s m n ŋ s h l w j a i u e o'.split(' ').map((s) => ({
+    id: newId(),
+    symbol: s,
+    features:
+      s === 't͡s'
+        ? {
+            type: 'consonant',
+            voice: 'voiceless',
+            place: 'alveolar',
+            manner: 'affricate',
+            syllabic: 'no'
+          }
+        : inferFeatures(s),
+    graphemes: {},
+    notes: ''
+  }))
   L.classes = [
     { id: newId(), name: 'C', members: 'p t k ts m n ng s h l w j'.split(' '), featureQuery: null },
     { id: newId(), name: 'V', members: 'a i u e o'.split(' '), featureQuery: null }
@@ -641,197 +629,8 @@ function makeTsahun(): void {
   save('Tsahun.laim.json', p)
 }
 
-// ───────────────────────── Theusrin：用户的私有数据 ─────────────────────────
-function makeTheusrin(): void {
-  const priv = join(root, 'tests', 'fixtures', 'private')
-  const fx = join(root, 'tests', 'fixtures')
-  if (!existsSync(join(priv, '瑟乌丝林语词表 - Thsr H..csv'))) {
-    console.log('skip Theusrin: private CSVs not present')
-    return
-  }
-  const read = (f: string): string => readFileSync(f, 'utf8')
-  const p = createProject({
-    name: '瑟乌丝林语',
-    template: 'family',
-    appVersion: '0.1.0',
-    uiLocale: 'zh',
-    familyNames: { proto: '原始希克林语', daughters: ['瑟乌丝林语', '群岛希克林语'] }
-  })
-  const [pskr, tsr, askr] = p.languages
-  pskr.abbr = 'PSkr'
-  tsr.abbr = 'Tsr'
-  askr.abbr = 'ASkr'
-  tsr.color = '#0E9F8A'
-  askr.color = '#3B82F6'
-
-  // 词表里的词干用词表记法（eu、ei、k̂、ĝ、ñ，语素界 -，可选段括号），先一次性转成音变输入记法
-  const notation = [
-    '; 词表记法 → 音变输入记法（在第一个阶段快照之前执行）',
-    'eu > œ / _',
-    'ei > æ / _',
-    'k̂ > c / _',
-    'ĝ > j / _',
-    'ñ > ŋ / _',
-    '[-] > / _',
-    '[(] > / _',
-    '[)] > / _',
-    ''
-  ].join('\n')
-  const rsT = createRuleSet(
-    '原始希克林语 → 瑟乌丝林语',
-    notation +
-      fromYinbianji(
-        read(join(fx, 'theusrin', 'Category.txt')),
-        read(join(fx, 'theusrin', 'Replace.txt')),
-        read(join(fx, 'theusrin', 'Rule.txt'))
-      )
-  )
-  rsT.testWords = read(join(fx, 'theusrin', 'Lexicon.txt')).trim()
-  rsT.stageLanguages = { PSkr: pskr.id, Tsr: tsr.id, Orthography: tsr.id }
-  const rsA = createRuleSet(
-    '原始希克林语 → 群岛希克林语',
-    fromYinbianji(
-      read(join(fx, 'archipelago', 'Category.txt')),
-      read(join(fx, 'archipelago', 'Replace.txt')),
-      read(join(fx, 'archipelago', 'Rule.txt'))
-    )
-  )
-  rsA.stageLanguages = { PSkr: pskr.id }
-  p.ruleSets.push(rsT, rsA)
-
-  const N = pos(p, '名词', 'noun', 'n.')
-  const V = pos(p, '动词', 'verb', 'v.')
-  const A = pos(p, '形容词', 'adjective', 'adj.')
-
-  const imp = (
-    file: string,
-    fields: Record<string, FieldSpec>,
-    target: CsvMapping['target'],
-    languageId: Id,
-    ps: PartOfSpeech | null
-  ): void => {
-    const rows = parseCsv(read(join(priv, file))).rows
-    const m = defaultMapping(languageId, rows[0].length)
-    m.target = target
-    m.columns = rows[0].map((h) => fields[h.trim()] ?? { kind: 'ignore' })
-    const before = p.lexemes.length
-    const r = applyCsvImport(p, rows, m)
-    if (ps) for (const lx of p.lexemes.slice(before)) lx.posId = ps.id
-    console.log(file, '→', r.created, 'created')
-  }
-  imp(
-    '瑟乌丝林语词表 - Thsr H..csv',
-    {
-      原始希克林语: { kind: 'protoForm' },
-      释义: { kind: 'definition', lang: 'zh' },
-      备注: { kind: 'notes' },
-      名词类别: { kind: 'feature', category: '名词类别' },
-      重音类别: { kind: 'feature', category: '重音类别' },
-      字典形: { kind: 'lemma' },
-      强形: { kind: 'stem', name: '强形' },
-      弱形: { kind: 'stem', name: '弱形' },
-      '（中形）': { kind: 'stem', name: '中形' },
-      及物格: { kind: 'form', slot: '及物格' },
-      不及物格: { kind: 'form', slot: '不及物格' },
-      欠格: { kind: 'form', slot: '欠格' },
-      斜格: { kind: 'form', slot: '斜格' },
-      复数: { kind: 'form', slot: '复数' }
-    },
-    'lexemes',
-    tsr.id,
-    N
-  )
-  imp(
-    '瑟乌丝林语词表 - Thsr L..csv',
-    {
-      原始希克林语: { kind: 'protoForm' },
-      释义: { kind: 'definition', lang: 'zh' },
-      前缀点: { kind: 'notes' },
-      动词类别: { kind: 'feature', category: '动词类别' },
-      '字典形/无焦点形': { kind: 'lemma' },
-      强焦点形: { kind: 'form', slot: '强焦点形' },
-      弱焦点形: { kind: 'form', slot: '弱焦点形' },
-      弱失焦形: { kind: 'form', slot: '弱失焦形' },
-      强失焦形: { kind: 'form', slot: '强失焦形' },
-      词干元音: { kind: 'stem', name: '词干元音' },
-      副动词型: { kind: 'form', slot: '副动词型' },
-      动名词: { kind: 'form', slot: '动名词' },
-      动形词: { kind: 'form', slot: '动形词' },
-      动副词: { kind: 'form', slot: '动副词' }
-    },
-    'lexemes',
-    tsr.id,
-    V
-  )
-  imp(
-    '瑟乌丝林语词表 - Thsr X..csv',
-    {
-      原始希克林语: { kind: 'protoForm' },
-      释义: { kind: 'definition', lang: 'zh' },
-      备注: { kind: 'notes' },
-      来源类型: { kind: 'feature', category: '来源类型' },
-      字典形: { kind: 'lemma' },
-      复数: { kind: 'form', slot: '复数' }
-    },
-    'lexemes',
-    tsr.id,
-    A
-  )
-  imp(
-    '瑟乌丝林语词表 - PSkr.csv',
-    {
-      词根: { kind: 'lemma' },
-      释义: { kind: 'definition', lang: 'zh' },
-      备注: { kind: 'notes' },
-      词性: { kind: 'tags' }
-    },
-    'morphemes',
-    pskr.id,
-    null
-  )
-
-  // 名词格范式：祖语词干 + 格缀，从 PSkr 阶段跑完整套音变（用户方法论：及物 强形+s、不及物 强形+m）
-  const kase = category(p, '格', 'case', [
-    ['及物格', 'transitive', 'TR'],
-    ['不及物格', 'intransitive', 'INTR'],
-    ['欠格', 'deficient', 'DEF'],
-    ['斜格', 'oblique', 'OBL']
-  ])
-  const nounP: import('$lib/core/model').Paradigm = {
-    id: newId(),
-    name: { zh: '名词' },
-    dimensionIds: [kase.id],
-    disabledSlots: [],
-    generators: {},
-    inheritsFrom: null
-  }
-  const gen = (
-    stem: string,
-    suffix: string,
-    pre = ''
-  ): import('$lib/core/model').SlotGenerator => ({
-    kind: 'affix-sca',
-    stem,
-    prefix: '',
-    suffix,
-    ruleSetId: rsT.id,
-    fromStage: 'PSkr',
-    toStage: '',
-    pre
-  })
-  nounP.generators[value(kase, 'TR')] = gen('强形', 's')
-  nounP.generators[value(kase, 'INTR')] = gen('强形', 'm')
-  // 欠格：弱形 + wat，在跑音变前脱落 -at
-  nounP.generators[value(kase, 'DEF')] = gen('弱形', 'wat', '-at')
-  nounP.generators[value(kase, 'OBL')] = gen('强形', 'st')
-  p.paradigms.push(nounP)
-  N.paradigmId = nounP.id
-  p.meta.description =
-    '从五张词表和音变姬规则生成；T 表（惯用形 / 限定词 / 数词 / 小品词 / 代词）需在向导里分组导入。'
-  p.meta.updatedAt = now()
-  save(join('private', 'Theusrin.laim.json'), p)
-}
+// 瑟乌丝林语示例项目由 scripts/make-theusrin.ts 单独生成（npm run examples:theusrin），
+// 它直接读站点仓库的语法书与音变规则，内容比这里丰富得多。
 
 makeAelith()
 makeTsahun()
-makeTheusrin()

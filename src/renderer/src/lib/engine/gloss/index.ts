@@ -4,7 +4,7 @@
  */
 import type { Analysis, Id, Lexeme, Morpheme, Project, Sentence, Token } from '$lib/core/model'
 import { paradigmFor, paradigmSlots } from '../morph'
-import { renderScript } from '$lib/script/render'
+import { sentenceScript } from '$lib/script/render'
 
 export interface GlossIndex {
   lemma: Map<string, Lexeme[]>
@@ -306,7 +306,7 @@ export function interlinear(project: Project, s: Sentence, glossLang?: string): 
   const lang = project.languages.find((l) => l.id === s.languageId)
   const scripts = lang
     ? lang.scripts
-        .map((sc) => ({ name: sc.name, scriptId: sc.id, text: renderScript(lang, sc, s.text) }))
+        .map((sc) => ({ name: sc.name, scriptId: sc.id, text: sentenceScript(lang, sc, s) }))
         .filter((x) => x.text)
     : []
   return { words, translation, extra: s.extraLines, scripts }
