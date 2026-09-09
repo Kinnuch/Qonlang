@@ -7,10 +7,11 @@ import {
   net,
   Menu,
   clipboard,
+  screen,
   type MenuItemConstructorOptions
 } from 'electron'
 import { join, basename, dirname } from 'path'
-import { promises as fs } from 'fs'
+import { promises as fs, readFileSync, writeFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
@@ -31,6 +32,11 @@ interface Prefs {
   dismissedHints: string[]
   skin: unknown
   skinPresets: unknown[]
+  lexiconColWidths: Record<string, number>
+  highlightDuplicates: boolean
+  showHelpDots: boolean
+  examplesPerEntry: number
+  panelSizes: Record<string, number>
 }
 const DEFAULT_PREFS: Prefs = {
   locale: 'zh',
@@ -50,7 +56,12 @@ const DEFAULT_PREFS: Prefs = {
     fonts: { ui: '', data: '', mono: '', corpusText: '', corpusTr: '', gloss: '', script: '' },
     mirror: ''
   },
-  skinPresets: []
+  skinPresets: [],
+  lexiconColWidths: {},
+  highlightDuplicates: true,
+  showHelpDots: true,
+  examplesPerEntry: 3,
+  panelSizes: {}
 }
 
 interface RecentEntry {
@@ -62,6 +73,7 @@ interface RecentEntry {
 
 const userData = (): string => app.getPath('userData')
 const prefsFile = (): string => join(userData(), 'prefs.json')
+const windowFile = (): string => join(userData(), 'window.json')
 const recentFile = (): string => join(userData(), 'recent.json')
 const snapshotFile = (): string => join(userData(), 'snapshot.laim.json')
 const backupsDir = (): string => join(userData(), 'Backups')
@@ -148,6 +160,7 @@ async function backup(file: string): Promise<void> {
 let dirty = false
 let forceClose = false
 let mainWindow: BrowserWindow | null = null
+let winStateTimer: ReturnType<typeof setTimeout> | null = null
 
 const dialogText = {
   zh: {
@@ -166,10 +179,63 @@ const dialogText = {
   }
 }
 
+interface WindowState {
+  width: number
+  height: number
+  x?: number
+  y?: number
+  maximized?: boolean
+}
+
+/** 上次关窗时的大小与位置；读不到就用默认值 */
+function readWindowState(): WindowState {
+  try {
+    const raw = readFileSync(windowFile(), 'utf8')
+    const w = JSON.parse(raw) as Partial<WindowState>
+    if (typeof w.width === 'number' && typeof w.height === 'number')
+      return {
+        width: Math.max(900, Math.round(w.width)),
+        height: Math.max(600, Math.round(w.height)),
+        x: typeof w.x === 'number' ? Math.round(w.x) : undefined,
+        y: typeof w.y === 'number' ? Math.round(w.y) : undefined,
+        maximized: !!w.maximized
+      }
+  } catch {
+    // 头一次启动，或者文件坏了，用默认值
+  }
+  return { width: 1280, height: 820 }
+}
+
+function saveWindowState(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const maximized = mainWindow.isMaximized()
+  const b = maximized ? mainWindow.getNormalBounds() : mainWindow.getBounds()
+  try {
+    // 同步写：关窗时进程随即退出，异步写来不及落盘
+    writeFileSync(windowFile(), JSON.stringify({ ...b, maximized }, null, 2), 'utf8')
+  } catch {
+    // 记不住窗口大小不该影响正常使用
+  }
+}
+
+/** 上次的位置可能落在已经拔掉的显示器上，那就只留大小 */
+function onSomeDisplay(x: number, y: number, width: number, height: number): boolean {
+  return screen.getAllDisplays().some((d) => {
+    const a = d.workArea
+    return x < a.x + a.width && x + width > a.x && y < a.y + a.height && y + height > a.y
+  })
+}
+
 function createWindow(): void {
+  const ws = readWindowState()
+  if (ws.x !== undefined && ws.y !== undefined && !onSomeDisplay(ws.x, ws.y, ws.width, ws.height)) {
+    ws.x = undefined
+    ws.y = undefined
+  }
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 820,
+    width: ws.width,
+    height: ws.height,
+    ...(ws.x !== undefined && ws.y !== undefined ? { x: ws.x, y: ws.y } : {}),
     minWidth: 900,
     minHeight: 600,
     show: false,
@@ -183,7 +249,17 @@ function createWindow(): void {
     }
   })
 
+  if (ws.maximized) mainWindow.maximize()
   mainWindow.on('ready-to-show', () => mainWindow?.show())
+  const rememberBounds = (): void => {
+    if (winStateTimer) clearTimeout(winStateTimer)
+    winStateTimer = setTimeout(saveWindowState, 400)
+  }
+  mainWindow.on('resize', rememberBounds)
+  mainWindow.on('move', rememberBounds)
+  mainWindow.on('maximize', rememberBounds)
+  mainWindow.on('unmaximize', rememberBounds)
+  mainWindow.on('close', () => saveWindowState())
 
   mainWindow.on('close', (e) => {
     if (!dirty || forceClose) return
