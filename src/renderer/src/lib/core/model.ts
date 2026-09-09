@@ -463,9 +463,26 @@ export interface Adjust {
   post?: string
 }
 
+/**
+ * 构形的一步。起点只有词干，要加什么就添一步，按顺序依次作用。
+ * 词缀文本可以直接写形式，也可以写 `@语素` 引用语素表（按环境挑异体形）。
+ */
+export type MorphStep =
+  | { id: Id; kind: 'prefix'; text: string }
+  | { id: Id; kind: 'suffix'; text: string }
+  | { id: Id; kind: 'infix'; text: string; at: string }
+  | { id: Id; kind: 'circumfix'; text: string; text2: string }
+  | { id: Id; kind: 'sca'; ruleSetId: Id | null; fromStage: string; toStage: string }
+  | { id: Id; kind: 'pattern'; pattern: string }
+  | { id: Id; kind: 'reduplication'; scope: 'full' | 'initial' | 'final'; length: number }
+  | { id: Id; kind: 'adjust'; text: string }
+
+export type MorphStepKind = MorphStep['kind']
+
 export type SlotGenerator =
   | { kind: 'none' }
   | { kind: 'table' }
+  | { kind: 'pipeline'; stem: string; steps: MorphStep[] }
   | ({
       kind: 'affix'
       stem: string

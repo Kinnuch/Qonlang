@@ -859,6 +859,19 @@ const en: Dict = {
       beforeLast: 'before the last segment'
     },
     slots: 'Slots',
+    pipeline: 'Pipeline (start from the stem, add one step at a time)',
+    addStep: 'Add step',
+    steps: {
+      prefix: 'prefix',
+      suffix: 'suffix',
+      infix: 'infix',
+      circumfix: 'circumfix',
+      sca: 'sound change',
+      pattern: 'pattern',
+      reduplication: 'reduplication',
+      adjust: 'tweak'
+    },
+    adjustPlaceholder: '-at / +u / ^-e / a > e / _#',
     noSlots: 'Pick at least one dimension first.',
     slot: 'Slot',
     gloss: 'gloss',
@@ -866,6 +879,7 @@ const en: Dict = {
     generator: 'Generator',
     params: 'Parameters',
     kinds: {
+      pipeline: 'pipeline',
       none: 'None',
       table: 'Table (manual)',
       affix: 'Affixation',

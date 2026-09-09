@@ -1,8 +1,14 @@
 /**
  * 项目文件的读写：JSON 序列化、版本迁移、基本校验、文件夹格式导出。
  */
-import { SCHEMA_VERSION, type Etymology, type Project } from './model'
-import { createEtymology, createProject } from './factory'
+import {
+  SCHEMA_VERSION,
+  type Etymology,
+  type MorphStep,
+  type Project,
+  type SlotGenerator
+} from './model'
+import { createEtymology, createProject, newId } from './factory'
 
 export const PROJECT_EXTENSION = '.laim.json'
 
@@ -79,7 +85,10 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
     l.etymology = migrateEtymology(l.etymology)
   }
   for (const m of merged.morphemes) m.etymology = migrateEtymology(m.etymology)
-  for (const p of merged.paradigms) if (!Array.isArray(p.variants)) p.variants = []
+  for (const p of merged.paradigms) {
+    if (!Array.isArray(p.variants)) p.variants = []
+    for (const [k, g] of Object.entries(p.generators)) p.generators[k] = toPipeline(g)
+  }
   for (const lang of merged.languages) {
     if (!lang.prosody)
       lang.prosody = { type: 'none', stressPosition: 'initial', rules: '', tones: [] }
@@ -90,6 +99,37 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
     if (!Array.isArray(lang.scripts)) lang.scripts = []
   }
   return merged
+}
+
+/**
+ * 旧版的四种生成器转成流水线：起点是词干，后面按原来的执行顺序排好。
+ * 旧写法仍能跑，转过来只是为了编辑器里统一成「一步一步加」。
+ */
+function toPipeline(g: SlotGenerator): SlotGenerator {
+  if (!g || g.kind === 'none' || g.kind === 'table' || g.kind === 'pipeline') return g
+  type StepBody = { [K in MorphStep as never]: never } & Record<string, unknown>
+  const step = (x: StepBody): MorphStep => ({ id: newId(), ...x }) as unknown as MorphStep
+  const steps: MorphStep[] = []
+  if (g.kind === 'affix' || g.kind === 'affix-sca') {
+    if (g.kind === 'affix' && g.infix)
+      steps.push(step({ kind: 'infix', text: g.infix, at: g.infixAt ?? '' }))
+    if (g.prefix) steps.push(step({ kind: 'prefix', text: g.prefix }))
+    if (g.suffix) steps.push(step({ kind: 'suffix', text: g.suffix }))
+  } else if (g.kind === 'pattern') steps.push(step({ kind: 'pattern', pattern: g.pattern }))
+  else if (g.kind === 'reduplication')
+    steps.push(step({ kind: 'reduplication', scope: g.scope, length: g.length }))
+  if (g.pre) {
+    const adjust = step({ kind: 'adjust', text: g.pre })
+    // 模板与重叠的 pre 原本在动作之前跑
+    if (g.kind === 'pattern' || g.kind === 'reduplication') steps.unshift(adjust)
+    else steps.push(adjust)
+  }
+  if (g.kind === 'affix-sca' && g.ruleSetId)
+    steps.push(
+      step({ kind: 'sca', ruleSetId: g.ruleSetId, fromStage: g.fromStage, toStage: g.toStage })
+    )
+  if (g.post) steps.push(step({ kind: 'adjust', text: g.post }))
+  return { kind: 'pipeline', stem: g.stem ?? '', steps }
 }
 
 /** 旧版的「原始形」并入来源；补上中间态数组 */

@@ -7,7 +7,9 @@ import {
   newId
 } from '$lib/core/factory'
 import { inferFeatures } from '$lib/ipa/features'
-import type { GrammaticalCategory, Paradigm } from '$lib/core/model'
+import type { GrammaticalCategory, MorphStep, Paradigm } from '$lib/core/model'
+import { SCHEMA_VERSION } from '$lib/core/model'
+import { parseProject } from '$lib/core/serialize'
 import {
   paradigmSlots,
   resolveGenerator,
@@ -343,5 +345,75 @@ describe('derive and reconcile', () => {
     const sgAcc = rep.find((r) => r.slot.key === 'sg|acc')!
     expect(sgAcc.same).toBe(1)
     expect(sgAcc.missing).toBe(1)
+  })
+})
+
+describe('pipeline generators', () => {
+  it('runs steps in order: circumfix, reduplication, sound change, tweak', () => {
+    const { p, L, ctx } = setup()
+    const w = createLexeme(L.id, 'kalo')
+    const step = (x: Record<string, unknown>): MorphStep =>
+      ({ id: crypto.randomUUID(), ...x }) as unknown as MorphStep
+    const para: Paradigm = {
+      id: 'pl',
+      name: {},
+      variants: [],
+      dimensionIds: ['num'],
+      disabledSlots: [],
+      generators: {
+        sg: {
+          kind: 'pipeline',
+          stem: '',
+          steps: [step({ kind: 'circumfix', text: 'a-', text2: '-ot' })]
+        },
+        pl: {
+          kind: 'pipeline',
+          stem: '',
+          steps: [
+            step({ kind: 'reduplication', scope: 'initial', length: 2 }),
+            step({ kind: 'suffix', text: '-i' }),
+            step({ kind: 'adjust', text: '-oi' })
+          ]
+        }
+      },
+      inheritsFrom: null
+    }
+    p.paradigms.push(para)
+    const slots = paradigmSlots(para, p.categories, ['zh'])
+    expect(generateForm(ctx, w, para, slots[0])?.surface).toBe('akaloot')
+    // ka + kalo → kakaloi → 去掉词尾 oi
+    expect(generateForm(ctx, w, para, slots[1])?.surface).toBe('kakal')
+  })
+  it('migrates the old generator kinds into an equivalent pipeline', () => {
+    const before = {
+      schemaVersion: SCHEMA_VERSION,
+      meta: { name: 't', template: 'blank', appVersion: '' },
+      paradigms: [
+        {
+          id: 'x',
+          name: {},
+          dimensionIds: [],
+          disabledSlots: [],
+          inheritsFrom: null,
+          generators: {
+            a: {
+              kind: 'affix',
+              stem: 'strong',
+              prefix: 'x-',
+              suffix: '-s',
+              infix: '',
+              infixAt: '',
+              post: '-s'
+            }
+          }
+        }
+      ]
+    }
+    const p = parseProject(JSON.stringify(before))
+    const g = p.paradigms[0].generators.a
+    expect(g.kind).toBe('pipeline')
+    if (g.kind !== 'pipeline') throw new Error('not a pipeline')
+    expect(g.stem).toBe('strong')
+    expect(g.steps.map((s) => s.kind)).toEqual(['prefix', 'suffix', 'adjust'])
   })
 })

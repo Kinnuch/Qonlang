@@ -40,8 +40,25 @@ export function paradigmAffixes(project: Project, languageId: Id): ParadigmAffix
     for (const s of paradigmSlots(p, project.categories, glossLangs, true))
       labels.set(s.key, s.label)
     for (const [key, g] of Object.entries(p.generators)) {
-      if (g.kind !== 'affix' && g.kind !== 'affix-sca') continue
       const slot = labels.get(key.split('#')[0]) ?? ''
+      if (g.kind === 'pipeline') {
+        for (const step of g.steps) {
+          const asPrefix: string[] = []
+          const asSuffix: string[] = []
+          if (step.kind === 'prefix') asPrefix.push(step.text)
+          if (step.kind === 'suffix') asSuffix.push(step.text)
+          if (step.kind === 'circumfix') {
+            asPrefix.push(step.text)
+            asSuffix.push(step.text2)
+          }
+          for (const raw of asPrefix)
+            for (const f of expand(raw)) if (f) prefixes.set(f.toLowerCase(), slot)
+          for (const raw of asSuffix)
+            for (const f of expand(raw)) if (f) suffixes.set(f.toLowerCase(), slot)
+        }
+        continue
+      }
+      if (g.kind !== 'affix' && g.kind !== 'affix-sca') continue
       for (const f of expand(g.prefix ?? '')) if (f) prefixes.set(f.toLowerCase(), slot)
       for (const f of expand(g.suffix ?? '')) if (f) suffixes.set(f.toLowerCase(), slot)
     }

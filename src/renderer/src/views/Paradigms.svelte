@@ -15,10 +15,10 @@
     type SlotReport,
     variantKey
   } from '$lib/engine/morph'
-  import { parseRuleText } from '$lib/engine/sca'
   import Portal from '$lib/ui/Portal.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import Hint from '$lib/ui/Hint.svelte'
+  import SlotPipeline from '$lib/ui/SlotPipeline.svelte'
   import { flashOn } from '$lib/ui/flash'
   let derivedFlash = $state(0)
   import {
@@ -151,10 +151,6 @@
         }
       })
   })
-  const stageNames = (rsId: Id | null): string[] => {
-    const rs = project.ruleSets.find((r) => r.id === rsId)
-    return rs ? parseRuleText(rs.text).markers : []
-  }
 
   $effect(() => {
     inspectorTitle = active
@@ -262,39 +258,10 @@
     if (!active) return
     const cur = active.generators[key]
     const stem = cur && 'stem' in cur ? cur.stem : ''
-    let g: SlotGenerator
-    switch (kind) {
-      case 'affix':
-        g = {
-          kind,
-          stem,
-          prefix: cur && 'prefix' in cur ? cur.prefix : '',
-          suffix: cur && 'suffix' in cur ? cur.suffix : '',
-          infix: '',
-          infixAt: ''
-        }
-        break
-      case 'affix-sca':
-        g = {
-          kind,
-          stem,
-          prefix: cur && 'prefix' in cur ? cur.prefix : '',
-          suffix: cur && 'suffix' in cur ? cur.suffix : '',
-          ruleSetId: project.ruleSets[0]?.id ?? null,
-          fromStage: '',
-          toStage: ''
-        }
-        break
-      case 'pattern':
-        g = { kind, stem, pattern: '' }
-        break
-      case 'reduplication':
-        g = { kind, stem, scope: 'full', length: 1 }
-        break
-      default:
-        g = { kind } as SlotGenerator
-    }
-    active.generators[key] = g
+    active.generators[key] =
+      kind === 'pipeline'
+        ? { kind, stem, steps: cur && cur.kind === 'pipeline' ? cur.steps : [] }
+        : ({ kind } as SlotGenerator)
     touch()
   }
   function isInherited(key: string): boolean {
@@ -526,7 +493,7 @@
               ><tr
                 ><th></th><th>{t('paradigms.slot')}</th><th>{t('paradigms.gloss')}</th><th
                   >{t('paradigms.generator')}</th
-                ><th>{t('paradigms.params')}</th><th>{t('paradigms.adjust')}</th></tr
+                ><th colspan="2">{t('paradigms.pipeline')}</th></tr
               ></thead
             >
             <tbody>
@@ -554,168 +521,26 @@
                           (e.currentTarget as HTMLSelectElement).value as SlotGenerator['kind']
                         )}
                     >
-                      {#each ['none', 'table', 'affix', 'affix-sca', 'pattern', 'reduplication'] as k (k)}<option
-                          value={k}>{t(`paradigms.kinds.${k}`)}</option
+                      {#each ['none', 'table', 'pipeline'] as k (k)}<option value={k}
+                          >{t(`paradigms.kinds.${k}`)}</option
                         >{/each}
                     </select>
                     {#if isInherited(gkey(s.key))}<span class="badge"
                         >{t('paradigms.inherited')}</span
                       >{/if}
                   </td>
-                  <td>
-                    <div class="formula">
-                      <div class="frow">
-                        {#if g.kind === 'affix' || g.kind === 'affix-sca'}
-                          <label class="pf"
-                            ><span>{t('paradigms.prefix')}</span><input
-                              class="input data"
-                              bind:value={g.prefix}
-                              oninput={touch}
-                            /></label
-                          >
-                          <span class="op">+</span>
-                          <label class="pf"
-                            ><span>{t('paradigms.stem')}</span><input
-                              class="input"
-                              list="dl-stems"
-                              placeholder="lemma"
-                              bind:value={g.stem}
-                              oninput={touch}
-                            /></label
-                          >
-                          <span class="op">+</span>
-                          <label class="pf"
-                            ><span>{t('paradigms.suffix')}</span><input
-                              class="input data"
-                              bind:value={g.suffix}
-                              oninput={touch}
-                            /></label
-                          >
-                        {:else if g.kind === 'pattern' || g.kind === 'reduplication'}
-                          <label class="pf"
-                            ><span>{t('paradigms.stem')}</span><input
-                              class="input"
-                              list="dl-stems"
-                              placeholder="lemma"
-                              bind:value={g.stem}
-                              oninput={touch}
-                            /></label
-                          >
-                        {/if}
-                        {#if g.kind === 'affix'}
-                          <span class="op">·</span>
-                          <label class="pf"
-                            ><span>{t('paradigms.infix')}</span><input
-                              class="input data"
-                              bind:value={g.infix}
-                              oninput={touch}
-                            /></label
-                          >
-                          <label class="pf sm"
-                            ><span>{t('paradigms.infixAt')}</span><input
-                              class="input"
-                              list="dl-infix-at"
-                              placeholder="V1"
-                              title={t('paradigms.infixAtHint')}
-                              bind:value={g.infixAt}
-                              oninput={touch}
-                            /></label
-                          >
-                        {/if}
-                      </div>
-                      {#if g.kind === 'affix-sca' || g.kind === 'pattern' || g.kind === 'reduplication'}
-                        <div class="frow">
-                          {#if g.kind === 'affix-sca'}
-                            <span class="op arrow">→</span>
-                            <label class="pf wide"
-                              ><span>{t('paradigms.ruleSet')}</span>
-                              <select class="select" bind:value={g.ruleSetId} onchange={touch}>
-                                <option value={null}>—</option>
-                                {#each project.ruleSets as rs (rs.id)}<option value={rs.id}
-                                    >{rs.name}</option
-                                  >{/each}
-                              </select></label
-                            >
-                            <label class="pf sm"
-                              ><span>{t('paradigms.fromStage')}</span>
-                              <select class="select" bind:value={g.fromStage} onchange={touch}>
-                                <option value="">—</option>
-                                {#each stageNames(g.ruleSetId) as st (st)}<option value={st}
-                                    >{st}</option
-                                  >{/each}
-                              </select></label
-                            >
-                            <label class="pf sm"
-                              ><span>{t('paradigms.toStage')}</span>
-                              <select class="select" bind:value={g.toStage} onchange={touch}>
-                                <option value="">—</option>
-                                {#each stageNames(g.ruleSetId) as st (st)}<option value={st}
-                                    >{st}</option
-                                  >{/each}
-                              </select></label
-                            >
-                          {/if}
-                          {#if g.kind === 'pattern'}
-                            <span class="op arrow">→</span>
-                            <label class="pf wide"
-                              ><span>{t('paradigms.kinds.pattern')}</span><input
-                                class="input data"
-                                placeholder="C1aC2aC3"
-                                title={t('paradigms.patternHint')}
-                                bind:value={g.pattern}
-                                oninput={touch}
-                              /></label
-                            >
-                          {/if}
-                          {#if g.kind === 'reduplication'}
-                            <span class="op arrow">→</span>
-                            <label class="pf"
-                              ><span>{t('paradigms.kinds.reduplication')}</span>
-                              <select class="select" bind:value={g.scope} onchange={touch}>
-                                {#each ['full', 'initial', 'final'] as sc (sc)}<option value={sc}
-                                    >{t(`paradigms.scopes.${sc}`)}</option
-                                  >{/each}
-                              </select></label
-                            >
-                            {#if g.scope !== 'full'}<label class="pf sm"
-                                ><span>{t('paradigms.length')}</span><input
-                                  type="number"
-                                  min="1"
-                                  class="input"
-                                  bind:value={g.length}
-                                  onchange={touch}
-                                /></label
-                              >{/if}
-                          {/if}
-                        </div>
-                      {/if}
-                    </div>
-                  </td>
-                  <td>
-                    <div class="adjust">
-                      {#if g.kind === 'affix-sca' || g.kind === 'pattern' || g.kind === 'reduplication'}
-                        <textarea
-                          class="textarea adj"
-                          rows="1"
-                          placeholder={g.kind === 'affix-sca'
-                            ? t('paradigms.adjustPre')
-                            : t('paradigms.adjustStem')}
-                          title={t('paradigms.adjustHint')}
-                          bind:value={g.pre}
-                          oninput={touch}
-                        ></textarea>
-                      {/if}
-                      {#if g.kind !== 'none' && g.kind !== 'table'}
-                        <textarea
-                          class="textarea adj"
-                          rows="1"
-                          placeholder={t('paradigms.adjustPost')}
-                          title={t('paradigms.adjustHint')}
-                          bind:value={g.post}
-                          oninput={touch}
-                        ></textarea>
-                      {/if}
-                    </div>
+                  <td colspan="2">
+                    {#if g.kind === 'pipeline'}
+                      <SlotPipeline
+                        bind:stem={g.stem}
+                        bind:steps={g.steps}
+                        ruleSets={project.ruleSets}
+                        {stemNames}
+                        onchange={touch}
+                      />
+                    {:else if g.kind === 'table'}
+                      <span class="small muted">{t('paradigms.kinds.table')}</span>
+                    {/if}
                   </td>
                 </tr>
               {/each}
@@ -1014,78 +839,6 @@
     width: 130px;
     padding-top: 3px;
     padding-bottom: 3px;
-  }
-  .formula {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .frow {
-    display: flex;
-    align-items: flex-end;
-    gap: 4px;
-    white-space: nowrap;
-  }
-  .pf {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    width: 96px;
-  }
-  .pf.sm {
-    width: 72px;
-  }
-  .pf.wide {
-    width: 170px;
-  }
-  .pf > span {
-    font-size: 10px;
-    line-height: 1.2;
-    color: var(--text-3);
-    padding-left: 3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .pf .input,
-  .pf .select {
-    height: 28px;
-    padding: 2px 7px;
-    font-size: 13px;
-    border-radius: 6px;
-  }
-  .pf .select {
-    padding-right: 22px;
-    background-position: right 6px center;
-  }
-  .pf .input.data {
-    font-size: 14px;
-  }
-  .op {
-    color: var(--text-3);
-    padding: 0 1px 6px;
-    font-size: 14px;
-    user-select: none;
-  }
-  .op.arrow {
-    color: var(--accent-text);
-    padding-left: 4px;
-  }
-  .adjust {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 150px;
-    padding-top: 17px; /* 与参数列的小标签行对齐 */
-  }
-  .adj {
-    min-height: 28px;
-    height: 28px;
-    padding: 4px 7px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    border-radius: 6px;
-    resize: vertical;
   }
   .slots {
     width: auto;

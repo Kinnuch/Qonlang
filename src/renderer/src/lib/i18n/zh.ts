@@ -827,6 +827,19 @@ export default {
       beforeLast: '最后一个音段之前'
     },
     slots: '槽位',
+    pipeline: '流水线（从词干开始，一步一步加）',
+    addStep: '加一步',
+    steps: {
+      prefix: '前缀',
+      suffix: '后缀',
+      infix: '中缀',
+      circumfix: '环缀',
+      sca: '跑音变',
+      pattern: '模板',
+      reduplication: '重叠',
+      adjust: '微调'
+    },
+    adjustPlaceholder: '-at / +u / ^-e / a > e / _#',
     noSlots: '先选至少一个维度。',
     slot: '槽位',
     gloss: 'gloss',
@@ -834,6 +847,7 @@ export default {
     generator: '生成器',
     params: '参数',
     kinds: {
+      pipeline: '组合',
       none: '无',
       table: '查表（手填）',
       affix: '拼接',

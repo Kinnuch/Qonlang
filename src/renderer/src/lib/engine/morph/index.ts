@@ -4,6 +4,7 @@
  */
 import type {
   GrammaticalCategory,
+  MorphStep,
   Id,
   Language,
   Lexeme,
@@ -311,6 +312,78 @@ export function applyAdjust(
   return s
 }
 
+/** 跑一步：把上一步的结果变成这一步的结果，并记一条轨迹 */
+function runStep(ctx: MorphContext, step: MorphStep, surface: string, trace: string[]): string {
+  const nuclei = nucleusSet(ctx.language)
+  const inventory = ctx.language.phonemes.map((p) => p.symbol)
+  switch (step.kind) {
+    case 'prefix': {
+      const a = resolveAffix(ctx, step.text, surface, 'prefix')
+      if (a.note) trace.push(a.note)
+      surface = a.form + surface
+      trace.push(`前缀 ${step.text}: ${surface}`)
+      return surface
+    }
+    case 'suffix': {
+      const a = resolveAffix(ctx, step.text, surface, 'suffix')
+      if (a.note) trace.push(a.note)
+      surface = surface + a.form
+      trace.push(`后缀 ${step.text}: ${surface}`)
+      return surface
+    }
+    case 'circumfix': {
+      const a = resolveAffix(ctx, step.text, surface, 'prefix')
+      const b = resolveAffix(ctx, step.text2, surface, 'suffix')
+      if (a.note) trace.push(a.note)
+      if (b.note) trace.push(b.note)
+      surface = a.form + surface + b.form
+      trace.push(`环缀 ${step.text}…${step.text2}: ${surface}`)
+      return surface
+    }
+    case 'infix': {
+      const a = resolveAffix(ctx, step.text, surface, 'prefix')
+      surface = insertInfix(surface, trimHyphens(a.form), step.at, nuclei, inventory)
+      trace.push(`中缀 ${step.text} @ ${step.at || 'V1'}: ${surface}`)
+      return surface
+    }
+    case 'pattern': {
+      surface = applyPattern(surface, step.pattern, nuclei, inventory)
+      trace.push(`模板 ${step.pattern}: ${surface}`)
+      return surface
+    }
+    case 'reduplication': {
+      const segs = segment(surface, inventory)
+      const n = Math.max(1, step.length || 1)
+      if (step.scope === 'full') surface = surface + surface
+      else if (step.scope === 'initial') surface = segs.slice(0, n).join('') + surface
+      else surface = surface + segs.slice(-n).join('')
+      trace.push(`重叠 ${step.scope}: ${surface}`)
+      return surface
+    }
+    case 'adjust':
+      return applyAdjust(ctx, surface, step.text, trace, '微调')
+    case 'sca': {
+      if (!step.ruleSetId) return surface
+      const prog = ctx.program(step.ruleSetId)
+      if (!prog) {
+        trace.push('规则集不存在')
+        return surface
+      }
+      const r = runRules(prog, surface, {
+        startAt: step.fromStage || undefined,
+        stopAt: step.toStage || undefined
+      })
+      for (const e of r.trace)
+        trace.push(
+          `${e.before} → ${e.after} (${e.target || '∅'} → ${e.replacement || '∅'}, L${e.line})`
+        )
+      return r.output
+    }
+    default:
+      return surface
+  }
+}
+
 export function generateForm(
   ctx: MorphContext,
   lexeme: Lexeme,
@@ -329,6 +402,11 @@ export function generateForm(
   const trace: string[] = []
   const stem = stemOf(lexeme, g.stem)
   trace.push(`词干 ${stem.note}: ${stem.value}`)
+  if (g.kind === 'pipeline') {
+    let out = stem.value
+    for (const step of g.steps) out = runStep(ctx, step, out, trace)
+    return { surface: out, trace }
+  }
   const nuclei = nucleusSet(ctx.language)
   const inventory = ctx.language.phonemes.map((p) => p.symbol)
   let surface = stem.value
