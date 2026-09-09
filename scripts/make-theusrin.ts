@@ -1097,7 +1097,7 @@ interface LexCand {
 }
 const headForms = p.morphemes
   .filter((m) => m.languageId === Tsr.id && m.type === 'prefix')
-  .map((m) => m.form.replace(/[·\-]/g, '').toLowerCase())
+  .map((m) => m.form.replace(/[·-]/g, '').toLowerCase())
   .filter(Boolean)
 /**
  * 一个词形的各种等价写法：原样、去中点、去掉词头之后的词干。
