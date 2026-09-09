@@ -517,27 +517,6 @@
     display: flex;
     flex-direction: column;
   }
-  .seg {
-    display: inline-flex;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-  }
-  .seg button {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    border: 0;
-    background: var(--bg-elev);
-    padding: 3px 10px;
-    font-size: 13px;
-    cursor: pointer;
-    color: var(--text-2);
-  }
-  .seg button.active {
-    background: var(--accent-soft);
-    color: var(--accent-text);
-  }
   .badge.err {
     background: var(--danger-soft);
     color: var(--danger);

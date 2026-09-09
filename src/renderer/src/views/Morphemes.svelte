@@ -465,8 +465,11 @@
     font-family: var(--font-mono);
     font-size: 12px;
   }
+  .tags-cell {
+    white-space: nowrap;
+  }
   .tags-cell > :global(.badge) {
-    margin: 0 4px 2px 0;
+    margin-right: 3px;
   }
   .card-actions {
     gap: 6px;

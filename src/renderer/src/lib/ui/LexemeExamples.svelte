@@ -49,7 +49,7 @@
 {#if preview.length}
   <div class="field">
     <span class="small muted">{t('lexicon.examples')}</span>
-    {#each preview.slice(0, perEntry) as h (h.kind + h.id + h.text)}
+    {#each preview.slice(0, perEntry) as h, i (h.kind + h.id + i)}
       <button class="ex" onclick={() => jump(h)}>
         <span class="badge">{t(`lexicon.exampleKinds.${h.kind}`)}</span>
         <span class="text data">{h.text}</span>
@@ -79,7 +79,7 @@
         <button class="btn ghost icon" onclick={() => (showAll = false)}><X size={16} /></button>
       </div>
       <div class="list" onscroll={onScroll}>
-        {#each all.slice(0, visible) as h (h.kind + h.id + h.text)}
+        {#each all.slice(0, visible) as h, i (h.kind + h.id + i)}
           <button class="ex" onclick={() => jump(h)}>
             <span class="badge">{t(`lexicon.exampleKinds.${h.kind}`)}</span>
             <span class="text data">{h.text}</span>

@@ -909,6 +909,12 @@
     display: flex;
     gap: 4px;
     overflow-x: auto;
+    /* grow 项默认 min-width:auto，构形一多就把右边的按钮挤出去 */
+    min-width: 0;
+    scrollbar-width: thin;
+  }
+  .tabs .tab {
+    flex: none;
   }
   .tab {
     border: 1px solid transparent;

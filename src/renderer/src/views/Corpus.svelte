@@ -23,7 +23,7 @@
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import { flashOn } from '$lib/ui/flash'
-  import { wordHover } from '$lib/state/wordHover.svelte'
+  import { wordHover, type HoverPart } from '$lib/state/wordHover.svelte'
   import { paradigmAffixes, reverseDerive } from '$lib/engine/morph/reverse'
   import { renderScript, sentenceScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
@@ -194,12 +194,19 @@
   }
   /** 分析没给出词条时：先查词头/词干/屈折形，再剥一层构形词缀重查 */
   function resolveWord(tk: Token): { lexemeId?: Id; morphemeId?: Id } | null {
+    // 1. 用户确认过的分析最可信
+    const a = tk.analyses[tk.chosen]
+    if (tk.confirmed && a?.lexemeId) return { lexemeId: a.lexemeId }
+    const idx = hoverIndexOf()
+    // 2. 同一个写法在别处被确认过，照搬那次的结论
+    const elsewhere = idx?.confirmed.get(tk.surface)?.find((x) => x.lexemeId)
+    if (elsewhere?.lexemeId) return { lexemeId: elsewhere.lexemeId }
     const direct = lexemeOf(tk)
     if (direct) return { lexemeId: direct }
-    const a = tk.analyses[tk.chosen]
-    // 分析里认出的语素也能悬浮
-    const mid = a?.morphs.find((m) => m.morphemeId)?.morphemeId
-    const idx = hoverIndexOf()
+    // 3. 确认过的切分里认出的语素
+    const mid =
+      a?.morphs.find((m) => m.morphemeId)?.morphemeId ??
+      elsewhere?.morphs.find((m) => m.morphemeId)?.morphemeId
     if (idx) {
       const key = tk.surface.normalize('NFC').toLowerCase()
       const hit =
@@ -213,16 +220,45 @@
     }
     return mid ? { morphemeId: mid } : null
   }
+  /**
+   * 悬浮卡底部的切分：优先用这个词已确认的分析，
+   * 每一段能对上语素或词条就挂上，点得开。
+   */
+  function hoverParts(tk: Token): HoverPart[] {
+    const idx = hoverIndexOf()
+    const a =
+      (tk.confirmed ? tk.analyses[tk.chosen] : null) ??
+      idx?.confirmed.get(tk.surface)?.[0] ??
+      tk.analyses[tk.chosen]
+    if (!a || a.morphs.length < 2) return []
+    return a.morphs.map((m) => {
+      if (m.morphemeId) return { label: m.form, gloss: m.gloss, morphemeId: m.morphemeId }
+      const key = m.form
+        .normalize('NFC')
+        .toLowerCase()
+        .replace(/^[-=·']+|[-=·']+$/g, '')
+      const mo = idx?.morphemes.get(key)?.[0]
+      if (mo) return { label: m.form, gloss: m.gloss, morphemeId: mo.id }
+      const lx =
+        idx?.lemma.get(key)?.[0] ?? idx?.forms.get(key)?.[0]?.lexeme ?? idx?.stems.get(key)?.[0]
+      return { label: m.form, gloss: m.gloss, lexemeId: lx?.id ?? null }
+    })
+  }
   /** 便宜的可点判断：重的反推留到真正悬浮时再做 */
   function linkable(tk: Token): boolean {
-    return !!lexemeOf(tk) || !!tk.analyses[tk.chosen]?.morphs.some((m) => m.morphemeId)
+    return (
+      !!lexemeOf(tk) ||
+      (tk.confirmed && (tk.analyses[tk.chosen]?.morphs.length ?? 0) > 0) ||
+      !!tk.analyses[tk.chosen]?.morphs.some((m) => m.morphemeId)
+    )
   }
   function hoverWord(e: MouseEvent, tk: Token): void {
     const target = resolveWord(tk)
     if (!target) return
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    if (target.lexemeId) wordHover.show(target.lexemeId, rect)
-    else if (target.morphemeId) wordHover.showMorpheme(target.morphemeId, rect)
+    const parts = hoverParts(tk)
+    if (target.lexemeId) wordHover.show(target.lexemeId, rect, parts)
+    else if (target.morphemeId) wordHover.showMorpheme(target.morphemeId, rect, parts)
   }
   function clickWord(e: MouseEvent, tk: Token): void {
     const target = resolveWord(tk)
@@ -474,8 +510,7 @@
   {:else}
     <div class="scroll">
       <Hint id="corpus" text={t('corpus.hint')} />
-      {#if selected}
-        {@const s = selected}
+      {#snippet editorPanel(s: Sentence)}
         <div class="card editor" class:fading>
           <div class="row toolbar">
             <span class="small muted grow"
@@ -578,6 +613,10 @@
             <p class="tr">{interlinear(project, s, i18n.locale).translation}</p>
           {/if}
         </div>
+      {/snippet}
+
+      {#if selected && !list.some((x) => x.id === selected.id)}
+        {@render editorPanel(selected)}
       {/if}
 
       {#if list.length === 0}
@@ -585,6 +624,7 @@
       {:else}
         <div class="list">
           {#each list as s (s.id)}
+            {#if selectedId === s.id}{@render editorPanel(s)}{/if}
             {@const c = coverage(s)}
             {@const done = fullyConfirmed(s)}
             <div
@@ -831,24 +871,6 @@
   }
   .page-head {
     gap: 10px;
-  }
-  .seg {
-    display: inline-flex;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-  }
-  .seg button {
-    border: 0;
-    background: var(--bg-elev);
-    padding: 4px 10px;
-    font-size: 13px;
-    cursor: pointer;
-    color: var(--text-2);
-  }
-  .seg button.active {
-    background: var(--accent-soft);
-    color: var(--accent-text);
   }
   .search {
     width: 220px;

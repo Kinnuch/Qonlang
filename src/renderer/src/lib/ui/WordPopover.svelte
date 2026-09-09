@@ -26,11 +26,13 @@
 
   interface Part {
     label: string
-    lexemeId?: Id
-    morphemeId?: Id
+    gloss?: string
+    lexemeId?: Id | null
+    morphemeId?: Id | null
   }
-  /** 词源里的组成部分：复合词的各个词、词根语素等 */
+  /** 组成部分：语料里已确认的切分优先，其次才是词源里的来源 */
   const parts = $derived.by((): Part[] => {
+    if (wordHover.parts.length) return wordHover.parts
     const ety = lexeme?.etymology ?? morpheme?.etymology
     if (!project || !ety) return []
     const out: Part[] = []
@@ -102,11 +104,14 @@
     {#if parts.length}
       <div class="parts">
         <Blocks size={12} />
-        {#each parts as p (p.label + (p.lexemeId ?? p.morphemeId))}
+        {#each parts as p, i (p.label + i)}
           <button
             class="chip"
-            onmouseenter={() => wordHover.swap(p)}
-            onclick={() => wordHover.swap(p)}>{p.label}</button
+            class:plain={!p.lexemeId && !p.morphemeId}
+            title={p.gloss ?? ''}
+            onmouseenter={() => (p.lexemeId || p.morphemeId) && wordHover.swap(p)}
+            onclick={() => (p.lexemeId || p.morphemeId) && wordHover.swap(p)}
+            >{p.label}{#if p.gloss}<span class="pgloss">{p.gloss}</span>{/if}</button
           >
         {/each}
       </div>
@@ -167,6 +172,20 @@
   .parts .chip:hover {
     border-color: var(--accent);
     color: var(--accent);
+  }
+  .parts .chip.plain {
+    cursor: default;
+    color: var(--text-3);
+  }
+  .parts .chip.plain:hover {
+    border-color: var(--border);
+    color: var(--text-3);
+  }
+  .pgloss {
+    margin-left: 4px;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--text-3);
   }
   .foot {
     padding: 8px 12px;

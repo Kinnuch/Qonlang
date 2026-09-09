@@ -50,13 +50,21 @@ export function findExamples(
 ): ExampleHit[] {
   const forms = lexemeForms(lexeme)
   const out: ExampleHit[] = []
+  // 同一条出处只列一次（文档里重复的行、同句多次命中都算一条）
+  const seen = new Set<string>()
+  const push = (h: ExampleHit): void => {
+    const key = h.kind + '|' + h.id + '|' + h.text
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push(h)
+  }
   const done = (): boolean => out.length >= limit
 
   for (const s of project.sentences) {
     if (s.languageId !== lexeme.languageId) continue
     const byAnalysis = s.tokens.some((tk) => tk.analyses[tk.chosen]?.lexemeId === lexeme.id)
     if (!byAnalysis && !hasWord(s.text, forms)) continue
-    out.push({
+    push({
       kind: 'sentence',
       id: s.id,
       text: s.text,
@@ -68,7 +76,7 @@ export function findExamples(
   for (const p of project.phrasebook) {
     if (p.languageId !== lexeme.languageId) continue
     if (!hasWord(p.text, forms) && !p.variants.some((v) => hasWord(v.text, forms))) continue
-    out.push({
+    push({
       kind: 'phrase',
       id: p.id,
       text: p.text,
@@ -81,7 +89,7 @@ export function findExamples(
     if (d.languageId && d.languageId !== lexeme.languageId) continue
     for (const line of d.markdown.split(/\n+/)) {
       if (!hasWord(line, forms)) continue
-      out.push({ kind: 'doc', id: d.id, text: line.trim(), translation: '', where: d.title })
+      push({ kind: 'doc', id: d.id, text: line.trim(), translation: '', where: d.title })
       if (done()) return out
     }
   }

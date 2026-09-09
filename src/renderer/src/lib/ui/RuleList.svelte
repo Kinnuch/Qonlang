@@ -670,7 +670,7 @@
                     {#key replayKey}
                       <span class="morph data">
                         <span>{preview.diff.prefix}</span>
-                        <span class="seg">
+                        <span class="diff-seg">
                           <span class="old">{preview.diff.beforeMid || '∅'}</span>
                           <span class="new">{preview.diff.afterMid || '∅'}</span>
                         </span>
@@ -942,7 +942,7 @@
     display: inline-flex;
     align-items: baseline;
   }
-  .seg {
+  .diff-seg {
     display: inline-flex;
     align-items: baseline;
     gap: 2px;
@@ -950,11 +950,11 @@
     border-radius: 4px;
     background: var(--accent-soft);
   }
-  .seg .old {
+  .diff-seg .old {
     color: var(--danger);
     animation: strike 1.6s ease forwards;
   }
-  .seg .new {
+  .diff-seg .new {
     display: inline-block;
     color: var(--accent-text);
     font-weight: 600;

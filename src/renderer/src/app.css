@@ -340,3 +340,31 @@ kbd {
   overflow: hidden;
   clip: rect(0 0 0 0);
 }
+
+/* 分段按钮组（显示 / 录入、列表 / 源代码、变体切换……各页面统一） */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: var(--bg-elev);
+  padding: 4px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.seg button:hover {
+  background: var(--bg-hover);
+}
+.seg button.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
