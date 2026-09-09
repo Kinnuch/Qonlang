@@ -327,7 +327,9 @@
       />
     </div>
     <div class="field">
-      <span class="small muted">{t('lexicon.etymology')}</span><HelpDot key="etymology" />
+      <div class="row">
+        <span class="small muted">{t('lexicon.etymology')}</span><HelpDot key="etymology" />
+      </div>
       <EtymologyEditor
         bind:etymology={m.etymology}
         {project}

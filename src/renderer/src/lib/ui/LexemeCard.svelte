@@ -91,7 +91,7 @@
     {#if features.length || dialects.length}
       <div class="chips">
         {#each features as f (f.cat)}<span class="chip" title={f.cat}
-            >{f.val}{#if f.abbr}<span class="tiny">{f.abbr}</span>{/if}</span
+            >{f.val}{#if f.abbr && f.abbr !== f.val}<span class="tiny">{f.abbr}</span>{/if}</span
           >{/each}
         {#each dialects as d (d.id)}<span class="chip dia">{d.name}</span>{/each}
       </div>

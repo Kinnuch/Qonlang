@@ -589,6 +589,9 @@ const en: Dict = {
     },
     allCategories: 'All',
     noGlyphs: 'No glyphs yet. Import a font or paste a glyph list.',
+    bulkCategory: 'Set category',
+    bulkCategoryPrompt: 'Category for the selected glyphs? (empty clears it)',
+    bulkDeleted: 'Deleted {n} glyphs',
     rulesHint:
       'Same rule language as sound changes. The `@glyphs` line expands to the mapping generated from the glyph table (longest transliteration first); rules before it run first, rules after it run last.',
     autoRules: 'Automatic mapping (from the glyph table, {n} rules)',
@@ -816,7 +819,7 @@ const en: Dict = {
       'No paradigms yet. Create one, pick dimensions, give each slot a generator, then bind it to parts of speech.',
     dimensions: 'Dimensions',
     dimensionsHint:
-      'Pick from the grammatical dimensions defined under Lexicon → Parts of speech & dimensions; their ordered cartesian product gives the slots.',
+      'Dimensions are the categories a word varies by, such as number, case or tense. Define them under Lexicon → Parts of speech & dimensions, then pick them here in order.',
     variants: 'Variants',
     variantBase: 'Base',
     addVariant: 'New variant',

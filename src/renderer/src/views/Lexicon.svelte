@@ -851,7 +851,9 @@
 
     {#if project.categories.length}
       <div class="field">
-        <span class="small muted">{t('lexicon.features')}</span><HelpDot key="features" />
+        <div class="row">
+          <span class="small muted">{t('lexicon.features')}</span><HelpDot key="features" />
+        </div>
         {#each project.categories as c (c.id)}
           <label class="row feat">
             <span class="grow small">{pickText(c.name, glossLangs)}</span>
@@ -954,7 +956,9 @@
     </div>
 
     <div class="field">
-      <span class="small muted">{t('lexicon.etymology')}</span><HelpDot key="etymology" />
+      <div class="row">
+        <span class="small muted">{t('lexicon.etymology')}</span><HelpDot key="etymology" />
+      </div>
       <EtymologyEditor
         bind:etymology={l.etymology}
         {project}
@@ -1061,9 +1065,11 @@
 
     {#if selLang}
       <div class="field">
-        <span class="small muted">{t('lexicon.pronunciations')}</span><HelpDot
-          key="pronunciations"
-        />
+        <div class="row">
+          <span class="small muted">{t('lexicon.pronunciations')}</span><HelpDot
+            key="pronunciations"
+          />
+        </div>
         {#each selLang.orthographies as o (o.id)}
           <div class="row kv">
             <span class="small oname">{o.name}</span>

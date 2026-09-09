@@ -67,6 +67,9 @@
   let tab = $state<Tab>('glyphs')
   let selectedScript = $state<string | null>(null)
   let selectedGlyph = $state<string | null>(null)
+  /** Ctrl / Shift 多选出来的字形 */
+  let multiGlyphs = $state<string[]>([])
+  let lastGlyphIndex = $state(-1)
   let catFilter = $state<string>('')
   let rulesView = $state<'list' | 'source'>('list')
   let pasteOpen = $state(false)
@@ -176,6 +179,46 @@
     selectedGlyph = g.id
     touch()
     queueMicrotask(() => document.getElementById('g-char')?.focus())
+  }
+  function pickGlyph(e: MouseEvent, g: Glyph, i: number): void {
+    if (e.shiftKey && lastGlyphIndex >= 0) {
+      const [a, b] = [Math.min(lastGlyphIndex, i), Math.max(lastGlyphIndex, i)]
+      multiGlyphs = shownGlyphs.slice(a, b + 1).map((x) => x.id)
+    } else if (e.ctrlKey || e.metaKey) {
+      multiGlyphs = multiGlyphs.includes(g.id)
+        ? multiGlyphs.filter((x) => x !== g.id)
+        : [...multiGlyphs, g.id]
+      lastGlyphIndex = i
+    } else {
+      multiGlyphs = []
+      lastGlyphIndex = i
+    }
+    selectedGlyph = g.id
+  }
+  function removeSelectedGlyphs(): void {
+    if (!script || multiGlyphs.length < 2) return
+    const ids = new Set(multiGlyphs)
+    const snap = $state.snapshot(script.glyphs) as Glyph[]
+    script.glyphs = script.glyphs.filter((g) => !ids.has(g.id))
+    if (selectedGlyph && ids.has(selectedGlyph)) selectedGlyph = null
+    multiGlyphs = []
+    touch()
+    ui.toast(t('script.bulkDeleted', { n: ids.size }), {
+      action: {
+        label: t('common.undo'),
+        run: () => {
+          if (script) script.glyphs = snap
+          touch()
+        }
+      }
+    })
+  }
+  async function categorizeSelectedGlyphs(): Promise<void> {
+    if (!script || !multiGlyphs.length) return
+    const cat = (await ui.prompt(t('script.bulkCategoryPrompt'), ''))?.trim()
+    if (cat === undefined || cat === null) return
+    for (const g of script.glyphs) if (multiGlyphs.includes(g.id)) g.category = cat
+    touch()
   }
   function removeGlyph(g: Glyph): void {
     if (!script) return
@@ -356,15 +399,29 @@
             >{/each}
         </div>
       {/if}
+      {#if multiGlyphs.length > 1}
+        <div class="row bulk">
+          <span class="small">{t('lexicon.selectedN', { n: multiGlyphs.length })}</span>
+          <button class="btn ghost sm" onclick={categorizeSelectedGlyphs}
+            >{t('script.bulkCategory')}</button
+          >
+          <button class="btn ghost sm danger" onclick={removeSelectedGlyphs}
+            ><Trash2 size={14} />{t('common.delete')}</button
+          >
+          <button class="btn ghost sm" onclick={() => (multiGlyphs = [])}
+            >{t('lexicon.clearSel')}</button
+          >
+        </div>
+      {/if}
       {#if script.glyphs.length === 0}
         <p class="muted">{t('script.noGlyphs')}</p>
       {:else}
         <div class="grid" use:flashOn={importedFlash}>
-          {#each shownGlyphs as g (g.id)}
+          {#each shownGlyphs as g, gi (g.id)}
             <button
               class="gcard"
-              class:sel={selectedGlyph === g.id}
-              onclick={() => (selectedGlyph = g.id)}
+              class:sel={selectedGlyph === g.id || multiGlyphs.includes(g.id)}
+              onclick={(e) => pickGlyph(e, g, gi)}
               title={g.name}
             >
               <span class="gchar" style={fontCss(script)}>{g.char || '·'}</span>
@@ -596,6 +653,10 @@
 {/if}
 
 <style>
+  .bulk {
+    gap: 8px;
+    padding: 4px 0;
+  }
   .page {
     padding: 20px 24px;
     display: flex;

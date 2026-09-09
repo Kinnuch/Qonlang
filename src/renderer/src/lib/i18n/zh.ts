@@ -566,6 +566,9 @@ export default {
     },
     allCategories: '全部',
     noGlyphs: '还没有字形。导入字体，或粘贴字符表。',
+    bulkCategory: '批量改分类',
+    bulkCategoryPrompt: '把选中的字形归到哪个分类？（留空表示清除）',
+    bulkDeleted: '已删除 {n} 个字形',
     rulesHint:
       '规则语言与音变页相同。`@glyphs` 那一行会展开成字形表自动生成的映射（转写值长的优先）；在它前面写的规则先执行，后面的规则后执行。',
     autoRules: '自动映射（由字形表生成，{n} 条）',
@@ -784,7 +787,8 @@ export default {
     untitled: '未命名构形',
     empty: '还没有构形。新建一个，选维度、给每个槽位配生成器，再绑定到词类。',
     dimensions: '维度',
-    dimensionsHint: '从「词库 → 词类与维度」里定义的语法维度中选取，按顺序做笛卡尔积得到槽位。',
+    dimensionsHint:
+      '维度就是词会跟着变的分类，比如数、格、时态。先在「词库 → 词类与维度」里定义，再按顺序挑到这里。',
     variants: '变体',
     variantBase: '通用',
     addVariant: '新建变体',
