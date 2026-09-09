@@ -375,9 +375,10 @@
     font-size: 10px;
     line-height: 1.1;
     text-align: center;
-    padding: 0 3px;
+    padding: 0 2px;
     max-width: 100%;
-    overflow-wrap: anywhere;
+    overflow-wrap: normal;
+    word-break: keep-all;
   }
   .topbar {
     grid-area: top;

@@ -32,7 +32,7 @@
   --font-corpus-tr: var(--font-ui);
   --font-gloss: var(--font-mono);
   --font-script: var(--font-data);
-  --nav-w: 64px;
+  --nav-w: 72px;
   --topbar-h: 44px;
   --inspector-w: 360px;
   color-scheme: light;
