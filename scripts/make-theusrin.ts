@@ -25,7 +25,8 @@ import {
   createSentence,
   createProject,
   newId,
-  now
+  now,
+  createSense
 } from '$lib/core/factory'
 import { serializeProject } from '$lib/core/serialize'
 import { parseCsv } from '$lib/core/csv'
@@ -40,7 +41,8 @@ import type {
   Paradigm,
   PartOfSpeech,
   Project,
-  SlotGenerator
+  SlotGenerator,
+  Etymology
 } from '$lib/core/model'
 
 const root = join(__dirname, '..')
@@ -728,6 +730,7 @@ const nounParadigm: Paradigm = {
   id: newId(),
   name: { zh: '名词变格', en: 'noun declension' },
   dimensionIds: [catNumber.id, catCase.id],
+  variants: [],
   disabledSlots: [],
   generators: {},
   inheritsFrom: null
@@ -772,6 +775,7 @@ const verbParadigm: Paradigm = {
   id: newId(),
   name: { zh: '动词焦点', en: 'verb focus' },
   dimensionIds: [catFocus.id],
+  variants: [],
   disabledSlots: [],
   generators: {},
   inheritsFrom: null
@@ -784,6 +788,7 @@ const adjParadigm: Paradigm = {
   id: newId(),
   name: { zh: '形容词', en: 'adjective' },
   dimensionIds: [catNumber.id],
+  variants: [],
   disabledSlots: [`${val(catNumber, 'DU')}`],
   generators: {
     [val(catNumber, 'SG')]: { kind: 'none' },
@@ -815,6 +820,28 @@ function splitDefinition(x: string): { def: string; etym: string } {
   if (i < 0) return { def: x, etym: '' }
   return { def: x.slice(i + 3).trim(), etym: x.slice(0, i).trim() }
 }
+/** 释义按中英文分号拆成多个义项，去掉原有编号 */
+function setSenses(l: Lexeme, text: string): void {
+  const parts = (text ?? '')
+    .split(/[;；]/)
+    .map((x) => x.trim().replace(/^\d+\s*[、.．)）]\s*/, ''))
+    .filter(Boolean)
+  if (!parts.length) return
+  l.senses[0].definition = { zh: parts[0] }
+  for (const d of parts.slice(1)) l.senses.push({ ...createSense(), definition: { zh: d } })
+}
+/** 原始希克林语那一列：`A > B > C` 拆成来源 A 与中间态 B、C */
+function protoEtymology(form: string): Pick<Etymology, 'sources' | 'stages'> {
+  const parts = (form ?? '')
+    .split('>')
+    .map((x) => x.trim())
+    .filter(Boolean)
+  if (!parts.length) return { sources: [], stages: [] }
+  return {
+    sources: [{ kind: 'external', language: '原始希克林语', form: parts[0], meaning: '' }],
+    stages: parts.slice(1).map((f) => ({ id: newId(), form: f, type: 'soundChange', notes: '' }))
+  }
+}
 const setForm = (l: Lexeme, slot: string, surface: string) => {
   const s = surface.trim()
   if (s) l.forms[slot] = { surface: s, derived: false, override: true, trace: [] }
@@ -834,11 +861,10 @@ const label = (numAbbr: string, caseAbbr: string) => {
     const l = createLexeme(Tsr.id, lemma)
     l.posId = N.id
     const { def, etym } = splitDefinition(r['释义'] ?? '')
-    l.senses[0].definition = { zh: def || r['释义'] || '' }
+    setSenses(l, def || r['释义'] || '')
     l.etymology = {
       type: r['备注']?.includes('借词') ? 'borrowing' : 'inherited',
-      sources: [],
-      protoForm: r['原始希克林语'] ?? '',
+      ...protoEtymology(r['原始希克林语'] ?? ''),
       notes: [etym && `构词：${etym}`, r['备注']].filter(Boolean).join('；')
     }
     if (r['名词类别']) {
@@ -889,11 +915,10 @@ const label = (numAbbr: string, caseAbbr: string) => {
     if (!lemma) continue
     const l = createLexeme(Tsr.id, lemma)
     l.posId = V.id
-    l.senses[0].definition = { zh: r['释义'] ?? '' }
+    setSenses(l, r['释义'] ?? '')
     l.etymology = {
       type: 'inherited',
-      sources: [],
-      protoForm: r['原始希克林语'] ?? '',
+      ...protoEtymology(r['原始希克林语'] ?? ''),
       notes: r['前缀点'] ? `前缀点：${r['前缀点']}` : ''
     }
     const cls = (r['动词类别'] ?? '').split(/[,，]/)[0]?.trim()
@@ -930,11 +955,10 @@ const label = (numAbbr: string, caseAbbr: string) => {
     const l = createLexeme(Tsr.id, lemma)
     l.posId = A.id
     const { def, etym } = splitDefinition(r['释义'] ?? '')
-    l.senses[0].definition = { zh: def || r['释义'] || '' }
+    setSenses(l, def || r['释义'] || '')
     l.etymology = {
       type: 'derivation',
-      sources: [],
-      protoForm: r['原始希克林语'] ?? '',
+      ...protoEtymology(r['原始希克林语'] ?? ''),
       notes: [etym && `构词：${etym}`, r['备注']].filter(Boolean).join('；')
     }
     if (r['来源类型']) {

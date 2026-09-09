@@ -330,6 +330,7 @@ function makeAelith(): void {
       id: newId(),
       name: { zh: '名词', en: 'noun' },
       dimensionIds: [num.id, kase.id],
+      variants: [],
       disabledSlots: [],
       generators: {},
       inheritsFrom: null
@@ -345,6 +346,7 @@ function makeAelith(): void {
       id: newId(),
       name: { zh: '动词', en: 'verb' },
       dimensionIds: [polarity.id, tense.id, person.id],
+      variants: [],
       disabledSlots: [],
       generators: {},
       inheritsFrom: null
