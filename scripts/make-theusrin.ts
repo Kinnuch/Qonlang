@@ -11,7 +11,6 @@
  *
  * 输出 examples/private/Theusrin.laim.json（私有词表，默认不进版本库）。
  */
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import {
