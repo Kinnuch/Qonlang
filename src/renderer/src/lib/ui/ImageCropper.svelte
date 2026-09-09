@@ -25,26 +25,17 @@
   const dispH = $derived(img.naturalHeight * scale)
   const aspect = $derived(size.width / size.height)
 
-  // 裁剪框（显示坐标系）
-  let cw = $state(0)
-  let ch = $state(0)
-  let cx = $state(0)
-  let cy = $state(0)
+  // 裁剪框（显示坐标系）：只有 zoom 与拖动偏移是状态，尺寸与位置全部由它们推出，
+  // 避免两个 $effect 互相写入造成无限更新（effect_update_depth_exceeded）
   let zoom = $state(1) // 1 = 最大可能的裁剪框
+  let panX = $state<number | null>(null) // null = 尚未拖动过，居中
+  let panY = $state<number | null>(null)
   const maxW = $derived(Math.min(dispW, dispH * aspect))
-  $effect(() => {
-    cw = maxW * zoom
-    ch = cw / aspect
-    cx = Math.min(Math.max(0, cx), dispW - cw)
-    cy = Math.min(Math.max(0, cy), dispH - ch)
-  })
-  $effect(() => {
-    // 首次居中
-    cw = maxW
-    ch = cw / aspect
-    cx = (dispW - cw) / 2
-    cy = (dispH - ch) / 2
-  })
+  const cw = $derived(maxW * zoom)
+  const ch = $derived(cw / aspect)
+  const clamp = (v: number, max: number): number => Math.min(Math.max(0, v), Math.max(0, max))
+  const cx = $derived(panX === null ? (dispW - cw) / 2 : clamp(panX, dispW - cw))
+  const cy = $derived(panY === null ? (dispH - ch) / 2 : clamp(panY, dispH - ch))
 
   let dragging = false
   let sx = 0
@@ -61,8 +52,8 @@
   }
   function move(e: PointerEvent): void {
     if (!dragging) return
-    cx = Math.min(Math.max(0, ox + e.clientX - sx), dispW - cw)
-    cy = Math.min(Math.max(0, oy + e.clientY - sy), dispH - ch)
+    panX = clamp(ox + e.clientX - sx, dispW - cw)
+    panY = clamp(oy + e.clientY - sy, dispH - ch)
   }
   function up(): void {
     dragging = false

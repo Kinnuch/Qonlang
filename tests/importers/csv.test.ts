@@ -71,7 +71,9 @@ describe('csv import', () => {
     expect(kama.lemma).toBe('kama')
     expect(kama.senses[0].definition.zh).toBe('房子')
     expect(kama.tags).toEqual(['基础', '常用'])
-    expect(kama.etymology.protoForm).toBe('kam-a')
+    expect(kama.etymology.sources).toEqual([
+      { kind: 'external', language: '', form: 'kam-a', meaning: '' }
+    ])
     expect(Object.keys(kama.features)).toHaveLength(1)
     expect(p.posList.find((x) => x.id === kama.posId)?.name.zh).toBe('名词')
   })

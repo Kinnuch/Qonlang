@@ -1,8 +1,8 @@
 /**
  * 项目文件的读写：JSON 序列化、版本迁移、基本校验、文件夹格式导出。
  */
-import { SCHEMA_VERSION, type Project } from './model'
-import { createProject } from './factory'
+import { SCHEMA_VERSION, type Etymology, type Project } from './model'
+import { createEtymology, createProject } from './factory'
 
 export const PROJECT_EXTENSION = '.laim.json'
 
@@ -76,7 +76,9 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
     if (!Array.isArray(l.relations)) l.relations = []
     if (!l.scriptForms || typeof l.scriptForms !== 'object') l.scriptForms = {}
     if (!Array.isArray(l.images)) l.images = []
+    l.etymology = migrateEtymology(l.etymology)
   }
+  for (const m of merged.morphemes) m.etymology = migrateEtymology(m.etymology)
   for (const lang of merged.languages) {
     if (!lang.prosody)
       lang.prosody = { type: 'none', stressPosition: 'initial', rules: '', tones: [] }
@@ -87,6 +89,22 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
     if (!Array.isArray(lang.scripts)) lang.scripts = []
   }
   return merged
+}
+
+/** 旧版的「原始形」并入来源；补上中间态数组 */
+function migrateEtymology(e: Etymology | undefined): Etymology {
+  const ety = e ?? createEtymology()
+  if (!Array.isArray(ety.sources)) ety.sources = []
+  if (!Array.isArray(ety.stages)) ety.stages = []
+  if (typeof ety.type !== 'string') ety.type = 'unknown'
+  if (typeof ety.notes !== 'string') ety.notes = ''
+  const proto = (ety.protoForm ?? '').trim()
+  if (proto) {
+    if (!ety.sources.length)
+      ety.sources.push({ kind: 'external', language: '', form: proto, meaning: '' })
+    delete ety.protoForm
+  }
+  return ety
 }
 
 /**

@@ -134,7 +134,10 @@ export function applyEvolution(
       l.etymology = {
         type: 'inherited',
         sources: [{ kind: 'lexeme', id: src.id }],
-        protoForm: r.input,
+        stages:
+          r.input === src.lemma
+            ? []
+            : [{ id: crypto.randomUUID(), form: r.input, type: 'soundChange', notes: '' }],
         notes: o.ruleSet.name
       }
       if (a.copySenses) {
@@ -153,7 +156,10 @@ export function applyEvolution(
       l.etymology = {
         type: 'inherited',
         sources: [{ kind: 'morpheme', id: src.id }],
-        protoForm: r.input,
+        stages:
+          r.input === src.form
+            ? []
+            : [{ id: crypto.randomUUID(), form: r.input, type: 'soundChange', notes: '' }],
         notes: o.ruleSet.name
       }
       if (a.copySenses) {

@@ -16,7 +16,8 @@ import {
   type Phrase,
   type DocPage,
   type Script,
-  type Sense
+  type Sense,
+  type Etymology
 } from './model'
 
 export function newId(): Id {
@@ -110,6 +111,10 @@ export function createLanguage(init: Partial<Language> & { name: string }): Lang
   }
 }
 
+export function createEtymology(): Etymology {
+  return { type: 'unknown', sources: [], stages: [], notes: '' }
+}
+
 export function createSense(): Sense {
   return { id: newId(), definition: {}, tags: [], dialectIds: [], register: '', examples: [] }
 }
@@ -125,7 +130,7 @@ export function createLexeme(languageId: Id, lemma = ''): Lexeme {
     tags: [],
     dialectIds: [],
     senses: [createSense()],
-    etymology: { type: 'unknown', sources: [], protoForm: '', notes: '' },
+    etymology: createEtymology(),
     stems: {},
     forms: {},
     pronunciations: {},
@@ -150,7 +155,8 @@ export function createMorpheme(languageId: Id, type: MorphemeType = 'root'): Mor
     meaning: {},
     features: {},
     tags: [],
-    notes: ''
+    notes: '',
+    etymology: createEtymology()
   }
 }
 

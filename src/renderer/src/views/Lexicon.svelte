@@ -9,6 +9,8 @@
   import { lexemesToRows, morphemesToRows } from '$lib/importers/csvImport'
   import { parseLexc, mergeLexicanter } from '$lib/importers/lexicanter'
   import { derivePronunciations } from '$lib/core/pronounce'
+  import { etymologyOrigin } from '$lib/core/etymology'
+  import LexemeExamples from '$lib/ui/LexemeExamples.svelte'
   import { lexemeScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
   import {
@@ -18,7 +20,13 @@
     makeContext,
     type SlotDef
   } from '$lib/engine/morph'
-  import type { EtymologySource, Id, Lexeme, Paradigm, Script } from '$lib/core/model'
+  import {
+    ETYMOLOGY_TYPES,
+    type Id,
+    type Lexeme,
+    type Paradigm,
+    type Script
+  } from '$lib/core/model'
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
@@ -29,6 +37,7 @@
   import ImageCropper from '$lib/ui/ImageCropper.svelte'
   import { prepareImage } from '$lib/core/images'
   import { newId } from '$lib/core/factory'
+  import EtymologyEditor from '$lib/ui/EtymologyEditor.svelte'
   import LexemeCard from '$lib/ui/LexemeCard.svelte'
   import LexemeGraph from '$lib/ui/LexemeGraph.svelte'
   import Taxonomy from './Taxonomy.svelte'
@@ -49,7 +58,8 @@
     RotateCcw,
     ChevronUp,
     ChevronDown,
-    ImagePlus
+    ImagePlus,
+    Merge
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
 
@@ -69,6 +79,11 @@
   let tagFilter = $state('')
   let sort = $state<'alphabet' | 'recent' | 'pos' | 'custom'>('alphabet')
   let limit = $state(300)
+  /** Ctrl / Shift 多选出来的词条 */
+  let multiIds = $state<Id[]>([])
+  let lastIndex = $state(-1)
+  /** 从别处跳转过来时短暂高亮 */
+  let flashId = $state<Id | null>(null)
 
   $effect(() => {
     if (ui.pendingImport === 'csv') {
@@ -81,11 +96,10 @@
       add()
     }
     if (ui.pendingLexemeId) {
-      selectedId = ui.pendingLexemeId
+      const id = ui.pendingLexemeId
       ui.pendingLexemeId = null
-      mode = 'entries'
-      mainView = 'list'
       editMode = false
+      reveal(id)
     }
   })
 
@@ -123,7 +137,61 @@
   })
   const selected = $derived(project.lexemes.find((l) => l.id === selectedId) ?? null)
   const allTags = $derived([...new Set(project.lexemes.flatMap((l) => l.tags))].sort())
+  /** 语域：内置常用项 + 项目里已经用过的 */
+  const registerOptions = $derived([
+    ...new Set([
+      ...t('lexicon.registerPresets').split(','),
+      ...project.lexemes.flatMap((l) => l.senses.map((se) => se.register)).filter(Boolean)
+    ])
+  ])
   const isDup = (l: Lexeme): boolean => (lemmaCounts.get(l.languageId + ' ' + l.lemma) ?? 0) > 1
+  const duplicatesOf = (l: Lexeme): Lexeme[] =>
+    project.lexemes.filter((x) => x.languageId === l.languageId && x.lemma === l.lemma)
+  /** 把同形词条并成一条：义项按顺序接起来，词类叠加显示 */
+  function mergeDuplicates(l: Lexeme): void {
+    const group = duplicatesOf(l)
+    if (group.length < 2) return
+    const snap = $state.snapshot(project.lexemes) as Lexeme[]
+    const target = group[0]
+    const filled = (x: Lexeme): Lexeme['senses'] =>
+      x.senses.filter((se) => Object.values(se.definition).some(Boolean))
+    for (const other of group.slice(1)) {
+      target.senses.push(...filled(other))
+      target.tags.push(...other.tags)
+      if (other.posId && other.posId !== target.posId)
+        target.extraPosIds = [...new Set([...(target.extraPosIds ?? []), other.posId])]
+      for (const [k, v] of Object.entries(other.stems)) target.stems[k] ??= v
+      for (const [k, v] of Object.entries(other.forms)) target.forms[k] ??= v
+      for (const [k, v] of Object.entries(other.pronunciations)) target.pronunciations[k] ??= v
+      for (const [k, v] of Object.entries(other.scriptForms ?? {})) {
+        if (!target.scriptForms) target.scriptForms = {}
+        target.scriptForms[k] ??= v
+      }
+      for (const r of other.relations)
+        if (!target.relations.some((x) => x.kind === r.kind && x.lexemeId === r.lexemeId))
+          target.relations.push(r)
+      if (other.images?.length) target.images = [...(target.images ?? []), ...other.images]
+      if (other.notes) target.notes = target.notes ? `${target.notes}\n${other.notes}` : other.notes
+      if (target.etymology.type === 'unknown' && other.etymology.type !== 'unknown')
+        target.etymology = other.etymology
+      project.lexemes.splice(project.lexemes.indexOf(other), 1)
+    }
+    target.senses = target.senses.filter(
+      (se, i) => i === 0 || Object.values(se.definition).some(Boolean)
+    )
+    target.tags = [...new Set(target.tags)]
+    selectedId = target.id
+    touch(target)
+    ui.toast(t('lexicon.merged', { n: group.length }), {
+      action: {
+        label: t('common.undo'),
+        run: () => {
+          project.lexemes = snap
+          touch()
+        }
+      }
+    })
+  }
   const selLang = $derived(
     selected ? project.languages.find((x) => x.id === selected.languageId) : null
   )
@@ -133,6 +201,7 @@
         'synonym',
         'antonym',
         'related',
+        ...ETYMOLOGY_TYPES,
         ...project.lexemes.flatMap((l) => l.relations.map((r) => r.kind))
       ])
     ].filter(Boolean)
@@ -183,6 +252,12 @@
     cols.push({ key: 'updated', label: t('lexicon.colUpdated') })
     return cols
   })
+  /** 不同来源撞出同名的列，选列时容易点错，直接报出来 */
+  const duplicateColumnLabels = $derived.by((): string[] => {
+    const count = new Map<string, number>()
+    for (const c of availableColumns) count.set(c.label, (count.get(c.label) ?? 0) + 1)
+    return [...count].filter(([, n]) => n > 1).map(([label]) => label)
+  })
   const activeColumns = $derived.by((): Col[] => {
     const keys = project.settings.lexiconColumns.length
       ? project.settings.lexiconColumns
@@ -201,17 +276,44 @@
       .filter((k) => cur.includes(k))
     projectState.touch()
   }
+  // ───── 列宽（记忆在用户偏好里） ─────
+  const colWidths = $derived(ui.prefs.lexiconColWidths ?? {})
+  const hasWidths = $derived(Object.keys(colWidths).length > 0)
+  const colStyle = (key: string): string => (colWidths[key] ? `width:${colWidths[key]}px` : '')
+  let resizing: { key: string; x: number; w: number } | null = null
+  function startResize(e: PointerEvent, key: string): void {
+    e.preventDefault()
+    e.stopPropagation()
+    const th = (e.currentTarget as HTMLElement).parentElement as HTMLElement
+    resizing = { key, x: e.clientX, w: th.getBoundingClientRect().width }
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }
+  function moveResize(e: PointerEvent): void {
+    if (!resizing) return
+    const w = Math.max(48, Math.round(resizing.w + e.clientX - resizing.x))
+    ui.prefs.lexiconColWidths = { ...ui.prefs.lexiconColWidths, [resizing.key]: w }
+  }
+  function endResize(): void {
+    if (!resizing) return
+    resizing = null
+    ui.savePrefsSoon()
+  }
+  function resetWidths(): void {
+    ui.prefs.lexiconColWidths = {}
+    void ui.savePrefs()
+  }
+
   function cell(l: Lexeme, key: string): string {
-    if (key === 'pos') return posLabel(l.posId)
+    if (key === 'pos') return posLabelOf(l)
     if (key.startsWith('def:')) {
       const g = key.slice(4)
-      return l.senses
-        .map((s) => s.definition[g] ?? '')
-        .filter(Boolean)
-        .join(' | ')
+      const parts = l.senses.map((s) => s.definition[g] ?? '').filter(Boolean)
+      if (parts.length < 2) return parts[0] ?? ''
+      const sep = i18n.locale === 'zh' ? '、' : '. '
+      return parts.map((d, i) => `${i + 1}${sep}${d}`).join(' ')
     }
     if (key === 'tags') return l.tags.join(', ')
-    if (key === 'proto') return l.etymology.protoForm
+    if (key === 'proto') return etymologyOrigin(project, l.etymology)
     if (key === 'pron')
       return Object.values(l.pronunciations)
         .map((p) => p.ipa)
@@ -281,6 +383,10 @@
     const p = project.posList.find((x) => x.id === id)
     return p ? p.abbr || pickText(p.name, glossLangs) : ''
   }
+  /** 合并过的词条可能带多个词类，一起显示 */
+  function posLabelOf(l: Lexeme): string {
+    return [l.posId, ...(l.extraPosIds ?? [])].map(posLabel).filter(Boolean).join(' ')
+  }
   function touch(l?: Lexeme): void {
     if (l) {
       l.updatedAt = now()
@@ -330,22 +436,6 @@
     })
   }
 
-  // 词源来源
-  function addSource(l: Lexeme, kind: EtymologySource['kind']): void {
-    if (kind === 'external') l.etymology.sources.push({ kind, language: '', form: '', meaning: '' })
-    else l.etymology.sources.push({ kind, id: '' })
-    touch(l)
-  }
-  function sourceLabel(s: EtymologySource): string {
-    if (s.kind === 'morpheme') return project.morphemes.find((m) => m.id === s.id)?.form ?? ''
-    if (s.kind === 'lexeme') return project.lexemes.find((m) => m.id === s.id)?.lemma ?? ''
-    return s.form
-  }
-  function setSourceByText(s: EtymologySource, text: string): void {
-    if (s.kind === 'morpheme') s.id = project.morphemes.find((m) => m.form === text)?.id ?? ''
-    else if (s.kind === 'lexeme')
-      s.id = project.lexemes.find((m) => m.lemma === text && m.id !== selectedId)?.id ?? ''
-  }
   function relLabel(kind: string): string {
     const k = t(`lexicon.relKinds.${kind}`)
     return k === `lexicon.relKinds.${kind}` ? kind : k
@@ -401,9 +491,73 @@
     )
   }
   function selectFromCard(id: Id): void {
-    selectedId = id
+    reveal(id)
+  }
+  /** 选中并把左侧列表滚到该词，短暂高亮；过滤条件会挡住目标，所以先清掉 */
+  function reveal(id: Id): void {
     const l = project.lexemes.find((x) => x.id === id)
-    if (l && langId && l.languageId !== langId) projectState.currentLanguageId = l.languageId
+    if (!l) return
+    if (langId && l.languageId !== langId) projectState.currentLanguageId = l.languageId
+    query = ''
+    posFilter = ''
+    tagFilter = ''
+    mode = 'entries'
+    mainView = 'list'
+    selectedId = id
+    multiIds = []
+    flashId = id
+    setTimeout(() => {
+      if (flashId === id) flashId = null
+    }, 1800)
+    requestAnimationFrame(() => {
+      const i = list.findIndex((x) => x.id === id)
+      if (i >= limit) limit = i + 50
+      requestAnimationFrame(() =>
+        document
+          .querySelector(`tr[data-id="${id}"]`)
+          ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      )
+    })
+  }
+  function rowClick(e: MouseEvent, l: Lexeme, i: number): void {
+    if (e.shiftKey && lastIndex >= 0) {
+      const [a, b] = [Math.min(lastIndex, i), Math.max(lastIndex, i)]
+      multiIds = list.slice(a, b + 1).map((x) => x.id)
+    } else if (e.ctrlKey || e.metaKey) {
+      multiIds = multiIds.includes(l.id) ? multiIds.filter((x) => x !== l.id) : [...multiIds, l.id]
+      lastIndex = i
+    } else {
+      multiIds = []
+      lastIndex = i
+    }
+    selectedId = l.id
+  }
+  function removeSelected(): void {
+    const ids = new Set(multiIds)
+    const snap = $state.snapshot(project.lexemes) as Lexeme[]
+    project.lexemes = project.lexemes.filter((l) => !ids.has(l.id))
+    if (selectedId && ids.has(selectedId)) selectedId = null
+    multiIds = []
+    touch()
+    ui.toast(t('lexicon.bulkDeleted', { n: ids.size }), {
+      action: {
+        label: t('common.undo'),
+        run: () => {
+          project.lexemes = snap
+          touch()
+        }
+      }
+    })
+  }
+  async function tagSelected(): Promise<void> {
+    const tag = (await ui.prompt(t('lexicon.bulkTagPrompt'), ''))?.trim()
+    if (!tag) return
+    for (const l of project.lexemes)
+      if (multiIds.includes(l.id) && !l.tags.includes(tag)) {
+        l.tags.push(tag)
+        l.updatedAt = now()
+      }
+    touch()
   }
 </script>
 
@@ -466,6 +620,7 @@
             />{c.label}</label
           >
         {/each}
+        <button onclick={resetWidths}>{t('lexicon.resetWidths')}</button>
       </Menu>
       <Menu label={t('lexicon.import')} icon={Upload}>
         <button onclick={() => (mode = 'csv')}>{t('lexicon.importCsv')}</button>
@@ -496,19 +651,67 @@
   {:else if list.length === 0}
     <p class="muted">{t('lexicon.empty')}</p>
   {:else}
-    <div class="row small muted"><span>{t('lexicon.count', { n: list.length })}</span></div>
+    <div class="row small muted">
+      <span>{t('lexicon.count', { n: list.length })}</span>
+      {#if duplicateColumnLabels.length}
+        <span class="warn"
+          ><AlertTriangle size={12} />
+          {t('lexicon.dupColumns', { list: duplicateColumnLabels.join('、') })}</span
+        >
+      {/if}
+    </div>
+    {#if multiIds.length > 1}
+      <div class="row bulk">
+        <span class="small">{t('lexicon.selectedN', { n: multiIds.length })}</span>
+        <button class="btn ghost sm" onclick={tagSelected}>{t('lexicon.bulkTag')}</button>
+        <button class="btn ghost sm danger" onclick={removeSelected}
+          ><Trash2 size={14} />{t('common.delete')}</button
+        >
+        <button class="btn ghost sm" onclick={() => (multiIds = [])}>{t('lexicon.clearSel')}</button
+        >
+      </div>
+    {/if}
     <div class="scroll">
-      <table class="tbl">
+      <table class="tbl" class:fixed={hasWidths}>
+        <colgroup>
+          {#if sort === 'custom'}<col style="width:56px" />{/if}
+          <col style={colStyle('lemma')} />
+          {#each activeColumns as c (c.key)}<col style={colStyle(c.key)} />{/each}
+        </colgroup>
         <thead>
           <tr
             >{#if sort === 'custom'}<th></th>{/if}
-            <th>{t('lexicon.lemma')}</th>
-            {#each activeColumns as c (c.key)}<th>{c.label}</th>{/each}
+            <th
+              >{t('lexicon.lemma')}<span
+                class="grip"
+                role="separator"
+                aria-label={t('lexicon.resizeCol')}
+                onpointerdown={(e) => startResize(e, 'lemma')}
+                onpointermove={moveResize}
+                onpointerup={endResize}
+              ></span></th
+            >
+            {#each activeColumns as c (c.key)}<th
+                >{c.label}<span
+                  class="grip"
+                  role="separator"
+                  aria-label={t('lexicon.resizeCol')}
+                  onpointerdown={(e) => startResize(e, c.key)}
+                  onpointermove={moveResize}
+                  onpointerup={endResize}
+                ></span></th
+              >{/each}
           </tr>
         </thead>
         <tbody>
-          {#each list.slice(0, limit) as l (l.id)}
-            <tr class:sel={selectedId === l.id} onclick={() => (selectedId = l.id)}>
+          {#each list.slice(0, limit) as l, li (l.id)}
+            <tr
+              data-id={l.id}
+              class:sel={selectedId === l.id || multiIds.includes(l.id)}
+              class:flash={flashId === l.id}
+              class:dup-row={ui.prefs.highlightDuplicates && isDup(l)}
+              onclick={(e) => rowClick(e, l, li)}
+            >
               {#if sort === 'custom'}
                 <td class="mv">
                   <button
@@ -537,7 +740,9 @@
               {#each activeColumns as c (c.key)}
                 {#if c.key === 'pos'}
                   <td class="pos"
-                    >{#if l.posId}<span class="badge">{posLabel(l.posId)}</span>{/if}</td
+                    >{#each [l.posId, ...(l.extraPosIds ?? [])].filter(Boolean) as pid (pid)}<span
+                        class="badge">{posLabel(pid)}</span
+                      >{/each}</td
                   >
                 {:else if c.key === 'tags'}
                   <td class="tags-cell"
@@ -583,6 +788,7 @@
       >
     </div>
     <LexemeCard lexeme={l} {project} onselect={selectFromCard} />
+    <LexemeExamples lexeme={l} {project} {glossLangs} />
   </Portal>
 {/if}
 
@@ -602,9 +808,14 @@
     <div class="field">
       <label for="lx-lemma">{t('lexicon.lemma')}</label>
       <input id="lx-lemma" class="input data big" bind:value={l.lemma} oninput={() => touch(l)} />
-      {#if isDup(l)}<span class="hint warn"
-          ><AlertTriangle size={12} /> {t('lexicon.duplicate')}</span
-        >{/if}
+      {#if isDup(l)}
+        <div class="row dup-bar">
+          <span class="hint warn"><AlertTriangle size={12} /> {t('lexicon.duplicate')}</span>
+          <button class="btn ghost sm" onclick={() => mergeDuplicates(l)}
+            ><Merge size={14} />{t('lexicon.merge')}</button
+          >
+        </div>
+      {/if}
     </div>
     <div class="row two">
       <div class="field grow">
@@ -701,6 +912,9 @@
           }}><Plus size={14} />{t('lexicon.addSense')}</button
         >
       </div>
+      <datalist id="dl-registers"
+        >{#each registerOptions as r (r)}<option value={r}></option>{/each}</datalist
+      >
       {#each l.senses as s, i (s.id)}
         <div class="sense card">
           <div class="row">
@@ -722,15 +936,10 @@
           />
           <input
             class="input"
+            list="dl-registers"
             placeholder={t('lexicon.register')}
             bind:value={s.register}
             oninput={() => touch(l)}
-          />
-          <TagInput
-            bind:tags={s.tags}
-            suggestions={allTags}
-            placeholder={t('lexicon.senseTags')}
-            onchange={() => touch(l)}
           />
         </div>
       {/each}
@@ -738,92 +947,14 @@
 
     <div class="field">
       <span class="small muted">{t('lexicon.etymology')}</span>
-      <div class="row two">
-        <select class="select" bind:value={l.etymology.type} onchange={() => touch(l)}>
-          {#each ['root', 'compound', 'borrowing', 'derivation', 'inherited', 'unknown'] as et (et)}<option
-              value={et}>{t(`lexicon.etyTypes.${et}`)}</option
-            >{/each}
-        </select>
-        <input
-          class="input data"
-          placeholder={t('lexicon.protoForm')}
-          bind:value={l.etymology.protoForm}
-          oninput={() => touch(l)}
-        />
-      </div>
-      {#each l.etymology.sources as s, i (i)}
-        <div class="row src">
-          <span class="badge">{t(`lexicon.sourceKinds.${s.kind}`)}</span>
-          {#if s.kind === 'external'}
-            <input
-              class="input"
-              placeholder={t('lexicon.externalLanguage')}
-              bind:value={s.language}
-              oninput={() => touch(l)}
-            />
-            <input
-              class="input data"
-              placeholder={t('lexicon.externalForm')}
-              bind:value={s.form}
-              oninput={() => touch(l)}
-            />
-            <input
-              class="input"
-              placeholder={t('lexicon.externalMeaning')}
-              bind:value={s.meaning}
-              oninput={() => touch(l)}
-            />
-          {:else}
-            <input
-              class="input data grow"
-              list={s.kind === 'morpheme' ? 'dl-morphemes' : 'dl-lexemes'}
-              value={sourceLabel(s)}
-              placeholder={s.kind === 'morpheme'
-                ? t('lexicon.pickMorpheme')
-                : t('lexicon.pickLexeme')}
-              onchange={(e) => {
-                setSourceByText(s, (e.currentTarget as HTMLInputElement).value)
-                touch(l)
-              }}
-            />
-          {/if}
-          <button
-            class="btn ghost icon sm"
-            onclick={() => {
-              l.etymology.sources.splice(i, 1)
-              touch(l)
-            }}><X size={14} /></button
-          >
-        </div>
-      {/each}
-      <div class="row">
-        <button class="btn ghost sm" onclick={() => addSource(l, 'morpheme')}
-          ><Plus size={14} />{t('lexicon.sourceKinds.morpheme')}</button
-        >
-        <button class="btn ghost sm" onclick={() => addSource(l, 'lexeme')}
-          ><Plus size={14} />{t('lexicon.sourceKinds.lexeme')}</button
-        >
-        <button class="btn ghost sm" onclick={() => addSource(l, 'external')}
-          ><Plus size={14} />{t('lexicon.sourceKinds.external')}</button
-        >
-      </div>
-      <datalist id="dl-morphemes"
-        >{#each project.morphemes as m (m.id)}<option value={m.form}
-            >{m.gloss || pickText(m.meaning, glossLangs)}</option
-          >{/each}</datalist
-      >
-      <datalist id="dl-lexemes"
-        >{#each project.lexemes as m (m.id)}{#if m.id !== l.id}<option value={m.lemma}
-              >{pickText(m.senses[0]?.definition, glossLangs)}</option
-            >{/if}{/each}</datalist
-      >
-      <textarea
-        class="textarea"
-        rows="2"
-        placeholder={t('common.notes')}
-        bind:value={l.etymology.notes}
-        oninput={() => touch(l)}
-      ></textarea>
+      <EtymologyEditor
+        bind:etymology={l.etymology}
+        {project}
+        ownerId={l.id}
+        ownerForm={l.lemma}
+        {glossLangs}
+        onchange={() => touch(l)}
+      />
     </div>
 
     <div class="field">
@@ -1100,6 +1231,8 @@
       ></textarea>
     </div>
 
+    <LexemeExamples lexeme={l} {project} {glossLangs} />
+
     <div class="row actions">
       <button class="btn sm" onclick={() => duplicate(l)}
         ><Copy size={14} />{t('soundChanges.duplicate')}</button
@@ -1128,6 +1261,47 @@
 {/if}
 
 <style>
+  .grip {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 7px;
+    height: 100%;
+    cursor: col-resize;
+    touch-action: none;
+  }
+  .tbl th {
+    position: relative;
+  }
+  .tbl.fixed {
+    table-layout: fixed;
+  }
+  .tbl.fixed td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  tr.dup-row td {
+    background: color-mix(in srgb, var(--warn) 10%, transparent);
+  }
+  tr.flash td {
+    animation: flash 1.8s ease-out;
+  }
+  @keyframes flash {
+    0%,
+    35% {
+      background: color-mix(in srgb, var(--accent) 34%, transparent);
+    }
+    100% {
+      background: transparent;
+    }
+  }
+  .bulk {
+    gap: 8px;
+    padding: 4px 0;
+  }
+  .dup-bar {
+    gap: 8px;
+  }
   .img-row {
     gap: 6px;
     margin-bottom: 4px;
@@ -1299,7 +1473,6 @@
     font-size: 11px;
     color: var(--text-3);
   }
-  .src,
   .kv {
     gap: 6px;
     margin-bottom: 4px;

@@ -11,7 +11,8 @@ import {
   applyCsvImport,
   defaultMapping,
   type CsvMapping,
-  type FieldSpec
+  type FieldSpec,
+  splitSenseText
 } from '$lib/importers/csvImport'
 
 const dir = join(__dirname, '..', 'fixtures', 'private')
@@ -101,8 +102,12 @@ function assertLossless(
       if (!spec || spec.kind === 'ignore') return
       const v = (row[ci] ?? '').trim()
       if (!v) return
-      const needle = JSON.stringify(v).slice(1, -1)
-      expect(json, `${keyName} 第 ${i + 2} 行「${h}」= ${v}`).toContain(needle)
+      // 释义会按分号拆成多个义项，逐段核对
+      const parts = spec.kind === 'definition' ? splitSenseText(v) : [v]
+      for (const part of parts) {
+        const needle = JSON.stringify(part).slice(1, -1)
+        expect(json, `${keyName} 第 ${i + 2} 行「${h}」= ${v}`).toContain(needle)
+      }
     })
   })
 }

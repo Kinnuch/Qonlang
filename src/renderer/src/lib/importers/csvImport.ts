@@ -12,6 +12,7 @@ import type {
   Project
 } from '$lib/core/model'
 import { createLexeme, createMorpheme, createSense, newId, now } from '$lib/core/factory'
+import { etymologyOrigin } from '$lib/core/etymology'
 
 export type FieldSpec =
   | { kind: 'ignore' }
@@ -64,6 +65,8 @@ export interface CsvMapping {
   defaultMorphemeType: MorphemeType
   /** 词头列里出现「a > b」时取 > 之后的部分作词头、之前的作原始形 */
   splitProtoArrow: boolean
+  /** 释义列里的中英文分号拆成多个义项 */
+  splitSenses: boolean
 }
 
 export interface ImportReport {
@@ -84,7 +87,8 @@ export function defaultMapping(languageId: Id, columnCount: number): CsvMapping 
     tagSeparator: ',',
     skipEmptyKey: true,
     defaultMorphemeType: 'root',
-    splitProtoArrow: false
+    splitProtoArrow: false,
+    splitSenses: true
   }
 }
 
@@ -154,6 +158,14 @@ function ensureCategoryValue(
 
 function guessLang(s: string): string {
   return /[㐀-鿿]/.test(s) ? 'zh' : 'en'
+}
+
+/** 释义按中英文分号拆成多条，顺带去掉原有的「1、」编号 */
+export function splitSenseText(s: string): string[] {
+  return s
+    .split(/[;；]/)
+    .map((x) => x.trim().replace(/^\d+\s*[、.．)）]\s*/, ''))
+    .filter(Boolean)
 }
 
 function splitTags(s: string, sep: string): string[] {
@@ -228,7 +240,14 @@ export function applyCsvImport(
     if (mapping.target === 'lexemes') {
       const lx = createLexeme(mapping.languageId, key)
       const sense = lx.senses[0]
-      if (protoFromArrow) lx.etymology.protoForm = protoFromArrow
+      const defs: Record<string, string[]> = {}
+      if (protoFromArrow)
+        lx.etymology.sources.push({
+          kind: 'external',
+          language: '',
+          form: protoFromArrow,
+          meaning: ''
+        })
       mapping.columns.forEach((spec, ci) => {
         const raw = (row[ci] ?? '').trim()
         if (!raw || spec.kind === 'ignore' || spec.kind === 'lemma') return
@@ -236,11 +255,11 @@ export function applyCsvImport(
           case 'pos':
             lx.posId = ensurePos(project, raw, report).id
             break
-          case 'definition':
-            sense.definition[spec.lang] = sense.definition[spec.lang]
-              ? `${sense.definition[spec.lang]}; ${raw}`
-              : raw
+          case 'definition': {
+            const parts = mapping.splitSenses ? splitSenseText(raw) : [raw]
+            defs[spec.lang] = [...(defs[spec.lang] ?? []), ...parts]
             break
+          }
           case 'tags':
             lx.tags.push(...splitTags(raw, mapping.tagSeparator))
             break
@@ -251,8 +270,8 @@ export function applyCsvImport(
             lx.notes = lx.notes ? `${lx.notes}\n${raw}` : raw
             break
           case 'protoForm':
-            lx.etymology.protoForm = raw
-            if (lx.etymology.type === 'unknown') lx.etymology.type = 'derivation'
+            lx.etymology.sources.push({ kind: 'external', language: '', form: raw, meaning: '' })
+            if (lx.etymology.type === 'unknown') lx.etymology.type = 'inherited'
             break
           case 'etymologyNotes':
             lx.etymology.notes = raw
@@ -284,6 +303,17 @@ export function applyCsvImport(
             break
         }
       })
+      // 组装义项：各释义语言按序号对齐，第一条写进已有的义项
+      const defLangs = Object.keys(defs)
+      const senseCount = Math.max(1, ...defLangs.map((g) => (defs[g] ?? []).length))
+      for (let i = 0; i < senseCount; i++) {
+        const s = i === 0 ? sense : createSense()
+        for (const g of defLangs) {
+          const d = defs[g]?.[i]
+          if (d) s.definition[g] = d
+        }
+        if (i > 0) lx.senses.push(s)
+      }
       lx.tags = [...new Set(lx.tags)]
       project.lexemes.push(lx)
     } else {
@@ -362,7 +392,7 @@ export function lexemesToRows(
         .join(' | ')
     ),
     l.tags.join(','),
-    l.etymology.protoForm,
+    etymologyOrigin(project, l.etymology),
     l.notes
   ])
   return [header, ...rows]

@@ -283,6 +283,7 @@ export interface Morpheme {
   features: Record<Id, Id>
   tags: string[]
   notes: string
+  etymology: Etymology
 }
 
 export interface Allomorph {
@@ -298,6 +299,8 @@ export interface Lexeme {
   languageId: Id
   lemma: string
   posId: Id | null
+  /** 合并同形词条后叠加的其他词类 */
+  extraPosIds?: Id[]
   /** 名词类别、动词类别等任意维度：categoryId → valueId */
   features: Record<Id, Id>
   tags: string[]
@@ -341,14 +344,37 @@ export interface Sense {
   examples: Id[]
 }
 
-export type EtymologyType =
-  'root' | 'compound' | 'borrowing' | 'derivation' | 'inherited' | 'unknown'
+/** 内置词源类别；用户也可以填任意自定义文本 */
+export const ETYMOLOGY_TYPES = [
+  'root',
+  'compound',
+  'derivation',
+  'soundChange',
+  'borrowing',
+  'inherited',
+  'unknown'
+] as const
+export type EtymologyType = (typeof ETYMOLOGY_TYPES)[number]
+
+/** 词源链上的一个中间态：来源与词条之间的历史形式 */
+export interface EtymologyStage {
+  id: Id
+  /** 中间形式 */
+  form: string
+  /** 走到这一步的类别，留空沿用整体类别 */
+  type: string
+  notes: string
+}
 
 export interface Etymology {
-  type: EtymologyType
+  /** 内置类别键或用户自定义文本 */
+  type: string
   sources: EtymologySource[]
-  protoForm: string
+  /** 来源与词条之间的中间态，按时间顺序 */
+  stages: EtymologyStage[]
   notes: string
+  /** @deprecated 旧版原始形，载入时并入 sources */
+  protoForm?: string
 }
 
 export type EtymologySource =

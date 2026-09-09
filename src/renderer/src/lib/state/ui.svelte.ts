@@ -125,9 +125,24 @@ class UiState {
     this.prefs.skin.dark ??= {}
     this.prefs.skin.mirror ??= ''
     if (!Array.isArray(this.prefs.skinPresets)) this.prefs.skinPresets = []
+    this.prefs.lexiconColWidths ??= {}
+    this.prefs.panelSizes ??= {}
+    this.prefs.highlightDuplicates ??= true
+    this.prefs.showHelpDots ??= true
+    this.prefs.examplesPerEntry ??= 3
     i18n.locale = this.prefs.locale as LocaleCode
     this.prefsLoaded = true
     this.applyTheme()
+  }
+
+  #prefsTimer: ReturnType<typeof setTimeout> | null = null
+  /** 高频改动（列宽、面板尺寸）用这个，避免每拖一像素就写盘 */
+  savePrefsSoon(): void {
+    if (this.#prefsTimer) clearTimeout(this.#prefsTimer)
+    this.#prefsTimer = setTimeout(() => {
+      this.#prefsTimer = null
+      void this.savePrefs()
+    }, 500)
   }
 
   async savePrefs(): Promise<void> {

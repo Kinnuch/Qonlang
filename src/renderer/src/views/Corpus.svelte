@@ -568,7 +568,7 @@
                     >{/each}
                 </div>
               {/if}
-              <div class="small muted">{pickText(s.translation, glossLangs)}</div>
+              <div class="tr-line">{pickText(s.translation, glossLangs)}</div>
               {#if s.tags.length || s.source}<div class="small muted">
                   {[s.source, ...s.tags].filter(Boolean).join(' · ')}
                 </div>{/if}
@@ -807,8 +807,8 @@
     border-color: var(--accent);
   }
   .surface {
-    font-size: 17px;
-    font-weight: 500;
+    font-size: 19px;
+    font-weight: 600;
     font-family: var(--font-corpus-text);
   }
   .tok .m,
@@ -844,12 +844,19 @@
     color: var(--accent-text);
   }
   .tr,
-  .item .muted {
+  .item .tr-line {
     font-family: var(--font-corpus-tr);
+  }
+  .item .tr-line {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-2);
   }
   .tr {
     color: var(--text-2);
     font-style: italic;
+    font-size: 15px;
+    font-weight: 500;
   }
   .list {
     display: flex;
@@ -871,7 +878,8 @@
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .text {
-    font-size: 15px;
+    font-size: 17px;
+    font-weight: 600;
   }
   .scr {
     font-size: 22px;

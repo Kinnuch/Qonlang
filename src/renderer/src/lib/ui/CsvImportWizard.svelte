@@ -104,7 +104,8 @@
       target: mapping.target,
       columns,
       tagSeparator: mapping.tagSeparator,
-      splitProtoArrow: mapping.splitProtoArrow
+      splitProtoArrow: mapping.splitProtoArrow,
+      splitSenses: mapping.splitSenses
     }
     ui.prefs.csvPresets = [...ui.prefs.csvPresets.filter((p) => p.name !== preset.name), preset]
     void ui.savePrefs()
@@ -116,6 +117,7 @@
     mapping.target = p.target
     mapping.tagSeparator = p.tagSeparator
     mapping.splitProtoArrow = p.splitProtoArrow
+    if (p.splitSenses !== undefined) mapping.splitSenses = p.splitSenses
     mapping.columns = mapping.columns.map(
       (_, i) => (p.columns[keyFor(i)] as FieldSpec | undefined) ?? { kind: 'ignore' }
     )
@@ -310,6 +312,9 @@
         ><input type="checkbox" bind:checked={mapping.splitProtoArrow} />{t(
           'csv.splitArrow'
         )}</label
+      >
+      <label class="row check"
+        ><input type="checkbox" bind:checked={mapping.splitSenses} />{t('csv.splitSenses')}</label
       >
     </div>
 

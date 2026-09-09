@@ -48,6 +48,16 @@ export interface Prefs {
   skin: Skin
   /** 用户保存的皮肤预设 */
   skinPresets: UserSkinPreset[]
+  /** 词库列宽：列 key → 像素 */
+  lexiconColWidths: Record<string, number>
+  /** 高亮重复词条（关掉后只留黄色叹号） */
+  highlightDuplicates: boolean
+  /** 板块与检视器标题旁的「?」小标记 */
+  showHelpDots: boolean
+  /** 词条下方默认显示的例句条数 */
+  examplesPerEntry: number
+  /** 各类可拖动面板的尺寸记忆：键 → 像素 */
+  panelSizes: Record<string, number>
 }
 
 export interface CsvPreset {
@@ -57,6 +67,7 @@ export interface CsvPreset {
   columns: Record<string, unknown>
   tagSeparator: string
   splitProtoArrow: boolean
+  splitSenses?: boolean
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -77,7 +88,12 @@ export const DEFAULT_PREFS: Prefs = {
     fonts: { ui: '', data: '', mono: '', corpusText: '', corpusTr: '', gloss: '', script: '' },
     mirror: ''
   },
-  skinPresets: []
+  skinPresets: [],
+  lexiconColWidths: {},
+  highlightDuplicates: true,
+  showHelpDots: true,
+  examplesPerEntry: 3,
+  panelSizes: {}
 }
 
 export interface AppInfo {
