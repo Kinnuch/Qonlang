@@ -219,13 +219,24 @@
             y: 0
           }))
       : []
-    return [
+    const groups = [
       { key: 'sources', nodes: sources, angle: 180 },
       { key: 'derived', nodes: derived, angle: 0 },
       { key: 'cognates', nodes: cognates, angle: 270 },
       { key: 'relations', nodes: relations, angle: 90 },
       { key: 'synonyms', nodes: synonyms, angle: 135 }
     ].filter((g) => g.nodes.length) as Group[]
+    // 别的语言的节点标出语言名，点过去时才知道换了语言
+    for (const g of groups)
+      for (const n of g.nodes) {
+        if (!n.lexemeId) continue
+        const x = project.lexemes.find((y) => y.id === n.lexemeId)
+        if (!x || x.languageId === c.languageId) continue
+        const lg = project.languages.find((y) => y.id === x.languageId)
+        const name = lg?.abbr || lg?.name
+        if (name && !n.sub.startsWith(name)) n.sub = n.sub ? `${name} · ${n.sub}` : name
+      }
+    return groups
   })
 
   const W = 900

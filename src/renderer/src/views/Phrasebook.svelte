@@ -75,11 +75,29 @@
   })
   $effect(() => {
     const id = ui.takePending('phrase')
-    if (id) {
-      selectedId = id
-      category = ''
-    }
+    if (id) reveal(id)
   })
+  /** 从别处跳过来：清掉筛选、选中、滚过去闪一下 */
+  let flashId = $state<Id | null>(null)
+  function reveal(id: Id): void {
+    const ph = project.phrasebook.find((x) => x.id === id)
+    if (!ph) return
+    if (langId && ph.languageId !== langId) projectState.currentLanguageId = ph.languageId
+    category = ''
+    query = ''
+    selectedId = id
+    flashId = id
+    setTimeout(() => {
+      if (flashId === id) flashId = null
+    }, 1800)
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        document
+          .querySelector(`.item[data-id="${id}"]`)
+          ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      )
+    )
+  }
 
   function touch(): void {
     projectState.touch()
@@ -165,7 +183,9 @@
             {#each list as p (p.id)}
               <div
                 class="card item"
+                data-id={p.id}
                 class:sel={selectedId === p.id}
+                class:flash={flashId === p.id}
                 role="button"
                 tabindex="0"
                 onclick={() => (selectedId = p.id)}
@@ -310,6 +330,19 @@
 {/if}
 
 <style>
+  .item.flash {
+    animation: jump-flash 1.8s ease-out;
+  }
+  @keyframes jump-flash {
+    0%,
+    35% {
+      background: color-mix(in srgb, var(--accent) 26%, transparent);
+      border-color: var(--accent);
+    }
+    100% {
+      background: var(--bg-elev);
+    }
+  }
   .link {
     cursor: pointer;
     border-radius: 3px;

@@ -135,6 +135,32 @@ class UiState {
     this.applyTheme()
   }
 
+  /** 耗时操作的进度；null 表示没有正在跑的任务 */
+  progress = $state<{ label: string; done: number; total: number } | null>(null)
+  /**
+   * 分批跑一个长任务，中间让出线程好让进度条画出来。
+   * each 抛错时进度条也会收掉。
+   */
+  async runProgress<T>(
+    label: string,
+    items: readonly T[],
+    each: (item: T, i: number) => void,
+    chunk = 25
+  ): Promise<void> {
+    this.progress = { label, done: 0, total: items.length }
+    try {
+      for (let i = 0; i < items.length; i++) {
+        each(items[i], i)
+        if (i % chunk === chunk - 1 || i === items.length - 1) {
+          this.progress = { label, done: i + 1, total: items.length }
+          await new Promise((r) => setTimeout(r, 0))
+        }
+      }
+    } finally {
+      this.progress = null
+    }
+  }
+
   #prefsTimer: ReturnType<typeof setTimeout> | null = null
   /** 高频改动（列宽、面板尺寸）用这个，避免每拖一像素就写盘 */
   savePrefsSoon(): void {

@@ -136,13 +136,16 @@
           >{/if}
         {#each l.etymology.sources as s, i (i)}
           {@const st = sourceText(s)}
-          <span class="muted">{i === 0 ? '←' : '+'}</span>
+          {#if i > 0}<span class="muted">+</span>{/if}
           {#if st.id}<button class="link data" onclick={() => onselect?.(st.id!)}>{st.text}</button
             >{:else}<span class="data">{st.text}</span>{/if}
         {/each}
         {#each l.etymology.stages as st (st.id)}
           {#if st.form}<span class="muted">&gt;</span><span class="data">{st.form}</span>{/if}
         {/each}
+        {#if l.etymology.sources.length || l.etymology.stages.length}
+          <span class="muted">&gt;</span><span class="data">{l.lemma}</span>
+        {/if}
       </p>
       {#if l.etymology.notes}<p class="small muted">{l.etymology.notes}</p>{/if}
     </section>

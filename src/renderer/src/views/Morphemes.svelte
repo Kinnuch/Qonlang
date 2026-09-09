@@ -9,10 +9,11 @@
   import { makeCollator } from '$lib/core/collate'
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
-  import { Plus, Trash2, X, ChevronUp, ChevronDown } from '@lucide/svelte'
+  import { Plus, Trash2, X, ChevronUp, ChevronDown, Eye, Pencil } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import EtymologyEditor from '$lib/ui/EtymologyEditor.svelte'
+  import MorphemeCard from '$lib/ui/MorphemeCard.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -22,6 +23,7 @@
   let typeFilter = $state<MorphemeType | ''>('')
   let query = $state('')
   let sort = $state<'alphabet' | 'type' | 'custom'>('alphabet')
+  let editMode = $state(false)
   const collator = $derived(makeCollator(projectState.currentLanguage?.alphabet ?? []))
 
   const filtered = $derived.by(() => {
@@ -120,6 +122,18 @@
     <h1>{t('morphemes.title')}</h1>
     <GuideLink section="morphemes" />
     <span class="badge">{t('morphemes.count', { n: list.length })}</span>
+    <div class="seg">
+      <button
+        class:active={!editMode}
+        title={t('lexicon.modeView')}
+        onclick={() => (editMode = false)}><Eye size={14} />{t('lexicon.modeView')}</button
+      >
+      <button
+        class:active={editMode}
+        title={t('lexicon.modeEdit')}
+        onclick={() => (editMode = true)}><Pencil size={14} />{t('lexicon.modeEdit')}</button
+      >
+    </div>
     <span class="grow"></span>
     <input class="input search" placeholder={t('morphemes.search')} bind:value={query} />
     <select class="select type" bind:value={typeFilter}>
@@ -148,7 +162,7 @@
             <th>{t('morphemes.gloss')}</th>
             <th>{t('morphemes.meaning')}</th>
             {#if !langId}<th>{t('nav.languages')}</th>{/if}
-            <th></th>
+            <th>{t('common.tags')}</th>
             {#if sort === 'custom'}<th></th>{/if}
           </tr>
         </thead>
@@ -193,9 +207,26 @@
   {/if}
 </div>
 
-{#if selected}
+{#if selected && !editMode}
   {@const m = selected}
   <Portal>
+    <div class="row card-actions">
+      <button class="btn ghost sm" onclick={() => (editMode = true)}
+        ><Pencil size={14} />{t('lexicon.modeEdit')}</button
+      >
+    </div>
+    <MorphemeCard morpheme={m} {project} onselect={(id) => ui.jump('lexicon', 'lexeme', id)} />
+  </Portal>
+{/if}
+
+{#if selected && editMode}
+  {@const m = selected}
+  <Portal>
+    <div class="row card-actions">
+      <button class="btn ghost sm" onclick={() => (editMode = false)}
+        ><Eye size={14} />{t('lexicon.modeView')}</button
+      >
+    </div>
     <div class="field">
       <label for="m-form">{t('morphemes.form')}</label>
       <input
@@ -434,10 +465,12 @@
     font-family: var(--font-mono);
     font-size: 12px;
   }
-  .tags-cell {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
+  .tags-cell > :global(.badge) {
+    margin: 0 4px 2px 0;
+  }
+  .card-actions {
+    gap: 6px;
+    margin-bottom: 10px;
   }
   .two {
     gap: 10px;

@@ -11,6 +11,7 @@
   import Welcome from './views/Welcome.svelte'
   import Shell from './views/Shell.svelte'
   import Toasts from '$lib/ui/Toasts.svelte'
+  import ProgressOverlay from '$lib/ui/ProgressOverlay.svelte'
 
   let ready = $state(false)
   let snapshot = $state<string | null>(null)
@@ -143,6 +144,7 @@
   />
 {/if}
 <Toasts />
+<ProgressOverlay />
 
 <style>
   .boot {

@@ -9,8 +9,9 @@
     resolveGenerator,
     generateForm,
     deriveForms,
-    reconcile,
+    reconcileSlot,
     makeContext,
+    type SlotDef,
     type SlotReport,
     variantKey
   } from '$lib/engine/morph'
@@ -94,12 +95,34 @@
     void project.languages.map((l) => l.classes.length + l.digraphs.length + l.phonemes.length)
     ctxCache.clear()
   })
+  /** 测试台选中的词；没选就拿第一个绑定本构形的词 */
+  let testLexemeId = $state<Id | null>(null)
   const testLexeme = $derived(
-    boundLexemes.find((l) => l.lemma === testLemma) ??
-      project.lexemes.find((l) => l.lemma === testLemma) ??
+    project.lexemes.find((l) => l.id === testLexemeId) ??
+      boundLexemes.find((l) => l.lemma === testLemma) ??
       boundLexemes[0] ??
       null
   )
+  /** 模糊搜索：词头或释义包含关键词，绑定本构形的排前面 */
+  const testMatches = $derived.by(() => {
+    const q = testLemma.trim().toLowerCase()
+    if (!q) return []
+    const bound = new Set(boundLexemes.map((l) => l.id))
+    const hit = project.lexemes.filter(
+      (l) =>
+        l.lemma.toLowerCase().includes(q) ||
+        l.senses.some((se) => Object.values(se.definition).some((d) => d.toLowerCase().includes(q)))
+    )
+    hit.sort((a, b) => {
+      const ba = bound.has(a.id) ? 0 : 1
+      const bb = bound.has(b.id) ? 0 : 1
+      if (ba !== bb) return ba - bb
+      const sa = a.lemma.toLowerCase().startsWith(q) ? 0 : 1
+      const sb = b.lemma.toLowerCase().startsWith(q) ? 0 : 1
+      return sa - sb || a.lemma.length - b.lemma.length
+    })
+    return hit.slice(0, 12)
+  })
   const testRows = $derived.by(() => {
     if (!active || !testLexeme) return []
     const ctx = ctxFor(testLexeme.languageId)
@@ -145,6 +168,12 @@
   /** 正在编辑哪个变体；null 表示通用那一套 */
   let editVariantId = $state<Id | null>(null)
   const variants = $derived(active?.variants ?? [])
+  /** 「2 × 6」这样的维度规模，用在槽位说明里 */
+  const dimSizes = $derived(
+    (active?.dimensionIds ?? [])
+      .map((id) => project.categories.find((c) => c.id === id)?.values.length ?? 0)
+      .join(' × ')
+  )
   /** 该槽位在当前变体下的生成器键 */
   const gkey = (key: string): string => variantKey(key, editVariantId)
   async function addVariant(): Promise<void> {
@@ -292,26 +321,36 @@
     derivedFlash++
     ui.toast(t('paradigms.derivedCount', { n, words: 1 }))
   }
-  function deriveAllBound(): void {
+  async function deriveAllBound(): Promise<void> {
     if (!active) return
+    const para = active
     let n = 0
-    for (const l of boundLexemes) {
+    await ui.runProgress(t('paradigms.deriveProgress'), boundLexemes, (l) => {
       const ctx = ctxFor(l.languageId)
-      if (ctx) n += deriveForms(ctx, l, active)
-    }
+      if (ctx) n += deriveForms(ctx, l, para, undefined, l.paradigmVariantId)
+    })
     touch()
     ui.toast(t('paradigms.derivedCount', { n, words: boundLexemes.length }))
   }
-  function runReport(): void {
+  async function runReport(): Promise<void> {
     if (!active) return
-    // 按语言分组对账，再按槽位合并
+    const para = active
+    // 按语言分组检查，再按槽位合并；一个槽位一批，中间让出线程画进度
     const byLang = new Map<Id, typeof boundLexemes>()
     for (const l of boundLexemes) byLang.set(l.languageId, [...(byLang.get(l.languageId) ?? []), l])
     const merged = new Map<string, SlotReport>()
+    const jobs: { ctx: ReturnType<typeof makeContext>; ls: typeof boundLexemes; slot: SlotDef }[] =
+      []
     for (const [lid, ls] of byLang) {
       const ctx = ctxFor(lid)
       if (!ctx) continue
-      for (const r of reconcile(ctx, ls, active)) {
+      for (const slot of slots) jobs.push({ ctx, ls, slot })
+    }
+    await ui.runProgress(
+      t('paradigms.reportProgress'),
+      jobs,
+      (j) => {
+        const r = reconcileSlot(j.ctx, j.ls, para, j.slot, editVariantId)
         const m = merged.get(r.slot.key)
         if (!m) merged.set(r.slot.key, r)
         else {
@@ -320,8 +359,9 @@
           m.missing += r.missing
           m.examples.push(...r.examples.slice(0, Math.max(0, 30 - m.examples.length)))
         }
-      }
-    }
+      },
+      1
+    )
     report = [...merged.values()]
     view = 'report'
   }
@@ -329,9 +369,10 @@
     const total = r.same + r.diff
     return total ? `${Math.round((r.same / total) * 100)}%` : '—'
   }
-  const lexemeDatalist = $derived(
-    (boundLexemes.length ? boundLexemes : project.lexemes).slice(0, 2000)
-  )
+  const posName = (id: Id | null): string => {
+    const x = project.posList.find((p) => p.id === id)
+    return x ? x.abbr || pickText(x.name, glossLangs) : ''
+  }
 </script>
 
 <div class="page">
@@ -424,7 +465,9 @@
       <section class="block">
         <h3>{t('paradigms.dimensions')}</h3>
         <p class="small muted">{t('paradigms.dimensionsHint')}</p>
-        <p class="small muted">{t('paradigms.slotsExplain', { n: slots.length })}</p>
+        <p class="small muted">
+          {t('paradigms.slotsExplain', { n: slots.length, dims: dimSizes })}
+        </p>
         <div class="dims">
           {#each active.dimensionIds as id, i (id)}
             {@const c = project.categories.find((x) => x.id === id)}
@@ -742,13 +785,30 @@
       </div>
       <input
         class="input data"
-        list="dl-lexemes-p"
         placeholder={t('paradigms.pickLexeme')}
         bind:value={testLemma}
+        oninput={() => (testLexemeId = null)}
       />
-      <datalist id="dl-lexemes-p"
-        >{#each lexemeDatalist as l (l.id)}<option value={l.lemma}></option>{/each}</datalist
-      >
+      {#if testMatches.length}
+        <div class="matches">
+          {#each testMatches as l (l.id)}
+            <button
+              class="match"
+              class:on={testLexeme?.id === l.id}
+              onclick={() => {
+                testLexemeId = l.id
+                testLemma = l.lemma
+              }}
+            >
+              <span class="data">{l.lemma}</span>
+              <span class="small muted">{posName(l.posId)}</span>
+              <span class="small muted grow gloss"
+                >{pickText(l.senses[0]?.definition, glossLangs)}</span
+              >
+            </button>
+          {/each}
+        </div>
+      {/if}
       {#if testLexeme}
         <table class="tbl small test" use:flashOn={derivedFlash}>
           <tbody>
@@ -797,6 +857,40 @@
 </datalist>
 
 <style>
+  .matches {
+    display: flex;
+    flex-direction: column;
+    max-height: 190px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .match {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 3px 8px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+  }
+  .match:last-child {
+    border-bottom: none;
+  }
+  .match:hover {
+    background: var(--bg-hover);
+  }
+  .match.on {
+    background: var(--accent-soft);
+  }
+  .match .gloss {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .vbar {
     gap: 8px;
     margin-bottom: 6px;

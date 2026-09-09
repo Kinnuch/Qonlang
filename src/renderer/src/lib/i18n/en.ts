@@ -387,6 +387,7 @@ const en: Dict = {
     bulkDeleted: 'Deleted {n} entries',
     examples: 'Examples',
     examplesAll: 'See all examples',
+    examplesSearch: 'Search these examples…',
     examplesFor: 'All examples for “{lemma}”',
     exampleKinds: { sentence: 'corpus', phrase: 'phrase', doc: 'doc' },
     registerPresets:
@@ -826,7 +827,8 @@ const en: Dict = {
     variantName: 'Variant name (e.g. A-form, literary)',
     variantHint:
       'A variant only overrides the slots you edit under it; the rest fall back to the base. Entries pick which variant to use.',
-    slotsExplain: 'Every combination of these dimensions makes one slot: {n} forms to generate.',
+    slotsExplain:
+      'One value from each dimension makes a slot ({dims}); {n} remain once disabled ones are dropped. Each slot is one form to generate.',
     infixPresets: {
       v1: 'after the first vowel',
       c1: 'after the first consonant',
@@ -876,6 +878,8 @@ const en: Dict = {
     deriveOne: 'Derive this word and store',
     deriveAll: 'Derive all ({n} entries)',
     derivedCount: 'Stored {n} derived forms ({words} entries; overridden slots untouched)',
+    deriveProgress: 'Deriving…',
+    reportProgress: 'Checking consistency…',
     report: 'Reconciliation report',
     reportTitle: 'Compared with stored forms, {n} entries',
     same: 'Same',

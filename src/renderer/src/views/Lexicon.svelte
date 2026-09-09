@@ -117,14 +117,7 @@
     const arr = inLang.filter((l) => {
       if (posFilter && l.posId !== posFilter) return false
       if (tagFilter && !l.tags.includes(tagFilter)) return false
-      if (
-        q &&
-        !(
-          l.lemma.toLowerCase().includes(q) ||
-          l.senses.some((s) => Object.values(s.definition).some((d) => d.toLowerCase().includes(q)))
-        )
-      )
-        return false
+      if (q && !matchesQuery(l, q)) return false
       return true
     })
     if (sort === 'alphabet') arr.sort((a, b) => collator(a.lemma, b.lemma))
@@ -136,6 +129,27 @@
     // custom：保持项目里的数组顺序
     return arr
   })
+  /** 搜索覆盖词条的所有文本：词头、义项、词干、屈折形、发音、文字、标签、词源、备注 */
+  function matchesQuery(l: Lexeme, q: string): boolean {
+    const hit = (v: string | undefined): boolean => !!v && v.toLowerCase().includes(q)
+    if (hit(l.lemma) || hit(l.notes)) return true
+    if (l.tags.some(hit)) return true
+    if (l.senses.some((se) => Object.values(se.definition).some(hit) || hit(se.register)))
+      return true
+    if (Object.values(l.stems).some(hit)) return true
+    if (Object.values(l.forms).some((f) => hit(f.surface))) return true
+    if (Object.values(l.pronunciations).some((pr) => hit(pr.ipa))) return true
+    if (Object.values(l.scriptForms ?? {}).some(hit)) return true
+    if (hit(l.etymology.notes)) return true
+    if (l.etymology.stages.some((st) => hit(st.form))) return true
+    if (
+      l.etymology.sources.some((src) =>
+        src.kind === 'external' ? hit(src.form) || hit(src.meaning) : false
+      )
+    )
+      return true
+    return false
+  }
   const selected = $derived(project.lexemes.find((l) => l.id === selectedId) ?? null)
   const allTags = $derived([...new Set(project.lexemes.flatMap((l) => l.tags))].sort())
   /** 语域：内置常用项 + 项目里已经用过的 */
@@ -156,7 +170,18 @@
     const target = group[0]
     const filled = (x: Lexeme): Lexeme['senses'] =>
       x.senses.filter((se) => Object.values(se.definition).some(Boolean))
+    // 词性不一样时，把词性写到各自义项前面，合并后才分得清哪条属于哪类
+    const mixedPos = new Set(group.map((x) => x.posId ?? '')).size > 1
+    const prefixPos = (x: Lexeme): void => {
+      const tag = posLabel(x.posId)
+      if (!mixedPos || !tag) return
+      for (const se of x.senses)
+        for (const [lang, text] of Object.entries(se.definition))
+          if (text && !text.startsWith(tag)) se.definition[lang] = `${tag} ${text}`
+    }
+    prefixPos(target)
     for (const other of group.slice(1)) {
+      prefixPos(other)
       target.senses.push(...filled(other))
       target.tags.push(...other.tags)
       if (other.posId && other.posId !== target.posId)
@@ -499,6 +524,14 @@
   function selectFromCard(id: Id): void {
     reveal(id)
   }
+  /** 关系图里点节点：就地换中心，跨语言时顺带切当前语言，不退回列表 */
+  function recenterGraph(id: Id): void {
+    const l = project.lexemes.find((x) => x.id === id)
+    if (!l) return
+    if (langId && l.languageId !== langId) projectState.currentLanguageId = l.languageId
+    selectedId = id
+    mainView = 'graph'
+  }
   /** 选中并把左侧列表滚到该词，短暂高亮；过滤条件会挡住目标，所以先清掉 */
   function reveal(id: Id): void {
     const l = project.lexemes.find((x) => x.id === id)
@@ -650,7 +683,7 @@
     <div class="scroll"><CsvImportWizard onclose={() => (mode = 'entries')} /></div>
   {:else if mainView === 'graph' && selected}
     <div class="scroll graph-wrap">
-      <LexemeGraph {project} lexemeId={selected.id} onselect={selectFromCard} />
+      <LexemeGraph {project} lexemeId={selected.id} onselect={recenterGraph} />
     </div>
   {:else if !project.languages.length}
     <p class="muted">{t('lexicon.noLanguage')}</p>

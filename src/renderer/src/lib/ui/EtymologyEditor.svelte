@@ -234,7 +234,7 @@
     gap: 4px;
     flex-wrap: wrap;
     padding: 4px 6px;
-    background: var(--bg-2);
+    background: var(--bg-sunken);
     border-radius: 6px;
   }
   .chain :global(.arrow) {

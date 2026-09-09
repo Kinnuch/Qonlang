@@ -767,7 +767,9 @@
     white-space: nowrap;
   }
   .editor-area {
-    flex: 1;
+    /* basis 必须是 auto：写成 flex:1 时高度只按剩余空间算，
+       规则一多就溢出去盖住后面的「自动映射」折叠块 */
+    flex: 1 1 auto;
     min-height: 240px;
     display: flex;
     flex-direction: column;
@@ -776,6 +778,9 @@
     flex: 1;
     min-height: 240px;
     display: flex;
+  }
+  .auto {
+    flex: none;
   }
   .auto pre {
     margin: 6px 0 0;

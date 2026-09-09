@@ -18,7 +18,15 @@
 
   let showAll = $state(false)
   let visible = $state(30)
-  const all = $derived(showAll ? findExamples(project, lexeme, glossLangs) : [])
+  let query = $state('')
+  const found = $derived(showAll ? findExamples(project, lexeme, glossLangs) : [])
+  const all = $derived.by(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return found
+    return found.filter((h) =>
+      [h.text, h.translation, h.where].some((v) => v?.toLowerCase().includes(q))
+    )
+  })
 
   function onScroll(e: Event): void {
     const el = e.currentTarget as HTMLElement
@@ -27,6 +35,7 @@
   }
   function open(): void {
     visible = 30
+    query = ''
     showAll = true
   }
   const jump = (h: ExampleHit): void => {
@@ -59,7 +68,13 @@
   <div class="overlay" role="dialog" tabindex="-1">
     <div class="sheet">
       <div class="row head">
-        <h2 class="grow">{t('lexicon.examplesFor', { lemma: lexeme.lemma })}</h2>
+        <h2>{t('lexicon.examplesFor', { lemma: lexeme.lemma })}</h2>
+        <input
+          class="input grow"
+          placeholder={t('lexicon.examplesSearch')}
+          bind:value={query}
+          oninput={() => (visible = 30)}
+        />
         <span class="small muted">{t('lexicon.count', { n: all.length })}</span>
         <button class="btn ghost icon" onclick={() => (showAll = false)}><X size={16} /></button>
       </div>
@@ -89,7 +104,7 @@
     padding: 6px 8px;
     border: 1px solid var(--border);
     border-radius: 6px;
-    background: var(--bg-2);
+    background: var(--bg-sunken);
     cursor: pointer;
     color: inherit;
   }

@@ -367,6 +367,7 @@ export default {
     bulkDeleted: '已删除 {n} 条',
     examples: '例句',
     examplesAll: '查看全部例句',
+    examplesSearch: '在例句里搜索…',
     examplesFor: '「{lemma}」的全部例句',
     exampleKinds: { sentence: '语料', phrase: '短语', doc: '文档' },
     registerPresets: '日常,正式,口语,书面,文学,诗歌,宗教,神祇,古语,俚语,禁忌,敬语,学术,方言,儿语',
@@ -794,7 +795,8 @@ export default {
     addVariant: '新建变体',
     variantName: '变体名称（如 A 式、文言体）',
     variantHint: '变体只覆盖你在它下面改过的槽位，其余照通用那套走；词条上可以选用哪个变体。',
-    slotsExplain: '这些维度的取值两两相配，得到 {n} 个槽位，每个槽位就是一个要生成的形式。',
+    slotsExplain:
+      '每个维度各取一个值凑成一个槽位（{dims}），去掉禁用的还剩 {n} 个；一个槽位就是一个要生成的形式。',
     infixPresets: {
       v1: '第一个元音之后',
       c1: '第一个辅音之后',
@@ -844,6 +846,8 @@ export default {
     deriveOne: '推导此词并写入',
     deriveAll: '推导全部（{n} 个词条）',
     derivedCount: '已写入 {n} 个推导形式（{words} 个词条；已覆盖的槽位不动）',
+    deriveProgress: '正在推导…',
+    reportProgress: '正在做一致性检查…',
     report: '一致性检查',
     reportTitle: '与已录入形式比对，共 {n} 个词条',
     same: '一致',

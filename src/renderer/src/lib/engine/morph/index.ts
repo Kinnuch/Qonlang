@@ -411,34 +411,43 @@ export interface SlotReport {
   examples: { lemma: string; stored: string; generated: string }[]
 }
 
+/** 一个槽位的一致性检查；分批跑时按槽位切 */
+export function reconcileSlot(
+  ctx: MorphContext,
+  lexemes: Lexeme[],
+  paradigm: Paradigm,
+  slot: SlotDef,
+  variantId?: Id | null
+): SlotReport {
+  const rep: SlotReport = { slot, same: 0, diff: 0, missing: 0, skipped: false, examples: [] }
+  const g0 = resolveGenerator(paradigm, slot.key, ctx.project.paradigms, 0, variantId)
+  if (g0.kind === 'none' || g0.kind === 'table') {
+    rep.skipped = true
+    return rep
+  }
+  for (const l of lexemes) {
+    const stored = l.forms[slot.label]
+    const gen = generateForm(ctx, l, paradigm, slot, variantId)
+    if (!gen) continue
+    // 只与用户录入 / 覆盖的形式比对；推导出来的值不算已录入
+    if (!stored || !stored.surface || !stored.override) {
+      rep.missing++
+      continue
+    }
+    // 录入值可能是逗号分隔的多个变体，任一相等即算一致
+    const variants = stored.surface.split(/[,，;；/]\s*/).map((v) => v.trim().replace(/^\*/, ''))
+    if (variants.includes(gen.surface)) rep.same++
+    else {
+      rep.diff++
+      if (rep.examples.length < 30)
+        rep.examples.push({ lemma: l.lemma, stored: stored.surface, generated: gen.surface })
+    }
+  }
+  return rep
+}
+
 /** 把推导值与词位里已录入（override）的形式比对 */
 export function reconcile(ctx: MorphContext, lexemes: Lexeme[], paradigm: Paradigm): SlotReport[] {
   const slots = paradigmSlots(paradigm, ctx.project.categories, ctx.project.settings.glossLanguages)
-  return slots.map((slot) => {
-    const rep: SlotReport = { slot, same: 0, diff: 0, missing: 0, skipped: false, examples: [] }
-    const g0 = resolveGenerator(paradigm, slot.key, ctx.project.paradigms)
-    if (g0.kind === 'none' || g0.kind === 'table') {
-      rep.skipped = true
-      return rep
-    }
-    for (const l of lexemes) {
-      const stored = l.forms[slot.label]
-      const gen = generateForm(ctx, l, paradigm, slot)
-      if (!gen) continue
-      // 只与用户录入 / 覆盖的形式比对；推导出来的值不算已录入
-      if (!stored || !stored.surface || !stored.override) {
-        rep.missing++
-        continue
-      }
-      // 录入值可能是逗号分隔的多个变体，任一相等即算一致
-      const variants = stored.surface.split(/[,，;；/]\s*/).map((v) => v.trim().replace(/^\*/, ''))
-      if (variants.includes(gen.surface)) rep.same++
-      else {
-        rep.diff++
-        if (rep.examples.length < 30)
-          rep.examples.push({ lemma: l.lemma, stored: stored.surface, generated: gen.surface })
-      }
-    }
-    return rep
-  })
+  return slots.map((slot) => reconcileSlot(ctx, lexemes, paradigm, slot))
 }

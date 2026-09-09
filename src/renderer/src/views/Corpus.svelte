@@ -94,11 +94,29 @@
   })
   $effect(() => {
     const id = ui.takePending('sentence')
-    if (id) {
-      selectedId = id
-      mode = 'entries'
-    }
+    if (id) reveal(id)
   })
+  /** 从别处跳过来：清掉过滤、选中、滚到它并闪一下 */
+  let flashId = $state<Id | null>(null)
+  function reveal(id: Id): void {
+    const s = project.sentences.find((x) => x.id === id)
+    if (!s) return
+    if (langId && s.languageId !== langId) projectState.currentLanguageId = s.languageId
+    query = ''
+    mode = 'entries'
+    selectedId = id
+    flashId = id
+    setTimeout(() => {
+      if (flashId === id) flashId = null
+    }, 1800)
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        document
+          .querySelector(`.item[data-id="${id}"]`)
+          ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      )
+    )
+  }
   // 选中尚未分析的句子时自动分析
   $effect(() => {
     if (selected && selected.tokens.length === 0 && selected.text.trim()) {
@@ -571,7 +589,9 @@
             {@const done = fullyConfirmed(s)}
             <div
               class="card item"
+              data-id={s.id}
               class:sel={selectedId === s.id}
+              class:flash={flashId === s.id}
               use:flashOn={justConfirmed === s.id}
               role="button"
               tabindex="0"
@@ -789,6 +809,19 @@
 {/if}
 
 <style>
+  .item.flash {
+    animation: jump-flash 1.8s ease-out;
+  }
+  @keyframes jump-flash {
+    0%,
+    35% {
+      background: color-mix(in srgb, var(--accent) 26%, transparent);
+      border-color: var(--accent);
+    }
+    100% {
+      background: var(--bg-elev);
+    }
+  }
   .page {
     padding: 20px 24px;
     display: flex;
