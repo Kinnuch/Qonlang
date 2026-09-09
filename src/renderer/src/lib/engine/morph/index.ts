@@ -74,22 +74,34 @@ export function paradigmSlots(
 }
 
 /** 沿继承链找槽位的生成器 */
+/** 变体生成器的键 */
+export function variantKey(key: string, variantId?: Id | null): string {
+  return variantId ? key + '#' + variantId : key
+}
+
 export function resolveGenerator(
   p: Paradigm,
   key: string,
   paradigms: Paradigm[],
-  depth = 0
+  depth = 0,
+  variantId?: Id | null
 ): SlotGenerator {
-  const g = p.generators[key]
+  // 变体优先，没写就退回这个槽位的通用写法
+  const g = (variantId ? p.generators[variantKey(key, variantId)] : undefined) ?? p.generators[key]
   if (g && g.kind !== 'none') return g
   if (p.inheritsFrom && depth < 8) {
     const parent = paradigms.find((x) => x.id === p.inheritsFrom)
-    if (parent) return resolveGenerator(parent, key, paradigms, depth + 1)
+    if (parent) return resolveGenerator(parent, key, paradigms, depth + 1, variantId)
   }
   return g ?? { kind: 'none' }
 }
 
 export function paradigmFor(project: Project, lexeme: Lexeme): Paradigm | null {
+  // 词条上指名了就用指名的
+  if (lexeme.paradigmId) {
+    const p = project.paradigms.find((x) => x.id === lexeme.paradigmId)
+    if (p) return p
+  }
   const pos = project.posList.find((p) => p.id === lexeme.posId)
   if (!pos?.paradigmId) return null
   return project.paradigms.find((p) => p.id === pos.paradigmId) ?? null
@@ -185,32 +197,27 @@ function insertInfix(
   inventory: string[]
 ): string {
   const segs = segment(stem, inventory)
-  const a = at.trim()
+  let a = (at.trim() || 'V1').replace(/\s+/g, '')
+  // 开头的 < 表示插在该音段之前，> 或不写表示之后
+  let before = false
+  if (a.startsWith('<')) {
+    before = true
+    a = a.slice(1)
+  } else if (a.startsWith('>')) a = a.slice(1)
   let pos: number
+  const cv = /^([CV])(-?\d*)$/i.exec(a)
   if (/^-?\d+$/.test(a)) {
+    // 纯数字是绝对位置：n 表示第 n 个音段之后，负数从末尾数
     const n = Number(a)
     pos = n >= 0 ? Math.min(n, segs.length) : Math.max(0, segs.length + n)
-  } else if (/^V(\d*)$/i.test(a)) {
-    // 第 n 个元音之后（默认第一个）
-    const n = Number(a.slice(1) || '1')
-    let seen = 0
-    pos = segs.length
-    for (let i = 0; i < segs.length; i++) {
-      if (nuclei.has(segs[i]) && ++seen === n) {
-        pos = i + 1
-        break
-      }
-    }
-  } else if (/^C(\d*)$/i.test(a)) {
-    const n = Number(a.slice(1) || '1')
-    let seen = 0
-    pos = segs.length
-    for (let i = 0; i < segs.length; i++) {
-      if (!nuclei.has(segs[i]) && ++seen === n) {
-        pos = i + 1
-        break
-      }
-    }
+  } else if (cv) {
+    const wantVowel = cv[1].toUpperCase() === 'V'
+    const idx: number[] = []
+    for (let i = 0; i < segs.length; i++) if (nuclei.has(segs[i]) === wantVowel) idx.push(i)
+    const n = cv[2] ? Number(cv[2]) : 1
+    // 正数从头数，负数从末尾数：C-1 就是最后一个辅音
+    const target = n > 0 ? idx[n - 1] : idx[idx.length + n]
+    pos = target === undefined ? segs.length : before ? target : target + 1
   } else pos = 1
   return [...segs.slice(0, pos), infix, ...segs.slice(pos)].join('')
 }
@@ -308,9 +315,16 @@ export function generateForm(
   ctx: MorphContext,
   lexeme: Lexeme,
   paradigm: Paradigm,
-  slot: SlotDef
+  slot: SlotDef,
+  variantId?: Id | null
 ): Generated | null {
-  const g = resolveGenerator(paradigm, slot.key, ctx.project.paradigms)
+  const g = resolveGenerator(
+    paradigm,
+    slot.key,
+    ctx.project.paradigms,
+    0,
+    variantId ?? lexeme.paradigmVariantId
+  )
   if (g.kind === 'none' || g.kind === 'table') return null
   const trace: string[] = []
   const stem = stemOf(lexeme, g.stem)
@@ -366,7 +380,8 @@ export function deriveForms(
   ctx: MorphContext,
   lexeme: Lexeme,
   paradigm: Paradigm,
-  slots?: SlotDef[]
+  slots?: SlotDef[],
+  variantId?: Id | null
 ): number {
   const defs =
     slots ?? paradigmSlots(paradigm, ctx.project.categories, ctx.project.settings.glossLanguages)
@@ -374,7 +389,7 @@ export function deriveForms(
   for (const s of defs) {
     const cur = lexeme.forms[s.label]
     if (cur?.override) continue
-    const g = generateForm(ctx, lexeme, paradigm, s)
+    const g = generateForm(ctx, lexeme, paradigm, s, variantId)
     if (!g) continue
     if (!cur || cur.surface !== g.surface || !cur.derived) {
       lexeme.forms[s.label] = { surface: g.surface, derived: true, override: false, trace: g.trace }

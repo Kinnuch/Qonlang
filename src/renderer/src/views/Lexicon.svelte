@@ -451,8 +451,13 @@
     const p = paradigmFor(project, l)
     const lg = project.languages.find((x) => x.id === l.languageId)
     if (!p || !lg) return
-    deriveForms(makeContext(project, lg), l, p)
+    deriveForms(makeContext(project, lg), l, p, undefined, l.paradigmVariantId)
     touch(l)
+  }
+  /** 换构形或变体后，推导出来的形式要重算；手填的不动 */
+  function rederive(l: Lexeme): void {
+    for (const [k, f] of Object.entries(l.forms)) if (!f.override) delete l.forms[k]
+    deriveNow(l)
   }
 
   function renameKey(obj: Record<string, unknown>, oldKey: string, newKey: string): void {
@@ -1118,6 +1123,37 @@
     {/if}
 
     <div class="field">
+      <div class="row two">
+        <select
+          class="select"
+          value={l.paradigmId ?? ''}
+          onchange={(e) => {
+            const v = (e.currentTarget as HTMLSelectElement).value
+            l.paradigmId = v || null
+            l.paradigmVariantId = null
+            rederive(l)
+          }}
+        >
+          <option value="">{t('lexicon.paradigmByPos')}</option>
+          {#each project.paradigms as pa (pa.id)}<option value={pa.id}
+              >{pickText(pa.name, glossLangs) || t('paradigms.untitled')}</option
+            >{/each}
+        </select>
+        {#if (paradigmOf(l)?.variants.length ?? 0) > 0}
+          <select
+            class="select"
+            value={l.paradigmVariantId ?? ''}
+            onchange={(e) => {
+              l.paradigmVariantId = (e.currentTarget as HTMLSelectElement).value || null
+              rederive(l)
+            }}
+          >
+            <option value="">{t('paradigms.variantBase')}</option>
+            {#each paradigmOf(l)?.variants ?? [] as v (v.id)}<option value={v.id}>{v.name}</option
+              >{/each}
+          </select>
+        {/if}
+      </div>
       <div class="row">
         <span class="small muted">{t('lexicon.forms')}</span><HelpDot key="forms" /><span
           class="grow"

@@ -79,6 +79,7 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
     l.etymology = migrateEtymology(l.etymology)
   }
   for (const m of merged.morphemes) m.etymology = migrateEtymology(m.etymology)
+  for (const p of merged.paradigms) if (!Array.isArray(p.variants)) p.variants = []
   for (const lang of merged.languages) {
     if (!lang.prosody)
       lang.prosody = { type: 'none', stressPosition: 'initial', rules: '', tones: [] }

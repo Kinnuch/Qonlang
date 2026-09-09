@@ -24,6 +24,7 @@
   import Hint from '$lib/ui/Hint.svelte'
   import { flashOn } from '$lib/ui/flash'
   import { wordHover } from '$lib/state/wordHover.svelte'
+  import { paradigmAffixes, reverseDerive } from '$lib/engine/morph/reverse'
   import { renderScript, sentenceScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
   import {
@@ -161,13 +162,59 @@
   function lexemeOf(tk: Token): Id | null {
     return tk.analyses[tk.chosen]?.lexemeId ?? null
   }
+  /** 这门语言的构形里出现过的词缀，用来反推屈折得厉害的词 */
+  const affixes = $derived(
+    langId ? paradigmAffixes(project, langId) : { prefixes: [], suffixes: [] }
+  )
+  /** 悬浮反推用的索引：第一次悬浮才建，项目改动后作废 */
+  let idxCache: { key: string; idx: ReturnType<typeof buildIndex> } | null = null
+  function hoverIndexOf(): ReturnType<typeof buildIndex> | null {
+    if (!langId) return null
+    const key = langId + '|' + project.meta.updatedAt
+    if (idxCache?.key !== key) idxCache = { key, idx: buildIndex(project, langId) }
+    return idxCache.idx
+  }
+  /** 分析没给出词条时：先查词头/词干/屈折形，再剥一层构形词缀重查 */
+  function resolveWord(tk: Token): { lexemeId?: Id; morphemeId?: Id } | null {
+    const direct = lexemeOf(tk)
+    if (direct) return { lexemeId: direct }
+    const a = tk.analyses[tk.chosen]
+    // 分析里认出的语素也能悬浮
+    const mid = a?.morphs.find((m) => m.morphemeId)?.morphemeId
+    const idx = hoverIndexOf()
+    if (idx) {
+      const key = tk.surface.normalize('NFC').toLowerCase()
+      const hit =
+        idx.lemma.get(key)?.[0] ?? idx.stems.get(key)?.[0] ?? idx.forms.get(key)?.[0]?.lexeme
+      if (hit) return { lexemeId: hit.id }
+      const rev = reverseDerive(tk.surface, affixes, (form) => {
+        const l = idx.lemma.get(form)?.[0] ?? idx.stems.get(form)?.[0]
+        return l ? l.id : null
+      })
+      if (rev) return { lexemeId: rev.lexemeId }
+    }
+    return mid ? { morphemeId: mid } : null
+  }
+  /** 便宜的可点判断：重的反推留到真正悬浮时再做 */
+  function linkable(tk: Token): boolean {
+    return !!lexemeOf(tk) || !!tk.analyses[tk.chosen]?.morphs.some((m) => m.morphemeId)
+  }
   function hoverWord(e: MouseEvent, tk: Token): void {
-    const id = lexemeOf(tk)
-    if (!id) return
-    wordHover.show(id, (e.currentTarget as HTMLElement).getBoundingClientRect())
+    const target = resolveWord(tk)
+    if (!target) return
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    if (target.lexemeId) wordHover.show(target.lexemeId, rect)
+    else if (target.morphemeId) wordHover.showMorpheme(target.morphemeId, rect)
   }
   function clickWord(e: MouseEvent, tk: Token): void {
-    const id = lexemeOf(tk)
+    const target = resolveWord(tk)
+    if (target?.morphemeId) {
+      e.stopPropagation()
+      wordHover.hide(true)
+      ui.jump('morphemes', 'morpheme', target.morphemeId)
+      return
+    }
+    const id = target?.lexemeId
     if (!id) return
     e.stopPropagation()
     const lx = project.lexemes.find((l) => l.id === id)
@@ -448,7 +495,7 @@
                 <div class="tok" class:bad={unresolved(tk)} class:ok={tk.confirmed}>
                   <div
                     class="surface data"
-                    class:link={!!lexemeOf(tk)}
+                    class:link={linkable(tk)}
                     role="link"
                     tabindex="-1"
                     onmouseenter={(e) => hoverWord(e, tk)}
@@ -547,7 +594,7 @@
                   <span class="data text grow words">
                     {#each s.tokens as tk, i (i)}<span
                         class="w"
-                        class:link={!!lexemeOf(tk)}
+                        class:link={linkable(tk)}
                         role="link"
                         tabindex="-1"
                         onmouseenter={(e) => hoverWord(e, tk)}

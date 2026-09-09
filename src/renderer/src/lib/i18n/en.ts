@@ -16,6 +16,7 @@ const en: Dict = {
     new: 'New',
     cancel: 'Cancel',
     delete: 'Delete',
+    rename: 'Rename',
     undo: 'Undo',
     close: 'Close',
     ok: 'OK',
@@ -444,6 +445,7 @@ const en: Dict = {
     formsOverride: 'overridden',
     resetDerived: 'Restore derived value',
     deriveForms: 'Derive from paradigm',
+    paradigmByPos: 'Paradigm: by part of speech',
     extraForms: 'Other forms',
     noParadigm: 'This part of speech has no paradigm; bind one on the Paradigms page.'
   },
@@ -815,6 +817,22 @@ const en: Dict = {
     dimensions: 'Dimensions',
     dimensionsHint:
       'Pick from the grammatical dimensions defined under Lexicon → Parts of speech & dimensions; their ordered cartesian product gives the slots.',
+    variants: 'Variants',
+    variantBase: 'Base',
+    addVariant: 'New variant',
+    variantName: 'Variant name (e.g. A-form, literary)',
+    variantHint:
+      'A variant only overrides the slots you edit under it; the rest fall back to the base. Entries pick which variant to use.',
+    slotsExplain: 'Every combination of these dimensions makes one slot: {n} forms to generate.',
+    infixPresets: {
+      v1: 'after the first vowel',
+      c1: 'after the first consonant',
+      beforeLastC: 'before the last consonant',
+      afterLastC: 'after the last consonant',
+      beforeLastV: 'before the last vowel',
+      afterFirst: 'after the first segment',
+      beforeLast: 'before the last segment'
+    },
     slots: 'Slots',
     noSlots: 'Pick at least one dimension first.',
     slot: 'Slot',
@@ -836,7 +854,7 @@ const en: Dict = {
     infix: 'Infix',
     infixAt: 'Position',
     infixAtHint:
-      'Infix position: a number (after the nth segment, negative from the end), V / V2 (after the nth vowel), C / C2 (after the nth consonant)',
+      'Where the infix goes: V1 after the first vowel, C1 after the first consonant, negative counts from the end (C-1 the last consonant), a leading < puts it before that segment (<C-1 before the last consonant), a plain number is after the nth segment',
     ruleSet: 'Rule set…',
     fromStage: 'From stage',
     toStage: 'To stage',

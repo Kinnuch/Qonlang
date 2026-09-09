@@ -301,6 +301,10 @@ export interface Lexeme {
   languageId: Id
   lemma: string
   posId: Id | null
+  /** 指定用哪个构形推导；留空则按词类绑定 */
+  paradigmId?: Id | null
+  /** 用构形的哪个变体 */
+  paradigmVariantId?: Id | null
   /** 合并同形词条后叠加的其他词类 */
   extraPosIds?: Id[]
   /** 名词类别、动词类别等任意维度：categoryId → valueId */
@@ -401,14 +405,22 @@ export interface Pronunciation {
 
 // ───────────────────────── 范式 ─────────────────────────
 
+/** 构形变体：同一个槽位的另一套写法，显示时可切换 */
+export interface ParadigmVariant {
+  id: Id
+  name: string
+}
+
 export interface Paradigm {
   id: Id
   name: LocalizedText
+  /** 变体列表；空表示只有一套形式 */
+  variants: ParadigmVariant[]
   /** 参与笛卡尔积的维度 */
   dimensionIds: Id[]
   /** 被屏蔽的组合，键为槽位 key */
   disabledSlots: string[]
-  /** 槽位 key → 生成器 */
+  /** 槽位 key → 生成器；变体的键是「槽位key#变体id」 */
   generators: Record<string, SlotGenerator>
   /** 继承自哪个范式，只覆盖差异槽位 */
   inheritsFrom: Id | null

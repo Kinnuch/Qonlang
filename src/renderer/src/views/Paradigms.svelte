@@ -11,7 +11,8 @@
     deriveForms,
     reconcile,
     makeContext,
-    type SlotReport
+    type SlotReport,
+    variantKey
   } from '$lib/engine/morph'
   import { parseRuleText } from '$lib/engine/sca'
   import Portal from '$lib/ui/Portal.svelte'
@@ -106,7 +107,7 @@
     return slots
       .filter((s) => !active!.disabledSlots.includes(s.key))
       .map((s) => {
-        const g = generateForm(ctx, testLexeme, active!, s)
+        const g = generateForm(ctx, testLexeme, active!, s, editVariantId)
         const stored = testLexeme.forms[s.label]
         const status = !g
           ? 'none'
@@ -141,10 +142,42 @@
   function touch(): void {
     projectState.touch()
   }
+  /** 正在编辑哪个变体；null 表示通用那一套 */
+  let editVariantId = $state<Id | null>(null)
+  const variants = $derived(active?.variants ?? [])
+  /** 该槽位在当前变体下的生成器键 */
+  const gkey = (key: string): string => variantKey(key, editVariantId)
+  async function addVariant(): Promise<void> {
+    if (!active) return
+    const name = (await ui.prompt(t('paradigms.variantName'), ''))?.trim()
+    if (!name) return
+    const v = { id: newId(), name }
+    active.variants = [...active.variants, v]
+    editVariantId = v.id
+    touch()
+  }
+  async function renameVariant(): Promise<void> {
+    const v = variants.find((x) => x.id === editVariantId)
+    if (!v) return
+    const name = (await ui.prompt(t('paradigms.variantName'), v.name))?.trim()
+    if (!name) return
+    v.name = name
+    touch()
+  }
+  function removeVariant(): void {
+    if (!active || !editVariantId) return
+    const id = editVariantId
+    active.variants = active.variants.filter((x) => x.id !== id)
+    for (const k of Object.keys(active.generators))
+      if (k.endsWith('#' + id)) delete active.generators[k]
+    editVariantId = null
+    touch()
+  }
   function addParadigm(): void {
     const p: Paradigm = {
       id: newId(),
       name: { [glossLangs[0] ?? 'zh']: t('paradigms.untitled') },
+      variants: [],
       dimensionIds: [],
       disabledSlots: [],
       generators: {},
@@ -391,6 +424,7 @@
       <section class="block">
         <h3>{t('paradigms.dimensions')}</h3>
         <p class="small muted">{t('paradigms.dimensionsHint')}</p>
+        <p class="small muted">{t('paradigms.slotsExplain', { n: slots.length })}</p>
         <div class="dims">
           {#each active.dimensionIds as id, i (id)}
             {@const c = project.categories.find((x) => x.id === id)}
@@ -419,6 +453,28 @@
 
       <section class="block">
         <h3>{t('paradigms.slots')} <span class="badge">{slots.length}</span></h3>
+        <div class="row wrap vbar">
+          <span class="small muted">{t('paradigms.variants')}</span>
+          <div class="seg">
+            <button class:active={editVariantId === null} onclick={() => (editVariantId = null)}
+              >{t('paradigms.variantBase')}</button
+            >
+            {#each variants as v (v.id)}
+              <button class:active={editVariantId === v.id} onclick={() => (editVariantId = v.id)}
+                >{v.name}</button
+              >
+            {/each}
+          </div>
+          <button class="btn ghost sm" onclick={addVariant}
+            ><Plus size={13} />{t('paradigms.addVariant')}</button
+          >
+          {#if editVariantId}
+            <button class="btn ghost sm" onclick={renameVariant}>{t('common.rename')}</button>
+            <button class="btn ghost sm danger" onclick={removeVariant}>{t('common.delete')}</button
+            >
+          {/if}
+          <span class="small muted">{t('paradigms.variantHint')}</span>
+        </div>
         {#if slots.length === 0}
           <p class="small muted">{t('paradigms.noSlots')}</p>
         {:else}
@@ -433,7 +489,7 @@
             <tbody>
               {#each slots as s (s.key)}
                 {@const disabled = active.disabledSlots.includes(s.key)}
-                {@const g = active.generators[s.key] ?? { kind: 'none' }}
+                {@const g = active.generators[gkey(s.key)] ?? { kind: 'none' }}
                 <tr class:off={disabled}>
                   <td
                     ><input
@@ -451,7 +507,7 @@
                       value={g.kind}
                       onchange={(e) =>
                         setKind(
-                          s.key,
+                          gkey(s.key),
                           (e.currentTarget as HTMLSelectElement).value as SlotGenerator['kind']
                         )}
                     >
@@ -459,7 +515,8 @@
                           value={k}>{t(`paradigms.kinds.${k}`)}</option
                         >{/each}
                     </select>
-                    {#if isInherited(s.key)}<span class="badge">{t('paradigms.inherited')}</span
+                    {#if isInherited(gkey(s.key))}<span class="badge"
+                        >{t('paradigms.inherited')}</span
                       >{/if}
                   </td>
                   <td>
@@ -514,6 +571,7 @@
                           <label class="pf sm"
                             ><span>{t('paradigms.infixAt')}</span><input
                               class="input"
+                              list="dl-infix-at"
                               placeholder="V1"
                               title={t('paradigms.infixAtHint')}
                               bind:value={g.infixAt}
@@ -728,7 +786,21 @@
   </Portal>
 {/if}
 
+<datalist id="dl-infix-at">
+  <option value="V1">{t('paradigms.infixPresets.v1')}</option>
+  <option value="C1">{t('paradigms.infixPresets.c1')}</option>
+  <option value="<C-1">{t('paradigms.infixPresets.beforeLastC')}</option>
+  <option value="C-1">{t('paradigms.infixPresets.afterLastC')}</option>
+  <option value="<V-1">{t('paradigms.infixPresets.beforeLastV')}</option>
+  <option value="1">{t('paradigms.infixPresets.afterFirst')}</option>
+  <option value="-1">{t('paradigms.infixPresets.beforeLast')}</option>
+</datalist>
+
 <style>
+  .vbar {
+    gap: 8px;
+    margin-bottom: 6px;
+  }
   .page {
     padding: 20px 24px;
     display: flex;

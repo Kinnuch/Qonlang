@@ -216,6 +216,53 @@ describe('generators', () => {
       'kumalo'
     )
   })
+  it('places infixes by vowel, consonant and end-relative positions', () => {
+    const { p, L, ctx } = setup()
+    const w = createLexeme(L.id, 'kalot')
+    const make = (at: string): string => {
+      const para: Paradigm = {
+        id: 'i' + at,
+        name: {},
+        variants: [],
+        dimensionIds: ['num'],
+        disabledSlots: [],
+        generators: {
+          sg: { kind: 'affix', stem: '', prefix: '', suffix: '', infix: 'um', infixAt: at }
+        },
+        inheritsFrom: null
+      }
+      return generateForm(ctx, w, para, paradigmSlots(para, p.categories, ['zh'])[0])?.surface ?? ''
+    }
+    expect(make('V1')).toBe('kaumlot')
+    expect(make('C1')).toBe('kumalot')
+    expect(make('<C-1')).toBe('kaloumt')
+    expect(make('C-1')).toBe('kalotum')
+    expect(make('<V-1')).toBe('kalumot')
+    expect(make('-1')).toBe('kaloumt')
+  })
+  it('variant generators override the base slot only where defined', () => {
+    const { p, L, ctx } = setup()
+    const w = createLexeme(L.id, 'kalo')
+    const para: Paradigm = {
+      id: 'v',
+      name: {},
+      variants: [{ id: 'b', name: 'B' }],
+      dimensionIds: ['num'],
+      disabledSlots: [],
+      generators: {
+        sg: { kind: 'affix', stem: '', prefix: '', suffix: 's', infix: '', infixAt: '' },
+        'sg#b': { kind: 'affix', stem: '', prefix: '', suffix: 'r', infix: '', infixAt: '' },
+        pl: { kind: 'affix', stem: '', prefix: '', suffix: 'i', infix: '', infixAt: '' }
+      },
+      inheritsFrom: null
+    }
+    p.paradigms.push(para)
+    const slots = paradigmSlots(para, p.categories, ['zh'])
+    expect(generateForm(ctx, w, para, slots[0])?.surface).toBe('kalos')
+    expect(generateForm(ctx, w, para, slots[0], 'b')?.surface).toBe('kalor')
+    // 变体没写的槽位照通用那套走
+    expect(generateForm(ctx, w, para, slots[1], 'b')?.surface).toBe('kaloi')
+  })
   it('uses named stems and strips hyphens', () => {
     const { p, L, ctx } = setup()
     const w = createLexeme(L.id, 'kel-')
