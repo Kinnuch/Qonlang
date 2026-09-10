@@ -360,7 +360,8 @@
     for (const f of [...forms].sort())
       cols.push({ key: `form:${f}`, label: `${t('lexicon.colForm')}: ${f}` })
     cols.push({ key: 'updated', label: t('lexicon.colUpdated') })
-    if (!selLang) cols.unshift({ key: 'language', label: t('nav.languages') })
+    // 「全部语言」时多一列语言（selLang 是选中词的语言，跟这里的过滤无关）
+    if (!langId) cols.unshift({ key: 'language', label: t('nav.languages') })
     return cols
   })
   /** 不同来源撞出同名的列，选列时容易点错，直接报出来 */
@@ -377,7 +378,7 @@
       .map((k) => availableColumns.find((c) => c.key === k))
       .filter((c): c is Col => !!c)
     // 「全部语言」时总带上语言列，不然分不清哪条是哪门语言的
-    const langCol = availableColumns.find((c) => c.key === 'language')
+    const langCol = !langId ? availableColumns.find((c) => c.key === 'language') : null
     if (langCol && !cols.some((c) => c.key === 'language')) cols.unshift(langCol)
     return cols
   })
