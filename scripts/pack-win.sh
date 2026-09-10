@@ -11,7 +11,7 @@ rm -rf "$OUT" dist/app-stage
 mkdir -p "$OUT" dist/app-stage/node_modules/@electron-toolkit dist/app-stage/resources
 cp -r node_modules/electron/dist/. "$OUT/"
 cp -r out dist/app-stage/out
-cp resources/icon.png dist/app-stage/resources/
+cp -r resources/. dist/app-stage/resources/
 cp -r node_modules/@electron-toolkit/utils dist/app-stage/node_modules/@electron-toolkit/utils
 node -e '
 const p = require("./package.json");
