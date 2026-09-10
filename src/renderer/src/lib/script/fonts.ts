@@ -25,11 +25,23 @@ export function ensureScriptFont(script: Script): void {
   }
 }
 
+/** 竖排：direction 为 ttb 或勾了竖排都算；列从右往左，除非明确是 ltr */
+export function isVertical(script: Script): boolean {
+  return !!script.vertical || script.direction === 'ttb'
+}
+
+/**
+ * 文字的内联样式：字体，加上竖排时的书写模式。
+ * 所有渲染文字的地方都用它，竖排开关才能一处生效。
+ */
 export function fontCss(script: Script): string {
   const fam = scriptFontFamily(script)
-  return fam
+  const font = fam
     ? `font-family:"${fam.replace(/"/g, '')}",var(--font-script)`
     : 'font-family:var(--font-script)'
+  if (!isVertical(script)) return font
+  const mode = script.direction === 'ltr' ? 'vertical-lr' : 'vertical-rl'
+  return `${font};writing-mode:${mode};text-orientation:upright;max-height:60vh;overflow:auto;align-self:flex-start`
 }
 
 /** 把 base64 字体数据转成 data URL，按扩展名挑 MIME */

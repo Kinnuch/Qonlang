@@ -16,7 +16,6 @@
     toLatex,
     renderTemplate,
     coverage,
-    corpusStats,
     LEIPZIG
   } from '$lib/engine/gloss'
   import Portal from '$lib/ui/Portal.svelte'
@@ -28,6 +27,9 @@
   import { paradigmAffixes, reverseDerive } from '$lib/engine/morph/reverse'
   import { lexemeMatchesGloss } from '$lib/core/glossMatch'
   import { renderScript, sentenceScript } from '$lib/script/render'
+  import { dedupeSentences } from '$lib/state/dedupe'
+  import StatsPanel from '$lib/ui/StatsPanel.svelte'
+  import { corpusStatsFull } from '$lib/engine/stats'
   import { fontCss } from '$lib/script/fonts'
   import {
     Plus,
@@ -38,7 +40,8 @@
     RefreshCw,
     CheckCheck,
     Check,
-    Sparkles
+    Sparkles,
+    Merge
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
@@ -57,7 +60,7 @@
 
   let mode = $state<'entries' | 'stats' | 'abbr'>('entries')
   let selectedId = $state<Id | null>(null)
-  let query = $state('')
+  const query = $derived(ui.search)
   let exportFormat = $state<'leipzig' | 'markdown' | 'html' | 'latex' | 'template'>('leipzig')
   let templateId = $state<string>('')
   let templateDraft = $state({ name: '', template: '' })
@@ -81,7 +84,13 @@
   const abbrMap = $derived(
     new Map(project.abbreviations.map((a) => [a.abbr, pickText(a.name, glossLangs)]))
   )
-  const stats = $derived(mode === 'stats' && langId ? corpusStats(project, langId) : null)
+  const stats = $derived(mode === 'stats' && langId ? corpusStatsFull(project, langId) : null)
+  const pctOf = (n: number, total: number): string =>
+    total ? `${Math.round((n / total) * 100)}%` : '—'
+  function filterFromStats(q: string): void {
+    ui.search = q
+    mode = 'entries'
+  }
   const templates = $derived(project.settings.exportTemplates.filter((x) => x.kind === 'gloss'))
 
   $effect(() => {
@@ -104,7 +113,7 @@
     const s = project.sentences.find((x) => x.id === id)
     if (!s) return
     if (langId && s.languageId !== langId) projectState.currentLanguageId = s.languageId
-    query = ''
+    ui.search = ''
     mode = 'entries'
     selectedId = id
     flashId = id
@@ -161,16 +170,23 @@
     analyzeSentence(project, selected, { force })
     touch()
   }
+  async function runDedup(): Promise<void> {
+    if (!langId) return
+    const n = await dedupeSentences(project, { languageId: langId })
+    if (n) {
+      if (selectedId && !project.sentences.some((s) => s.id === selectedId)) selectedId = null
+      touch()
+    }
+  }
   function confirmAll(): void {
     if (!selected || fading) return
     const id = selected.id
     for (const tk of selected.tokens) if (tk.analyses[tk.chosen]) tk.confirmed = true
     touch()
-    // 渐隐编辑器 → 取消选中 → 列表卡片长出第三行 gloss 并闪一下
+    // 列表卡片长出第三行 gloss 并闪一下；检视器留在这句上，方便接着调整
     fading = true
     setTimeout(() => {
       fading = false
-      selectedId = null
       justConfirmed = id
       setTimeout(() => (justConfirmed = null), 1200)
     }, 420)
@@ -473,7 +489,9 @@
     </div>
     <span class="grow"></span>
     {#if mode === 'entries'}
-      <input class="input search" placeholder={t('corpus.search')} bind:value={query} />
+      <button class="btn ghost" title={t('corpus.dedup.hintBtn')} onclick={runDedup}
+        ><Merge size={16} />{t('corpus.dedup.button')}</button
+      >
       <button class="btn primary" onclick={add}><Plus size={16} />{t('corpus.add')}</button>
     {/if}
   </div>
@@ -483,29 +501,92 @@
   {:else if mode === 'stats'}
     <div class="scroll stats">
       {#if stats}
-        <p class="small muted">
-          {t('corpus.stats.coverage', { pct: Math.round(stats.lexemeCoverage * 100) })}
-        </p>
-        <div class="two-col">
-          <section>
-            <h3>{t('corpus.stats.frequency')}</h3>
-            <table class="tbl">
-              <tbody
-                >{#each stats.frequency.slice(0, 200) as f (f.surface)}<tr
-                    ><td class="data">{f.surface}</td><td class="muted">{f.n}</td></tr
-                  >{/each}</tbody
-              >
-            </table>
-          </section>
-          <section>
-            <h3>
-              {t('corpus.stats.unresolved')} <span class="badge">{stats.unresolved.length}</span>
-            </h3>
-            <div class="chips">
-              {#each stats.unresolved as w (w)}<span class="chip data warn">{w}</span>{/each}
-            </div>
-          </section>
-        </div>
+        {@const st = stats}
+        <StatsPanel
+          facts={[
+            { label: t('stats.corpus.sentences'), value: st.sentences },
+            {
+              label: t('stats.corpus.tokens'),
+              value: st.tokens,
+              sub: t('stats.corpus.avgTokens', { n: st.avgTokens.toFixed(1) })
+            },
+            {
+              label: t('stats.corpus.types'),
+              value: st.types,
+              sub: t('stats.corpus.hapax', { n: st.hapax })
+            },
+            {
+              label: t('stats.corpus.resolved'),
+              value: st.resolvedTokens,
+              sub: pctOf(st.resolvedTokens, st.tokens)
+            },
+            {
+              label: t('stats.corpus.confirmed'),
+              value: st.confirmedTokens,
+              sub: pctOf(st.confirmedTokens, st.tokens)
+            },
+            {
+              label: t('stats.corpus.fullyConfirmed'),
+              value: st.fullyConfirmedSentences,
+              sub: pctOf(st.fullyConfirmedSentences, st.sentences)
+            },
+            {
+              label: t('stats.corpus.withTranslation'),
+              value: st.withTranslation,
+              sub: pctOf(st.withTranslation, st.sentences)
+            },
+            {
+              label: t('stats.corpus.withSource'),
+              value: st.withSource,
+              sub: pctOf(st.withSource, st.sentences)
+            },
+            { label: t('stats.corpus.withScriptForm'), value: st.withScriptForm },
+            {
+              label: t('stats.corpus.lexemeCoverage'),
+              value: `${Math.round(st.lexemeCoverage * 100)}%`
+            },
+            {
+              label: t('stats.corpus.morphemeCoverage'),
+              value: `${Math.round(st.morphemeCoverage * 100)}%`
+            },
+            { label: t('corpus.stats.unresolved'), value: st.unresolved.length }
+          ]}
+          groups={[
+            {
+              title: t('stats.corpus.bySource'),
+              buckets: st.bySource,
+              onpick: (k) => filterFromStats(k)
+            },
+            { title: t('stats.corpus.byTag'), buckets: st.byTag },
+            { title: t('stats.corpus.byGloss'), buckets: st.byGloss, max: 20 },
+            { title: t('stats.corpus.byLength'), buckets: st.byLength, max: 40 }
+          ]}
+          rankings={[
+            {
+              title: t('corpus.stats.frequency'),
+              items: st.frequency
+                .slice(0, 100)
+                .map((f) => ({ id: f.surface, label: f.surface, n: f.n })),
+              onpick: (w) => filterFromStats(w)
+            },
+            {
+              title: t('stats.corpus.topLexemes'),
+              items: st.topLexemes.map((x) => ({ id: x.lexemeId, label: x.lemma, n: x.n })),
+              onpick: (id) => ui.jump('lexicon', 'lexeme', id)
+            }
+          ]}
+        />
+        <section class="unres">
+          <h3>
+            {t('corpus.stats.unresolved')} <span class="badge">{st.unresolved.length}</span>
+          </h3>
+          <div class="chips">
+            {#each st.unresolved as w (w)}<button
+                class="chip data warn"
+                onclick={() => filterFromStats(w)}>{w}</button
+              >{/each}
+          </div>
+        </section>
       {/if}
     </div>
   {:else if mode === 'abbr'}
@@ -917,9 +998,6 @@
   .page-head {
     gap: 10px;
   }
-  .search {
-    width: 220px;
-  }
   .scroll {
     flex: 1;
     min-height: 0;
@@ -1070,11 +1148,6 @@
     font-size: 11px;
     color: var(--text-2);
   }
-  .two-col {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-  }
   .tbl {
     border-collapse: collapse;
     font-size: 13px;
@@ -1093,6 +1166,20 @@
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
+  }
+  .unres {
+    margin-top: 22px;
+  }
+  .unres h3 {
+    margin-bottom: 8px;
+  }
+  button.chip {
+    cursor: pointer;
+    font: inherit;
+    background: none;
+  }
+  button.chip:hover {
+    background: var(--bg-hover);
   }
   .chip {
     padding: 2px 8px;

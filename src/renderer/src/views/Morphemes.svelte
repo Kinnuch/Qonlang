@@ -9,20 +9,80 @@
   import { makeCollator } from '$lib/core/collate'
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
-  import { Plus, Trash2, X, ChevronUp, ChevronDown, Eye, Pencil } from '@lucide/svelte'
+  import { Plus, Trash2, X, ChevronUp, ChevronDown, Eye, Pencil, ListOrdered } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import EtymologyEditor from '$lib/ui/EtymologyEditor.svelte'
   import MorphemeCard from '$lib/ui/MorphemeCard.svelte'
+  import ColHead from '$lib/ui/ColHead.svelte'
+  import StatsPanel from '$lib/ui/StatsPanel.svelte'
+  import { morphemeStats } from '$lib/engine/stats'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
   const project = $derived(projectState.project!)
   const langId = $derived(projectState.currentLanguageId)
   let selectedId = $state<Id | null>(null)
+  let mode = $state<'entries' | 'stats'>('entries')
+  const mStats = $derived(mode === 'stats' ? morphemeStats(project, langId) : null)
+  const pctOf = (n: number, total: number): string =>
+    total ? `${Math.round((n / total) * 100)}%` : '—'
+  function filterFromStats(key: string, value: string): void {
+    setFilter(key, new Set([value]))
+    mode = 'entries'
+  }
   let typeFilter = $state<MorphemeType | ''>('')
-  let query = $state('')
-  let sort = $state<'alphabet' | 'type' | 'custom'>('alphabet')
+  const query = $derived(ui.search)
+  let sortKey = $state<string | null>(null)
+  let sortDir = $state<'asc' | 'desc'>('desc')
+  let customOrder = $state(false)
+  let colFilters = $state<Record<string, Set<string>>>({})
+  const sort = $derived(customOrder ? 'custom' : 'alphabet')
+  function cycleSort(key: string): void {
+    if (customOrder) customOrder = false
+    if (sortKey !== key) {
+      sortKey = key
+      sortDir = 'desc'
+    } else if (sortDir === 'desc') sortDir = 'asc'
+    else sortKey = null
+  }
+  function setFilter(key: string, sel: Set<string> | null): void {
+    const next = { ...colFilters }
+    if (sel) next[key] = sel
+    else delete next[key]
+    colFilters = next
+  }
+  function initialOf(form: string): string {
+    const w = form.replace(/^[-=*·]+/, '')
+    const alpha = projectState.currentLanguage?.alphabet ?? []
+    for (const a of [...alpha].sort((x, y) => y.length - x.length))
+      if (a && w.toLowerCase().startsWith(a.toLowerCase())) return a
+    return Array.from(w)[0]?.toUpperCase() ?? ''
+  }
+  function colValue(m: Morpheme, key: string): string {
+    if (key === 'form') return m.form
+    if (key === 'type') return m.type
+    if (key === 'gloss') return m.gloss
+    if (key === 'meaning') return pickText(m.meaning, glossLangs)
+    if (key === 'language') return langName(m.languageId)
+    return ''
+  }
+  function filterValues(m: Morpheme, key: string): string[] {
+    if (key === 'form') return [initialOf(m.form)]
+    if (key === 'tags') return m.tags.length ? m.tags : ['']
+    return [colValue(m, key)]
+  }
+  function filterOptions(key: string): { value: string; label: string; count: number }[] {
+    const counts = new Map<string, number>()
+    const base = project.morphemes.filter((m) => !langId || m.languageId === langId)
+    for (const m of base)
+      for (const v of filterValues(m, key)) counts.set(v, (counts.get(v) ?? 0) + 1)
+    const label = (v: string): string => (key === 'type' ? t(`morphemes.types.${v}`) : v || '—')
+    const out = [...counts].map(([value, count]) => ({ value, label: label(value), count }))
+    return out.sort((a, b) => (key === 'form' ? collator(a.value, b.value) : b.count - a.count))
+  }
+  const filterable = (key: string): boolean =>
+    key === 'form' || key === 'type' || key === 'tags' || key === 'language'
   let editMode = $state(false)
   const collator = $derived(makeCollator(projectState.currentLanguage?.alphabet ?? []))
 
@@ -31,6 +91,8 @@
     return project.morphemes.filter((m) => {
       if (langId && m.languageId !== langId) return false
       if (typeFilter && m.type !== typeFilter) return false
+      for (const [key, sel] of Object.entries(colFilters))
+        if (!filterValues(m, key).some((v) => sel.has(v))) return false
       if (
         q &&
         !(
@@ -45,14 +107,23 @@
   })
   const list = $derived.by(() => {
     const arr = [...filtered]
-    if (sort === 'alphabet')
-      arr.sort((a, b) => collator(a.form.replace(/^[-=]+/, ''), b.form.replace(/^[-=]+/, '')))
-    else if (sort === 'type')
-      arr.sort(
-        (a, b) =>
-          MORPHEME_TYPES.indexOf(a.type) - MORPHEME_TYPES.indexOf(b.type) ||
-          collator(a.form, b.form)
-      )
+    const byForm = (a: Morpheme, b: Morpheme): number =>
+      collator(a.form.replace(/^[-=]+/, ''), b.form.replace(/^[-=]+/, ''))
+    if (customOrder) return arr
+    if (!sortKey) arr.sort(byForm)
+    else {
+      const key = sortKey
+      const dir = sortDir === 'asc' ? 1 : -1
+      arr.sort((a, b) => {
+        const c =
+          key === 'type'
+            ? MORPHEME_TYPES.indexOf(a.type) - MORPHEME_TYPES.indexOf(b.type)
+            : key === 'tags'
+              ? collator(a.tags.join(','), b.tags.join(','))
+              : collator(colValue(a, key), colValue(b, key))
+        return (c || byForm(a, b)) * dir
+      })
+    }
     return arr
   })
   function move(m: Morpheme, dir: -1 | 1): void {
@@ -76,12 +147,38 @@
   const glossLangs = $derived(project.settings.glossLanguages)
 
   $effect(() => {
-    inspectorTitle = selected ? selected.form || t('morphemes.title') : t('morphemes.title')
+    inspectorTitle =
+      mode === 'stats'
+        ? t('stats.title')
+        : selected
+          ? selected.form || t('morphemes.title')
+          : t('morphemes.title')
   })
   $effect(() => {
     const id = ui.takePending('morpheme')
-    if (id) selectedId = id
+    if (id) reveal(id)
   })
+  /** 从别处跳过来：清掉筛选、选中、滚到那一行并短暂高亮 */
+  let flashId = $state<Id | null>(null)
+  function reveal(id: Id): void {
+    const m = project.morphemes.find((x) => x.id === id)
+    if (!m) return
+    if (langId && m.languageId !== langId) projectState.currentLanguageId = m.languageId
+    ui.search = ''
+    typeFilter = ''
+    selectedId = id
+    flashId = id
+    setTimeout(() => {
+      if (flashId === id) flashId = null
+    }, 1800)
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        document
+          .querySelector(`tr[data-id="${id}"]`)
+          ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      )
+    )
+  }
 
   function langName(id: Id): string {
     return project.languages.find((l) => l.id === id)?.name ?? ''
@@ -123,6 +220,14 @@
     <GuideLink section="morphemes" />
     <span class="badge">{t('morphemes.count', { n: list.length })}</span>
     <div class="seg">
+      <button class:active={mode === 'entries'} onclick={() => (mode = 'entries')}
+        >{t('lexicon.entries')}</button
+      >
+      <button class:active={mode === 'stats'} onclick={() => (mode = 'stats')}
+        >{t('stats.title')}</button
+      >
+    </div>
+    <div class="seg">
       <button
         class:active={!editMode}
         title={t('lexicon.modeView')}
@@ -135,40 +240,139 @@
       >
     </div>
     <span class="grow"></span>
-    <input class="input search" placeholder={t('morphemes.search')} bind:value={query} />
-    <select class="select type" bind:value={typeFilter}>
-      <option value="">{t('morphemes.allTypes')}</option>
-      {#each MORPHEME_TYPES as mt (mt)}<option value={mt}>{t(`morphemes.types.${mt}`)}</option
-        >{/each}
-    </select>
-    <select class="select type" bind:value={sort} title={t('lexicon.sort')}>
-      <option value="alphabet">{t('lexicon.sortAlphabet')}</option>
-      <option value="type">{t('morphemes.sortType')}</option>
-      <option value="custom">{t('lexicon.sortCustom')}</option>
-    </select>
     <button class="btn primary" onclick={add}><Plus size={16} />{t('morphemes.add')}</button>
   </div>
   <Hint id="morphemes" text={t('morphemes.hint')} />
 
-  {#if list.length === 0}
+  {#if mode === 'stats' && mStats}
+    {@const st = mStats}
+    <div class="scroll">
+      <StatsPanel
+        facts={[
+          { label: t('stats.morph.total'), value: st.total },
+          {
+            label: t('stats.morph.withGloss'),
+            value: st.withGloss,
+            sub: pctOf(st.withGloss, st.total)
+          },
+          {
+            label: t('stats.morph.withMeaning'),
+            value: st.withMeaning,
+            sub: pctOf(st.withMeaning, st.total)
+          },
+          { label: t('stats.morph.withAllomorphs'), value: st.withAllomorphs },
+          {
+            label: t('stats.morph.withEtymology'),
+            value: st.withEtymology,
+            sub: pctOf(st.withEtymology, st.total)
+          },
+          {
+            label: t('stats.morph.usedInCorpus'),
+            value: st.usedInCorpus,
+            sub: pctOf(st.usedInCorpus, st.total)
+          },
+          { label: t('stats.morph.usedInEtymology'), value: st.usedInEtymology },
+          { label: t('stats.morph.usedInParadigms'), value: st.usedInParadigms },
+          { label: t('stats.morph.unused'), value: st.unused.length },
+          { label: t('stats.morph.duplicates'), value: st.duplicateForms }
+        ]}
+        groups={[
+          {
+            title: t('stats.morph.byType'),
+            buckets: st.byType.map((b) => ({ ...b, label: t(`morphemes.types.${b.key}`) })),
+            onpick: (k) => filterFromStats('type', k)
+          },
+          {
+            title: t('stats.morph.byTag'),
+            buckets: st.byTag,
+            onpick: (k) => filterFromStats('tags', k)
+          },
+          {
+            title: t('stats.morph.byInitial'),
+            buckets: st.byInitial,
+            max: 40,
+            onpick: (k) => filterFromStats('form', k)
+          }
+        ]}
+        rankings={[
+          {
+            title: t('stats.morph.topUsed'),
+            items: st.topUsed.map((x) => ({ id: x.morphemeId, label: x.form, n: x.n })),
+            onpick: (id) => {
+              mode = 'entries'
+              reveal(id)
+            }
+          },
+          {
+            title: t('stats.morph.unusedList'),
+            items: st.unused.slice(0, 60).map((x) => ({ id: x.id, label: x.form, n: 0 })),
+            onpick: (id) => {
+              mode = 'entries'
+              reveal(id)
+            }
+          }
+        ]}
+      />
+    </div>
+  {:else if !project.morphemes.some((m) => !langId || m.languageId === langId)}
     <p class="muted">{t('morphemes.empty')}</p>
   {:else}
     <div class="table-wrap">
       <table class="tbl">
         <thead>
           <tr>
-            <th>{t('morphemes.form')}</th>
-            <th>{t('morphemes.type')}</th>
-            <th>{t('morphemes.gloss')}</th>
-            <th>{t('morphemes.meaning')}</th>
-            {#if !langId}<th>{t('nav.languages')}</th>{/if}
-            <th>{t('common.tags')}</th>
-            {#if sort === 'custom'}<th></th>{/if}
+            {#each [['form', t('morphemes.form')], ['type', t('morphemes.type')], ['gloss', t('morphemes.gloss')], ['meaning', t('morphemes.meaning')]] as [key, label] (key)}
+              <th>
+                <ColHead
+                  {label}
+                  sort={sortKey === key ? sortDir : null}
+                  onsort={() => cycleSort(key)}
+                  options={filterable(key) ? filterOptions(key) : undefined}
+                  selected={colFilters[key] ?? null}
+                  onfilter={(sel) => setFilter(key, sel)}
+                />
+              </th>
+            {/each}
+            {#if !langId}
+              <th>
+                <ColHead
+                  label={t('nav.languages')}
+                  sort={sortKey === 'language' ? sortDir : null}
+                  onsort={() => cycleSort('language')}
+                  options={filterOptions('language')}
+                  selected={colFilters.language ?? null}
+                  onfilter={(sel) => setFilter('language', sel)}
+                />
+              </th>
+            {/if}
+            <th>
+              <ColHead
+                label={t('common.tags')}
+                sort={sortKey === 'tags' ? sortDir : null}
+                onsort={() => cycleSort('tags')}
+                options={filterOptions('tags')}
+                selected={colFilters.tags ?? null}
+                onfilter={(sel) => setFilter('tags', sel)}
+              />
+            </th>
+            <th class="order">
+              <button
+                class="btn ghost icon sm"
+                class:active={customOrder}
+                title={t('table.customOrder')}
+                onclick={() => (customOrder = !customOrder)}><ListOrdered size={14} /></button
+              >
+            </th>
           </tr>
         </thead>
         <tbody>
           {#each list as m (m.id)}
-            <tr class:sel={selectedId === m.id} onclick={() => (selectedId = m.id)}>
+            <tr
+              data-id={m.id}
+              class:sel={selectedId === m.id}
+              class:flash={flashId === m.id}
+              onclick={() => (selectedId = m.id)}
+            >
               <td class="data form"
                 >{m.form}{#if m.type === 'circumfix' && m.form2}…{m.form2}{/if}</td
               >
@@ -179,8 +383,8 @@
               <td class="tags-cell"
                 >{#each m.tags as tg (tg)}<span class="badge">{tg}</span>{/each}</td
               >
-              {#if sort === 'custom'}
-                <td class="mv">
+              <td class="mv">
+                {#if sort === 'custom'}
                   <button
                     class="btn ghost icon sm"
                     title={t('lexicon.moveUp')}
@@ -197,9 +401,11 @@
                       move(m, 1)
                     }}><ChevronDown size={12} /></button
                   >
-                </td>
-              {/if}
+                {/if}
+              </td>
             </tr>
+          {:else}
+            <tr class="empty"><td colspan="99" class="muted">{t('table.noMatch')}</td></tr>
           {/each}
         </tbody>
       </table>
@@ -396,6 +602,26 @@
 {/if}
 
 <style>
+  th.order {
+    width: 34px;
+    text-align: center;
+  }
+  th.order .btn.active {
+    color: var(--accent-text);
+    background: var(--accent-soft);
+  }
+  tr.flash td {
+    animation: flash 1.8s ease-out;
+  }
+  @keyframes flash {
+    0%,
+    35% {
+      background: color-mix(in srgb, var(--accent) 34%, transparent);
+    }
+    100% {
+      background: transparent;
+    }
+  }
   .mv {
     width: 44px;
     white-space: nowrap;
@@ -410,16 +636,6 @@
   .page-head {
     gap: 8px;
     flex-wrap: wrap;
-  }
-  .search {
-    width: 200px;
-    min-width: 140px;
-    flex: 1 1 160px;
-    max-width: 260px;
-  }
-  .type {
-    width: auto;
-    min-width: 110px;
   }
   .table-wrap {
     flex: 1;

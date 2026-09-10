@@ -132,7 +132,8 @@ function toSegs(word: string, t: PackTables): Seg[] {
  */
 export function packWord(lang: Language, script: Script, word: string, isHead = false): string[] {
   const t = packTables(lang, script)
-  const segs = toSegs(word, t)
+  // 括号、引号这类不在单位表里的符号原样保留：e·(ñ)galan 里的括号不是音
+  const segs = toSegs(word, t).filter((x) => t.inventory.includes(x.raw) || x.vowel)
   const out: string[] = []
   let carried: Seg | null = null
   let written = false

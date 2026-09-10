@@ -109,6 +109,21 @@
         ><X size={14} /></button
       >
     {/if}
+    {#if parts.length}
+      <div class="parts">
+        <Blocks size={12} />
+        {#each parts as p, i (p.label + i)}
+          <button
+            class="chip"
+            class:plain={!p.lexemeId && !p.morphemeId}
+            title={p.gloss ?? ''}
+            onmouseenter={() => (p.lexemeId || p.morphemeId) && wordHover.swap(p)}
+            onclick={() => (p.lexemeId || p.morphemeId) && wordHover.swap(p)}
+            >{p.label}{#if p.gloss}<span class="pgloss">{p.gloss}</span>{/if}</button
+          >
+        {/each}
+      </div>
+    {/if}
     <div class="body">
       {#if lexeme}
         <LexemeCard {lexeme} project={project!} />
@@ -129,21 +144,6 @@
         </div>
       {/if}
     </div>
-    {#if parts.length}
-      <div class="parts">
-        <Blocks size={12} />
-        {#each parts as p, i (p.label + i)}
-          <button
-            class="chip"
-            class:plain={!p.lexemeId && !p.morphemeId}
-            title={p.gloss ?? ''}
-            onmouseenter={() => (p.lexemeId || p.morphemeId) && wordHover.swap(p)}
-            onclick={() => (p.lexemeId || p.morphemeId) && wordHover.swap(p)}
-            >{p.label}{#if p.gloss}<span class="pgloss">{p.gloss}</span>{/if}</button
-          >
-        {/each}
-      </div>
-    {/if}
     <div class="foot">
       <button class="btn sm" onclick={openInLexicon}
         ><BookOpen size={14} />{morpheme
@@ -193,8 +193,10 @@
     align-items: center;
     gap: 4px;
     flex-wrap: wrap;
-    padding: 6px 12px;
-    border-top: 1px solid var(--border);
+    padding: 8px 12px 6px;
+    padding-right: 36px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-sunken);
     color: var(--text-3);
   }
   .parts .chip {

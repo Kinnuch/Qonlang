@@ -7,6 +7,7 @@
   import type { ProjectTemplate } from '$lib/core/model'
   import { createLanguage } from '$lib/core/factory'
   import { mdToHtml } from '$lib/core/markdown'
+  import { parseProject } from '$lib/core/serialize'
   import { guideUrl } from '$lib/core/guide'
   import {
     X,
@@ -19,7 +20,8 @@
     User,
     Link2,
     ExternalLink,
-    BookOpen
+    BookOpen,
+    Sparkles
   } from '@lucide/svelte'
   import changelogRaw from '../../../../CHANGELOG.md?raw'
   import wechatQr from '../assets/img/wechat-qr.png'
@@ -52,7 +54,42 @@
     },
     { name: 'Sicusa', url: 'https://github.com/sicusa', icon: null, blurb: 'GitHub 主页。' }
   ]
-  let footerPanel = $state<'coffee' | 'changelog' | 'dev' | 'friends' | null>(null)
+  let footerPanel = $state<'examples' | 'coffee' | 'changelog' | 'dev' | 'friends' | null>(null)
+
+  /**
+   * 示例工程：随软件一起带的两个虚构项目，覆盖各模块的功能。
+   * 用动态 import 读进来，平时不占主包。
+   */
+  const EXAMPLES = [
+    {
+      id: 'aelith',
+      name: 'Aelith',
+      load: () => import('../../../../examples/Aelith.laim.json?raw')
+    },
+    {
+      id: 'tsahun',
+      name: 'Tsahun',
+      load: () => import('../../../../examples/Tsahun.laim.json?raw')
+    }
+  ]
+  let loadingExample = $state('')
+  async function openExample(ex: (typeof EXAMPLES)[number]): Promise<void> {
+    if (loadingExample) return
+    loadingExample = ex.id
+    try {
+      const raw = (await ex.load()).default
+      const project = parseProject(raw)
+      // 没有文件目标：改动要另存为，示例文件本身不会被覆盖
+      projectState.load(project, null)
+      projectState.touch()
+      footerPanel = null
+      ui.toast(t('welcome.exampleOpened', { name: ex.name }))
+    } catch (e) {
+      ui.error((e as Error).message)
+    } finally {
+      loadingExample = ''
+    }
+  }
 
   /** 极简 Markdown：标题、列表、段落 */
   const changelogHtml = mdToHtml(changelogRaw)
@@ -167,6 +204,12 @@
       >
       <button class="btn" onclick={() => projectState.open()}
         ><FolderOpen size={16} />{t('welcome.openProject')}</button
+      >
+      <button
+        class="btn"
+        class:active={footerPanel === 'examples'}
+        onclick={() => (footerPanel = footerPanel === 'examples' ? null : 'examples')}
+        ><Sparkles size={16} />{t('welcome.examples')}</button
       >
       <button class="btn" onclick={() => open(guideUrl('welcome'))}
         ><BookOpen size={16} />{t('common.guide')}</button
@@ -332,7 +375,21 @@
         >
       </div>
       <div class="panel-body">
-        {#if footerPanel === 'coffee'}
+        {#if footerPanel === 'examples'}
+          <p class="small muted">{t('welcome.examplesHint')}</p>
+          {#each EXAMPLES as ex (ex.id)}
+            <div class="card panel example">
+              <strong>{ex.name}</strong>
+              <p class="small muted">{t(`welcome.example_${ex.id}`)}</p>
+              <button
+                class="btn primary sm"
+                disabled={!!loadingExample}
+                onclick={() => openExample(ex)}
+                >{loadingExample === ex.id ? t('common.loading') : t('welcome.openExample')}</button
+              >
+            </div>
+          {/each}
+        {:else if footerPanel === 'coffee'}
           <div class="card panel coffee">
             <img src={wechatQr} alt="WeChat Pay" />
             <p class="small muted">{t('welcome.scanWechat')}</p>
@@ -375,6 +432,16 @@
     height: 100%;
     display: grid;
     grid-template-columns: 320px 1fr auto;
+  }
+  .example {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+    padding: 12px 14px;
+  }
+  .example p {
+    margin: 0;
   }
   .side-panel {
     /* 与检视器同宽，但窗口窄时让主区留得住 */

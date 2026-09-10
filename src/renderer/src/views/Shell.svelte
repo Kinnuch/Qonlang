@@ -34,6 +34,8 @@
   import Docs from './Docs.svelte'
   import CommandPalette from '$lib/ui/CommandPalette.svelte'
   import PromptDialog from '$lib/ui/PromptDialog.svelte'
+  import SearchBar from '$lib/ui/SearchBar.svelte'
+  import SentenceMergeDialog from '$lib/ui/SentenceMergeDialog.svelte'
   import { ensureScriptFont } from '$lib/script/fonts'
   import Languages from './Languages.svelte'
   import SoundChanges from './SoundChanges.svelte'
@@ -130,6 +132,14 @@
     }
     projectState.close()
   }
+  /** 顶栏搜索框：只在有列表可搜的页面出现，占位文字跟页面走 */
+  const SEARCHABLE: Partial<Record<Section, string>> = {
+    lexicon: 'lexicon.search',
+    morphemes: 'morphemes.search',
+    corpus: 'corpus.search',
+    phrasebook: 'phrasebook.search'
+  }
+  const searchPlaceholder = $derived(SEARCHABLE[ui.section] ? t(SEARCHABLE[ui.section]!) : '')
 </script>
 
 <div
@@ -220,6 +230,9 @@
         <span class="badge">{t('common.unsaved')}</span>
       {:else if projectState.lastSavedAt}
         <span class="badge">{t('common.saved')}</span>
+      {/if}
+      {#if searchPlaceholder}
+        <SearchBar bind:value={ui.search} placeholder={searchPlaceholder} compact />
       {/if}
     </div>
     <label class="row small muted">
@@ -320,6 +333,7 @@
 <WordPopover />
 <CommandPalette />
 <PromptDialog />
+<SentenceMergeDialog />
 
 <style>
   .badge.ro {

@@ -21,9 +21,11 @@ import {
 const p = parseProject(
   readFileSync(join(__dirname, '..', '..', 'examples', 'Aelith.laim.json'), 'utf8')
 )
-const L = p.languages[0]
-// 示例文件里的例句可能已确认分析，会影响首选与词频；这里只测引擎本身
+const L = p.languages.find((l) => l.name === 'Aelith')!
+// 示例文件里的例句已确认分析，会影响首选与词频；这里只测引擎本身
 p.sentences = []
+// 示例里的词条存了推导好的屈折形，整词就能命中；这几个用例要测的是「剥词缀」那条退路，先清掉
+for (const l of p.lexemes) l.forms = {}
 
 describe('tokenize', () => {
   it('splits on whitespace and strips punctuation', () => {
@@ -47,7 +49,8 @@ describe('analysis', () => {
       slot: null,
       morphs: [{ form: 'kaso', gloss: '房子' }]
     })
-    expect(analyzeToken(idx, 've', b)[0].morphs[0].gloss).toBe('and')
+    // ve 既是小品词词条也是语素；词条优先，用的是释义
+    expect(analyzeToken(idx, 've', b)[0].morphs[0].gloss).toBe('和')
   })
   it('strips suffix allomorphs, several layers deep', () => {
     const a = analyzeToken(idx, 'ilenler', b)[0]

@@ -43,6 +43,41 @@
     ...new Set([...fontLibrary.fonts.map((f) => f.family), ...COMMON_SYSTEM_FONTS])
   ])
   let presetFlash = $state(0)
+  /** 预览里的高亮：改了哪一项就闪哪一处；悬停左侧某项时右侧对应处描边 */
+  let flash = $state<Record<string, number>>({})
+  let hoverKey = $state('')
+  function bump(key: string): void {
+    flash = { ...flash, [key]: (flash[key] ?? 0) + 1 }
+  }
+  const pvp = (key: string): { key: string; n: number; hover: boolean } => ({
+    key,
+    n: flash[key] ?? 0,
+    hover: hoverKey === key
+  })
+  /** action：n 变了就闪一下，hover 时描边 */
+  function pvMark(
+    node: HTMLElement,
+    p: { key: string; n: number; hover: boolean }
+  ): { update(p: { key: string; n: number; hover: boolean }): void } {
+    let last = p.n
+    node.dataset.pv = p.key
+    const apply = (q: { key: string; n: number; hover: boolean }): void => {
+      node.classList.toggle('pv-hover', q.hover)
+      if (q.n !== last) {
+        last = q.n
+        node.classList.remove('pv-hit')
+        void node.offsetWidth
+        node.classList.add('pv-hit')
+        setTimeout(() => node.classList.remove('pv-hit'), 1200)
+      }
+    }
+    apply(p)
+    return { update: apply }
+  }
+  const varLabel = (name: string): string => {
+    const v = SKIN_VARS.find((x) => x.name === name)
+    return v ? t(`skin.vars.${v.key}`) : name
+  }
 
   /** 读出当前主题下某变量的实际值（未覆盖时取计算样式，供取色器显示） */
   function currentValue(name: string): string {
@@ -73,11 +108,13 @@
   function setVar(name: string, value: string): void {
     skin[theme][name] = value
     skin.preset = 'custom'
+    bump(name)
     save()
   }
   function clearVar(name: string): void {
     delete skin[theme][name]
     skin.preset = 'custom'
+    bump(name)
     save()
   }
   function applyPreset(id: string): void {
@@ -157,6 +194,7 @@
   }
   function setFont(slot: FontSlot, v: string): void {
     skin.fonts[slot] = v
+    bump('font:' + slot)
     save()
   }
   async function download(entry: FontEntry): Promise<void> {
@@ -253,7 +291,13 @@
       <div class="colors">
         {#each SKIN_VARS as v (v.name)}
           {@const cur = currentValue(v.name)}
-          <div class="color-row" class:set={!!skin[theme]?.[v.name]}>
+          <div
+            class="color-row"
+            class:set={!!skin[theme]?.[v.name]}
+            role="group"
+            onmouseenter={() => (hoverKey = v.name)}
+            onmouseleave={() => (hoverKey = '')}
+          >
             <input
               type="color"
               value={toHex(cur)}
@@ -278,7 +322,11 @@
       >
       <div class="fonts">
         {#each SLOTS as slot (slot)}
-          <label class="font-row">
+          <label
+            class="font-row"
+            onmouseenter={() => (hoverKey = 'font:' + slot)}
+            onmouseleave={() => (hoverKey = '')}
+          >
             <span class="fl">{t(`skin.fontSlots.${slot}`)}</span>
             <input
               class="input"
@@ -362,39 +410,100 @@
 </div>
 
 <Portal>
-  <div class="pv card">
-    <div class="pv-lemma data">{previewLexeme?.lemma ?? 'lorem'}</div>
-    <div class="pv-pos">n.</div>
-    <div class="pv-def">
-      {previewLexeme?.senses[0]?.definition[i18n.locale] ??
-        (zh ? '词条释义示例' : 'sample definition')}
+  <p class="small muted pv-hint">{t('skin.previewHint')}</p>
+  <div class="pv-board" use:pvMark={pvp('--bg')} title={varLabel('--bg')}>
+    <div class="pv card" use:pvMark={pvp('--bg-elev')} title={varLabel('--bg-elev')}>
+      <div class="pv-ui" use:pvMark={pvp('font:ui')} title={t('skin.fontSlots.ui')}>
+        {t('lexicon.title')} · {t('skin.fontSlots.ui')}
+      </div>
+      <div class="pv-lemma data" use:pvMark={pvp('font:data')} title={t('skin.fontSlots.data')}>
+        {previewLexeme?.lemma ?? 'lorem'}
+      </div>
+      <div class="pv-pos" use:pvMark={pvp('--accent-text')} title={varLabel('--accent-text')}>
+        n. · {varLabel('--accent-text')}
+      </div>
+      <div class="pv-def" use:pvMark={pvp('--text')} title={varLabel('--text')}>
+        {previewLexeme?.senses[0]?.definition[i18n.locale] ??
+          (zh ? '词条释义示例' : 'sample definition')}
+      </div>
+      <div class="pv-t2" use:pvMark={pvp('--text-2')} title={varLabel('--text-2')}>
+        {varLabel('--text-2')} · {zh ? '次要说明文字' : 'secondary text'}
+      </div>
+      <div class="pv-t3 small" use:pvMark={pvp('--text-3')} title={varLabel('--text-3')}>
+        {varLabel('--text-3')} · {zh ? '弱化提示' : 'muted hint'}
+      </div>
     </div>
-  </div>
-  <div class="pv card">
-    <div class="pv-text">{previewSentence?.text ?? 'ilenler kasoda jatdu'}</div>
-    <div class="pv-gl"><span>ilen-ler</span><span>kaso-da</span><span>jat-du</span></div>
-    <div class="pv-gloss">
-      <span>{zh ? '孩子' : 'child'}-PL</span><span>{zh ? '房子' : 'house'}-LOC</span><span
-        >{zh ? '睡' : 'sleep'}-PST</span
+    <div class="pv card">
+      <div
+        class="pv-text"
+        use:pvMark={pvp('font:corpusText')}
+        title={t('skin.fontSlots.corpusText')}
+      >
+        {previewSentence?.text ?? 'ilenler kasoda jatdu'}
+      </div>
+      <div class="pv-gl" use:pvMark={pvp('font:corpusText')}>
+        <span>ilen-ler</span><span>kaso-da</span><span>jat-du</span>
+      </div>
+      <div class="pv-gloss" use:pvMark={pvp('font:gloss')} title={t('skin.fontSlots.gloss')}>
+        <span>{zh ? '孩子' : 'child'}-PL</span><span>{zh ? '房子' : 'house'}-LOC</span><span
+          >{zh ? '睡' : 'sleep'}-PST</span
+        >
+      </div>
+      <div class="pv-tr" use:pvMark={pvp('font:corpusTr')} title={t('skin.fontSlots.corpusTr')}>
+        {previewSentence
+          ? Object.values(previewSentence.translation)[0]
+          : zh
+            ? '孩子们在房子里睡了。'
+            : 'The children slept in the house.'}
+      </div>
+      <div class="pv-scr" use:pvMark={pvp('font:script')} title={t('skin.fontSlots.script')}>
+        ᛁᛚᛖᚾᛚᛖᚱ ᚲᚨᛊᛟᛞᚨ ᛃᚨᛏᛞᚢ
+      </div>
+    </div>
+    <div class="row wrap pv-row">
+      <button class="btn primary sm" use:pvMark={pvp('--accent')} title={varLabel('--accent')}
+        >{t('common.save')}</button
+      >
+      <button
+        class="btn primary sm pv-hovered"
+        use:pvMark={pvp('--accent-hover')}
+        title={varLabel('--accent-hover')}>{varLabel('--accent-hover')}</button
+      >
+      <button class="btn sm" use:pvMark={pvp('--border')} title={varLabel('--border')}
+        >{t('common.cancel')}</button
+      >
+      <button class="btn sm danger" use:pvMark={pvp('--danger')} title={varLabel('--danger')}
+        >{t('common.delete')}</button
+      >
+      <span class="badge accent" use:pvMark={pvp('--accent-soft')} title={varLabel('--accent-soft')}
+        >{varLabel('--accent-soft')}</span
+      >
+      <span class="chip pv-warn" use:pvMark={pvp('--warn')} title={varLabel('--warn')}
+        >{varLabel('--warn')}</span
       >
     </div>
-    <div class="pv-tr">
-      {previewSentence
-        ? Object.values(previewSentence.translation)[0]
-        : zh
-          ? '孩子们在房子里睡了。'
-          : 'The children slept in the house.'}
+    <div class="pv-list">
+      <div class="pv-li" use:pvMark={pvp('--border-strong')} title={varLabel('--border-strong')}>
+        {varLabel('--border-strong')}
+      </div>
+      <div class="pv-li hov" use:pvMark={pvp('--bg-hover')} title={varLabel('--bg-hover')}>
+        {varLabel('--bg-hover')}
+      </div>
     </div>
-    <div class="pv-scr">ᛁᛚᛖᚾᛚᛖᚱ ᚲᚨᛊᛟᛞᚨ ᛃᚨᛏᛞᚢ</div>
+    <pre class="pv-mono mono" use:pvMark={pvp('--bg-sunken')} title={varLabel('--bg-sunken')}><span
+        use:pvMark={pvp('font:mono')}
+        >V=a e i o u
+a > e / _i</span
+      ></pre>
+    <div class="pv-swatches">
+      {#each SKIN_VARS as v (v.name)}
+        <div class="sw" use:pvMark={pvp(v.name)} title={v.name}>
+          <span class="swc" style:background="var({v.name})"></span>
+          <span class="swl small">{t(`skin.vars.${v.key}`)}</span>
+        </div>
+      {/each}
+    </div>
   </div>
-  <div class="row wrap">
-    <button class="btn primary sm">{t('common.save')}</button>
-    <button class="btn sm">{t('common.cancel')}</button>
-    <span class="badge accent">{t('skin.preview')}</span>
-    <span class="chip">tag</span>
-  </div>
-  <pre class="pv-mono mono">V=a e i o u
-a > e / _i</pre>
 </Portal>
 
 <style>
@@ -648,6 +757,98 @@ a > e / _i</pre>
   .pv-scr {
     font-family: var(--font-script);
     font-size: 20px;
+  }
+  .pv-hint {
+    margin: 0 0 8px;
+  }
+  .pv-board {
+    padding: 10px;
+    border-radius: var(--radius);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .pv-ui {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--text-2);
+  }
+  .pv-t2 {
+    color: var(--text-2);
+    font-size: 13px;
+  }
+  .pv-t3 {
+    color: var(--text-3);
+  }
+  .pv-row {
+    margin: 8px 0;
+    gap: 6px;
+  }
+  .pv-row > * {
+    white-space: nowrap;
+    flex: none;
+  }
+  .pv-hovered {
+    background: var(--accent-hover);
+  }
+  .pv-warn {
+    border-color: var(--warn);
+    color: var(--warn);
+  }
+  .pv-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    font-size: 13px;
+  }
+  .pv-li {
+    padding: 4px 8px;
+  }
+  .pv-li.hov {
+    background: var(--bg-hover);
+  }
+  .pv-swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 4px;
+    margin-top: 10px;
+  }
+  .sw {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+    border-radius: var(--radius-sm);
+  }
+  .swc {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid var(--border-strong);
+    flex: none;
+  }
+  .swl {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  :global(.pv-hover) {
+    outline: 2px dashed var(--accent);
+    outline-offset: 2px;
+  }
+  :global(.pv-hit) {
+    animation: pv-hit 1.2s ease-out;
+  }
+  @keyframes pv-hit {
+    0% {
+      box-shadow: 0 0 0 4px var(--accent);
+    }
+    100% {
+      box-shadow: 0 0 0 4px transparent;
+    }
   }
   .pv-mono {
     margin: 10px 0 0;

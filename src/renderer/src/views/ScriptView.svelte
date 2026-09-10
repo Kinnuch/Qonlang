@@ -28,6 +28,7 @@
     X
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -693,6 +694,11 @@
           ><option value="ttb">{t('phonology.dir.ttb')}</option>
         </select>
       </div>
+      <label class="field check">
+        <input type="checkbox" bind:checked={sc.vertical} onchange={touch} />
+        <span>{t('script.vertical')}</span>
+        <HelpDot tip={t('script.verticalHint')} />
+      </label>
       <div class="field">
         <span class="small muted">{t('script.font')}</span>
         <input
@@ -752,6 +758,11 @@
 {/if}
 
 <style>
+  .field.check {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+  }
   .pack {
     flex: none;
     display: flex;

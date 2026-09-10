@@ -11,7 +11,8 @@ import {
   type MenuItemConstructorOptions
 } from 'electron'
 import { join, basename, dirname } from 'path'
-import { promises as fs, readFileSync, writeFileSync } from 'fs'
+import { promises as fs, existsSync, readFileSync, writeFileSync } from 'fs'
+import { spawn } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
@@ -137,6 +138,25 @@ export interface UpdateInfo {
   version: string
   url: string
   notes: string
+  /** 这台机器能直接装的安装包；没有对应资产时为空，只能去下载页 */
+  installer: { url: string; name: string; size: number } | null
+}
+
+/** 从 Release 资产里挑本平台的安装包：Windows 用 -setup.exe，macOS 按芯片挑 dmg，Linux 用 AppImage */
+function pickInstaller(
+  assets: { name?: string; browser_download_url?: string; size?: number }[]
+): UpdateInfo['installer'] {
+  const want = (n: string): boolean => {
+    const l = n.toLowerCase()
+    if (process.platform === 'win32') return l.endsWith('-setup.exe')
+    if (process.platform === 'darwin') {
+      const arch = process.arch === 'arm64' ? 'arm64' : 'x64'
+      return l.endsWith(`-mac-${arch}.dmg`)
+    }
+    return l.endsWith('.appimage')
+  }
+  const a = assets.find((x) => x.name && x.browser_download_url && want(x.name))
+  return a ? { url: a.browser_download_url!, name: a.name!, size: a.size ?? 0 } : null
 }
 
 /** 「0.6.1」这类版本号比大小；只比数字段 */
@@ -177,13 +197,15 @@ function fetchLatestRelease(): Promise<UpdateInfo | null> {
             tag_name?: string
             html_url?: string
             body?: string
+            assets?: { name?: string; browser_download_url?: string; size?: number }[]
           }
           const version = (j.tag_name ?? '').replace(/^v/, '')
           if (!version) return resolve(null)
           resolve({
             version,
             url: j.html_url ?? 'https://github.com/Kinnuch/Qonlang/releases',
-            notes: (j.body ?? '').slice(0, 1200)
+            notes: (j.body ?? '').slice(0, 1200),
+            installer: pickInstaller(j.assets ?? [])
           })
         } catch {
           resolve(null)
@@ -203,6 +225,49 @@ async function checkUpdate(): Promise<UpdateInfo | null> {
   const rel = await fetchLatestRelease()
   if (!rel) return null
   return newerThan(rel.version, app.getVersion()) ? rel : null
+}
+
+const updateDir = (): string => join(app.getPath('temp'), 'qonlang-update')
+
+/** 把安装包下到临时目录；进度推给渲染层 */
+async function downloadUpdate(
+  url: string,
+  name: string
+): Promise<{ ok: boolean; path?: string; error?: string }> {
+  await fs.mkdir(updateDir(), { recursive: true })
+  const dest = join(updateDir(), basename(name))
+  try {
+    await downloadTo(url, dest + '.part', (received, total) =>
+      mainWindow?.webContents.send('update:progress', { received, total })
+    )
+    await fs.rename(dest + '.part', dest)
+    return { ok: true, path: dest }
+  } catch (e) {
+    await fs.rm(dest + '.part', { force: true })
+    return { ok: false, error: String(e) }
+  }
+}
+
+/**
+ * 装下好的包再重开。
+ * Windows：NSIS 静默模式（/S）沿用上次的安装目录与快捷方式选项，--force-run 装完自动拉起；
+ * macOS：没有签名做不了静默替换，打开 dmg 让用户拖进 Applications；
+ * Linux：打开所在目录。
+ */
+function installUpdate(file: string): void {
+  if (process.platform === 'win32') {
+    forceClose = true
+    dirty = false
+    // 装过的（旁边有卸载程序）才静默沿用上次的目录；解压直接运行的弹向导让用户自己选
+    const installed = existsSync(join(dirname(process.execPath), 'Uninstall Qonlang.exe'))
+    const args = installed ? ['--updated', '/S', '--force-run'] : ['--updated']
+    const child = spawn(file, args, { detached: true, stdio: 'ignore' })
+    child.unref()
+    app.quit()
+    return
+  }
+  if (process.platform === 'darwin') void shell.openPath(file)
+  else shell.showItemInFolder(file)
 }
 
 async function getPrefs(): Promise<Prefs> {
@@ -323,7 +388,10 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      // 分批跑的活（整库演化、批量推导、一致性检查、进度条）都靠 setTimeout 让出线程；
+      // 窗口被挡住时 Chromium 会把这类定时器压到每分钟一次，活就卡住了，所以关掉节流
+      backgroundThrottling: false
     }
   })
 
@@ -638,6 +706,8 @@ function registerIpc(): void {
   ipcMain.handle('shell:showInFolder', (_e, path: string) => shell.showItemInFolder(path))
   ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
   ipcMain.handle('app:checkUpdate', () => checkUpdate())
+  ipcMain.handle('app:downloadUpdate', (_e, url: string, name: string) => downloadUpdate(url, name))
+  ipcMain.handle('app:installUpdate', (_e, file: string) => installUpdate(file))
 }
 
 /** 应用菜单：macOS 靠它提供 Cmd+C/V/Z、隐藏、退出；Windows / Linux 上被 autoHideMenuBar 隐藏，按 Alt 可见 */

@@ -2,6 +2,7 @@
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
+  import { makeCollator } from '$lib/core/collate'
   import { newId } from '$lib/core/factory'
   import type { Id, Paradigm, SlotGenerator } from '$lib/core/model'
   import {
@@ -34,6 +35,12 @@
     Minus
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import {
+    checkConsistency,
+    groupIssues,
+    type Issue,
+    type IssueGroup
+  } from '$lib/engine/consistency'
   import HelpDot from '$lib/ui/HelpDot.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -60,6 +67,26 @@
   })
   let view = $state<'slots' | 'report'>('slots')
   let report = $state<SlotReport[] | null>(null)
+  /** 项目级问题清单（跟槽位比对一起跑） */
+  let issues = $state<IssueGroup[] | null>(null)
+  let openKinds = $state<Set<string>>(new Set())
+  function toggleKind(k: string): void {
+    const next = new Set(openKinds)
+    if (next.has(k)) next.delete(k)
+    else next.add(k)
+    openKinds = next
+  }
+  function gotoIssue(i: Issue): void {
+    if (!i.targetId) return
+    if (i.target === 'lexeme') ui.jump('lexicon', 'lexeme', i.targetId)
+    else if (i.target === 'morpheme') ui.jump('morphemes', 'morpheme', i.targetId)
+    else if (i.target === 'sentence') ui.jump('corpus', 'sentence', i.targetId)
+    else if (i.target === 'paradigm') {
+      activeId = i.targetId
+      view = 'slots'
+    } else if (i.target === 'script') ui.jump('script', 'script', i.targetId)
+  }
+  const issueTotal = $derived(issues ? issues.reduce((a, g) => a + g.issues.length, 0) : 0)
   let testLemma = $state('')
 
   const slots = $derived(active ? paradigmSlots(active, project.categories, glossLangs, true) : [])
@@ -104,11 +131,18 @@
       null
   )
   /** 模糊搜索：词头或释义包含关键词，绑定本构形的排前面 */
+  let testFocused = $state(false)
   const testMatches = $derived.by(() => {
     const q = testLemma.trim().toLowerCase()
-    if (!q) return []
     const bound = new Set(boundLexemes.map((l) => l.id))
-    const hit = project.lexemes.filter(
+    // 绑定了词类就只在这些词里找；没绑定才搜整本词库
+    const pool = boundLexemes.length ? boundLexemes : project.lexemes
+    if (!q) {
+      if (!testFocused) return []
+      const collator = makeCollator(language?.alphabet ?? [])
+      return [...pool].sort((a, b) => collator(a.lemma, b.lemma)).slice(0, 40)
+    }
+    const hit = pool.filter(
       (l) =>
         l.lemma.toLowerCase().includes(q) ||
         l.senses.some((se) => Object.values(se.definition).some((d) => d.toLowerCase().includes(q)))
@@ -330,6 +364,7 @@
       1
     )
     report = [...merged.values()]
+    issues = groupIssues(checkConsistency(project, projectState.currentLanguageId))
     view = 'report'
   }
   function pct(r: SlotReport): string {
@@ -363,11 +398,8 @@
         ><ArrowLeft size={16} />{t('paradigms.backToSlots')}</button
       >
     {:else}
-      <button
-        class="btn"
-        disabled={!active || !boundLexemes.length}
-        title={t('paradigms.reportHint')}
-        onclick={runReport}><ClipboardCheck size={16} />{t('paradigms.report')}</button
+      <button class="btn" disabled={!active} title={t('paradigms.reportHint')} onclick={runReport}
+        ><ClipboardCheck size={16} />{t('paradigms.report')}</button
       >
     {/if}
     <button class="btn primary" onclick={addParadigm}
@@ -407,6 +439,45 @@
           {/each}
         </tbody>
       </table>
+      {#if issues}
+        <h3 class="issues-head">
+          {t('consistency.title')}
+          <span class="badge" class:accent={issueTotal === 0}
+            >{issueTotal ? t('consistency.count', { n: issueTotal }) : t('consistency.clean')}</span
+          >
+        </h3>
+        <p class="small muted">{t('consistency.hint')}</p>
+        {#each issues as g (g.kind)}
+          {@const open = openKinds.has(g.kind)}
+          {@const shown = open ? g.issues : g.issues.slice(0, 8)}
+          <div class="issue-group card">
+            <button class="issue-title row" onclick={() => toggleKind(g.kind)}>
+              <span class="sev {g.severity}"></span>
+              <span class="grow">{t(`consistency.kinds.${g.kind.replace('.', '_')}`)}</span>
+              <span class="badge">{g.issues.length}</span>
+            </button>
+            <div class="issue-list">
+              {#each shown as i, idx (g.kind + idx)}
+                <button
+                  class="issue"
+                  class:clickable={!!i.targetId && i.target !== 'taxonomy' && i.target !== 'abbr'}
+                  onclick={() => gotoIssue(i)}
+                >
+                  <span class="data">{i.label}</span>
+                  {#if i.detail}<span class="small muted">{i.detail}</span>{/if}
+                </button>
+              {/each}
+              {#if g.issues.length > 8}
+                <button class="btn ghost sm self" onclick={() => toggleKind(g.kind)}
+                  >{open
+                    ? t('consistency.less')
+                    : t('consistency.more', { n: g.issues.length - 8 })}</button
+                >
+              {/if}
+            </div>
+          </div>
+        {/each}
+      {/if}
       {#each report.filter((r) => r.examples.length) as r (r.slot.key + 'x')}
         <h3>{t('paradigms.examples')} · {r.slot.label}</h3>
         <table class="tbl small">
@@ -613,6 +684,8 @@
         placeholder={t('paradigms.pickLexeme')}
         bind:value={testLemma}
         oninput={() => (testLexemeId = null)}
+        onfocus={() => (testFocused = true)}
+        onblur={() => setTimeout(() => (testFocused = false), 180)}
       />
       {#if testMatches.length}
         <div class="matches">
@@ -868,6 +941,67 @@
   }
   .ok {
     color: var(--accent-text);
+  }
+  .issues-head {
+    margin-top: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .issue-group {
+    padding: 6px 10px 8px;
+    margin-top: 8px;
+  }
+  .issue-title {
+    width: 100%;
+    border: 0;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    gap: 8px;
+    padding: 2px 0;
+  }
+  .sev {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-3);
+  }
+  .sev.error {
+    background: var(--danger);
+  }
+  .sev.warn {
+    background: var(--warn);
+  }
+  .issue-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    margin-top: 6px;
+  }
+  .issue {
+    display: inline-flex;
+    gap: 6px;
+    align-items: baseline;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    cursor: default;
+  }
+  .issue.clickable {
+    cursor: pointer;
+  }
+  .issue.clickable:hover {
+    border-color: var(--accent);
+  }
+  .self {
+    align-self: center;
   }
   .bad {
     color: var(--danger);

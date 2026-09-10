@@ -32,7 +32,7 @@
 
   let selectedId = $state<Id | null>(null)
   let category = $state<string>('')
-  let query = $state('')
+  const query = $derived(ui.search)
 
   const inLang = $derived(project.phrasebook.filter((p) => !langId || p.languageId === langId))
   const categories = $derived([...new Set(inLang.map((p) => p.category).filter(Boolean))].sort())
@@ -84,7 +84,7 @@
     if (!ph) return
     if (langId && ph.languageId !== langId) projectState.currentLanguageId = ph.languageId
     category = ''
-    query = ''
+    ui.search = ''
     selectedId = id
     flashId = id
     setTimeout(() => {
@@ -151,7 +151,6 @@
     <h1>{t('phrasebook.title')}</h1>
     <GuideLink section="phrasebook" />
     <span class="grow"></span>
-    <input class="input search" placeholder={t('phrasebook.search')} bind:value={query} />
     <button class="btn primary" onclick={add}><Plus size={16} />{t('phrasebook.add')}</button>
   </div>
   <Hint id="phrasebook" text={t('phrasebook.hint')} />
@@ -360,9 +359,6 @@
   }
   .page-head {
     gap: 10px;
-  }
-  .search {
-    width: 220px;
   }
   .body {
     flex: 1;

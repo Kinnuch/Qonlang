@@ -10,6 +10,7 @@
   import { parseLexc, mergeLexicanter } from '$lib/importers/lexicanter'
   import { derivePronunciations } from '$lib/core/pronounce'
   import { etymologyOrigin } from '$lib/core/etymology'
+  import { relationLabel } from '$lib/ui/labels'
   import LexemeExamples from '$lib/ui/LexemeExamples.svelte'
   import { lexemeScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
@@ -59,10 +60,14 @@
     ChevronUp,
     ChevronDown,
     ImagePlus,
-    Merge
+    Merge,
+    ListOrdered
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
+  import ColHead from '$lib/ui/ColHead.svelte'
+  import StatsPanel from '$lib/ui/StatsPanel.svelte'
+  import { lexiconStats } from '$lib/engine/stats'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -71,14 +76,84 @@
   const language = $derived(projectState.currentLanguage)
   const glossLangs = $derived(project.settings.glossLanguages)
 
-  let mode = $state<'entries' | 'taxonomy' | 'csv' | 'export'>('entries')
+  let mode = $state<'entries' | 'taxonomy' | 'csv' | 'export' | 'stats'>('entries')
+  const lexStats = $derived(mode === 'stats' && langId ? lexiconStats(project, langId) : null)
+  const pctOf = (n: number, total: number): string =>
+    total ? `${Math.round((n / total) * 100)}%` : '—'
+  /** 从统计里点某一项：回到列表并按那一列筛选 */
+  function filterFromStats(key: string, value: string): void {
+    setFilter(key, new Set([value]))
+    mode = 'entries'
+  }
   let editMode = $state(false)
   let mainView = $state<'list' | 'graph'>('list')
   let selectedId = $state<Id | null>(null)
-  let query = $state('')
-  let posFilter = $state('')
-  let tagFilter = $state('')
-  let sort = $state<'alphabet' | 'recent' | 'pos' | 'custom'>('alphabet')
+  const query = $derived(ui.search)
+  /** 表头排序：哪一列、什么方向；null = 按字母表；'custom' = 项目里的数组顺序 */
+  let sortKey = $state<string | null>(null)
+  let sortDir = $state<'asc' | 'desc'>('desc')
+  let customOrder = $state(false)
+  /** 表头筛选：列 key → 选中的取值；不在里面的列不筛 */
+  let colFilters = $state<Record<string, Set<string>>>({})
+  const sort = $derived(customOrder ? 'custom' : 'alphabet')
+  function cycleSort(key: string): void {
+    if (customOrder) customOrder = false
+    if (sortKey !== key) {
+      sortKey = key
+      sortDir = 'desc'
+    } else if (sortDir === 'desc') sortDir = 'asc'
+    else sortKey = null
+  }
+  function setFilter(key: string, sel: Set<string> | null): void {
+    const next = { ...colFilters }
+    if (sel) next[key] = sel
+    else delete next[key]
+    colFilters = next
+  }
+  /** 一条词目在某一列上的可筛取值（多个标签就是多个值） */
+  function filterValues(l: Lexeme, key: string): string[] {
+    if (key === 'lemma') return [initialOf(l.lemma)]
+    if (key === 'pos') return [l.posId ?? '']
+    if (key === 'tags') return l.tags.length ? l.tags : ['']
+    if (key === 'language') return [l.languageId]
+    if (key.startsWith('feat:')) return [l.features[key.slice(5)] ?? '']
+    return [cell(l, key)]
+  }
+  /** 首字母：按字母表里的多合字母切 */
+  function initialOf(lemma: string): string {
+    const w = lemma.replace(/^[-=*·]+/, '')
+    const alpha = language?.alphabet ?? []
+    for (const a of [...alpha].sort((x, y) => y.length - x.length))
+      if (a && w.toLowerCase().startsWith(a.toLowerCase())) return a
+    return Array.from(w)[0]?.toUpperCase() ?? ''
+  }
+  /** 某一列的筛选项（带计数） */
+  function filterOptions(key: string): { value: string; label: string; count: number }[] {
+    const counts = new Map<string, number>()
+    for (const l of inLang)
+      for (const v of filterValues(l, key)) counts.set(v, (counts.get(v) ?? 0) + 1)
+    const label = (v: string): string => {
+      if (key === 'pos') return v ? posLabel(v) || t('lexicon.noPos') : t('lexicon.noPos')
+      if (key === 'language') {
+        const lg = project.languages.find((x) => x.id === v)
+        return lg ? lg.name : '—'
+      }
+      if (key.startsWith('feat:')) {
+        const cat = project.categories.find((c) => c.id === key.slice(5))
+        const val = cat?.values.find((x) => x.id === v)
+        return val ? pickText(val.name, glossLangs) || val.abbr : '—'
+      }
+      return v || '—'
+    }
+    const out = [...counts].map(([value, count]) => ({ value, label: label(value), count }))
+    return out.sort((a, b) => (key === 'lemma' ? collator(a.value, b.value) : b.count - a.count))
+  }
+  const filterable = (key: string): boolean =>
+    key === 'lemma' ||
+    key === 'pos' ||
+    key === 'tags' ||
+    key === 'language' ||
+    key.startsWith('feat:')
   let limit = $state(300)
   /** Ctrl / Shift 多选出来的词条 */
   let multiIds = $state<Id[]>([])
@@ -115,17 +190,24 @@
   const list = $derived.by(() => {
     const q = query.trim().toLowerCase()
     const arr = inLang.filter((l) => {
-      if (posFilter && l.posId !== posFilter) return false
-      if (tagFilter && !l.tags.includes(tagFilter)) return false
+      for (const [key, sel] of Object.entries(colFilters))
+        if (!filterValues(l, key).some((v) => sel.has(v))) return false
       if (q && !matchesQuery(l, q)) return false
       return true
     })
-    if (sort === 'alphabet') arr.sort((a, b) => collator(a.lemma, b.lemma))
-    else if (sort === 'recent') arr.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    else if (sort === 'pos')
-      arr.sort(
-        (a, b) => posLabel(a.posId).localeCompare(posLabel(b.posId)) || collator(a.lemma, b.lemma)
-      )
+    if (customOrder) return arr
+    if (!sortKey) arr.sort((a, b) => collator(a.lemma, b.lemma))
+    else {
+      const key = sortKey
+      const dir = sortDir === 'asc' ? 1 : -1
+      const val = (l: Lexeme): string =>
+        key === 'lemma' ? l.lemma : key === 'pos' ? posLabelOf(l) : cell(l, key)
+      arr.sort((a, b) => {
+        const c =
+          key === 'updated' ? a.updatedAt.localeCompare(b.updatedAt) : collator(val(a), val(b))
+        return (c || collator(a.lemma, b.lemma)) * dir
+      })
+    }
     // custom：保持项目里的数组顺序
     return arr
   })
@@ -237,9 +319,11 @@
     inspectorTitle =
       mode === 'taxonomy'
         ? t('taxonomy.title')
-        : selected
-          ? selected.lemma || t('lexicon.title')
-          : t('lexicon.title')
+        : mode === 'stats'
+          ? t('stats.title')
+          : selected
+            ? selected.lemma || t('lexicon.title')
+            : t('lexicon.title')
   })
 
   // ───── 列 ─────
@@ -276,6 +360,7 @@
     for (const f of [...forms].sort())
       cols.push({ key: `form:${f}`, label: `${t('lexicon.colForm')}: ${f}` })
     cols.push({ key: 'updated', label: t('lexicon.colUpdated') })
+    if (!selLang) cols.unshift({ key: 'language', label: t('nav.languages') })
     return cols
   })
   /** 不同来源撞出同名的列，选列时容易点错，直接报出来 */
@@ -288,7 +373,13 @@
     const keys = project.settings.lexiconColumns.length
       ? project.settings.lexiconColumns
       : ['pos', `def:${glossLangs[0] ?? 'zh'}`, 'tags']
-    return keys.map((k) => availableColumns.find((c) => c.key === k)).filter((c): c is Col => !!c)
+    const cols = keys
+      .map((k) => availableColumns.find((c) => c.key === k))
+      .filter((c): c is Col => !!c)
+    // 「全部语言」时总带上语言列，不然分不清哪条是哪门语言的
+    const langCol = availableColumns.find((c) => c.key === 'language')
+    if (langCol && !cols.some((c) => c.key === 'language')) cols.unshift(langCol)
+    return cols
   })
   function toggleColumn(key: string): void {
     const cur = project.settings.lexiconColumns.length
@@ -312,7 +403,7 @@
   const tableWidth = $derived.by(() => {
     if (!hasWidths) return 0
     const keys = ['lemma', ...activeColumns.map((c) => c.key)]
-    let sum = sort === 'custom' ? 56 : 0
+    let sum = (sort === 'custom' ? 56 : 0) + 34
     for (const k of keys) sum += colWidths[k] ?? 120
     return sum
   })
@@ -326,7 +417,8 @@
     // 表格一转成固定布局，其余列就会被平均分配。
     const head = th.parentElement
     if (head) {
-      const cells = [...head.children] as HTMLElement[]
+      // 末尾那一格是自定义顺序按钮，不算列
+      const cells = ([...head.children] as HTMLElement[]).slice(0, -1)
       const keys = ['lemma', ...activeColumns.map((c) => c.key)]
       const offset = cells.length - keys.length
       const widths = { ...ui.prefs.lexiconColWidths }
@@ -356,6 +448,10 @@
 
   function cell(l: Lexeme, key: string): string {
     if (key === 'pos') return posLabelOf(l)
+    if (key === 'language') {
+      const lg = project.languages.find((x) => x.id === l.languageId)
+      return lg ? lg.abbr || lg.name : ''
+    }
     if (key.startsWith('def:')) {
       const g = key.slice(4)
       const parts = l.senses.map((s) => s.definition[g] ?? '').filter(Boolean)
@@ -451,7 +547,8 @@
     const lid = langId ?? project.settings.defaultLanguageId ?? project.languages[0]?.id
     if (!lid) return
     const l = createLexeme(lid, '')
-    if (posFilter) l.posId = posFilter
+    const onlyPos = colFilters.pos && colFilters.pos.size === 1 ? [...colFilters.pos][0] : ''
+    if (onlyPos) l.posId = onlyPos
     project.lexemes.push(l)
     selectedId = l.id
     mode = 'entries'
@@ -488,8 +585,7 @@
   }
 
   function relLabel(kind: string): string {
-    const k = t(`lexicon.relKinds.${kind}`)
-    return k === `lexicon.relKinds.${kind}` ? kind : k
+    return relationLabel(kind)
   }
 
   const paradigmOf = (l: Lexeme): Paradigm | null => paradigmFor(project, l)
@@ -562,9 +658,8 @@
     const l = project.lexemes.find((x) => x.id === id)
     if (!l) return
     if (langId && l.languageId !== langId) projectState.currentLanguageId = l.languageId
-    query = ''
-    posFilter = ''
-    tagFilter = ''
+    ui.search = ''
+    colFilters = {}
     mode = 'entries'
     mainView = 'list'
     selectedId = id
@@ -636,6 +731,9 @@
       <button class:active={mode === 'taxonomy'} onclick={() => (mode = 'taxonomy')}
         >{t('lexicon.taxonomy')}</button
       >
+      <button class:active={mode === 'stats'} onclick={() => (mode = 'stats')}
+        >{t('stats.title')}</button
+      >
     </div>
     {#if mode === 'entries'}
       <div class="seg">
@@ -657,23 +755,6 @@
         ><ArrowLeft size={16} />{t('lexicon.backToList')}</button
       >
     {:else if mode === 'entries'}
-      <input class="input search" placeholder={t('lexicon.search')} bind:value={query} />
-      <select class="select filter" bind:value={posFilter}>
-        <option value="">{t('lexicon.allPos')}</option>
-        {#each project.posList as p (p.id)}<option value={p.id}
-            >{pickText(p.name, glossLangs) || p.abbr}</option
-          >{/each}
-      </select>
-      <select class="select filter" bind:value={tagFilter}>
-        <option value="">{t('lexicon.allTags')}</option>
-        {#each allTags as tg (tg)}<option value={tg}>{tg}</option>{/each}
-      </select>
-      <select class="select filter sm" bind:value={sort} title={t('lexicon.sort')}>
-        <option value="alphabet">{t('lexicon.sortAlphabet')}</option>
-        <option value="recent">{t('lexicon.sortRecent')}</option>
-        <option value="pos">{t('lexicon.sortPos')}</option>
-        <option value="custom">{t('lexicon.sortCustom')}</option>
-      </select>
       <Menu label={t('lexicon.columns')} icon={Columns3} wide>
         {#each availableColumns as c (c.key)}
           <label data-keep-open
@@ -700,7 +781,102 @@
   </div>
   <Hint id="lexicon" text={t('lexicon.hint')} />
 
-  {#if mode === 'taxonomy'}
+  {#if mode === 'stats' && lexStats}
+    {@const st = lexStats}
+    <div class="scroll">
+      <StatsPanel
+        facts={[
+          { label: t('stats.lex.total'), value: st.total },
+          {
+            label: t('stats.lex.withDefinition'),
+            value: st.withDefinition,
+            sub: pctOf(st.withDefinition, st.total)
+          },
+          {
+            label: t('stats.lex.withPronunciation'),
+            value: st.withPronunciation,
+            sub: pctOf(st.withPronunciation, st.total)
+          },
+          {
+            label: t('stats.lex.withEtymology'),
+            value: st.withEtymology,
+            sub: pctOf(st.withEtymology, st.total)
+          },
+          {
+            label: t('stats.lex.withForms'),
+            value: st.withForms,
+            sub: t('stats.lex.overridden', { n: st.overriddenForms })
+          },
+          {
+            label: t('stats.lex.usedInCorpus'),
+            value: st.usedInCorpus,
+            sub: pctOf(st.usedInCorpus, st.total)
+          },
+          { label: t('stats.lex.unusedInCorpus'), value: st.unusedInCorpus },
+          { label: t('stats.lex.withImages'), value: st.withImages },
+          { label: t('stats.lex.withRelations'), value: st.withRelations },
+          {
+            label: t('stats.lex.senses'),
+            value: st.sensesTotal,
+            sub: t('stats.lex.perEntry', {
+              n: st.total ? (st.sensesTotal / st.total).toFixed(2) : '—'
+            })
+          },
+          { label: t('stats.lex.avgLength'), value: st.avgLength.toFixed(1) },
+          { label: t('stats.lex.duplicates'), value: st.duplicateLemmas },
+          {
+            label: t('stats.lex.added7d'),
+            value: st.added7d,
+            sub: t('stats.lex.added30d', { n: st.added30d })
+          }
+        ]}
+        groups={[
+          {
+            title: t('stats.lex.byPos'),
+            buckets: st.byPos,
+            onpick: (k) => filterFromStats('pos', k)
+          },
+          {
+            title: t('stats.lex.byTag'),
+            buckets: st.byTag,
+            onpick: (k) => filterFromStats('tags', k)
+          },
+          {
+            title: t('stats.lex.byInitial'),
+            buckets: st.byInitial,
+            max: 40,
+            onpick: (k) => filterFromStats('lemma', k)
+          },
+          { title: t('stats.lex.byLength'), buckets: st.byLength, max: 40 },
+          {
+            title: t('stats.lex.byEtymologyType'),
+            buckets: st.byEtymologyType.map((b) => ({
+              ...b,
+              label:
+                t(`lexicon.etyTypes.${b.key}`) === `lexicon.etyTypes.${b.key}`
+                  ? b.label
+                  : t(`lexicon.etyTypes.${b.key}`)
+            }))
+          },
+          { title: t('stats.lex.byDialect'), buckets: st.byDialect },
+          ...st.byFeature.map((f) => ({
+            title: f.category,
+            buckets: f.buckets,
+            onpick: (k: string) => filterFromStats('feat:' + f.categoryId, k)
+          }))
+        ]}
+        rankings={[
+          {
+            title: t('stats.lex.topUsed'),
+            items: st.topUsed.map((x) => ({ id: x.lexemeId, label: x.lemma, n: x.n })),
+            onpick: (id) => reveal(id)
+          }
+        ]}
+      />
+    </div>
+  {:else if mode === 'stats'}
+    <p class="muted">{t('lexicon.noLanguage')}</p>
+  {:else if mode === 'taxonomy'}
     <div class="scroll"><Taxonomy /></div>
   {:else if mode === 'export' && language}
     <div class="scroll"><DictExport {language} onclose={() => (mode = 'entries')} /></div>
@@ -712,7 +888,7 @@
     </div>
   {:else if !project.languages.length}
     <p class="muted">{t('lexicon.noLanguage')}</p>
-  {:else if list.length === 0}
+  {:else if inLang.length === 0}
     <p class="muted">{t('lexicon.empty')}</p>
   {:else}
     <div class="row small muted">
@@ -741,30 +917,57 @@
           {#if sort === 'custom'}<col style="width:56px" />{/if}
           <col style={colStyle('lemma')} />
           {#each activeColumns as c (c.key)}<col style={colStyle(c.key)} />{/each}
+          <col style="width:34px" />
         </colgroup>
         <thead>
           <tr
             >{#if sort === 'custom'}<th></th>{/if}
-            <th
-              >{t('lexicon.lemma')}<span
+            <th>
+              <ColHead
+                label={t('lexicon.lemma')}
+                sort={sortKey === 'lemma' ? sortDir : null}
+                onsort={() => cycleSort('lemma')}
+                options={filterOptions('lemma')}
+                selected={colFilters.lemma ?? null}
+                onfilter={(sel) => setFilter('lemma', sel)}
+              />
+              <span
                 class="grip"
                 role="separator"
                 aria-label={t('lexicon.resizeCol')}
                 onpointerdown={(e) => startResize(e, 'lemma')}
                 onpointermove={moveResize}
                 onpointerup={endResize}
-              ></span></th
-            >
-            {#each activeColumns as c (c.key)}<th
-                >{c.label}<span
+              ></span>
+            </th>
+            {#each activeColumns as c (c.key)}
+              <th>
+                <ColHead
+                  label={c.label}
+                  sort={sortKey === c.key ? sortDir : null}
+                  onsort={() => cycleSort(c.key)}
+                  options={filterable(c.key) ? filterOptions(c.key) : undefined}
+                  selected={colFilters[c.key] ?? null}
+                  onfilter={(sel) => setFilter(c.key, sel)}
+                />
+                <span
                   class="grip"
                   role="separator"
                   aria-label={t('lexicon.resizeCol')}
                   onpointerdown={(e) => startResize(e, c.key)}
                   onpointermove={moveResize}
                   onpointerup={endResize}
-                ></span></th
-              >{/each}
+                ></span>
+              </th>
+            {/each}
+            <th class="order">
+              <button
+                class="btn ghost icon sm"
+                class:active={customOrder}
+                title={t('table.customOrder')}
+                onclick={() => (customOrder = !customOrder)}><ListOrdered size={14} /></button
+              >
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -825,7 +1028,10 @@
                   >
                 {/if}
               {/each}
+              <td></td>
             </tr>
+          {:else}
+            <tr class="empty"><td colspan="99" class="muted">{t('table.noMatch')}</td></tr>
           {/each}
         </tbody>
       </table>
@@ -1374,6 +1580,14 @@
 {/if}
 
 <style>
+  th.order {
+    width: 34px;
+    text-align: center;
+  }
+  th.order .btn.active {
+    color: var(--accent-text);
+    background: var(--accent-soft);
+  }
   .grip {
     position: absolute;
     top: 0;
@@ -1448,15 +1662,6 @@
   .page-head {
     gap: 8px;
     flex-wrap: wrap;
-  }
-  .search {
-    width: 180px;
-  }
-  .filter {
-    width: 120px;
-  }
-  .filter.sm {
-    width: 105px;
   }
   .scroll {
     flex: 1;

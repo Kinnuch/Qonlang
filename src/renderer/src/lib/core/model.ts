@@ -137,6 +137,8 @@ export interface Script {
   notes: string
   /** 音节拼合（CV / VC 音节文字用），不填就只按规则走 */
   packing?: ScriptPacking
+  /** 竖排显示（默认关）：语料、短语、词库里的文字都竖着写；列的走向跟书写方向 */
+  vertical?: boolean
 }
 
 /**

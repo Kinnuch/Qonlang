@@ -1,3 +1,4 @@
+import type { DupPair } from '$lib/core/sentenceDedup'
 import { platform, DEFAULT_PREFS, type Prefs } from '$lib/platform'
 import { i18n, type LocaleCode } from '$lib/i18n/index.svelte'
 import { applySkin } from '$lib/skin/apply'
@@ -45,6 +46,8 @@ let toastSeq = 0
 
 class UiState {
   section = $state<Section>('languages')
+  /** 顶栏统一搜索框的内容；换页面时清空，各页面按自己的字段过滤 */
+  search = $state('')
   /** 上一个页面（再次点击当前页的导航按钮时回到它） */
   previousSection = $state<Section | null>(null)
   inspectorOpen = $state(true)
@@ -59,11 +62,13 @@ class UiState {
   back(): void {
     const prev = this.navHistory.pop()
     if (!prev) return
+    this.search = ''
     this.navHistory = [...this.navHistory]
     this.previousSection = this.section
     this.section = prev
   }
   go(s: Section): void {
+    if (s !== this.section) this.search = ''
     if (s === this.section) {
       if (this.previousSection && this.previousSection !== s) {
         const back = this.previousSection
@@ -92,6 +97,14 @@ class UiState {
     return new Promise((resolve) => {
       if (this.promptReq) this.promptReq.resolve(null)
       this.promptReq = { title, value, resolve }
+    })
+  }
+  /** 语料查重确认框：返回用户勾选要合并的那些 */
+  mergeReq = $state<{ pairs: DupPair[]; resolve: (v: DupPair[]) => void } | null>(null)
+  askMerge(pairs: DupPair[]): Promise<DupPair[]> {
+    return new Promise((resolve) => {
+      if (this.mergeReq) this.mergeReq.resolve([])
+      this.mergeReq = { pairs, resolve }
     })
   }
   /** 跳到某页并选中某对象 */

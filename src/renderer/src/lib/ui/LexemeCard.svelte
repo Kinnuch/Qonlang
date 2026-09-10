@@ -1,6 +1,7 @@
 <script lang="ts">
   /** 显示模式下的词条卡：只读、简约，把录入模式记录的信息排版出来 */
   import type { Id, Lexeme, Project } from '$lib/core/model'
+  import { relationLabel } from '$lib/ui/labels'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { lexemeScript } from '$lib/script/render'
@@ -183,11 +184,7 @@
       <ul class="rel">
         {#each l.relations as r, i (i)}
           <li>
-            <span class="muted"
-              >{t(`lexicon.relKinds.${r.kind}`) === `lexicon.relKinds.${r.kind}`
-                ? r.kind
-                : t(`lexicon.relKinds.${r.kind}`)}</span
-            >
+            <span class="muted">{relationLabel(r.kind)}</span>
             <button class="link data" onclick={() => onselect?.(r.lexemeId)}
               >{lemmaOf(r.lexemeId)}</button
             >

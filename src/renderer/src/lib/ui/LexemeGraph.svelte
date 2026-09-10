@@ -5,6 +5,9 @@
    */
   import type { Id, Project } from '$lib/core/model'
   import { t, pickText } from '$lib/i18n/index.svelte'
+  import { ui } from '$lib/state/ui.svelte'
+  import { splitSourceForm, resolveFormInLanguage, findLanguageByName } from '$lib/core/etymology'
+  import { relationLabel } from '$lib/ui/labels'
 
   let {
     project,
@@ -17,6 +20,8 @@
     label: string
     sub: string
     lexemeId: Id | null
+    /** 落到语素上的节点：点了跳去语素页 */
+    morphemeId?: Id | null
     kind: 'lexeme' | 'morpheme' | 'external'
     edge: string
     x: number
@@ -35,52 +40,89 @@
     const x = project.lexemes.find((l) => l.id === id)
     return x ? pickText(x.senses[0]?.definition, glossLangs) : ''
   }
-  const relLabel = (kind: string): string => {
-    const k = t(`lexicon.relKinds.${kind}`)
-    return k === `lexicon.relKinds.${kind}` ? kind : k
+  const relLabel = relationLabel
+
+  /**
+   * 自定义来源 / 中间态：拼接的形式拆成多个节点，每个成分都到那门语言里找对应的词条或语素；
+   * 找到了就能点过去（跨语言跳转）。
+   */
+  function externalNodes(
+    key: string,
+    language: string,
+    form: string,
+    meaning: string,
+    edge: string
+  ): GNode[] {
+    const pieces = splitSourceForm(project, form)
+    const lang = findLanguageByName(project, language)
+    const langTag = lang?.abbr || lang?.name || language
+    const list = pieces.length > 1 ? pieces : [form.replace(/^\*+/, '').trim() || form]
+    return list.map((piece, j) => {
+      const hit = resolveFormInLanguage(project, language, piece)
+      let meaningOf = list.length === 1 ? meaning : ''
+      if (hit?.kind === 'lexeme') meaningOf = defOf(hit.id)
+      else if (hit?.kind === 'morpheme') {
+        const m = project.morphemes.find((x) => x.id === hit.id)
+        meaningOf = m ? m.gloss || pickText(m.meaning, glossLangs) : ''
+      }
+      return {
+        key: `${key}-${j}`,
+        label: (list.length === 1 && form.startsWith('*') ? '*' : '') + piece,
+        sub: [langTag, meaningOf].filter(Boolean).join(' · '),
+        lexemeId: hit?.kind === 'lexeme' ? hit.id : null,
+        morphemeId: hit?.kind === 'morpheme' ? hit.id : null,
+        kind: hit ? hit.kind : 'external',
+        edge: list.length > 1 ? `${edge} ${j + 1}/${list.length}` : edge,
+        x: 0,
+        y: 0
+      }
+    })
   }
 
   const groups = $derived.by((): Group[] => {
     if (!center) return []
     const c = center
-    const sources: GNode[] = c.etymology.sources.map((s, i): GNode => {
+    const sourcesNested: GNode[][] = c.etymology.sources.map((s, i): GNode[] => {
       if (s.kind === 'morpheme') {
         const m = project.morphemes.find((x) => x.id === s.id)
-        return {
-          key: `src${i}`,
-          label: m?.form ?? '?',
-          sub: m ? m.gloss || pickText(m.meaning, glossLangs) : '',
-          lexemeId: null,
-          kind: 'morpheme',
-          edge: t('morphemes.title'),
-          x: 0,
-          y: 0
-        }
+        return [
+          {
+            key: `src${i}`,
+            label: m?.form ?? '?',
+            sub: m ? m.gloss || pickText(m.meaning, glossLangs) : '',
+            lexemeId: null,
+            morphemeId: m?.id ?? null,
+            kind: 'morpheme',
+            edge: t('morphemes.title'),
+            x: 0,
+            y: 0
+          }
+        ]
       }
       if (s.kind === 'lexeme') {
         const x = project.lexemes.find((y) => y.id === s.id)
-        return {
-          key: `src${i}`,
-          label: x?.lemma ?? '?',
-          sub: x ? defOf(x.id) : '',
-          lexemeId: x?.id ?? null,
-          kind: 'lexeme',
-          edge: t('lexicon.sourceKinds.lexeme'),
-          x: 0,
-          y: 0
-        }
+        return [
+          {
+            key: `src${i}`,
+            label: x?.lemma ?? '?',
+            sub: x ? defOf(x.id) : '',
+            lexemeId: x?.id ?? null,
+            kind: 'lexeme',
+            edge: t('lexicon.sourceKinds.lexeme'),
+            x: 0,
+            y: 0
+          }
+        ]
       }
-      return {
-        key: `src${i}`,
-        label: s.form,
-        sub: [s.language, s.meaning].filter(Boolean).join(' · '),
-        lexemeId: null,
-        kind: 'external',
-        edge: t('lexicon.sourceKinds.external'),
-        x: 0,
-        y: 0
-      }
+      return externalNodes(
+        `src${i}`,
+        s.language,
+        s.form,
+        s.meaning,
+        t('lexicon.sourceKinds.external')
+      )
     })
+    const sources = sourcesNested.flat()
     // 语素本身的词源：把语素的来源也挂到这一圈，语素与词条的图就连起来了
     for (const [i, s] of c.etymology.sources.entries()) {
       if (s.kind !== 'morpheme') continue
@@ -93,30 +135,38 @@
               ? (project.lexemes.find((x) => x.id === ms.id)?.lemma ?? '?')
               : ms.form
         if (!form) continue
-        sources.push({
-          key: `msrc${i}-${j}`,
-          label: form,
-          sub: m ? m.form : '',
-          lexemeId: ms.kind === 'lexeme' ? ms.id : null,
-          kind: ms.kind === 'lexeme' ? 'lexeme' : ms.kind === 'morpheme' ? 'morpheme' : 'external',
-          edge: t(`lexicon.etyTypes.${m ? m.etymology.type : 'unknown'}`),
-          x: 0,
-          y: 0
-        })
-      }
-      for (const st of m?.etymology.stages ?? [])
-        if (st.form)
+        const edge = t(`lexicon.etyTypes.${m ? m.etymology.type : 'unknown'}`)
+        if (ms.kind === 'external')
+          sources.push(...externalNodes(`msrc${i}-${j}`, ms.language, ms.form, ms.meaning, edge))
+        else
           sources.push({
-            key: `mstage${i}-${st.id}`,
-            label: st.form,
+            key: `msrc${i}-${j}`,
+            label: form,
             sub: m ? m.form : '',
-            lexemeId: null,
-            kind: 'external',
-            edge: t('lexicon.etyAddStage'),
+            lexemeId: ms.kind === 'lexeme' ? ms.id : null,
+            morphemeId: ms.kind === 'morpheme' ? ms.id : null,
+            kind: ms.kind === 'lexeme' ? 'lexeme' : 'morpheme',
+            edge,
             x: 0,
             y: 0
           })
+      }
+      for (const st of m?.etymology.stages ?? [])
+        if (st.form)
+          sources.push(
+            ...externalNodes(
+              `mstage${i}-${st.id}`,
+              '',
+              st.form,
+              m?.form ?? '',
+              t('lexicon.etyAddStage')
+            )
+          )
     }
+    // 词条自己的中间态：也当作可拆的形式挂上
+    for (const st of c.etymology.stages)
+      if (st.form)
+        sources.push(...externalNodes(`stage${st.id}`, '', st.form, '', t('lexicon.etyAddStage')))
     const derived: GNode[] = project.lexemes
       .filter(
         (x) =>
@@ -239,6 +289,11 @@
     return groups
   })
 
+  function activate(n: GNode): void {
+    if (n.lexemeId) onselect(n.lexemeId)
+    else if (n.morphemeId) ui.jump('morphemes', 'morpheme', n.morphemeId)
+  }
+
   const W = 900
   const H = 620
   const cx = W / 2
@@ -283,12 +338,12 @@
         {#each nodes as n (n.key)}
           <g
             class="node {n.kind}"
-            class:clickable={!!n.lexemeId}
+            class:clickable={!!n.lexemeId || !!n.morphemeId}
             transform={`translate(${n.x}, ${n.y})`}
             role="button"
             tabindex="-1"
-            onclick={() => n.lexemeId && onselect(n.lexemeId)}
-            onkeydown={(e) => e.key === 'Enter' && n.lexemeId && onselect(n.lexemeId)}
+            onclick={() => activate(n)}
+            onkeydown={(e) => e.key === 'Enter' && activate(n)}
           >
             <rect x="-56" y="-18" width="112" height="36" rx="10" />
             <text y="-2" class="label">{n.label}</text>

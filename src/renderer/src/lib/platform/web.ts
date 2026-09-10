@@ -361,6 +361,15 @@ export const webPlatform: PlatformAPI = {
   async checkUpdate() {
     // 网页版跟着页面走，没有安装包要更新
     return null
+  },
+  async downloadUpdate() {
+    return { ok: false, error: 'web' }
+  },
+  onUpdateProgress() {
+    /* 网页版没有安装包 */
+  },
+  async installUpdate() {
+    /* 网页版没有安装包 */
   }
 }
 

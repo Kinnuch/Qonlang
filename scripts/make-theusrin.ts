@@ -28,6 +28,7 @@ import {
   createSense
 } from '$lib/core/factory'
 import { serializeProject } from '$lib/core/serialize'
+import { findDuplicateSentences, mergeSentences } from '$lib/core/sentenceDedup'
 import { parseCsv } from '$lib/core/csv'
 import { fromYinbianji } from '$lib/engine/sca'
 import { inferFeatures } from '$lib/ipa/features'
@@ -1761,6 +1762,23 @@ if (md) {
     '需要装字体才能显示 —— 字体已经内嵌在项目文件里，打开即可。'
   ].join('\n')
   p.docs.push(intro)
+}
+
+// ───────────────────────── 语料查重 ─────────────────────────
+// 只差出处的直接合并；相近但不同的只列出来，留给人看（脚本里不替用户做决定）
+{
+  const pairs = findDuplicateSentences(p, { languageId: Tsr.id })
+  let merged = 0
+  for (const d of pairs) {
+    if (d.auto) {
+      mergeSentences(p, d.keep, d.drop)
+      merged++
+    } else
+      console.log(
+        `  相近例句 ${Math.round(d.similarity * 100)}%：「${d.keep.text}」(${d.keep.source}) ~ 「${d.drop.text}」(${d.drop.source})`
+      )
+  }
+  if (merged) console.log(`  自动合并了 ${merged} 对只差出处的例句`)
 }
 
 // ───────────────────────── 写盘 ─────────────────────────

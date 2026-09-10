@@ -109,6 +109,8 @@ export interface UpdateInfo {
   version: string
   url: string
   notes: string
+  /** 本机能直接装的安装包；为空只能去下载页 */
+  installer: { url: string; name: string; size: number } | null
 }
 
 export interface AppInfo {
@@ -181,4 +183,9 @@ export interface PlatformAPI {
   openExternal(url: string): Promise<void>
   /** 查有没有新版本；网页版或离线时返回 null */
   checkUpdate(): Promise<UpdateInfo | null>
+  /** 下载安装包到临时目录（桌面版） */
+  downloadUpdate(url: string, name: string): Promise<{ ok: boolean; path?: string; error?: string }>
+  onUpdateProgress(cb: (p: { received: number; total: number }) => void): void
+  /** 静默安装并重开（Windows）；其他平台打开安装包 */
+  installUpdate(path: string): Promise<void>
 }

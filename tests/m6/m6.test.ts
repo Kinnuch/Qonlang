@@ -103,7 +103,7 @@ describe('dictionary export', () => {
   const p = parseProject(
     readFileSync(join(__dirname, '..', '..', 'examples', 'Aelith.laim.json'), 'utf8')
   )
-  const L = p.languages[0]
+  const L = p.languages.find((l) => l.name === 'Aelith')!
   const o = {
     title: 'Aelith',
     glossLangs: ['zh', 'en'],
@@ -124,6 +124,8 @@ describe('dictionary export', () => {
     expect(dictionaryHtml(p, L, o)).toContain('<span class="lemma">kaso</span>')
     expect(dictionaryMarkdown(p, L, o)).toContain('**kaso**')
     const out = renderEntries(p, L, '{{lemma}}|{{#senses}}{{n}}.{{text}};{{/senses}}', o)
-    expect(out.split('\n').find((l) => l.startsWith('kaso|'))).toBe('kaso|1.房子;2.house;')
+    expect(out.split('\n').find((l) => l.startsWith('kaso|'))).toBe(
+      'kaso|1.房子;2.house;3.家；家庭;4.home; household;'
+    )
   })
 })
