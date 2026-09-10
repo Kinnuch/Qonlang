@@ -90,9 +90,18 @@
       ...[...set].filter((c) => !BUILTIN_CATS.includes(c)).sort()
     ]
   })
-  const shownGlyphs = $derived(
-    (script?.glyphs ?? []).filter((g) => !catFilter || g.category === catFilter)
-  )
+  const shownGlyphs = $derived.by(() => {
+    const q = ui.search.trim().toLowerCase()
+    return (script?.glyphs ?? []).filter(
+      (g) =>
+        (!catFilter || g.category === catFilter) &&
+        (!q ||
+          g.char.toLowerCase().includes(q) ||
+          g.name.toLowerCase().includes(q) ||
+          g.value.toLowerCase().includes(q) ||
+          g.category.toLowerCase().includes(q))
+    )
+  })
   const catLabel = (c: string): string =>
     BUILTIN_CATS.includes(c) ? t(`script.categories.${c}`) : c
 

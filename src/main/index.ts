@@ -15,6 +15,7 @@ import { promises as fs, existsSync, readFileSync, writeFileSync } from 'fs'
 import { spawn } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import gilatodFont from '../../resources/fonts/Gilatod_unicode.otf?asset'
 
 const APP_ID = 'io.github.kinnuch.qonlang'
 const GUIDE_URL = 'https://kinnuch.github.io/cerf/qonlang/'
@@ -672,6 +673,15 @@ function registerIpc(): void {
   })
   ipcMain.handle('fonts:delete', async (_e, file: string) => {
     await fs.rm(join(fontsDir(), basename(file)), { force: true })
+  })
+  // 随软件带的字体：不用联网，拷进用户字体目录即可
+  const BUILTIN_FONTS: Record<string, string> = { 'Gilatod_unicode.otf': gilatodFont }
+  ipcMain.handle('fonts:installBuiltin', async (_e, file: string) => {
+    const src = BUILTIN_FONTS[basename(file)]
+    if (!src) return false
+    await fs.mkdir(fontsDir(), { recursive: true })
+    await fs.copyFile(src, join(fontsDir(), basename(file)))
+    return true
   })
   ipcMain.handle('fonts:download', async (_e, url: string, file: string) => {
     await fs.mkdir(fontsDir(), { recursive: true })

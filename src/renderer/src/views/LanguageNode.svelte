@@ -7,6 +7,7 @@
   let {
     language,
     children,
+    visible = null,
     selectedId,
     defaultId,
     onselect,
@@ -15,6 +16,8 @@
   }: {
     language: Language
     children: Map<Id | null, Language[]>
+    /** 顶栏搜索筛出来的可见语言；null 表示不筛 */
+    visible?: Set<Id> | null
     selectedId: Id | null
     defaultId: Id | null
     onselect: (id: Id) => void
@@ -22,7 +25,9 @@
     depth?: number
   } = $props()
 
-  const kids = $derived(children.get(language.id) ?? [])
+  const kids = $derived(
+    (children.get(language.id) ?? []).filter((l) => !visible || visible.has(l.id))
+  )
 </script>
 
 <div class="node" style:--depth={depth}>
@@ -52,6 +57,7 @@
     <div class="kids">
       {#each kids as k (k.id)}
         <LanguageNode
+          {visible}
           language={k}
           {children}
           {selectedId}

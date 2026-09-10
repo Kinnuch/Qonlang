@@ -100,6 +100,7 @@ export default {
     create: '创建'
   },
   languages: {
+    search: '搜索语言：名称、缩写、备注',
     title: '语言',
     empty: '这个项目还没有语言。',
     addLanguage: '添加语言',
@@ -120,6 +121,7 @@ export default {
     lineage: '谱系'
   },
   soundChanges: {
+    search: '搜索规则、音类、阶段',
     hint: '规则集里的音类可直接引用「音系」页定义的音类与多合字母；阶段快照绑定语言后，构形的「拼接后跑音变」生成器和整库演化都能引用它。',
     title: '音变',
     newSet: '新建规则集',
@@ -658,6 +660,7 @@ export default {
     pasted: '（粘贴的内容）'
   },
   script: {
+    search: '搜索字形：字符、名称、转写值',
     packing: {
       title: '音节拼合（CV / VC 音节文字）',
       hint: '开启后不走规则链，而是按字形读音把转写拼成音节：读音里一辅一元的当拼格，更长的读音优先整块取用。',
@@ -774,6 +777,7 @@ export default {
     variantNote: '说明（语域、场合）'
   },
   docs: {
+    search: '搜索文档：标题或正文',
     title: '文档',
     page: '文档页',
     hint: '项目内的 Markdown 文档：语法说明、文化背景、翻译笔记都放这里。写 [[词头]] 可链接到词库词条，预览里点它跳转。可按语言归类，导出 Markdown 或 PDF。',
@@ -845,6 +849,7 @@ export default {
     exported: '已导出'
   },
   phonology: {
+    search: '搜索音位或音类',
     tabs: {
       phonemes: '音位',
       classes: '音类',
@@ -944,6 +949,7 @@ export default {
     addedWord: '已把 {w} 加入词库'
   },
   paradigms: {
+    search: '搜索槽位：名称或 gloss 缩写',
     title: '构形',
     newParadigm: '新建构形',
     untitled: '未命名构形',
@@ -1134,6 +1140,7 @@ export default {
       '统一尺寸 {w}×{h}；尺寸相符的图片原样保存，比例相同的等比缩放，其余会弹出裁剪框。PNG / GIF 无损保存，JPEG / WebP 沿用原格式高质量编码。'
   },
   skin: {
+    search: '搜索字体：名称、说明、标签',
     title: '皮肤',
     hint: '皮肤是应用级设置，不进项目文件。颜色按浅色 / 深色分别保存；字体可指定到语料的原文、译文、gloss 和自定义文字。',
     presets: '预设',
@@ -1161,6 +1168,7 @@ export default {
     libraryHint:
       '以下字体均为 OFL 许可，可免费商用。下载后存到应用数据目录，重启也在。也可从本地文件添加。',
     installed: '已安装',
+    installBuiltin: '安装',
     download: '下载',
     downloading: '下载中 {pct}%',
     downloaded: '已下载 {name}',
@@ -1196,6 +1204,7 @@ export default {
     }
   },
   settings: {
+    search: '搜索设置项',
     title: '设置',
     app: '应用',
     project: '项目',
@@ -1216,6 +1225,11 @@ export default {
     author: '作者',
     description: '简介',
     glossLanguages: '释义语言顺序（逗号分隔）',
+    tokenizer: '分词方式',
+    tokenizers: { whitespace: '按空白', character: '逐字', custom: '自定义分隔符' },
+    tokenizerHint: '语料的原文怎么切成词。默认按空白；不用空格的表记（汉语式、日语式）选逐字。',
+    tokenizerPattern: '分隔符正则',
+    tokenizerPatternHint: 'JS 正则，不带两边的斜杠；写错了会退回按空白切。',
     morphemeBoundaries: '语素边界符号（空格分隔）',
     dataFont: '语言数据字体（留空用默认）',
     imageSize: '词条配图尺寸（像素，宽 × 高）',

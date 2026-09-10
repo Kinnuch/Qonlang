@@ -134,10 +134,18 @@
   }
   /** 顶栏搜索框：只在有列表可搜的页面出现，占位文字跟页面走 */
   const SEARCHABLE: Partial<Record<Section, string>> = {
-    lexicon: 'lexicon.search',
+    languages: 'languages.search',
+    phonology: 'phonology.search',
+    script: 'script.search',
+    soundChanges: 'soundChanges.search',
     morphemes: 'morphemes.search',
+    lexicon: 'lexicon.search',
+    paradigms: 'paradigms.search',
     corpus: 'corpus.search',
-    phrasebook: 'phrasebook.search'
+    phrasebook: 'phrasebook.search',
+    docs: 'docs.search',
+    skin: 'skin.search',
+    settings: 'settings.search'
   }
   const searchPlaceholder = $derived(SEARCHABLE[ui.section] ? t(SEARCHABLE[ui.section]!) : '')
 </script>

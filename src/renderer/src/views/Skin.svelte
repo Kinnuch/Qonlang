@@ -39,6 +39,18 @@
   const theme = $derived(ui.resolvedTheme)
   const zh = $derived(i18n.locale === 'zh')
   const SLOTS: FontSlot[] = ['ui', 'data', 'mono', 'corpusText', 'corpusTr', 'gloss', 'script']
+  /** 顶栏搜索：字体按名称、说明、标签筛 */
+  const fontQuery = $derived(ui.search.trim().toLowerCase())
+  const catalogShown = $derived(
+    FONT_CATALOG.filter(
+      (f) =>
+        !fontQuery ||
+        f.family.toLowerCase().includes(fontQuery) ||
+        f.desc.zh.toLowerCase().includes(fontQuery) ||
+        f.desc.en.toLowerCase().includes(fontQuery) ||
+        f.tags.some((x) => x.toLowerCase().includes(fontQuery))
+    )
+  )
   const fontOptions = $derived([
     ...new Set([...fontLibrary.fonts.map((f) => f.family), ...COMMON_SYSTEM_FONTS])
   ])
@@ -198,7 +210,9 @@
     save()
   }
   async function download(entry: FontEntry): Promise<void> {
-    const err = await fontLibrary.download(entry, skin.mirror)
+    const err = entry.builtin
+      ? await fontLibrary.install(entry)
+      : await fontLibrary.download(entry, skin.mirror)
     if (err) ui.toast(t('skin.downloadFailed', { err }), { kind: 'error' })
     else ui.toast(t('skin.downloaded', { name: entry.family }))
   }
@@ -360,7 +374,7 @@
       </div>
       <table class="tbl">
         <tbody>
-          {#each FONT_CATALOG as f (f.file)}
+          {#each catalogShown as f (f.file)}
             {@const inst = fontLibrary.fonts.find((x) => x.file === f.file)}
             <tr>
               <td class="fam" style:font-family={inst ? `"${f.family}"` : ''}>{f.family}</td>
@@ -381,7 +395,9 @@
                   >
                 {:else}
                   <button class="btn sm" onclick={() => download(f)}
-                    ><Download size={13} />{t('skin.download')}</button
+                    ><Download size={13} />{f.builtin
+                      ? t('skin.installBuiltin')
+                      : t('skin.download')}</button
                   >
                 {/if}
               </td>

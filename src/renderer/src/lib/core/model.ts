@@ -50,6 +50,9 @@ export interface ProjectMeta {
 
 export type ProjectTemplate = 'blank' | 'family' | 'lexicanter' | 'csv'
 
+export type TokenizerMode = 'whitespace' | 'character' | 'custom'
+export const TOKENIZER_MODES: TokenizerMode[] = ['whitespace', 'character', 'custom']
+
 export interface ProjectSettings {
   /** 主界面默认显示的语言 */
   defaultLanguageId: Id | null
@@ -57,6 +60,14 @@ export interface ProjectSettings {
   glossLanguages: string[]
   /** 例句分词时视为语素边界的符号 */
   morphemeBoundaries: string[]
+  /**
+   * 例句怎么切成词：
+   * whitespace 按空白（默认）；character 逐字（汉语式、日语式这种不用空格的表记）；
+   * custom 用 tokenizerPattern 当分隔符正则。
+   */
+  tokenizer: TokenizerMode
+  /** tokenizer 为 custom 时的分隔符正则（JS 写法，不带两边的斜杠） */
+  tokenizerPattern: string
   /** gloss 缩写风格：leipzig = 大写英文缩写；native = 缩写表里的本地名 */
   abbreviationStyle: 'leipzig' | 'native'
   /** 用户自定义导出模板 */

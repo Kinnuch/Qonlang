@@ -61,6 +61,15 @@
       null
   )
   const inventory = $derived(new Set(lang?.phonemes.map((p) => p.symbol) ?? []))
+  /** 顶栏搜索：音位按符号 / 特征 / 备注，音类按名称与成员 */
+  const q = $derived(ui.search.trim().toLowerCase())
+  const phonemeHit = (p: (typeof lang.phonemes)[number]): boolean =>
+    !q ||
+    p.symbol.toLowerCase().includes(q) ||
+    p.notes.toLowerCase().includes(q) ||
+    Object.values(p.features).some((v) => (v ?? '').toLowerCase().includes(q))
+  const classHit = (c: { name: string; members: string[] }): boolean =>
+    !q || c.name.toLowerCase().includes(q) || c.members.some((m) => m.toLowerCase().includes(q))
   const dimensions = $derived([
     ...new Set(lang?.phonemes.flatMap((p) => Object.keys(p.features)) ?? [])
   ])
@@ -423,7 +432,7 @@
           <p class="small muted">{t('phonology.inventoryEmpty')}</p>
         {:else}
           {#each ['consonant', 'vowel', 'other'] as g (g)}
-            {@const ps = lang.phonemes.filter((p) => groupOf(p) === g)}
+            {@const ps = lang.phonemes.filter((p) => groupOf(p) === g && phonemeHit(p))}
             {#if ps.length}
               <div class="inv-row">
                 <span class="small muted lbl">{t(`phonology.group.${g}`)}</span>
@@ -514,7 +523,7 @@
           ><Plus size={14} />{t('phonology.addClass')}</button
         >
       </div>
-      {#each lang.classes as c (c.id)}
+      {#each lang.classes.filter(classHit) as c (c.id)}
         <div class="card cls">
           <div class="row">
             <input

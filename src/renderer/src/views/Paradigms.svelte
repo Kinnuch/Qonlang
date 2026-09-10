@@ -89,7 +89,17 @@
   const issueTotal = $derived(issues ? issues.reduce((a, g) => a + g.issues.length, 0) : 0)
   let testLemma = $state('')
 
-  const slots = $derived(active ? paradigmSlots(active, project.categories, glossLangs, true) : [])
+  const allSlots = $derived(
+    active ? paradigmSlots(active, project.categories, glossLangs, true) : []
+  )
+  /** 顶栏搜索：按槽位名或 gloss 缩写筛（推导与检查仍然跑全部槽位） */
+  const slots = $derived.by(() => {
+    const q = ui.search.trim().toLowerCase()
+    if (!q) return allSlots
+    return allSlots.filter(
+      (s) => s.label.toLowerCase().includes(q) || s.abbr.toLowerCase().includes(q)
+    )
+  })
   const boundPos = $derived(active ? project.posList.filter((p) => p.paradigmId === active.id) : [])
   /** 绑定词类的全部词位；当前语言的排在前面 */
   const boundLexemes = $derived(
@@ -345,7 +355,7 @@
     for (const [lid, ls] of byLang) {
       const ctx = ctxFor(lid)
       if (!ctx) continue
-      for (const slot of slots) jobs.push({ ctx, ls, slot })
+      for (const slot of allSlots) jobs.push({ ctx, ls, slot })
     }
     await ui.runProgress(
       t('paradigms.reportProgress'),

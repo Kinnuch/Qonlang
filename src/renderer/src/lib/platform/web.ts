@@ -268,6 +268,10 @@ export const webPlatform: PlatformAPI = {
     await kvSet('font:' + file, null)
     await kvSet('fonts:index', idx)
   },
+  async installBuiltinFont() {
+    // 网页版没有随软件带的字体文件
+    return false
+  },
   async downloadFont(url, file) {
     try {
       const res = await fetch(url)

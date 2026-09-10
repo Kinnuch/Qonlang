@@ -321,6 +321,14 @@
       <table class="tbl">
         <thead>
           <tr>
+            <th class="order">
+              <button
+                class="btn ghost icon sm"
+                class:active={customOrder}
+                title={t('table.customOrder')}
+                onclick={() => (customOrder = !customOrder)}><ListOrdered size={14} /></button
+              >
+            </th>
             {#each [['form', t('morphemes.form')], ['type', t('morphemes.type')], ['gloss', t('morphemes.gloss')], ['meaning', t('morphemes.meaning')]] as [key, label] (key)}
               <th>
                 <ColHead
@@ -355,14 +363,6 @@
                 onfilter={(sel) => setFilter('tags', sel)}
               />
             </th>
-            <th class="order">
-              <button
-                class="btn ghost icon sm"
-                class:active={customOrder}
-                title={t('table.customOrder')}
-                onclick={() => (customOrder = !customOrder)}><ListOrdered size={14} /></button
-              >
-            </th>
           </tr>
         </thead>
         <tbody>
@@ -373,16 +373,6 @@
               class:flash={flashId === m.id}
               onclick={() => (selectedId = m.id)}
             >
-              <td class="data form"
-                >{m.form}{#if m.type === 'circumfix' && m.form2}…{m.form2}{/if}</td
-              >
-              <td><span class="badge">{t(`morphemes.types.${m.type}`)}</span></td>
-              <td class="mono">{m.gloss}</td>
-              <td class="meaning">{pickText(m.meaning, glossLangs)}</td>
-              {#if !langId}<td class="small muted">{langName(m.languageId)}</td>{/if}
-              <td class="tags-cell"
-                >{#each m.tags as tg (tg)}<span class="badge">{tg}</span>{/each}</td
-              >
               <td class="mv">
                 {#if sort === 'custom'}
                   <button
@@ -403,6 +393,16 @@
                   >
                 {/if}
               </td>
+              <td class="data form"
+                >{m.form}{#if m.type === 'circumfix' && m.form2}…{m.form2}{/if}</td
+              >
+              <td><span class="badge">{t(`morphemes.types.${m.type}`)}</span></td>
+              <td class="mono">{m.gloss}</td>
+              <td class="meaning">{pickText(m.meaning, glossLangs)}</td>
+              {#if !langId}<td class="small muted">{langName(m.languageId)}</td>{/if}
+              <td class="tags-cell"
+                >{#each m.tags as tg (tg)}<span class="badge">{tg}</span>{/each}</td
+              >
             </tr>
           {:else}
             <tr class="empty"><td colspan="99" class="muted">{t('table.noMatch')}</td></tr>

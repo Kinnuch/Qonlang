@@ -286,10 +286,23 @@ export interface FontEntry {
   url: string
   desc: { zh: string; en: string }
   tags: string[]
+  /** 随软件一起带的字体：点一下就装好，不用联网 */
+  builtin?: boolean
 }
 
 const GF = 'https://raw.githubusercontent.com/google/fonts/main/ofl/'
 export const FONT_CATALOG: FontEntry[] = [
+  {
+    family: 'gilatod unicode',
+    file: 'Gilatod_unicode.otf',
+    url: '',
+    builtin: true,
+    desc: {
+      zh: '【荏苒之境】百科标准字体：随软件一起带，点「安装」即可',
+      en: 'Gilatod wiki standard font — ships with the app, one click to install'
+    },
+    tags: ['builtin', 'gilatod', 'unicode']
+  },
   {
     family: 'LXGW WenKai',
     file: 'LXGWWenKai-Regular.ttf',
@@ -413,6 +426,119 @@ export const FONT_CATALOG: FontEntry[] = [
     url: GF + 'jetbrainsmono/JetBrainsMono%5Bwght%5D.ttf',
     desc: { zh: '等宽，规则源代码与 gloss 行', en: 'Monospace for rule source and gloss lines' },
     tags: ['mono']
+  },
+  {
+    family: 'Andika',
+    file: 'Andika-Regular.ttf',
+    url: GF + 'andika/Andika-Regular.ttf',
+    desc: {
+      zh: 'SIL 易读无衬线，字形分得清，IPA 完整',
+      en: 'SIL sans built for legibility, full IPA'
+    },
+    tags: ['latin', 'sans', 'ipa']
+  },
+  {
+    family: 'Cardo',
+    file: 'Cardo-Regular.ttf',
+    url: GF + 'cardo/Cardo-Regular.ttf',
+    desc: {
+      zh: '古典学衬线：拉丁、希腊、IPA 与古文字符号',
+      en: 'Classicist serif: Latin, Greek, IPA, epigraphy'
+    },
+    tags: ['latin', 'serif', 'ipa', 'greek']
+  },
+  {
+    family: 'Inter',
+    file: 'Inter[opsz,wght].ttf',
+    url: GF + 'inter/Inter%5Bopsz,wght%5D.ttf',
+    desc: { zh: '界面无衬线（可变字重）', en: 'UI sans (variable)' },
+    tags: ['latin', 'sans', 'ui']
+  },
+  {
+    family: 'Noto Sans',
+    file: 'NotoSans[wdth,wght].ttf',
+    url: GF + 'notosans/NotoSans%5Bwdth,wght%5D.ttf',
+    desc: {
+      zh: '思源无衬线拉丁版，覆盖广（可变）',
+      en: 'Noto Sans Latin, wide coverage (variable)'
+    },
+    tags: ['latin', 'sans', 'ui']
+  },
+  {
+    family: 'Fira Sans',
+    file: 'FiraSans-Regular.ttf',
+    url: GF + 'firasans/FiraSans-Regular.ttf',
+    desc: { zh: 'humanist 无衬线，小字号清楚', en: 'Humanist sans, clear at small sizes' },
+    tags: ['latin', 'sans', 'ui']
+  },
+  {
+    family: 'IBM Plex Sans',
+    file: 'IBMPlexSans[wdth,wght].ttf',
+    url: GF + 'ibmplexsans/IBMPlexSans%5Bwdth,wght%5D.ttf',
+    desc: { zh: 'IBM Plex 无衬线（可变）', en: 'IBM Plex Sans (variable)' },
+    tags: ['latin', 'sans', 'ui']
+  },
+  {
+    family: 'EB Garamond',
+    file: 'EBGaramond[wght].ttf',
+    url: GF + 'ebgaramond/EBGaramond%5Bwght%5D.ttf',
+    desc: {
+      zh: '加拉蒙复刻，适合词典正文（可变）',
+      en: 'Garamond revival, good for dictionary text'
+    },
+    tags: ['latin', 'serif']
+  },
+  {
+    family: 'Libre Baskerville',
+    file: 'LibreBaskerville[wght].ttf',
+    url: GF + 'librebaskerville/LibreBaskerville%5Bwght%5D.ttf',
+    desc: { zh: '巴斯克维尔风衬线，屏幕友好', en: 'Baskerville-style serif tuned for screens' },
+    tags: ['latin', 'serif']
+  },
+  {
+    family: 'Lora',
+    file: 'Lora[wght].ttf',
+    url: GF + 'lora/Lora%5Bwght%5D.ttf',
+    desc: { zh: '书卷气衬线（可变）', en: 'Contemporary book serif (variable)' },
+    tags: ['latin', 'serif']
+  },
+  {
+    family: 'Source Serif 4',
+    file: 'SourceSerif4[opsz,wght].ttf',
+    url: GF + 'sourceserif4/SourceSerif4%5Bopsz,wght%5D.ttf',
+    desc: {
+      zh: '思源衬线拉丁版（可变，带光学尺寸）',
+      en: 'Source Serif 4 (variable, optical size)'
+    },
+    tags: ['latin', 'serif']
+  },
+  {
+    family: 'Merriweather',
+    file: 'Merriweather[opsz,wdth,wght].ttf',
+    url: GF + 'merriweather/Merriweather%5Bopsz,wdth,wght%5D.ttf',
+    desc: { zh: '屏幕正文衬线（可变）', en: 'Screen-first text serif (variable)' },
+    tags: ['latin', 'serif']
+  },
+  {
+    family: 'Fira Code',
+    file: 'FiraCode[wght].ttf',
+    url: GF + 'firacode/FiraCode%5Bwght%5D.ttf',
+    desc: { zh: '等宽，带连字（可变）', en: 'Monospace with ligatures (variable)' },
+    tags: ['latin', 'mono']
+  },
+  {
+    family: 'Noto Sans Mono',
+    file: 'NotoSansMono[wdth,wght].ttf',
+    url: GF + 'notosansmono/NotoSansMono%5Bwdth,wght%5D.ttf',
+    desc: { zh: '思源等宽，覆盖广（可变）', en: 'Noto Sans Mono, wide coverage (variable)' },
+    tags: ['latin', 'mono']
+  },
+  {
+    family: 'Noto Sans Old Turkic',
+    file: 'NotoSansOldTurkic-Regular.ttf',
+    url: GF + 'notosansoldturkic/NotoSansOldTurkic-Regular.ttf',
+    desc: { zh: '古突厥文（鄂尔浑文）字母', en: 'Old Turkic (Orkhon) letters' },
+    tags: ['script', 'oldturkic']
   }
 ]
 

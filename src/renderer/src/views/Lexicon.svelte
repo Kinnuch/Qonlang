@@ -404,7 +404,7 @@
   const tableWidth = $derived.by(() => {
     if (!hasWidths) return 0
     const keys = ['lemma', ...activeColumns.map((c) => c.key)]
-    let sum = (sort === 'custom' ? 56 : 0) + 34
+    let sum = sort === 'custom' ? 56 : 34
     for (const k of keys) sum += colWidths[k] ?? 120
     return sum
   })
@@ -418,8 +418,8 @@
     // 表格一转成固定布局，其余列就会被平均分配。
     const head = th.parentElement
     if (head) {
-      // 末尾那一格是自定义顺序按钮，不算列
-      const cells = ([...head.children] as HTMLElement[]).slice(0, -1)
+      // 第一格是自定义顺序按钮，不算列
+      const cells = ([...head.children] as HTMLElement[]).slice(1)
       const keys = ['lemma', ...activeColumns.map((c) => c.key)]
       const offset = cells.length - keys.length
       const widths = { ...ui.prefs.lexiconColWidths }
@@ -915,14 +915,20 @@
     <div class="scroll">
       <table class="tbl" class:fixed={hasWidths} style={hasWidths ? `width:${tableWidth}px` : ''}>
         <colgroup>
-          {#if sort === 'custom'}<col style="width:56px" />{/if}
+          <col style={sort === 'custom' ? 'width:56px' : 'width:34px'} />
           <col style={colStyle('lemma')} />
           {#each activeColumns as c (c.key)}<col style={colStyle(c.key)} />{/each}
-          <col style="width:34px" />
         </colgroup>
         <thead>
-          <tr
-            >{#if sort === 'custom'}<th></th>{/if}
+          <tr>
+            <th class="order">
+              <button
+                class="btn ghost icon sm"
+                class:active={customOrder}
+                title={t('table.customOrder')}
+                onclick={() => (customOrder = !customOrder)}><ListOrdered size={14} /></button
+              >
+            </th>
             <th>
               <ColHead
                 label={t('lexicon.lemma')}
@@ -961,14 +967,6 @@
                 ></span>
               </th>
             {/each}
-            <th class="order">
-              <button
-                class="btn ghost icon sm"
-                class:active={customOrder}
-                title={t('table.customOrder')}
-                onclick={() => (customOrder = !customOrder)}><ListOrdered size={14} /></button
-              >
-            </th>
           </tr>
         </thead>
         <tbody>
@@ -980,8 +978,8 @@
               class:dup-row={ui.prefs.highlightDuplicates && isDup(l)}
               onclick={(e) => rowClick(e, l, li)}
             >
-              {#if sort === 'custom'}
-                <td class="mv">
+              <td class="mv">
+                {#if sort === 'custom'}
                   <button
                     class="btn ghost icon sm"
                     title={t('lexicon.moveUp')}
@@ -998,8 +996,8 @@
                       moveLexeme(l, 1)
                     }}><ChevronDown size={12} /></button
                   >
-                </td>
-              {/if}
+                {/if}
+              </td>
               <td class="lemma data"
                 >{l.lemma || '—'}{#if isDup(l)}<span class="dup" title={t('lexicon.duplicate')}
                     ><AlertTriangle size={12} /></span
@@ -1029,7 +1027,6 @@
                   >
                 {/if}
               {/each}
-              <td></td>
             </tr>
           {:else}
             <tr class="empty"><td colspan="99" class="muted">{t('table.noMatch')}</td></tr>

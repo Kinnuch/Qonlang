@@ -774,7 +774,8 @@ function makeAelith(): void {
     ['r', 'ᚱ', 'raido'],
     ['l', 'ᛚ', 'laguz'],
     ['j', 'ᛃ', 'jera'],
-    ['w', 'ᚹ', 'wunjo']
+    ['w', 'ᚹ', 'wunjo'],
+    ['z', 'ᛉ', 'algiz']
   ]
   runes.glyphs = pairs.map(([v, char, name]) => ({
     id: newId(),
@@ -784,14 +785,6 @@ function makeAelith(): void {
     category: 'aeiouöü'.includes(v) ? 'vowel' : 'consonant',
     notes: ''
   }))
-  runes.glyphs.push({
-    id: newId(),
-    char: '᛫',
-    name: 'word divider',
-    value: '.',
-    category: 'punct',
-    notes: '词间点：句号刻成它'
-  })
   runes.rules = ['; 双写辅音只刻一次', 'C2 > C', '@glyphs'].join('\n')
   runes.notes = '拉丁转写 → 卢恩区字符：规则先合并双辅音，再套字形表。'
   L.scripts.push(runes)

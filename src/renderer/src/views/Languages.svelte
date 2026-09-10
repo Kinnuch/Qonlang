@@ -23,7 +23,26 @@
 
   const project = $derived(projectState.project!)
   const children = $derived(languageChildren(project.languages))
-  const roots = $derived(children.get(null) ?? [])
+  /** 顶栏搜索：命中的语言与它们的祖先；没搜索时为 null（全显示） */
+  const visible = $derived.by((): Set<Id> | null => {
+    const q = ui.search.trim().toLowerCase()
+    if (!q) return null
+    const byId = new Map(project.languages.map((l) => [l.id, l]))
+    const hit = (l: (typeof project.languages)[number]): boolean =>
+      [l.name, l.abbr, l.notes].some((x) => (x ?? '').toLowerCase().includes(q))
+    const out = new Set<Id>()
+    for (const l of project.languages) {
+      if (!hit(l)) continue
+      out.add(l.id)
+      let p = l.parentId ? byId.get(l.parentId) : null
+      while (p && !out.has(p.id)) {
+        out.add(p.id)
+        p = p.parentId ? (byId.get(p.parentId) ?? null) : null
+      }
+    }
+    return out
+  })
+  const roots = $derived((children.get(null) ?? []).filter((l) => !visible || visible.has(l.id)))
   const selected = $derived(project.languages.find((l) => l.id === selectedId) ?? null)
 
   $effect(() => {
@@ -113,6 +132,7 @@
     <div class="tree">
       {#each roots as l (l.id)}
         <LanguageNode
+          {visible}
           language={l}
           {children}
           {selectedId}

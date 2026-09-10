@@ -37,12 +37,15 @@
   let {
     text = $bindable(''),
     program,
+    query = '',
     hits = new Map<number, number>(),
     selectedLine = $bindable<number | null>(null),
     onchange
   }: {
     text?: string
     program: RuleProgram | null
+    /** 顶栏搜索：只显示原文含它的行 */
+    query?: string
     hits?: Map<number, number>
     selectedLine?: number | null
     onchange?: () => void
@@ -92,6 +95,8 @@
     items: ParsedLine[]
     endLine: number
   }
+  const needle = $derived(query.trim().toLowerCase())
+  const lineHit = (raw: string): boolean => !needle || raw.toLowerCase().includes(needle)
   const sections = $derived.by((): Section[] => {
     if (!program) return []
     const out: Section[] = []
@@ -103,15 +108,18 @@
         cur = { marker: l, items: [], endLine: l.line }
         continue
       }
-      cur.items.push(l)
+      if (lineHit(l.raw)) cur.items.push(l)
       cur.endLine = l.line
     }
     out.push(cur)
-    return out
+    // 搜索时空的阶段就别占地方了
+    return needle ? out.filter((s) => s.items.length || (s.marker && lineHit(s.marker.raw))) : out
   })
-  const classLines = $derived(program ? program.lines.filter((l) => l.kind === 'class') : [])
+  const classLines = $derived(
+    program ? program.lines.filter((l) => l.kind === 'class' && lineHit(l.raw)) : []
+  )
   const digraphLines = $derived(
-    program ? program.lines.filter((l) => l.kind === 'replacement') : []
+    program ? program.lines.filter((l) => l.kind === 'replacement' && lineHit(l.raw)) : []
   )
   const classNames = $derived(program ? [...program.classes.keys()] : [])
 

@@ -61,6 +61,14 @@ class FontLibrary {
     return entry.file in this.progress
   }
 
+  /** 随软件带的字体：直接装，不联网 */
+  async install(entry: FontEntry): Promise<string | null> {
+    const ok = await platform.installBuiltinFont(entry.file)
+    if (!ok) return 'install failed'
+    await this.refresh()
+    return null
+  }
+
   async download(entry: FontEntry, mirror: string): Promise<string | null> {
     const url = mirror.trim() ? mirror.trim().replace(/\/?$/, '/') + entry.url : entry.url
     this.progress = { ...this.progress, [entry.file]: { received: 0, total: 0 } }

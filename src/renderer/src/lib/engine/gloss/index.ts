@@ -2,7 +2,16 @@
  * 自动 gloss：分词 → 反向索引查询（已确认分析 / 词头 / 词干 / 屈折形 / 语素）→ 词缀剥离 → 候选排序。
  * 只出草稿，用户逐词确认；确认过的分析成为最高优先级候选。
  */
-import type { Analysis, Id, Lexeme, Morpheme, Project, Sentence, Token } from '$lib/core/model'
+import type {
+  Analysis,
+  Id,
+  Lexeme,
+  Morpheme,
+  Project,
+  Sentence,
+  Token,
+  TokenizerMode
+} from '$lib/core/model'
 import { paradigmFor, paradigmSlots } from '../morph'
 import { sentenceScript } from '$lib/script/render'
 
@@ -20,11 +29,31 @@ export interface GlossIndex {
 const PUNCT =
   /^[\s.,;:!?…“”"'()[\]«»‹›—–「」『』，。！？；：、]+|[\s.,;:!?…“”"'()[\]«»‹›—–「」『』，。！？；：、]+$/gu
 
-export function tokenize(text: string): string[] {
-  return text
-    .split(/\s+/)
-    .map((t) => t.replace(PUNCT, ''))
-    .filter(Boolean)
+export interface TokenizeOptions {
+  mode?: TokenizerMode
+  /** custom 模式的分隔符正则；写错了就退回按空白 */
+  pattern?: string
+}
+
+/**
+ * 把例句切成词。默认按空白切；不用空格的表记可以选逐字，
+ * 或者自己给一个分隔符正则（见「设置 → 项目 → 分词方式」）。
+ */
+export function tokenize(text: string, opts: TokenizeOptions = {}): string[] {
+  const clean = (t: string): string => t.replace(PUNCT, '')
+  if (opts.mode === 'character')
+    return Array.from(text)
+      .map(clean)
+      .filter((c) => c.trim().length > 0)
+  if (opts.mode === 'custom' && opts.pattern?.trim()) {
+    try {
+      const re = new RegExp(opts.pattern, 'u')
+      return text.split(re).map(clean).filter(Boolean)
+    } catch {
+      // 正则写错了当没设置
+    }
+  }
+  return text.split(/\s+/).map(clean).filter(Boolean)
 }
 
 const strip = (s: string): string => s.replace(/^[-=]+|[-=]+$/g, '')
@@ -290,7 +319,10 @@ export function analyzeSentence(
   opts: { force?: boolean } = {}
 ): Sentence {
   const idx = buildIndex(project, sentence.languageId)
-  const words = tokenize(sentence.text)
+  const words = tokenize(sentence.text, {
+    mode: project.settings.tokenizer,
+    pattern: project.settings.tokenizerPattern
+  })
   const old = new Map(sentence.tokens.map((t) => [t.surface, t]))
   const tokens: Token[] = words.map((w) => {
     const prev = old.get(w)

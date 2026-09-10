@@ -153,6 +153,8 @@ export interface PlatformAPI {
   saveFont(file: string, base64: string): Promise<boolean>
   deleteFont(file: string): Promise<void>
   downloadFont(url: string, file: string): Promise<{ ok: boolean; error?: string }>
+  /** 安装随软件带的字体（桌面版）；网页版返回 false */
+  installBuiltinFont(file: string): Promise<boolean>
   onFontProgress(cb: (p: { file: string; received: number; total: number }) => void): void
   /** 应用菜单触发的动作（桌面版）：save / saveAs / open */
   onMenu(cb: (action: MenuAction) => void): void

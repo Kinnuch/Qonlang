@@ -4,8 +4,10 @@
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t, LOCALES } from '$lib/i18n/index.svelte'
+  import { TOKENIZER_MODES } from '$lib/core/model'
   import { Eye, FolderOutput } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import { filterRows } from '$lib/ui/filterRows'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
   $effect(() => {
@@ -43,7 +45,7 @@
     <GuideLink section="settings" />
   </div>
 
-  <section>
+  <section use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
     <h3>{t('settings.app')}</h3>
     <div class="grid">
       <div class="field">
@@ -147,7 +149,7 @@
     </div>
   </section>
 
-  <section>
+  <section use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
     <h3>{t('settings.project')}</h3>
     <div class="grid">
       <div class="field">
@@ -235,10 +237,37 @@
           onchange={commitBoundaries}
         />
       </div>
+      <div class="field">
+        <label for="p-token">{t('settings.tokenizer')}</label>
+        <select
+          id="p-token"
+          class="select"
+          bind:value={project.settings.tokenizer}
+          onchange={() => projectState.touch()}
+        >
+          {#each TOKENIZER_MODES as m (m)}
+            <option value={m}>{t(`settings.tokenizers.${m}`)}</option>
+          {/each}
+        </select>
+        <span class="small muted">{t('settings.tokenizerHint')}</span>
+      </div>
+      {#if project.settings.tokenizer === 'custom'}
+        <div class="field">
+          <label for="p-token-pat">{t('settings.tokenizerPattern')}</label>
+          <input
+            id="p-token-pat"
+            class="input mono"
+            placeholder="[\\s·]+"
+            bind:value={project.settings.tokenizerPattern}
+            onchange={() => projectState.touch()}
+          />
+          <span class="small muted">{t('settings.tokenizerPatternHint')}</span>
+        </div>
+      {/if}
     </div>
   </section>
 
-  <section>
+  <section use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
     <h3>{t('common.export')}</h3>
     <div class="row">
       <button class="btn" onclick={() => projectState.exportFolder()}
@@ -254,7 +283,7 @@
     </div>
   </section>
 
-  <section class="about">
+  <section class="about" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
     <h3>{t('settings.about')}</h3>
     <p>{t('app.name')} · {t('settings.version')} {info?.version ?? ''} · {t('settings.license')}</p>
     {#if info?.userDataPath}

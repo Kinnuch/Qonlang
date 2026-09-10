@@ -282,6 +282,7 @@
             bind:text={rs.text}
             {program}
             {hits}
+            query={ui.search}
             bind:selectedLine
             onchange={() => touch(rs)}
           />

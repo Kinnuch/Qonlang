@@ -107,6 +107,7 @@ const en: Dict = {
     create: 'Create'
   },
   languages: {
+    search: 'Search languages: name, abbreviation, notes',
     title: 'Languages',
     empty: 'This project has no languages yet.',
     addLanguage: 'Add language',
@@ -128,6 +129,7 @@ const en: Dict = {
     lineage: 'Lineage'
   },
   soundChanges: {
+    search: 'Search rules, classes, stages',
     hint: 'Rule sets can use the classes and digraphs defined on the Phonology page; once a stage snapshot is bound to a language, paradigm “affix + sound change” generators and whole-lexicon evolution can reference it.',
     title: 'Sound changes',
     newSet: 'New rule set',
@@ -681,6 +683,7 @@ const en: Dict = {
     pasted: '(pasted content)'
   },
   script: {
+    search: 'Search glyphs: character, name, value',
     packing: {
       title: 'Syllable packing (CV / VC syllabaries)',
       hint: 'Skips the rule chain and packs the transcription into syllables using the glyph readings: two-segment consonant+vowel readings become the cells, longer readings are taken whole first.',
@@ -802,6 +805,7 @@ const en: Dict = {
     variantNote: 'Note (register, situation)'
   },
   docs: {
+    search: 'Search docs: title or body',
     title: 'Documents',
     page: 'Page',
     hint: 'Markdown pages inside the project: grammar notes, culture, translation notes. Write [[lemma]] to link a lexicon entry and click it in the preview. Pages can belong to a language; export as Markdown or PDF.',
@@ -874,6 +878,7 @@ const en: Dict = {
     exported: 'Exported'
   },
   phonology: {
+    search: 'Search phonemes or classes',
     tabs: {
       phonemes: 'Phonemes',
       classes: 'Classes',
@@ -975,6 +980,7 @@ const en: Dict = {
     addedWord: 'Added {w} to the lexicon'
   },
   paradigms: {
+    search: 'Search slots: label or gloss abbreviation',
     title: 'Paradigms',
     newParadigm: 'New paradigm',
     untitled: 'Untitled paradigm',
@@ -1171,6 +1177,7 @@ const en: Dict = {
       'Uniform size {w}×{h}; matching images are stored as-is, same-ratio images are scaled, others open the cropper. PNG / GIF stay lossless; JPEG / WebP keep their format at high quality.'
   },
   skin: {
+    search: 'Search fonts: name, description, tag',
     title: 'Skin',
     hint: 'Skins are app-level settings and never enter the project file. Colours are stored separately for light and dark; fonts can be set for corpus text, translation, gloss and custom scripts.',
     presets: 'Presets',
@@ -1199,6 +1206,7 @@ const en: Dict = {
     libraryHint:
       'All fonts below are OFL-licensed and free for commercial use. Downloads are stored in the app data folder. You can also add local font files.',
     installed: 'Installed',
+    installBuiltin: 'Install',
     download: 'Download',
     downloading: 'Downloading {pct}%',
     downloaded: 'Downloaded {name}',
@@ -1235,6 +1243,7 @@ const en: Dict = {
     }
   },
   settings: {
+    search: 'Search settings',
     title: 'Settings',
     app: 'Application',
     project: 'Project',
@@ -1256,6 +1265,17 @@ const en: Dict = {
     author: 'Author',
     description: 'Description',
     glossLanguages: 'Definition languages (comma-separated)',
+    tokenizer: 'Tokenization',
+    tokenizers: {
+      whitespace: 'By whitespace',
+      character: 'By character',
+      custom: 'Custom separator'
+    },
+    tokenizerHint:
+      'How corpus text is split into words. Whitespace by default; pick by-character for scripts written without spaces.',
+    tokenizerPattern: 'Separator pattern',
+    tokenizerPatternHint:
+      'A JS regular expression without the slashes; an invalid one falls back to whitespace.',
     morphemeBoundaries: 'Morpheme boundary symbols (space-separated)',
     dataFont: 'Font for language data (blank = default)',
     imageSize: 'Entry image size (px, width × height)',

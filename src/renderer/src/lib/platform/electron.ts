@@ -76,6 +76,9 @@ export const electronPlatform: PlatformAPI = {
   async deleteFont(file) {
     await bridge().invoke('fonts:delete', file)
   },
+  async installBuiltinFont(file) {
+    return (await bridge().invoke('fonts:installBuiltin', file)) as boolean
+  },
   async downloadFont(url, file) {
     return (await bridge().invoke('fonts:download', url, file)) as { ok: boolean; error?: string }
   },

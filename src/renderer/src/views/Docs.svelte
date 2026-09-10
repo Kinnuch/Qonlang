@@ -17,11 +17,17 @@
   const project = $derived(projectState.project!)
   const langId = $derived(projectState.currentLanguageId)
   let selectedId = $state<Id | null>(null)
-  let view = $state<'edit' | 'split' | 'preview'>('split')
+  // 打开文档页默认看预览；新建文档时自动切到编辑
+  let view = $state<'edit' | 'split' | 'preview'>('preview')
 
-  const list = $derived(
-    project.docs.filter((d) => !langId || d.languageId === langId || d.languageId === null)
-  )
+  const list = $derived.by(() => {
+    const q = ui.search.trim().toLowerCase()
+    return project.docs.filter(
+      (d) =>
+        (!langId || d.languageId === langId || d.languageId === null) &&
+        (!q || d.title.toLowerCase().includes(q) || d.markdown.toLowerCase().includes(q))
+    )
+  })
   const selected = $derived(project.docs.find((d) => d.id === selectedId) ?? null)
   const lemmaIndex = $derived.by(() => {
     const m = new Map<string, Id>()

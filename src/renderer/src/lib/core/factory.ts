@@ -254,6 +254,8 @@ export function createProject(opts: CreateProjectOptions): Project {
       defaultLanguageId: languages[0]?.id ?? null,
       glossLanguages,
       morphemeBoundaries: ['-', '='],
+      tokenizer: 'whitespace',
+      tokenizerPattern: '',
       abbreviationStyle: 'leipzig',
       exportTemplates: [],
       dataFont: '',

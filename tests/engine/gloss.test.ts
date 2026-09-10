@@ -28,6 +28,13 @@ p.sentences = []
 for (const l of p.lexemes) l.forms = {}
 
 describe('tokenize', () => {
+  it('splits by character when the project says so', () => {
+    expect(tokenize('我吃了鱼。', { mode: 'character' })).toEqual(['我', '吃', '了', '鱼'])
+  })
+  it('splits on a custom separator, falling back to whitespace when it is not a regex', () => {
+    expect(tokenize('a·b·c', { mode: 'custom', pattern: '[·]+' })).toEqual(['a', 'b', 'c'])
+    expect(tokenize('a b', { mode: 'custom', pattern: '[' })).toEqual(['a', 'b'])
+  })
   it('splits on whitespace and strips punctuation', () => {
     expect(tokenize('ilenler kasoda jatdu. “sen nölüm” sördün mü?')).toEqual([
       'ilenler',
