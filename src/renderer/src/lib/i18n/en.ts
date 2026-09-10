@@ -92,10 +92,12 @@ const en: Dict = {
       'Two fictional projects shipped with the app, between them touching every module. Open one and edit freely — the bundled files are never overwritten (saving asks where to put it).',
     openExample: 'Open',
     exampleOpened: 'Opened the example project “{name}”',
-    example_aelith:
-      'Agglutinative a priori language: proto-to-modern family, vowel harmony, multi-slot suffixes, all eight pipeline steps, variants and inheritance, etymology chains and the relation graph, glossed corpus, runic script.',
-    example_tsahun:
-      'Isolating tone language: five tones, Latin and Cyrillic orthographies, syllabary packing and vertical layout, reduplication paradigms and hand-filled tables, classifiers and loans.',
+    exampleDesc: {
+      aelith:
+        'Agglutinative a priori language: proto-to-modern family, vowel harmony, multi-slot suffixes, all eight pipeline steps, variants and inheritance, etymology chains and the relation graph, glossed corpus, runic script.',
+      tsahun:
+        'Isolating tone language: five tones, Latin and Cyrillic orthographies, syllabary packing and vertical layout, reduplication paradigms and hand-filled tables, classifiers and loans.'
+    },
     coffee: 'Buy me a coffee',
     changelog: 'Changelog',
     developer: 'Developer',
@@ -1075,7 +1077,7 @@ const en: Dict = {
     deleted: 'Deleted paradigm “{name}”',
     hint: 'Once a paradigm is bound to a part of speech, entries of that class get a slot panel in the lexicon edit mode; derived forms feed the entry card and corpus glosses. Generators can reference affixes from Morphemes and rule sets from Sound changes.',
     affixHint:
-      'Affixes are literal; start with @ to reference a morpheme (by form or gloss) whose allomorph is chosen by environment, e.g. @-lAr. Stem: lemma or a stem name (empty = lemma); leading/trailing hyphens are stripped.',
+      'Affixes are literal; start with @ to reference a morpheme (by form or gloss) whose allomorph is chosen by environment, e.g. @-lAr. Stem: lemma or a stem name (empty = lemma); leading/trailing hyphens are stripped. Spaces and middle dots you type are kept, so a prefix of “ė ” yields “ė derg” and “an·” yields “an·derg”.',
     adjust: 'Adjustments',
     adjustPre: 'before sound changes…',
     adjustStem: 'on the stem…',

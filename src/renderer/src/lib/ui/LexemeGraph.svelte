@@ -6,7 +6,12 @@
   import type { Id, Project } from '$lib/core/model'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { ui } from '$lib/state/ui.svelte'
-  import { splitSourceForm, resolveFormInLanguage, findLanguageByName } from '$lib/core/etymology'
+  import {
+    splitSourceForm,
+    resolveFormInLanguage,
+    findLanguageByName,
+    morphemeLabel
+  } from '$lib/core/etymology'
   import { relationLabel } from '$lib/ui/labels'
 
   let {
@@ -88,7 +93,7 @@
         return [
           {
             key: `src${i}`,
-            label: m?.form ?? '?',
+            label: morphemeLabel(m) || '?',
             sub: m ? m.gloss || pickText(m.meaning, glossLangs) : '',
             lexemeId: null,
             morphemeId: m?.id ?? null,

@@ -2,6 +2,7 @@
   /** 显示模式下的词条卡：只读、简约，把录入模式记录的信息排版出来 */
   import type { Id, Lexeme, Project } from '$lib/core/model'
   import { relationLabel } from '$lib/ui/labels'
+  import { morphemeLabel } from '$lib/core/etymology'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { lexemeScript } from '$lib/script/render'
@@ -53,7 +54,7 @@
   function sourceText(s: Lexeme['etymology']['sources'][number]): { text: string; id?: Id } {
     if (s.kind === 'morpheme') {
       const m = project.morphemes.find((x) => x.id === s.id)
-      return { text: m ? `${m.form}${m.gloss ? ` ‘${m.gloss}’` : ''}` : '?' }
+      return { text: m ? `${morphemeLabel(m)}${m.gloss ? ` ‘${m.gloss}’` : ''}` : '?' }
     }
     if (s.kind === 'lexeme') {
       const x = project.lexemes.find((y) => y.id === s.id)
@@ -196,7 +197,7 @@
 
   {#if derivedWords.length}
     <section>
-      <h4>{t('lexicon.derivedWordsWords')}</h4>
+      <h4>{t('lexicon.derivedWords')}</h4>
       <p class="derivedWords">
         {#each derivedWords as d (d.id)}<button class="link data" onclick={() => onselect?.(d.id)}
             >{d.lemma}</button

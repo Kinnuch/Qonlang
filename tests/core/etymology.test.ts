@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { createLanguage, createLexeme, createMorpheme, createProject } from '$lib/core/factory'
-import { resolveFormInLanguage, splitSourceForm } from '$lib/core/etymology'
+import {
+  etymologyText,
+  resolveFormInLanguage,
+  sourceForm,
+  splitSourceForm
+} from '$lib/core/etymology'
 
 const project = createProject({ name: 'p', template: 'blank', appVersion: '0', uiLocale: 'zh' })
 const proto = createLanguage({ name: 'Proto-X', abbr: 'PX' })
@@ -37,5 +42,26 @@ describe('resolveFormInLanguage', () => {
   })
   it('searches all languages when no language is named', () => {
     expect(resolveFormInLanguage(project, '', 'sal')?.kind).toBe('lexeme')
+  })
+})
+
+describe('sourceForm', () => {
+  it('writes circumfixes as first…second so display mode keeps both halves', () => {
+    const circ = createMorpheme(daughter.id, 'circumfix')
+    circ.form = 'e'
+    circ.form2 = 'ce'
+    project.morphemes.push(circ)
+    const owner = createLexeme(daughter.id, 'abad')
+    owner.etymology = {
+      type: 'derivation',
+      sources: [
+        { kind: 'morpheme', id: circ.id },
+        { kind: 'lexeme', id: salX.id }
+      ],
+      stages: [],
+      notes: ''
+    }
+    expect(sourceForm(project, owner.etymology.sources[0])).toBe('e…ce')
+    expect(etymologyText(project, owner.etymology, owner.lemma)).toBe('e…ce + sal > abad')
   })
 })

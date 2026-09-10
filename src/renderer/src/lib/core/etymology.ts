@@ -2,7 +2,13 @@
  * 词源链的纯函数：编辑器、词条卡片、图谱、导出共用。
  * 链条读作「来源 > 中间态… > 词条本身」。
  */
-import type { Etymology, EtymologySource, Project } from './model'
+import type { Etymology, EtymologySource, Morpheme, Project } from './model'
+
+/** 语素的显示形式：环缀写成「前半…后半」，别的就是形式本身 */
+export function morphemeLabel(m: Morpheme | undefined | null): string {
+  if (!m) return ''
+  return m.type === 'circumfix' && m.form2 ? `${m.form}…${m.form2}` : m.form
+}
 
 /** 词根来源按惯例前面加星号 */
 export function etymologyStar(ety: Etymology): string {
@@ -10,7 +16,7 @@ export function etymologyStar(ety: Etymology): string {
 }
 
 export function sourceForm(project: Project, s: EtymologySource): string {
-  if (s.kind === 'morpheme') return project.morphemes.find((m) => m.id === s.id)?.form ?? ''
+  if (s.kind === 'morpheme') return morphemeLabel(project.morphemes.find((m) => m.id === s.id))
   if (s.kind === 'lexeme') return project.lexemes.find((m) => m.id === s.id)?.lemma ?? ''
   return s.form
 }

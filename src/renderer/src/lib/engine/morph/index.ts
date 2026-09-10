@@ -153,7 +153,9 @@ function resolveAffix(
   stem: string,
   side: 'prefix' | 'suffix'
 ): { form: string; note: string } {
-  const raw = text.trim()
+  // 只有全是空白才算没写；写进去的空格、中点这些要原样留着（`ė ` + derg → ė derg）
+  if (!text.trim()) return { form: '', note: '' }
+  const raw = text.trim().startsWith('@') ? text.trim() : text
   if (!raw.startsWith('@')) return { form: trimHyphens(raw), note: '' }
   const ref = raw.slice(1).trim()
   const m = ctx.project.morphemes.find(

@@ -4,13 +4,13 @@
    * 链条读作「来源 > 中间态… > 本身」，选定类别后来源框会给出对应的选择器。
    */
   import { t, pickText } from '$lib/i18n/index.svelte'
+  import { morphemeLabel } from '$lib/core/etymology'
   import { newId } from '$lib/core/factory'
   import {
     ETYMOLOGY_TYPES,
     type Etymology,
     type EtymologySource,
     type Id,
-    type Morpheme,
     type Project
   } from '$lib/core/model'
   import { Plus, X, ArrowRight } from '@lucide/svelte'
@@ -35,10 +35,6 @@
   /** 词根来源按惯例加星号 */
   const star = $derived(etymology.type === 'root' ? '*' : '')
 
-  /** 语素的完整写法：环缀是「前半…后半」 */
-  function morphemeLabel(m: Morpheme): string {
-    return m.type === 'circumfix' && m.form2 ? `${m.form}…${m.form2}` : m.form
-  }
   function sourceText(s: EtymologySource): string {
     if (s.kind === 'morpheme') {
       const m = project.morphemes.find((x) => x.id === s.id)

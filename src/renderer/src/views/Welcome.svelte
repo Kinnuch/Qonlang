@@ -380,7 +380,7 @@
           {#each EXAMPLES as ex (ex.id)}
             <div class="card panel example">
               <strong>{ex.name}</strong>
-              <p class="small muted">{t(`welcome.example_${ex.id}`)}</p>
+              <p class="small muted">{t(`welcome.exampleDesc.${ex.id}`)}</p>
               <button
                 class="btn primary sm"
                 disabled={!!loadingExample}

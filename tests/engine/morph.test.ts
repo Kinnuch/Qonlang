@@ -181,6 +181,34 @@ describe('generators', () => {
     )!
     expect(g.trace.length).toBeGreaterThan(2)
   })
+  it('keeps spaces and middle dots written into affixes', () => {
+    const { p, L, ctx } = setup()
+    const w = createLexeme(L.id, 'derg')
+    const para: Paradigm = {
+      id: 'sp',
+      name: {},
+      variants: [],
+      dimensionIds: ['num'],
+      disabledSlots: [],
+      generators: {
+        sg: {
+          kind: 'pipeline',
+          stem: '',
+          steps: [{ id: 's1', kind: 'prefix', text: 'ė ' } as MorphStep]
+        },
+        pl: {
+          kind: 'pipeline',
+          stem: '',
+          steps: [{ id: 's2', kind: 'prefix', text: 'an·' } as MorphStep]
+        }
+      },
+      inheritsFrom: null
+    }
+    p.paradigms.push(para)
+    const slots = paradigmSlots(para, p.categories, ['zh'])
+    expect(generateForm(ctx, w, para, slots[0])?.surface).toBe('ė derg')
+    expect(generateForm(ctx, w, para, slots[1])?.surface).toBe('an·derg')
+  })
   it('pattern, reduplication and infix generators', () => {
     const { p, L, ctx } = setup()
     const root = createLexeme(L.id, 'ktb')
