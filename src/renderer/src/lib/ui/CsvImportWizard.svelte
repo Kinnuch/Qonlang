@@ -3,7 +3,7 @@
   import { platform, type CsvPreset } from '$lib/platform'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
-  import { t } from '$lib/i18n/index.svelte'
+  import { i18n, t } from '$lib/i18n/index.svelte'
   import { parseCsv, type Delimiter } from '$lib/core/csv'
   import { MORPHEME_TYPES } from '$lib/core/factory'
   import {
@@ -14,11 +14,22 @@
     guessMapping,
     FIELD_KINDS,
     MARKER_ACTIONS,
+    cleanPosRules,
+    defaultPosRule,
+    findPosByText,
+    findPosMarkers,
+    POS_ACTIONS,
+    POS_PRESETS,
     type CsvMapping,
     type FieldSpec,
     type ImportReport,
-    type MarkerRule
+    type MarkerRule,
+    type PosRule
   } from '$lib/importers/csvImport'
+  import { posName } from '$lib/core/pos'
+  import { PREVIEW_LIMIT, scratchProject } from '$lib/importers/preview'
+  import Portal from './Portal.svelte'
+  import ImportPreview from './ImportPreview.svelte'
   import { guideUrl } from '$lib/core/guide'
   import { FileUp, Check, X, Save, Trash2, BookOpenText } from '@lucide/svelte'
 
@@ -111,10 +122,66 @@
     return out
   }
 
+  /** 释义列、词类列里出现的词类标记（只对词条） */
+  const posStats = $derived(
+    mapping && mapping.target === 'lexemes' ? findPosMarkers(rows, mapping) : []
+  )
+  /** 词类候选：项目里已有的词类名 + 常见词类名 */
+  const posOptions = $derived(
+    [
+      ...new Set([
+        ...project.posList.map((p) => posName(p, project.settings.glossLanguages)),
+        ...POS_PRESETS.map((p) => (i18n.locale.startsWith('zh') ? p.zh : p.en))
+      ])
+    ].filter(Boolean)
+  )
+  /** 没动过的词类标记：对得上已有词类、常见缩写的用它，否则新建同名词类 */
+  function posRuleOf(label: string): PosRule {
+    return mapping?.posMarkers?.[label] ?? defaultPosRule(label, project.posList, i18n.locale)
+  }
+  function setPosRule(label: string, patch: Partial<PosRule>): void {
+    if (!mapping) return
+    mapping.posMarkers = { ...mapping.posMarkers, [label]: { ...posRuleOf(label), ...patch } }
+  }
+  /** 这份表里见到的词类标记都带上处理方式，导入、存预设、样例都用它 */
+  function effectivePosMarkers(): Record<string, PosRule> {
+    const out = cleanPosRules($state.snapshot(mapping?.posMarkers))
+    for (const st of posStats) out[st.label] = { ...posRuleOf(st.label) }
+    return out
+  }
+  /** 设成词类的标记是落到已有词类，还是要新建 */
+  function posIsNew(label: string, rule: PosRule): boolean {
+    const v = rule.value.trim() || label
+    if (findPosByText(project, v)) return false
+    return v.split(/\s*[/+]\s*/).some((x) => x && !findPosByText(project, x))
+  }
+
+  /** 导入样例：拿前几行在项目副本上试导入，设置一改就重算 */
+  const preview = $derived.by(() => {
+    if (!mapping || !lemmaMapped || !rows.length) return null
+    const m = $state.snapshot(mapping) as CsvMapping
+    m.senseMarkers = effectiveMarkers()
+    m.posMarkers = effectivePosMarkers()
+    const data = m.hasHeader ? rows.slice(1) : rows
+    const sample = $state.snapshot([
+      ...(m.hasHeader ? rows.slice(0, 1) : []),
+      ...data.slice(0, PREVIEW_LIMIT)
+    ]) as string[][]
+    const scratch = scratchProject(project)
+    applyCsvImport(scratch, sample, m)
+    const existing = new Set(
+      m.target === 'lexemes'
+        ? project.lexemes.filter((l) => l.languageId === m.languageId).map((l) => l.lemma)
+        : project.morphemes.filter((x) => x.languageId === m.languageId).map((x) => x.form)
+    )
+    return { project: scratch, total: data.length, existing }
+  })
+
   function run(): void {
     if (!mapping || !lemmaMapped) return
     const m = $state.snapshot(mapping) as CsvMapping
     m.senseMarkers = effectiveMarkers()
+    m.posMarkers = effectivePosMarkers()
     report = applyCsvImport(project, $state.snapshot(rows) as string[][], m)
     projectState.touch()
   }
@@ -136,7 +203,8 @@
       splitProtoArrow: mapping.splitProtoArrow,
       splitSenses: mapping.splitSenses,
       sensePrefixMap: mapping.sensePrefixMap,
-      senseMarkers: effectiveMarkers()
+      senseMarkers: effectiveMarkers(),
+      posMarkers: effectivePosMarkers()
     }
     ui.prefs.csvPresets = [...ui.prefs.csvPresets.filter((p) => p.name !== preset.name), preset]
     void ui.savePrefs()
@@ -151,6 +219,7 @@
     if (p.splitSenses !== undefined) mapping.splitSenses = p.splitSenses
     mapping.sensePrefixMap = p.sensePrefixMap ?? ''
     mapping.senseMarkers = cleanMarkerRules(p.senseMarkers)
+    mapping.posMarkers = cleanPosRules(p.posMarkers)
     mapping.columns = mapping.columns.map(
       (_, i) => (p.columns[keyFor(i)] as FieldSpec | undefined) ?? { kind: 'ignore' }
     )
@@ -369,6 +438,70 @@
       {/if}
     </div>
 
+    {#if posStats.length}
+      <h3>{t('csv.posMarkers')}</h3>
+      <p class="small muted">{t('csv.posMarkersHint')}</p>
+      <div class="table-wrap">
+        <table class="map">
+          <thead
+            ><tr
+              ><th>{t('csv.marker')}</th><th>{t('csv.markerCount')}</th><th>{t('csv.sample')}</th
+              ><th>{t('csv.markerAction')}</th><th>{t('csv.posValue')}</th></tr
+            ></thead
+          >
+          <tbody>
+            {#each posStats as st (st.label)}
+              {@const rule = posRuleOf(st.label)}
+              <tr class:mapped={rule.action !== 'keep'}>
+                <td class="hdr data">{st.raw}</td>
+                <td class="muted nowrap"
+                  >{st.count} · {st.columns
+                    .map((ci) => (mapping?.hasHeader && header[ci]) || String(ci + 1))
+                    .join('、')}</td
+                >
+                <td class="sample data" title={st.sample}>{st.sample}</td>
+                <td>
+                  <select
+                    class="select"
+                    value={rule.action}
+                    onchange={(e) =>
+                      setPosRule(st.label, {
+                        action: (e.currentTarget as HTMLSelectElement).value as PosRule['action']
+                      })}
+                  >
+                    {#each POS_ACTIONS as a (a)}<option value={a}>{t(`csv.posActions.${a}`)}</option
+                      >{/each}
+                  </select>
+                </td>
+                <td class="nowrap">
+                  {#if rule.action === 'pos' || rule.action === 'tag'}
+                    <input
+                      class="input extra"
+                      list={rule.action === 'pos' ? 'csv-pos' : undefined}
+                      value={rule.value}
+                      placeholder={st.label}
+                      oninput={(e) =>
+                        setPosRule(st.label, {
+                          value: (e.currentTarget as HTMLInputElement).value
+                        })}
+                    />
+                    {#if rule.action === 'pos'}
+                      {#if posIsNew(st.label, rule)}<span class="small fresh"
+                          >{t('csv.posNew')}</span
+                        >{:else}<span class="small muted">{t('csv.posExisting')}</span>{/if}
+                    {/if}
+                  {/if}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+        <datalist id="csv-pos"
+          >{#each posOptions as p (p)}<option value={p}></option>{/each}</datalist
+        >
+      </div>
+    {/if}
+
     {#if markerStats.length}
       <h3>{t('csv.markers')}</h3>
       <p class="small muted">{t('csv.markersHint')}</p>
@@ -448,6 +581,7 @@
             {t('csv.reportNewCategories', { list: report.newCategories.join(', ') })}
           </div>{/if}
         {#if report.marked}<div>{t('csv.reportMarked', { n: report.marked })}</div>{/if}
+        {#if report.posMarked}<div>{t('csv.reportPosMarked', { n: report.posMarked })}</div>{/if}
         {#each report.warnings as w (w)}<div class="warn">{w}</div>{/each}
       </div>
     {/if}
@@ -464,6 +598,22 @@
     </div>
   {/if}
 </div>
+
+<Portal>
+  {#if report}
+    <p class="small muted">{t('importPreview.done')}</p>
+  {:else}
+    <ImportPreview
+      kind={preview && mapping ? mapping.target : 'empty'}
+      total={preview?.total ?? 0}
+      project={preview?.project}
+      lexemes={preview?.project.lexemes ?? []}
+      morphemes={preview?.project.morphemes ?? []}
+      duplicates={preview?.existing}
+      source={fileName}
+    />
+  {/if}
+</Portal>
 
 <style>
   .field.wide {
@@ -548,6 +698,10 @@
   }
   .nowrap {
     white-space: nowrap;
+  }
+  .fresh {
+    margin-left: 6px;
+    color: var(--accent-text);
   }
   .paste {
     max-width: 640px;

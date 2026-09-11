@@ -4,6 +4,7 @@
  */
 import type { Id, Project } from '$lib/core/model'
 import { paradigmSlots, resolveGenerator } from './morph'
+import { posParadigmId } from '$lib/core/pos'
 
 export type IssueSeverity = 'error' | 'warn' | 'info'
 export type IssueTarget =
@@ -64,10 +65,11 @@ export function checkConsistency(project: Project, languageId: Id | null): Issue
       add('lexeme.noDefinition', 'warn', head, 'lexeme', l.id)
     if (!l.posId) add('lexeme.noPos', 'warn', head, 'lexeme', l.id)
     else if (!posById.has(l.posId)) add('lexeme.missingPos', 'error', head, 'lexeme', l.id)
+    else if (l.senses.some((s) => s.posId && !posById.has(s.posId)))
+      add('lexeme.missingPos', 'error', head, 'lexeme', l.id)
     if (l.paradigmId && !paraById.has(l.paradigmId))
       add('lexeme.missingParadigm', 'error', head, 'lexeme', l.id)
-    const pos = l.posId ? posById.get(l.posId) : null
-    const paraId = l.paradigmId ?? pos?.paradigmId ?? null
+    const paraId = l.paradigmId ?? posParadigmId(project, l.posId)
     if (paraId && paraById.has(paraId) && !Object.keys(l.forms).length)
       add('lexeme.noForms', 'info', head, 'lexeme', l.id, pick(paraById.get(paraId)!.name, langs))
     for (const s of l.etymology.sources) {

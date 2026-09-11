@@ -153,6 +153,9 @@ const en: Dict = {
     importLexicanter: 'Lexicanter pronunciation rules',
     importSca2: 'Zompist SCA² rules',
     importPlain: 'Qonlang rule text',
+    importTitle: 'Import a rule set',
+    importFormat: 'File format',
+    importFiles: 'Files: {names}',
     exportText: 'Export as text',
     editorPlaceholder: 'Write rules here. Example:\nV=aeiou\n-* Proto\na > e / _i\n-* Modern',
     diagnostics: 'Diagnostics',
@@ -470,6 +473,7 @@ const en: Dict = {
     import: 'Import',
     imported: 'Imported {n}, skipped {skipped} (empty or already present)',
     badJson: 'This is not a JSON file exported by Qonlang',
+    jsonFile: 'A JSON file exported by Qonlang: entries are imported with their analyses.',
     exportCsv: 'Export CSV',
     exportJson: 'Export JSON (with analyses, re-importable)',
     exportJsonPlain: 'Export JSON (re-importable)',
@@ -484,6 +488,20 @@ const en: Dict = {
       category: 'Category',
       variants: 'Variants'
     }
+  },
+  importPreview: {
+    title: 'Import preview',
+    hint: 'This is what the import will look like with the current settings. It updates as soon as you change something, and the parts that changed flash briefly.',
+    count: '{total} in total, showing the first {n}',
+    countAll: '{total} in total',
+    lines: '{total} lines',
+    empty: 'Pick a file or paste something to see what the import will look like.',
+    done: 'Imported — see the report on the left.',
+    duplicate: 'Already exists',
+    skipEmpty: 'Skipped: empty text',
+    skipExisting: 'Skipped: already present',
+    skipRepeat: 'Skipped: repeats an earlier row',
+    glyphExists: 'Already in the glyph table — skipped'
   },
   syntax: {
     title: 'Rule syntax',
@@ -699,6 +717,13 @@ const en: Dict = {
     exportCsv: 'Export entries as CSV',
     exportMorphemesCsv: 'Export morphemes as CSV',
     lexicanterDone: 'Imported {lexemes} entries, {languages} languages',
+    lexicanterTitle: 'Import a Lexicanter file',
+    lexicanterSummary:
+      'Will add {languages} language(s) ({names}): {lexemes} entries, {phrases} phrases, {ruleSets} rule sets, {docs} doc pages.',
+    sensePos: 'Part of speech of this sense',
+    sensePosInherit: 'Same as entry',
+    sensePosOwn: 'This entry’s parts of speech',
+    sensePosOther: 'Other parts of speech',
     definitionLang: 'Language of the definition text',
     tagsPlaceholder: 'Type and press Enter',
     modeView: 'View',
@@ -746,6 +771,10 @@ const en: Dict = {
     stemName: 'Name',
     stemNotes: 'Notes (origin, usage)',
     addStemSlot: 'Stem slot',
+    components: 'Made of',
+    componentsHint:
+      'A compound part of speech is made of several others — e.g. “noun/verb” for a word that is both. Entries with a compound part of speech can give each sense one of its parts; if the compound has no paradigm or stem slots of its own, those of its parts are used.',
+    addComponent: '+ Part',
     title: 'Parts of speech & dimensions',
     pos: 'Parts of speech',
     addPos: 'Add part of speech',
@@ -827,6 +856,18 @@ const en: Dict = {
       drop: 'Just remove the marker',
       keep: 'Leave as is'
     },
+    posMarkers: 'Part-of-speech labels',
+    posMarkersHint:
+      'Labels like n. v. adj. at the start of a sense — a Latin letter, a few characters and a dot — are listed here (also after a sense number or a bracketed marker; n./v. counts as two). Choose how to handle each one, usually as a part of speech. Common abbreviations are matched already (n. noun, v. verb…) and can all be changed: type the name or abbreviation of an existing part of speech to use it, join several with a slash (noun/verb) for a compound one; anything else is created. A label covers the senses up to the next label in the same cell; when an entry’s senses belong to several parts of speech, the entry gets their compound and each sense keeps its own.',
+    posValue: 'Part of speech / tag',
+    posActions: {
+      pos: 'Set as part of speech',
+      tag: 'Add as sense tag',
+      drop: 'Just remove the label',
+      keep: 'Leave as is'
+    },
+    posExisting: 'existing',
+    posNew: 'new',
     morphemeType: 'Default morpheme type',
     preset: 'Preset',
     savePreset: 'Save as preset',
@@ -842,6 +883,7 @@ const en: Dict = {
     reportDuplicates: 'Duplicate lemmas: {list}',
     reportNewPos: 'New parts of speech: {list}',
     reportMarked: 'Senses given a register or tag from markers: {n}',
+    reportPosMarked: 'Senses given a part of speech from labels: {n}',
     reportNewCategories: 'New dimensions: {list}',
     needLemma: 'Map at least one column to “Lemma / form”.',
     preview: 'Preview (first {n} rows)',
@@ -907,6 +949,9 @@ const en: Dict = {
     importTextRun: 'Import',
     imported: 'Imported {n} glyphs',
     noGlyphsInFont: 'No mappable characters in the font',
+    fontGlyphs:
+      'Read {n} glyphs from “{name}”; {skip} are already in the table and will be skipped. The font is embedded in the script as well.',
+    importFontRun: 'Import glyphs',
     addGlyph: 'Add glyph',
     autoCategorize: 'Auto-categorize',
     glyph: 'Glyph',

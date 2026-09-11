@@ -11,9 +11,18 @@
   import { makeCollator } from '$lib/core/collate'
   import { toCsv } from '$lib/core/csv'
   import { lexemesToRows, morphemesToRows } from '$lib/importers/csvImport'
-  import { parseLexc, mergeLexicanter } from '$lib/importers/lexicanter'
+  import { parseLexc, mergeLexicanter, type LexcFile } from '$lib/importers/lexicanter'
   import { derivePronunciations } from '$lib/core/pronounce'
   import { etymologyOrigin } from '$lib/core/etymology'
+  import {
+    ensureCompoundPos,
+    findPos,
+    lexemePosIds,
+    posParts,
+    posStemSlotList
+  } from '$lib/core/pos'
+  import { PREVIEW_LIMIT, scratchProject } from '$lib/importers/preview'
+  import ImportPreview from '$lib/ui/ImportPreview.svelte'
   import { relationLabel } from '$lib/ui/labels'
   import LexemeExamples from '$lib/ui/LexemeExamples.svelte'
   import { lexemeScript } from '$lib/script/render'
@@ -30,6 +39,7 @@
     type Id,
     type Lexeme,
     type Paradigm,
+    type PartOfSpeech,
     type Script
   } from '$lib/core/model'
   import Portal from '$lib/ui/Portal.svelte'
@@ -94,7 +104,12 @@
     limit: number
   }>('lexicon')
   const sameLang = memo.lang === projectState.currentLanguageId
-  let mode = $state<'entries' | 'taxonomy' | 'csv' | 'export' | 'stats'>(memo.mode ?? 'entries')
+  let mode = $state<'entries' | 'taxonomy' | 'csv' | 'lexc' | 'export' | 'stats'>(
+    memo.mode ?? 'entries'
+  )
+  /** 选好、还没导入的 Lexicanter 文件：主区显示摘要与选项，检视器里是导入样例 */
+  let lexc = $state.raw<{ name: string; file: LexcFile } | null>(null)
+  let lexcLang = $state('')
   const lexStats = $derived(mode === 'stats' && langId ? lexiconStats(project, langId) : null)
   const pctOf = (n: number, total: number): string =>
     total ? `${Math.round((n / total) * 100)}%` : '—'
@@ -131,7 +146,11 @@
   /** 一条词目在某一列上的可筛取值（多个标签就是多个值） */
   function filterValues(l: Lexeme, key: string): string[] {
     if (key === 'lemma') return [initialOf(l.lemma)]
-    if (key === 'pos') return [l.posId ?? '']
+    if (key === 'pos') {
+      // 复合词类的组成、义项单独选的词类也算：筛「名词」时名词兼动词的词也在
+      const ids = lexemePosIds(project, l)
+      return ids.length ? ids : ['']
+    }
     if (key === 'tags') return l.tags.length ? l.tags : ['']
     if (key === 'language') return [l.languageId]
     if (key.startsWith('feat:')) return [l.features[key.slice(5)] ?? '']
@@ -293,10 +312,11 @@
         return Object.values(l.stems)
       case 'ipa':
         return ipa()
-      case 'pos': {
-        const p = project.posList.find((x) => x.id === l.posId)
-        return p ? [...Object.values(p.name), p.abbr] : []
-      }
+      case 'pos':
+        return lexemePosIds(project, l).flatMap((id) => {
+          const p = findPos(project, id)
+          return p ? [...Object.values(p.name), p.abbr] : []
+        })
       case 'tag':
         return l.tags
       case 'register':
@@ -344,22 +364,15 @@
     const target = group[0]
     const filled = (x: Lexeme): Lexeme['senses'] =>
       x.senses.filter((se) => Object.values(se.definition).some(Boolean))
-    // 词性不一样时，把词性写到各自义项前面，合并后才分得清哪条属于哪类
+    // 词类不一样时：各义项记下自己原来的词类，合并后的词条用它们组成的复合词类
     const mixedPos = new Set(group.map((x) => x.posId ?? '')).size > 1
-    const prefixPos = (x: Lexeme): void => {
-      const tag = posLabel(x.posId)
-      if (!mixedPos || !tag) return
-      for (const se of x.senses)
-        for (const [lang, text] of Object.entries(se.definition))
-          if (text && !text.startsWith(tag)) se.definition[lang] = `${tag} ${text}`
-    }
-    prefixPos(target)
+    const posSnap = $state.snapshot(project.posList) as PartOfSpeech[]
+    if (mixedPos)
+      for (const x of group) for (const se of x.senses) if (!se.posId && x.posId) se.posId = x.posId
+    const groupPos = [...new Set(group.flatMap((x) => (x.posId ? [x.posId] : [])))]
     for (const other of group.slice(1)) {
-      prefixPos(other)
       target.senses.push(...filled(other))
       target.tags.push(...other.tags)
-      if (other.posId && other.posId !== target.posId)
-        target.extraPosIds = [...new Set([...(target.extraPosIds ?? []), other.posId])]
       for (const [k, v] of Object.entries(other.stems)) target.stems[k] ??= v
       for (const [k, v] of Object.entries(other.forms)) target.forms[k] ??= v
       for (const [k, v] of Object.entries(other.pronunciations)) target.pronunciations[k] ??= v
@@ -376,6 +389,11 @@
         target.etymology = other.etymology
       project.lexemes.splice(project.lexemes.indexOf(other), 1)
     }
+    if (mixedPos && groupPos.length) {
+      const r = ensureCompoundPos(project, groupPos)
+      if (r) target.posId = r.pos.id
+      for (const se of target.senses) if (se.posId === target.posId) delete se.posId
+    }
     target.senses = target.senses.filter(
       (se, i) => i === 0 || Object.values(se.definition).some(Boolean)
     )
@@ -387,6 +405,7 @@
         label: t('common.undo'),
         run: () => {
           project.lexemes = snap
+          project.posList = posSnap
           touch()
         }
       }
@@ -409,13 +428,15 @@
 
   $effect(() => {
     inspectorTitle =
-      mode === 'taxonomy'
-        ? t('taxonomy.title')
-        : mode === 'stats'
-          ? t('stats.title')
-          : selected
-            ? selected.lemma || t('lexicon.title')
-            : t('lexicon.title')
+      mode === 'csv' || mode === 'lexc'
+        ? t('importPreview.title')
+        : mode === 'taxonomy'
+          ? t('taxonomy.title')
+          : mode === 'stats'
+            ? t('stats.title')
+            : selected
+              ? selected.lemma || t('lexicon.title')
+              : t('lexicon.title')
   })
 
   // ───── 列 ─────
@@ -710,9 +731,29 @@
     const [f] = await platform.readTextFiles({ multiple: false, extensions: ['lexc', 'json'] })
     if (!f) return
     try {
-      const file = parseLexc(f.content)
-      const r = mergeLexicanter(project, file, {
-        definitionLang: glossLangs[0] ?? 'en',
+      lexc = { name: f.name, file: parseLexc(f.content) }
+      lexcLang = glossLangs[0] ?? 'en'
+      mode = 'lexc'
+    } catch (e) {
+      ui.error((e as Error).message)
+    }
+  }
+  /** Lexicanter 导入样例：在项目副本上试着并进去 */
+  const lexcPreview = $derived.by(() => {
+    if (!lexc) return null
+    const scratch = scratchProject(project)
+    const report = mergeLexicanter(scratch, lexc.file, {
+      definitionLang: lexcLang || 'en',
+      uiLocale: i18n.locale,
+      appVersion: ''
+    })
+    return { project: scratch, report }
+  })
+  function runLexicanter(): void {
+    if (!lexc) return
+    try {
+      const r = mergeLexicanter(project, lexc.file, {
+        definitionLang: lexcLang || 'en',
         uiLocale: i18n.locale,
         appVersion: ''
       })
@@ -721,6 +762,11 @@
     } catch (e) {
       ui.error((e as Error).message)
     }
+    closeLexicanter()
+  }
+  function closeLexicanter(): void {
+    lexc = null
+    mode = 'entries'
   }
   async function exportCsv(kind: 'lexemes' | 'morphemes'): Promise<void> {
     const rows =
@@ -737,10 +783,10 @@
   }
   /** 这个词条所属词类定义的词干槽：去掉空名字、首尾空格，重名的只留第一个 */
   function posStemSlots(l: Lexeme): { name: string; notes: string }[] {
-    const p = project.posList.find((x) => x.id === l.posId)
     const seen = new Set<string>()
     const out: { name: string; notes: string }[] = []
-    for (const st of p?.stemSlots ?? []) {
+    // 复合词类自己没定义词干槽时沿用组成词类的
+    for (const st of posStemSlotList(project, l.posId)) {
       const name = st.name.trim()
       if (!name || seen.has(name)) continue
       seen.add(name)
@@ -988,6 +1034,45 @@
     <div class="scroll"><DictExport {language} onclose={() => (mode = 'entries')} /></div>
   {:else if mode === 'csv'}
     <div class="scroll"><CsvImportWizard onclose={() => (mode = 'entries')} /></div>
+  {:else if mode === 'lexc' && lexc}
+    <div class="scroll">
+      <div class="card lexc-panel">
+        <div class="row">
+          <strong class="grow">{t('lexicon.lexicanterTitle')}</strong>
+          <button class="btn ghost icon sm" title={t('common.close')} onclick={closeLexicanter}
+            ><X size={16} /></button
+          >
+        </div>
+        <span class="small muted">{lexc.name}</span>
+        <label class="field"
+          ><span class="small muted">{t('lexicon.definitionLang')}</span>
+          <select class="select" bind:value={lexcLang}>
+            {#each [...new Set([...glossLangs, lexcLang].filter(Boolean))] as g (g)}<option
+                value={g}>{g}</option
+              >{/each}
+          </select></label
+        >
+        {#if lexcPreview}
+          {@const r = lexcPreview.report}
+          <p class="small">
+            {t('lexicon.lexicanterSummary', {
+              languages: r.languages.length,
+              names: r.languages.join('、'),
+              lexemes: r.lexemes,
+              phrases: r.phrases,
+              ruleSets: r.ruleSets,
+              docs: r.docs
+            })}
+          </p>
+          {#each r.warnings as w (w)}<p class="small warn">{w}</p>{/each}
+        {/if}
+        <div class="row">
+          <span class="grow"></span>
+          <button class="btn" onclick={closeLexicanter}>{t('common.cancel')}</button>
+          <button class="btn primary" onclick={runLexicanter}>{t('io.import')}</button>
+        </div>
+      </div>
+    </div>
   {:else if mainView === 'graph' && selected}
     <div class="scroll graph-wrap">
       <LexemeGraph {project} lexemeId={selected.id} onselect={recenterGraph} />
@@ -1147,6 +1232,18 @@
   {/if}
 </div>
 
+{#if mode === 'lexc' && lexcPreview}
+  <Portal>
+    <ImportPreview
+      kind="lexemes"
+      total={lexcPreview.report.lexemes}
+      project={lexcPreview.project}
+      lexemes={lexcPreview.project.lexemes.slice(0, PREVIEW_LIMIT)}
+      source={lexc?.name ?? ''}
+    />
+  </Portal>
+{/if}
+
 {#if selected && mode === 'entries' && !editMode}
   {@const l = selected}
   <Portal>
@@ -1290,10 +1387,40 @@
         >
       </div>
       {#each l.senses as s, i (s.id)}
+        {@const ownParts = posParts(project, l.posId)}
         <div class="sense card">
           <div class="row">
-            <span class="num">{i + 1}</span><span class="grow"
-            ></span>{#if l.senses.length > 1}<button
+            <span class="num">{i + 1}</span>
+            <select
+              class="select sense-pos"
+              title={t('lexicon.sensePos')}
+              value={s.posId ?? ''}
+              onchange={(e) => {
+                const v = (e.currentTarget as HTMLSelectElement).value
+                if (v) s.posId = v
+                else delete s.posId
+                touch(l)
+              }}
+            >
+              <option value="">{t('lexicon.sensePosInherit')}</option>
+              {#if ownParts.length > 1}
+                <optgroup label={t('lexicon.sensePosOwn')}>
+                  {#each ownParts as p (p.id)}<option value={p.id}
+                      >{pickText(p.name, glossLangs) || p.abbr}</option
+                    >{/each}
+                </optgroup>
+                <optgroup label={t('lexicon.sensePosOther')}>
+                  {#each project.posList.filter((p) => !ownParts.some((o) => o.id === p.id)) as p (p.id)}<option
+                      value={p.id}>{pickText(p.name, glossLangs) || p.abbr}</option
+                    >{/each}
+                </optgroup>
+              {:else}
+                {#each project.posList as p (p.id)}<option value={p.id}
+                    >{pickText(p.name, glossLangs) || p.abbr}</option
+                  >{/each}
+              {/if}
+            </select>
+            <span class="grow"></span>{#if l.senses.length > 1}<button
                 class="btn ghost icon sm"
                 onclick={() => {
                   l.senses.splice(i, 1)
@@ -1892,6 +2019,24 @@
   .num {
     font-size: 11px;
     color: var(--text-3);
+  }
+  /* 义项的词类：小一点、淡一点，不抢释义的眼 */
+  .sense-pos {
+    width: auto;
+    max-width: 170px;
+    padding: 1px 6px;
+    font-size: 12px;
+    color: var(--text-2);
+  }
+  .lexc-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 640px;
+    padding: 14px 16px;
+  }
+  .lexc-panel .warn {
+    color: var(--warn);
   }
   .kv {
     gap: 6px;

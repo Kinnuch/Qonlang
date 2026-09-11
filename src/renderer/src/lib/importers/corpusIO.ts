@@ -404,3 +404,45 @@ export function importPhrasesJson(
   })
   return addUnique(project.phrasebook, languageId, items)
 }
+
+/** 例句 → 表格导入那样的记录（导入样例拿它显示） */
+export function sentenceRecord(s: Sentence): Record<string, string> {
+  const rec: Record<string, string> = { text: s.text }
+  for (const [lang, v] of Object.entries(s.translation)) if (v) rec[`tr:${lang}`] = v
+  if (s.source) rec.source = s.source
+  if (s.tags.length) rec.tags = s.tags.join('、')
+  if (s.notes) rec.notes = s.notes
+  return rec
+}
+
+/** 短语 → 记录 */
+export function phraseRecord(p: Phrase): Record<string, string> {
+  const rec: Record<string, string> = { text: p.text }
+  for (const [lang, v] of Object.entries(p.translation)) if (v) rec[`tr:${lang}`] = v
+  if (p.category) rec.category = p.category
+  if (p.tags.length) rec.tags = p.tags.join('、')
+  if (p.variants.length) rec.variants = p.variants.map((v) => v.text).join('；')
+  return rec
+}
+
+/** 例句 JSON 读成记录，只看不导入；不是千语集导出的返回 null */
+export function previewSentencesJson(
+  project: Project,
+  languageId: Id,
+  text: string
+): Record<string, string>[] | null {
+  const scratch: Project = { ...project, sentences: [] }
+  return importSentencesJson(scratch, languageId, text)
+    ? scratch.sentences.map(sentenceRecord)
+    : null
+}
+
+/** 短语 JSON 读成记录，只看不导入 */
+export function previewPhrasesJson(
+  project: Project,
+  languageId: Id,
+  text: string
+): Record<string, string>[] | null {
+  const scratch: Project = { ...project, phrasebook: [] }
+  return importPhrasesJson(scratch, languageId, text) ? scratch.phrasebook.map(phraseRecord) : null
+}

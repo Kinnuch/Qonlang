@@ -319,6 +319,11 @@ export interface PartOfSpeech {
    * 词条录入时逐个填；没填的词条回落到词头。
    */
   stemSlots?: StemSlot[]
+  /**
+   * 复合词类由哪几个词类组成（比如名词兼动词）；不到两个就是普通词类。
+   * 词条选了复合词类后，每个义项可以各自选其中一个。
+   */
+  components?: Id[]
 }
 
 export interface StemSlot {
@@ -409,6 +414,8 @@ export interface Sense {
   dialectIds: Id[]
   /** 语域，可以有几个（古语、文学……） */
   registers: string[]
+  /** 这个义项自己的词类（复合词类的词条里各义项分属不同词类时用）；没有就跟词条 */
+  posId?: Id | null
   examples: Id[]
 }
 

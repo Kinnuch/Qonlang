@@ -145,6 +145,9 @@ export default {
     importLexicanter: 'Lexicanter 发音规则',
     importSca2: 'Zompist SCA² 规则',
     importPlain: '千语集规则文本',
+    importTitle: '导入规则集',
+    importFormat: '文件格式',
+    importFiles: '文件：{names}',
     exportText: '导出为文本',
     editorPlaceholder: '在这里写规则。示例：\nV=aeiou\n-* 祖语\na > e / _i\n-* 现代语',
     diagnostics: '诊断',
@@ -458,6 +461,7 @@ export default {
     import: '导入',
     imported: '导入了 {n} 条，跳过 {skipped} 条（原文为空或已经有了）',
     badJson: '这不是千语集导出的 JSON 文件',
+    jsonFile: '千语集导出的 JSON 文件：整条连分析一起导入。',
     exportCsv: '导出 CSV',
     exportJson: '导出 JSON（连分析一起，可再导入）',
     exportJsonPlain: '导出 JSON（可再导入）',
@@ -472,6 +476,20 @@ export default {
       category: '分类',
       variants: '变体'
     }
+  },
+  importPreview: {
+    title: '导入样例',
+    hint: '按现在的设置导入后是这个样子；改了设置这里马上跟着变，变了的地方会闪一下。',
+    count: '共 {total} 条，这里是前 {n} 条',
+    countAll: '共 {total} 条',
+    lines: '共 {total} 行',
+    empty: '选了文件或粘贴内容后，这里显示导入后的样子。',
+    done: '已经导入，结果见左侧的报告。',
+    duplicate: '已有同名',
+    skipEmpty: '会跳过：原文为空',
+    skipExisting: '会跳过：已经有了',
+    skipRepeat: '会跳过：跟前面重复',
+    glyphExists: '已有这个字形，会跳过'
   },
   syntax: {
     title: '规则语法',
@@ -677,6 +695,13 @@ export default {
     exportCsv: '导出词条 CSV',
     exportMorphemesCsv: '导出语素 CSV',
     lexicanterDone: '已导入 {lexemes} 个词条、{languages} 门语言',
+    lexicanterTitle: '导入 Lexicanter 文件',
+    lexicanterSummary:
+      '会新建 {languages} 门语言（{names}）：{lexemes} 个词条、{phrases} 条短语、{ruleSets} 个规则集、{docs} 页文档。',
+    sensePos: '这个义项的词类',
+    sensePosInherit: '词类跟词条',
+    sensePosOwn: '本词条的词类',
+    sensePosOther: '其他词类',
     definitionLang: '义项文本的语言',
     tagsPlaceholder: '输入后按回车',
     modeView: '显示',
@@ -723,6 +748,10 @@ export default {
     stemName: '名称',
     stemNotes: '说明（从哪来、怎么用）',
     addStemSlot: '词干槽',
+    components: '组成',
+    componentsHint:
+      '复合词类由几个词类组成，比如一个词既是名词又是动词时用「名词/动词」。词条选了复合词类后，每个义项可以各自选其中一个；复合词类自己没绑构形、没设词干槽时沿用组成词类的。',
+    addComponent: '＋ 组成词类',
     title: '词类与维度',
     pos: '词类',
     addPos: '新增词类',
@@ -804,6 +833,18 @@ export default {
       drop: '只去掉标记',
       keep: '原样保留'
     },
+    posMarkers: '词类标记',
+    posMarkersHint:
+      '义项开头像 n. v. adj. v因. 这样「拉丁字母 + 几个字 + 点」的写法都列在这里（序号、方括号标记后面的也算，n./v. 这样隔开的算两个），逐个选怎么处理——一般设为词类。常见缩写已经对好（n. 名词、v. 动词……），都可以改：写已有词类的名字或缩写就用那个词类，用斜杠连着写（名词/动词）是复合词类，没有的会新建。一个词类标记管到同一格里下一个词类标记为止；一个词条的义项分属几个词类时，词条设成它们组成的复合词类，义项各自记自己的。',
+    posValue: '词类 / 标签',
+    posActions: {
+      pos: '设为词类',
+      tag: '设为义项标签',
+      drop: '只去掉标记',
+      keep: '原样保留'
+    },
+    posExisting: '已有',
+    posNew: '新建',
     morphemeType: '默认语素类型',
     preset: '预设',
     savePreset: '存为预设',
@@ -819,6 +860,7 @@ export default {
     reportDuplicates: '同形词条：{list}',
     reportNewPos: '新建词类：{list}',
     reportMarked: '按标记设了语域或标签的义项：{n} 个',
+    reportPosMarked: '按词类标记设了词类的义项：{n} 个',
     reportNewCategories: '新建维度：{list}',
     needLemma: '至少要有一列映射为「词头 / 形式」。',
     preview: '预览（前 {n} 行）',
@@ -883,6 +925,9 @@ export default {
     importTextRun: '导入',
     imported: '导入了 {n} 个字形',
     noGlyphsInFont: '字体里没有可映射的字符',
+    fontGlyphs:
+      '从字体「{name}」读到 {n} 个字形，其中 {skip} 个已经有了（会跳过）。导入时这个字体也会内嵌进文字。',
+    importFontRun: '导入字形',
     addGlyph: '新增字形',
     autoCategorize: '自动分类',
     glyph: '字形',

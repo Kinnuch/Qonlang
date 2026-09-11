@@ -195,11 +195,13 @@
 
   $effect(() => {
     inspectorTitle =
-      mode === 'stats'
-        ? t('stats.title')
-        : selected
-          ? selected.form || t('morphemes.title')
-          : t('morphemes.title')
+      mode === 'csv'
+        ? t('importPreview.title')
+        : mode === 'stats'
+          ? t('stats.title')
+          : selected
+            ? selected.form || t('morphemes.title')
+            : t('morphemes.title')
   })
   $effect(() => {
     const id = ui.takePending('morpheme')
@@ -512,7 +514,7 @@
   {/if}
 </div>
 
-{#if selected && !editMode}
+{#if selected && !editMode && mode !== 'csv'}
   {@const m = selected}
   <Portal>
     <div class="row card-actions">
@@ -524,7 +526,7 @@
   </Portal>
 {/if}
 
-{#if selected && editMode}
+{#if selected && editMode && mode !== 'csv'}
   {@const m = selected}
   <Portal>
     <div class="row card-actions">

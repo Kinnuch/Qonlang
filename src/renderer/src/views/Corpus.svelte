@@ -7,9 +7,11 @@
   import TableImportDialog from '$lib/ui/TableImportDialog.svelte'
   import { guideUrl } from '$lib/core/guide'
   import { toCsv } from '$lib/core/csv'
+  import { normalizeSentence } from '$lib/core/sentenceDedup'
   import {
     importSentenceRecords,
     importSentencesJson,
+    previewSentencesJson,
     sentenceFields,
     sentencesToJson,
     sentencesToRows,
@@ -118,6 +120,9 @@
   let collapsedId = $state<Id | null>(sameLang ? (memo.collapsedId ?? null) : null)
   /** 表格导入对话框 */
   let importOpen = $state(false)
+  /** 导入面板一打开先去选 JSON（菜单里点的是「从 JSON 导入」）；每点一次菜单都重开一次面板 */
+  let importJson = $state(false)
+  let importNonce = $state(0)
 
   const list = $derived.by(() => {
     const pq = parseQuery(query, SEARCH_FIELDS.corpus)
@@ -169,8 +174,9 @@
   const templates = $derived(project.settings.exportTemplates.filter((x) => x.kind === 'gloss'))
 
   $effect(() => {
-    inspectorTitle =
-      mode === 'abbr'
+    inspectorTitle = importOpen
+      ? t('importPreview.title')
+      : mode === 'abbr'
         ? t('corpus.abbr.title')
         : mode === 'stats'
           ? t('corpus.modes.stats')
@@ -323,22 +329,29 @@
       )
     }
   }
-  async function importSentencesFromJson(): Promise<void> {
+  function openImport(jsonFirst: boolean): void {
+    importJson = jsonFirst
+    importNonce++
+    importOpen = true
+  }
+  /** 导入面板里选了千语集导出的 JSON */
+  function runSentencesJson(content: string): void {
     if (!langId) return
     const lid = langId
-    try {
-      const [f] = await platform.readTextFiles({ multiple: false, extensions: ['json'] })
-      if (!f) return
-      const r = importSentencesJson(project, lid, f.content)
-      if (!r) {
-        ui.error(t('io.badJson'))
-        return
-      }
-      afterImport(lid, r)
-    } catch (e) {
-      ui.error((e as Error).message)
+    const r = importSentencesJson(project, lid, content)
+    if (!r) {
+      ui.error(t('io.badJson'))
+      return
     }
+    importOpen = false
+    afterImport(lid, r)
   }
+  /** 这门语言里已经有的原文（规范化后）：导入样例拿它标「会跳过」 */
+  const existingTexts = $derived(
+    new Set(
+      project.sentences.filter((s) => s.languageId === langId).map((s) => normalizeSentence(s.text))
+    )
+  )
   function importSentenceTable(records: Record<string, string>[]): void {
     if (!langId) return
     importOpen = false
@@ -846,8 +859,8 @@
     <span class="grow"></span>
     {#if mode === 'entries' && language}
       <Menu label={t('lexicon.import')} icon={Upload}>
-        <button onclick={() => (importOpen = true)}>{t('io.importTable')}</button>
-        <button onclick={importSentencesFromJson}>{t('io.importJson')}</button>
+        <button onclick={() => openImport(false)}>{t('io.importTable')}</button>
+        <button onclick={() => openImport(true)}>{t('io.importJson')}</button>
       </Menu>
       <Menu label={t('common.export')} icon={Download}>
         <button onclick={() => exportSentences('csv')}>{t('io.exportCsv')}</button>
@@ -866,17 +879,25 @@
     {/if}
   </div>
 
-  {#if importOpen}
-    <TableImportDialog
-      title={t('io.importSentences')}
-      fields={sentenceFields(glossLangs)}
-      guide={guideUrl('corpus', 'table-format')}
-      onimport={importSentenceTable}
-      onclose={() => (importOpen = false)}
-    />
-  {/if}
-
-  {#if !language}
+  {#if importOpen && language}
+    <div class="scroll">
+      {#key importNonce}
+        <TableImportDialog
+          title={t('io.importSentences')}
+          fields={sentenceFields(glossLangs)}
+          guide={guideUrl('corpus', 'table-format')}
+          exists={(text) => existingTexts.has(normalizeSentence(text))}
+          json={{
+            preview: (content) => (langId ? previewSentencesJson(project, langId, content) : null),
+            run: runSentencesJson
+          }}
+          startWithJson={importJson}
+          onimport={importSentenceTable}
+          onclose={() => (importOpen = false)}
+        />
+      {/key}
+    </div>
+  {:else if !language}
     <p class="muted">{t('lexicon.noLanguage')}</p>
   {:else if mode === 'stats'}
     <div class="scroll stats">
@@ -1196,7 +1217,7 @@
   {/if}
 </div>
 
-{#if selected && mode === 'entries'}
+{#if selected && mode === 'entries' && !importOpen}
   {@const s = selected}
   <Portal>
     <div class="field">

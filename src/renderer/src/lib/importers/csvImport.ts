@@ -14,6 +14,7 @@ import type {
 } from '$lib/core/model'
 import { createLexeme, createMorpheme, createSense, newId, now } from '$lib/core/factory'
 import { etymologyOrigin } from '$lib/core/etymology'
+import { ensureCompoundPos, posName, sensePos } from '$lib/core/pos'
 
 export type FieldSpec =
   | { kind: 'ignore' }
@@ -63,6 +64,16 @@ export interface MarkerRule {
   value: string
 }
 
+/** 义项开头的词类标记（n. v. adj.）的处理方式 */
+export const POS_ACTIONS = ['pos', 'tag', 'drop', 'keep'] as const
+
+export interface PosRule {
+  /** pos 设成义项的词类；tag 加成义项标签；drop 只去掉标记；keep 原样留在释义里 */
+  action: (typeof POS_ACTIONS)[number]
+  /** 词类名（已有词类的名字或缩写也行，几个用斜杠连起来就是复合词类）或标签名；留空就用标记本身 */
+  value: string
+}
+
 export interface CsvMapping {
   target: 'lexemes' | 'morphemes'
   languageId: Id
@@ -89,6 +100,12 @@ export interface CsvMapping {
    * 单词前的标记管整个词条。没列出的标记原样留着。
    */
   senseMarkers?: Record<string, MarkerRule>
+  /**
+   * 词类标记 → 处理方式，键是去掉末尾点的标记（n. 的「n」、v因. 的「v因」）。
+   * 释义里每个义项开头（序号、方括号标记后面也行）「拉丁字母 + 几个字 + 点」的写法都算，n./v. 这样隔开的算几个；
+   * 一个词类标记管到同一格里下一个词类标记为止。词类列里整格是这种写法的也按这张表。没列出的原样留着。
+   */
+  posMarkers?: Record<string, PosRule>
 }
 
 export interface ImportReport {
@@ -100,6 +117,8 @@ export interface ImportReport {
   warnings: string[]
   /** 按标记设了语域或标签的义项数 */
   marked?: number
+  /** 按词类标记设了词类的义项数 */
+  posMarked?: number
 }
 
 export function defaultMapping(languageId: Id, columnCount: number): CsvMapping {
@@ -114,7 +133,8 @@ export function defaultMapping(languageId: Id, columnCount: number): CsvMapping 
     splitProtoArrow: false,
     splitSenses: true,
     sensePrefixMap: '',
-    senseMarkers: {}
+    senseMarkers: {},
+    posMarkers: {}
   }
 }
 
@@ -126,7 +146,7 @@ export function guessMapping(header: string[], mapping: CsvMapping): CsvMapping 
     if (/^(词头|词|单词|词位|词条|词根|字典形|word|lemma|entry|headword|root|form)$/.test(k))
       return { kind: 'lemma' }
     if (/^(词类|词性|pos|part of speech|category)$/.test(k)) return { kind: 'pos' }
-    if (/^(释义|意思|意义|定义|中文|汉语|meaning|definition|gloss_zh|definition_zh)$/.test(k))
+    if (/^(释义|含义|意思|意义|定义|中文|汉语|meaning|definition|gloss_zh|definition_zh)$/.test(k))
       return { kind: 'definition', lang: 'zh' }
     if (/^(english|definition_en|gloss_en|英文)$/.test(k)) return { kind: 'definition', lang: 'en' }
     // 带语言代码的释义列：导出的 definition_ja、语素导出的 meaning_zh 都认得
@@ -138,7 +158,7 @@ export function guessMapping(header: string[], mapping: CsvMapping): CsvMapping 
     if (/^(标签|tags?)$/.test(k)) return { kind: 'tags' }
     if (/^(备注|注|注释|notes?|comment)$/.test(k)) return { kind: 'notes' }
     if (/^(原始形|祖语|原始.*语|proto|etymon|source)$/.test(k)) return { kind: 'protoForm' }
-    if (/^(发音|音标|ipa|pronunciation)$/.test(k)) return { kind: 'pronunciation' }
+    if (/^(发音|读音|音标|ipa|pronunciation)$/.test(k)) return { kind: 'pronunciation' }
     if (/^(gloss|缩写)$/.test(k)) return { kind: 'gloss' }
     if (/^(类型|type)$/.test(k)) return { kind: 'morphemeType' }
     return { kind: 'ignore' }
@@ -146,11 +166,113 @@ export function guessMapping(header: string[], mapping: CsvMapping): CsvMapping 
   return { ...mapping, columns: cols }
 }
 
-function ensurePos(project: Project, name: string, report: ImportReport): PartOfSpeech {
-  const found = project.posList.find(
-    (p) => Object.values(p.name).some((n) => n === name) || p.abbr === name
+/** 名字或缩写对得上的词类（名字优先）；缩写末尾的点可有可无 */
+export function findPosByText(
+  project: Pick<Project, 'posList'>,
+  text: string
+): PartOfSpeech | undefined {
+  const s = text.trim()
+  if (!s) return undefined
+  const bare = s.replace(/\.$/, '')
+  return (
+    project.posList.find((p) => Object.values(p.name).some((n) => n?.trim() === s)) ??
+    project.posList.find((p) => !!p.abbr.trim() && p.abbr.trim().replace(/\.$/, '') === bare)
   )
+}
+
+/**
+ * 常见的词类缩写 → 词类名（中文 / 英文）：向导里没设过的词类标记拿它当默认值。
+ * 只是起手的建议，每一个都能在向导里改。
+ */
+export const POS_PRESETS: readonly { labels: readonly string[]; zh: string; en: string }[] = [
+  { labels: ['n', 'noun'], zh: '名词', en: 'noun' },
+  { labels: ['v', 'verb'], zh: '动词', en: 'verb' },
+  { labels: ['vt', 'v.t'], zh: '及物动词', en: 'transitive verb' },
+  { labels: ['vi', 'v.i'], zh: '不及物动词', en: 'intransitive verb' },
+  { labels: ['adj', 'a'], zh: '形容词', en: 'adjective' },
+  { labels: ['adv', 'ad'], zh: '副词', en: 'adverb' },
+  { labels: ['pron'], zh: '代词', en: 'pronoun' },
+  { labels: ['prep'], zh: '介词', en: 'preposition' },
+  { labels: ['postp'], zh: '后置词', en: 'postposition' },
+  { labels: ['conj'], zh: '连词', en: 'conjunction' },
+  { labels: ['num'], zh: '数词', en: 'numeral' },
+  { labels: ['int', 'interj'], zh: '感叹词', en: 'interjection' },
+  { labels: ['part', 'ptcl'], zh: '小品词', en: 'particle' },
+  { labels: ['art'], zh: '冠词', en: 'article' },
+  { labels: ['det'], zh: '限定词', en: 'determiner' },
+  { labels: ['aux'], zh: '助动词', en: 'auxiliary' },
+  { labels: ['cl', 'clf', 'mw'], zh: '量词', en: 'classifier' },
+  { labels: ['onom'], zh: '拟声词', en: 'onomatopoeia' },
+  { labels: ['abbr'], zh: '缩略语', en: 'abbreviation' },
+  { labels: ['phr'], zh: '词组', en: 'phrase' },
+  { labels: ['pref'], zh: '前缀', en: 'prefix' },
+  { labels: ['suf', 'suff'], zh: '后缀', en: 'suffix' }
+]
+
+const presetOf = (label: string): (typeof POS_PRESETS)[number] | undefined =>
+  POS_PRESETS.find((p) => p.labels.includes(label)) ??
+  POS_PRESETS.find((p) => p.labels.includes(label.toLowerCase()))
+
+/**
+ * 没设过的词类标记默认怎么处理：项目里已经有这个缩写或名字的词类就用它；是常见缩写就用对应的词类名
+ * （项目里有这个中文或英文名字的词类时用项目里的）；都不是时，短的先设成词类（名字就是标记本身），长的先原样留着。
+ */
+export function defaultPosRule(label: string, posList: PartOfSpeech[], locale: string): PosRule {
+  const own = findPosByText({ posList }, label)
+  if (own) return { action: 'pos', value: posName(own) }
+  const preset = presetOf(label)
+  // 不认得的：短的（不超过四个字、中间没有点）先当词类；house、e.g 这样的多半是正文，先原样留着
+  if (!preset)
+    return { action: [...label].length <= 4 && !label.includes('.') ? 'pos' : 'keep', value: '' }
+  const same = posList.find((p) =>
+    Object.values(p.name).some((n) => n === preset.zh || n === preset.en)
+  )
+  return {
+    action: 'pos',
+    value: same ? posName(same) : locale.startsWith('zh') ? preset.zh : preset.en
+  }
+}
+
+/**
+ * 词类标记设成的词类：名字或缩写对得上的已有词类；斜杠、加号连着的几个是它们组成的复合词类；
+ * 都没有就新建，缩写取常见缩写表里这个名字对应的（名词 → n.），不在表里就用标记本身加点。
+ */
+function resolvePos(
+  project: Project,
+  value: string,
+  label: string,
+  report: ImportReport
+): PartOfSpeech {
+  const found = findPosByText(project, value)
   if (found) return found
+  const pieces = value.split(/\s*[/+]\s*/).filter(Boolean)
+  if (pieces.length > 1) {
+    const r = ensureCompoundPos(
+      project,
+      pieces.map((x) => resolvePos(project, x, label ? x : '', report).id)
+    )!
+    if (r.created) report.newPos.push(posName(r.pos))
+    return r.pos
+  }
+  const preset = POS_PRESETS.find((p) => p.zh === value || p.en === value)
+  const abbr = preset ? `${preset.labels[0]}.` : /^[A-Za-z]/.test(label) ? `${label}.` : ''
+  const pos: PartOfSpeech = {
+    id: newId(),
+    name: { [guessLang(value)]: value },
+    abbr,
+    paradigmId: null
+  }
+  project.posList.push(pos)
+  report.newPos.push(value)
+  return pos
+}
+
+function ensurePos(project: Project, name: string, report: ImportReport): PartOfSpeech {
+  const found = findPosByText(project, name)
+  if (found) return found
+  // 「名词/动词」这样斜杠连着的是复合词类（导出时复合词类就这么写）
+  if (name.split(/\s*[/+]\s*/).filter(Boolean).length > 1)
+    return resolvePos(project, name, '', report)
   const pos: PartOfSpeech = {
     id: newId(),
     name: { [guessLang(name)]: name },
@@ -455,6 +577,143 @@ export function cleanMarkerRules(raw: unknown): Record<string, MarkerRule> {
   return out
 }
 
+/** 词类标记里的字：不含空白、点、分隔符、括号 */
+const POS_CHAR = String.raw`[^\s.;；,，、:：/&+()（）\[\]【】〔〕〖〗［］〈〉]`
+/** 一个词类标记：拉丁字母开头，后面至多七个字，以点结尾；n.f. 这样点后紧跟着字母的连成一个 */
+const POS_TOKEN = String.raw`[A-Za-z]${POS_CHAR}{0,7}\.(?:[A-Za-z]${POS_CHAR}{0,7}\.)*`
+const POS_TOKEN_RE = new RegExp(POS_TOKEN, 'gu')
+/** 开头连着的几个词类标记，中间可以用斜杠、&、加号、逗号、顿号或空白隔开 */
+const POS_CHAIN_RE = new RegExp(
+  String.raw`^${POS_TOKEN}(?:(?:\s*[/&+,，、]\s*|\s+)${POS_TOKEN})*`,
+  'u'
+)
+/** 词类标记前面可以先有序号（1、 2.）和几组方括号标记 */
+const POS_LEAD_RE = new RegExp(
+  String.raw`^\s*(?:\d{1,3}\s*[、.．)）]\s*)?(?:(?:${bracketGroups(BRACKET_PAIRS)})\s*)*`,
+  'u'
+)
+
+export interface PosToken {
+  /** 去掉末尾点的标记 */
+  label: string
+  /** 原样的写法（带点） */
+  raw: string
+  /** 在文字里的起止 */
+  at: number
+  end: number
+}
+
+const tokensIn = (chain: string, offset: number): PosToken[] =>
+  [...chain.matchAll(POS_TOKEN_RE)].map((m) => ({
+    label: m[0].slice(0, -1),
+    raw: m[0],
+    at: offset + (m.index ?? 0),
+    end: offset + (m.index ?? 0) + m[0].length
+  }))
+
+/** 文字开头（序号、方括号标记之后）连着的词类标记；后面没有正文的不算（整段就是 house. 这样带句点的） */
+export function scanPos(text: string): PosToken[] {
+  const lead = POS_LEAD_RE.exec(text)?.[0].length ?? 0
+  const chain = POS_CHAIN_RE.exec(text.slice(lead))
+  if (!chain || !/[^\s，,、:：;；]/u.test(text.slice(lead + chain[0].length))) return []
+  return tokensIn(chain[0], lead)
+}
+
+/** 词类列里整格都是词类标记（n.、n./v.）时拆出来 */
+export function posCellTokens(cell: string): PosToken[] {
+  const s = cell.trim()
+  const chain = POS_CHAIN_RE.exec(s)
+  return chain && chain[0].length === s.length ? tokensIn(s, 0) : []
+}
+
+/**
+ * 把开头的词类标记从文字里拿掉：只拿 rules 里处理方式不是 keep 的，连着的几个遇到 keep 的就停。
+ * 序号、方括号标记留在原处；返回剩下的文字和拿掉的标记。
+ */
+export function takePos(
+  text: string,
+  rules: Record<string, PosRule>
+): { text: string; labels: string[] } {
+  const labels: string[] = []
+  let from = -1
+  let to = -1
+  for (const tok of scanPos(text)) {
+    const rule = rules[tok.label]
+    if (!rule || rule.action === 'keep') break
+    if (from < 0) from = tok.at
+    to = tok.end
+    labels.push(tok.label)
+  }
+  if (!labels.length) return { text, labels }
+  return { text: text.slice(0, from) + text.slice(to).replace(/^[\s/&+,，、:：]+/, ''), labels }
+}
+
+export interface PosStat {
+  /** 去掉末尾点的标记 */
+  label: string
+  /** 第一次见到时的写法（带点） */
+  raw: string
+  count: number
+  /** 在哪几列见到（列序号） */
+  columns: number[]
+  /** 第一次见到时所在的那一段 */
+  sample: string
+}
+
+/** 词类列与释义列里出现的词类标记（只对词条），按次数从多到少 */
+export function findPosMarkers(rows: string[][], mapping: CsvMapping): PosStat[] {
+  if (mapping.target !== 'lexemes') return []
+  const cols = mapping.columns.flatMap((c, i) =>
+    c.kind === 'definition' || c.kind === 'pos' ? [i] : []
+  )
+  if (!cols.length) return []
+  const stats = new Map<string, PosStat>()
+  const note = (tok: PosToken, ci: number, sample: string): void => {
+    const st = stats.get(tok.label)
+    if (!st) {
+      stats.set(tok.label, { label: tok.label, raw: tok.raw, count: 1, columns: [ci], sample })
+      return
+    }
+    st.count++
+    if (!st.columns.includes(ci)) st.columns.push(ci)
+  }
+  for (const row of mapping.hasHeader ? rows.slice(1) : rows)
+    for (const ci of cols) {
+      const cell = (row[ci] ?? '').trim()
+      if (!cell) continue
+      if (mapping.columns[ci].kind === 'pos') {
+        for (const tok of posCellTokens(cell)) note(tok, ci, cell)
+        continue
+      }
+      for (const part of mapping.splitSenses ? cell.split(/[;；]/) : [cell]) {
+        const seen = new Set<number>()
+        // 义项开头，以及每个方括号标记后面（标记切出来的一段也可以有自己的词类）
+        for (const start of [0, ...scanMarkers(part).map((m) => m.end)])
+          for (const tok of scanPos(part.slice(start))) {
+            if (seen.has(start + tok.at)) continue
+            seen.add(start + tok.at)
+            note(tok, ci, part.trim())
+          }
+      }
+    }
+  return [...stats.values()].sort((a, b) => b.count - a.count)
+}
+
+/** 预设里读来的词类标记表：只留认得的处理方式 */
+export function cleanPosRules(raw: unknown): Record<string, PosRule> {
+  const out: Record<string, PosRule> = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [label, r] of Object.entries(raw as Record<string, unknown>)) {
+    const { action, value } = (r ?? {}) as { action?: unknown; value?: unknown }
+    if (label && (POS_ACTIONS as readonly unknown[]).includes(action))
+      out[label] = {
+        action: action as PosRule['action'],
+        value: typeof value === 'string' ? value : ''
+      }
+  }
+  return out
+}
+
 function splitTags(s: string, sep: string): string[] {
   return s
     .split(sep === ' ' ? /\s+/ : new RegExp(`[${sep.replace(/[\\\]^-]/g, '\\$&')}，、;；]`))
@@ -509,6 +768,47 @@ export function applyCsvImport(
   /** 备注里拆出来的义项写进哪种释义语言 */
   const noteLang = defSpec?.lang ?? project.settings.glossLanguages[0] ?? 'en'
   let marked = 0
+  const posRules = mapping.posMarkers ?? {}
+  const hasPos =
+    mapping.target === 'lexemes' && Object.values(posRules).some((r) => r.action !== 'keep')
+  let posMarked = 0
+  /** 词类标记 → 词类 id：一次导入里同一个标记只找一次，要新建的也只建一次 */
+  const posByLabel = new Map<string, Id | null>()
+  const posForLabel = (label: string): Id | null => {
+    if (!posByLabel.has(label)) {
+      const rule = posRules[label]
+      posByLabel.set(
+        label,
+        rule?.action === 'pos'
+          ? resolvePos(project, rule.value.trim() || label, label, report).id
+          : null
+      )
+    }
+    return posByLabel.get(label) ?? null
+  }
+  /** 几个词类落成一个：一个就是它，几个就是它们组成的复合词类 */
+  const posOf = (ids: Id[]): Id | null => {
+    const r = ids.length ? ensureCompoundPos(project, ids) : null
+    if (r?.created) report.newPos.push(posName(r.pos))
+    return r ? r.pos.id : null
+  }
+  /** 词类标记落到义项上：设词类的记成义项的词类，设标签的加进义项标签 */
+  const applyPosLabels = (s: Sense, labels: readonly string[]): boolean => {
+    const ids: Id[] = []
+    for (const label of labels) {
+      const rule = posRules[label]
+      if (rule?.action === 'tag') {
+        const v = rule.value.trim() || label
+        if (!s.tags.includes(v)) s.tags.push(v)
+      } else if (rule?.action === 'pos') {
+        const id = posForLabel(label)
+        if (id && !ids.includes(id)) ids.push(id)
+      }
+    }
+    const id = posOf(ids)
+    if (id) s.posId = id
+    return !!id
+  }
   const existingLemmas = new Set(
     mapping.target === 'lexemes'
       ? project.lexemes.filter((l) => l.languageId === mapping.languageId).map((l) => l.lemma)
@@ -547,6 +847,8 @@ export function applyCsvImport(
       const senseTags: string[][] = []
       /** 按义项序号记下管它的标记；备注里以标记开头的段落另起义项 */
       const senseMarks: string[][] = []
+      /** 按义项序号记下管它的词类标记 */
+      const sensePosLabels: string[][] = []
       const noteSenses: MarkedSegment[] = []
       const prefixMap = parsePrefixMap(mapping.sensePrefixMap ?? '')
       if (protoFromArrow)
@@ -560,9 +862,16 @@ export function applyCsvImport(
         const raw = (row[ci] ?? '').trim()
         if (!raw || spec.kind === 'ignore' || spec.kind === 'lemma') return
         switch (spec.kind) {
-          case 'pos':
-            lx.posId = ensurePos(project, raw, report).id
+          case 'pos': {
+            // 整格是词类标记（n.、n./v.）时按词类标记表；否则按名字或缩写找，找不到就新建
+            const ids = hasPos
+              ? posCellTokens(raw)
+                  .map((tok) => posForLabel(tok.label))
+                  .filter((id): id is Id => !!id)
+              : []
+            lx.posId = posOf(ids) ?? ensurePos(project, raw, report).id
             break
+          }
           case 'definition': {
             // 有标记要处理时先留着编号：序号后面紧跟的括号也是标记
             const parts = mapping.splitSenses
@@ -570,21 +879,36 @@ export function applyCsvImport(
               : [raw]
             const base = (defs[spec.lang] ?? []).length
             const cleaned: string[] = []
+            /** 词类标记管到同一格里下一个词类标记为止 */
+            let carry: string[] = []
             for (const d of parts) {
               const r = extractSensePrefix(d, prefixMap)
               const numbered = r.tags.length > 0
+              // 义项开头的词类标记先拿掉（这样 n.[古]金石 不会切出一个只有 n. 的义项），后面的方括号标记照常切
+              const head = hasPos ? takePos(r.text, posRules) : { text: r.text, labels: [] }
+              if (head.labels.length) carry = head.labels
               // 标记再把一段切成几个义项；不拆义项时只把标记拿掉，都算这一个义项的
               const segs: MarkedSegment[] = !hasMarkers
-                ? [{ text: r.text, markers: [] }]
+                ? [{ text: head.text, markers: [] }]
                 : mapping.splitSenses
-                  ? splitByMarkers(r.text, markerRules, numbered)
-                  : [removeMarkers(r.text, markerRules, numbered)]
+                  ? splitByMarkers(head.text, markerRules, numbered)
+                  : [removeMarkers(head.text, markerRules, numbered)]
               segs.forEach((seg, k) => {
+                let text = seg.text
+                // 标记切出来的一段开头也可以有自己的词类标记
+                if (hasPos && k > 0) {
+                  const own = takePos(text, posRules)
+                  if (own.labels.length) {
+                    carry = own.labels
+                    text = own.text
+                  }
+                }
                 const at = base + cleaned.length
                 if (numbered) senseTags[at] = [...new Set([...(senseTags[at] ?? []), ...r.tags])]
                 if (seg.markers.length) senseMarks[at] = [...(senseMarks[at] ?? []), ...seg.markers]
+                if (carry.length && !sensePosLabels[at]) sensePosLabels[at] = carry
                 const keepNumber = !mapping.splitSenses || (numbered && k === 0)
-                cleaned.push(keepNumber ? seg.text : stripNumbering(seg.text))
+                cleaned.push(keepNumber ? text : stripNumbering(text))
               })
             }
             defs[spec.lang] = [...(defs[spec.lang] ?? []), ...cleaned]
@@ -662,6 +986,7 @@ export function applyCsvImport(
         }
         if (senseTags[i]?.length) s.tags = [...new Set([...s.tags, ...senseTags[i]])]
         if (senseMarks[i]?.length && applyMarkers(s, senseMarks[i], markerRules)) marked++
+        if (sensePosLabels[i]?.length && applyPosLabels(s, sensePosLabels[i])) posMarked++
         if (i > 0) lx.senses.push(s)
       }
       // 备注里拆出来的义项接在后面；词条原本没有释义时顶替空着的第一条
@@ -680,6 +1005,10 @@ export function applyCsvImport(
       const entryRegisters = entryMarkers.filter((mk) => markerRules[mk]?.action === 'register')
       if (entryRegisters.length)
         for (const s of lx.senses) if (applyMarkers(s, entryRegisters, markerRules)) marked++
+      // 没有词类列时：义项的词类都一样就是词条的，不一样就是它们组成的复合词类；跟词条一样的义项不再单独记
+      if (!lx.posId)
+        lx.posId = posOf([...new Set(lx.senses.flatMap((s) => (s.posId ? [s.posId] : [])))])
+      for (const s of lx.senses) if (s.posId && s.posId === lx.posId) delete s.posId
       lx.tags = [...new Set(lx.tags)]
       project.lexemes.push(lx)
     } else {
@@ -727,6 +1056,7 @@ export function applyCsvImport(
     report.created++
   }
   if (marked) report.marked = marked
+  if (posMarked) report.posMarked = posMarked
   project.meta.updatedAt = now()
   return report
 }
@@ -735,9 +1065,18 @@ export function applyCsvImport(
 const joinSenses = (parts: string[]): string =>
   parts.join(parts.some((p) => /[\u3400-\u9fff]/.test(p)) ? '；' : '; ')
 
+/** 义项的词类写回表格时用的标记：缩写加上点还认得出是词类标记（拉丁字母开头）才写，后面空一格 */
+function posMarkerText(p: PartOfSpeech | undefined): string {
+  const a = p?.abbr.trim() ?? ''
+  if (!a) return ''
+  const withDot = a.endsWith('.') ? a : `${a}.`
+  return posCellTokens(withDot).length ? `${withDot} ` : ''
+}
+
 /**
  * 从已有词位反推一个 CSV（导出）。每种释义语言一列，义项用分号隔开，
- * 义项的语域写在前面成【语域】（几个就连写几个），再导入时向导把它们认成标记、设回语域。
+ * 义项的语域写在前面成【语域】（几个就连写几个），再导入时向导把它们认成标记、设回语域；
+ * 义项自己的词类（跟词条不一样时）写在最前面成 n. 这样的缩写，再导入时认成词类标记。
  */
 export function lexemesToRows(
   project: Project,
@@ -765,11 +1104,13 @@ export function lexemesToRows(
           .filter((s) => s.definition[g])
           .map(
             (s) =>
+              posMarkerText(sensePos(project, l, s)) +
               s.registers
                 .map((r) => r.trim())
                 .filter(Boolean)
                 .map((r) => `【${r}】`)
-                .join('') + s.definition[g]
+                .join('') +
+              s.definition[g]
           )
       )
     ),

@@ -7,6 +7,7 @@
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { makeCollator } from '$lib/core/collate'
   import { newId } from '$lib/core/factory'
+  import { posParadigmId } from '$lib/core/pos'
   import type { Id, Paradigm, SlotGenerator } from '$lib/core/model'
   import {
     paradigmSlots,
@@ -141,7 +142,8 @@
       .filter((l) =>
         active?.appliesToAll
           ? !language || l.languageId === language.id
-          : boundPos.some((p) => p.id === l.posId)
+          : // 复合词类没绑构形时跟着组成词类走
+            posParadigmId(project, l.posId) === active?.id
       )
       .sort(
         (a, b) =>

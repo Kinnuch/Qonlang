@@ -6,9 +6,11 @@
   import TableImportDialog from '$lib/ui/TableImportDialog.svelte'
   import { guideUrl } from '$lib/core/guide'
   import { toCsv } from '$lib/core/csv'
+  import { normalizeSentence } from '$lib/core/sentenceDedup'
   import {
     importPhraseRecords,
     importPhrasesJson,
+    previewPhrasesJson,
     phraseFields,
     phrasesToJson,
     phrasesToRows
@@ -53,6 +55,9 @@
   let category = $state<string>(sameLang ? (memo.category ?? '') : '')
   /** 表格导入对话框 */
   let importOpen = $state(false)
+  /** 导入面板一打开先去选 JSON（菜单里点的是「从 JSON 导入」）；每点一次菜单都重开一次面板 */
+  let importJson = $state(false)
+  let importNonce = $state(0)
   const query = $derived(ui.search)
 
   const inLang = $derived(project.phrasebook.filter((p) => !langId || p.languageId === langId))
@@ -118,7 +123,11 @@
   }
 
   $effect(() => {
-    inspectorTitle = selected ? t('phrasebook.phrase') : t('phrasebook.title')
+    inspectorTitle = importOpen
+      ? t('importPreview.title')
+      : selected
+        ? t('phrasebook.phrase')
+        : t('phrasebook.title')
   })
   $effect(() => {
     const id = ui.takePending('phrase')
@@ -212,18 +221,31 @@
       await platform.saveTextFile(`${base}.csv`, '\ufeff' + toCsv(phrasesToRows(list, glossLangs)))
     else await platform.saveTextFile(`${base}.json`, phrasesToJson(list))
   }
-  async function importPhrasesFromJson(): Promise<void> {
+  function openImport(jsonFirst: boolean): void {
+    importJson = jsonFirst
+    importNonce++
+    importOpen = true
+  }
+  /** 导入面板里选了千语集导出的 JSON */
+  function runPhrasesJson(content: string): void {
     if (!langId) return
-    const [f] = await platform.readTextFiles({ multiple: false, extensions: ['json'] })
-    if (!f) return
-    const r = importPhrasesJson(project, langId, f.content)
+    const r = importPhrasesJson(project, langId, content)
     if (!r) {
       ui.error(t('io.badJson'))
       return
     }
+    importOpen = false
     touch()
     ui.toast(t('io.imported', { n: r.created, skipped: r.skipped }))
   }
+  /** 这门语言里已经有的原文（规范化后）：导入样例拿它标「会跳过」 */
+  const existingTexts = $derived(
+    new Set(
+      project.phrasebook
+        .filter((p) => p.languageId === langId)
+        .map((p) => normalizeSentence(p.text))
+    )
+  )
   function importPhraseTable(records: Record<string, string>[]): void {
     if (!langId) return
     const r = importPhraseRecords(project, langId, records)
@@ -248,8 +270,8 @@
     <span class="grow"></span>
     {#if language}
       <Menu label={t('lexicon.import')} icon={Upload}>
-        <button onclick={() => (importOpen = true)}>{t('io.importTable')}</button>
-        <button onclick={importPhrasesFromJson}>{t('io.importJson')}</button>
+        <button onclick={() => openImport(false)}>{t('io.importTable')}</button>
+        <button onclick={() => openImport(true)}>{t('io.importJson')}</button>
       </Menu>
       <Menu label={t('common.export')} icon={Download}>
         <button onclick={() => exportPhrases('csv')}>{t('io.exportCsv')}</button>
@@ -259,17 +281,25 @@
     <button class="btn primary" onclick={add}><Plus size={16} />{t('phrasebook.add')}</button>
   </div>
   <Hint id="phrasebook" text={t('phrasebook.hint')} />
-  {#if importOpen}
-    <TableImportDialog
-      title={t('io.importPhrases')}
-      fields={phraseFields(glossLangs)}
-      guide={guideUrl('phrasebook', 'table-format')}
-      onimport={importPhraseTable}
-      onclose={() => (importOpen = false)}
-    />
-  {/if}
-
-  {#if !language}
+  {#if importOpen && language}
+    <div class="scroll">
+      {#key importNonce}
+        <TableImportDialog
+          title={t('io.importPhrases')}
+          fields={phraseFields(glossLangs)}
+          guide={guideUrl('phrasebook', 'table-format')}
+          exists={(text) => existingTexts.has(normalizeSentence(text))}
+          json={{
+            preview: (content) => (langId ? previewPhrasesJson(project, langId, content) : null),
+            run: runPhrasesJson
+          }}
+          startWithJson={importJson}
+          onimport={importPhraseTable}
+          onclose={() => (importOpen = false)}
+        />
+      {/key}
+    </div>
+  {:else if !language}
     <p class="muted">{t('lexicon.noLanguage')}</p>
   {:else}
     <div class="body">
@@ -347,7 +377,7 @@
   {/if}
 </div>
 
-{#if selected && language}
+{#if selected && language && !importOpen}
   {@const p = selected}
   <Portal>
     <div class="field">

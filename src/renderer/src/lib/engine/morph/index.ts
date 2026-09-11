@@ -16,6 +16,7 @@ import type {
 import { parseRuleText, runRules, type RuleProgram } from '../sca'
 import { languageParseOptions, nucleusSet, segment } from '../phon'
 import { transcribe } from '$lib/core/pronounce'
+import { posParadigmId } from '$lib/core/pos'
 
 export interface SlotDef {
   key: string
@@ -104,9 +105,10 @@ export function paradigmFor(project: Project, lexeme: Lexeme): Paradigm | null {
     const p = project.paradigms.find((x) => x.id === lexeme.paradigmId)
     if (p && !p.appliesToAll) return p
   }
-  const pos = project.posList.find((p) => p.id === lexeme.posId)
-  if (!pos?.paradigmId) return null
-  const p = project.paradigms.find((x) => x.id === pos.paradigmId)
+  // 复合词类自己没绑构形时，用组成词类里第一个绑了的
+  const paradigmId = posParadigmId(project, lexeme.posId)
+  if (!paradigmId) return null
+  const p = project.paradigms.find((x) => x.id === paradigmId)
   return p && !p.appliesToAll ? p : null
 }
 

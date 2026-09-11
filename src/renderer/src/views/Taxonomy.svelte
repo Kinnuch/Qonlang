@@ -4,7 +4,8 @@
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { newId } from '$lib/core/factory'
-  import type { GrammaticalCategory, PartOfSpeech } from '$lib/core/model'
+  import type { GrammaticalCategory, Id, PartOfSpeech } from '$lib/core/model'
+  import { compoundLabels, isCompoundPos } from '$lib/core/pos'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { Plus, Trash2, X, ChevronUp, ChevronDown, ArrowDownAZ } from '@lucide/svelte'
@@ -12,8 +13,33 @@
   const project = $derived(projectState.project!)
   const glossLangs = $derived(project.settings.glossLanguages)
 
+  /** 用这个词类的词条：词条本身是它，或者有义项单独选了它 */
   function posUse(p: PartOfSpeech): number {
-    return project.lexemes.filter((l) => l.posId === p.id).length
+    return project.lexemes.filter((l) => l.posId === p.id || l.senses.some((s) => s.posId === p.id))
+      .length
+  }
+  /** 复合词类的组成：名字、缩写还空着或者是按组成拼出来的，就跟着一起更新 */
+  function setComponents(p: PartOfSpeech, ids: Id[]): void {
+    const labelsOf = (list: Id[]): ReturnType<typeof compoundLabels> | null => {
+      const parts = list
+        .map((id) => project.posList.find((x) => x.id === id))
+        .filter((x): x is PartOfSpeech => !!x)
+      return parts.length > 1 ? compoundLabels(parts) : null
+    }
+    const filled = (name: Record<string, string>): string =>
+      JSON.stringify(Object.entries(name).filter(([, v]) => v?.trim()))
+    const before = labelsOf(p.components ?? [])
+    const after = labelsOf(ids)
+    const autoName =
+      !Object.values(p.name).some((v) => v?.trim()) ||
+      (!!before && filled(p.name) === filled(before.name))
+    const autoAbbr = !p.abbr.trim() || (!!before && p.abbr === before.abbr)
+    p.components = ids
+    if (after) {
+      if (autoName) p.name = after.name
+      if (autoAbbr) p.abbr = after.abbr
+    }
+    projectState.touch()
   }
   function catUse(c: GrammaticalCategory): number {
     return (
@@ -157,6 +183,38 @@
             }}><Plus size={12} />{t('taxonomy.addStemSlot')}</button
           >
         </div>
+        <div class="stems">
+          <span class="small muted">{t('taxonomy.components')}</span>
+          <HelpDot tip={t('taxonomy.componentsHint')} />
+          {#each p.components ?? [] as cid (cid)}
+            {@const c = project.posList.find((x) => x.id === cid)}
+            <span class="part-chip"
+              >{c ? pickText(c.name, glossLangs) || c.abbr : '?'}<button
+                class="btn ghost icon sm"
+                title={t('common.delete')}
+                onclick={() =>
+                  setComponents(
+                    p,
+                    (p.components ?? []).filter((x) => x !== cid)
+                  )}><X size={12} /></button
+              ></span
+            >
+          {/each}
+          <select
+            class="select part-add"
+            value=""
+            onchange={(e) => {
+              const el = e.currentTarget as HTMLSelectElement
+              if (el.value) setComponents(p, [...(p.components ?? []), el.value])
+              el.value = ''
+            }}
+          >
+            <option value="">{t('taxonomy.addComponent')}</option>
+            {#each project.posList.filter((x) => x.id !== p.id && !isCompoundPos(x) && !(p.components ?? []).includes(x.id)) as x (x.id)}<option
+                value={x.id}>{pickText(x.name, glossLangs) || x.abbr}</option
+              >{/each}
+          </select>
+        </div>
       </div>
     {/each}
   </section>
@@ -267,6 +325,21 @@
     gap: 6px;
     padding-top: 6px;
     border-top: 1px dashed var(--border);
+  }
+  .part-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 2px 0 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 12px;
+  }
+  .part-add {
+    width: auto;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    font-size: 12px;
   }
   .stem-slot {
     display: inline-flex;

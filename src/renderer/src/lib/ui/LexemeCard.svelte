@@ -8,6 +8,7 @@
   import { lexemeScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
   import { registerShort } from '$lib/core/register'
+  import { posText, sensePos } from '$lib/core/pos'
 
   let {
     lexeme,
@@ -125,17 +126,21 @@
   <ol class="senses">
     {#each l.senses as s (s.id)}
       {@const firstLang = glossLangs.find((g) => s.definition[g])}
+      {@const sp = sensePos(project, l, s)}
       <li>
         {#each glossLangs as g (g)}
           {#if s.definition[g]}<p class="def" lang={g}>
-              {#if g === firstLang}{#each regsOf(s) as r (r)}<span class="reg" title={r}
-                    >{regLabel(r)}</span
+              {#if g === firstLang}{#if sp}<span class="spos" title={pickText(sp.name, glossLangs)}
+                    >{posText(sp, glossLangs)}</span
+                  >{/if}{#each regsOf(s) as r (r)}<span class="reg" title={r}>{regLabel(r)}</span
                   >{/each}{/if}{s.definition[g]}
             </p>{/if}
         {/each}
-        {#if !firstLang && regsOf(s).length}
+        {#if !firstLang && (regsOf(s).length || sp)}
           <p class="def">
-            {#each regsOf(s) as r (r)}<span class="reg" title={r}>{regLabel(r)}</span>{/each}
+            {#if sp}<span class="spos">{posText(sp, glossLangs)}</span
+              >{/if}{#each regsOf(s) as r (r)}<span class="reg" title={r}>{regLabel(r)}</span
+              >{/each}
           </p>
         {/if}
         {#if s.tags.length}
@@ -345,6 +350,13 @@
     text-align: center;
     vertical-align: 0.1em;
     white-space: nowrap;
+  }
+  /* 义项自己的词类（跟词条不一样时）：淡淡地写在释义前面，不抢眼 */
+  .spos {
+    margin-right: 6px;
+    font-style: italic;
+    font-size: 0.86em;
+    color: var(--text-3);
   }
   .tags {
     margin: 2px 0 0;

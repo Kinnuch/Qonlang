@@ -5,6 +5,7 @@ import type { Language, Lexeme, Project } from '$lib/core/model'
 import { makeCollator } from '$lib/core/collate'
 import { lexemeScript } from '$lib/script/render'
 import { scriptFontFamily } from '$lib/script/fonts'
+import { posText, sensePos } from '$lib/core/pos'
 
 export interface DictOptions {
   title: string
@@ -26,7 +27,8 @@ export interface DictEntry {
   pos: string
   ipa: string
   script: string
-  senses: { lang: string; text: string; tags: string[] }[]
+  /** pos：义项自己的词类（跟词条一样时为空） */
+  senses: { lang: string; text: string; tags: string[]; pos: string }[]
   forms: { label: string; text: string }[]
   etymology: string
   initial: string
@@ -52,11 +54,12 @@ export function collectEntries(project: Project, lang: Language, o: DictOptions)
   return lexemes.map((l) => {
     const pos = project.posList.find((p) => p.id === l.posId)
     const ipa = primary ? (l.pronunciations[primary.id]?.ipa ?? '') : ''
-    const senses = l.senses.flatMap((s) =>
-      senseLangs
-        .map((g) => ({ lang: g, text: s.definition[g] ?? '', tags: s.tags }))
+    const senses = l.senses.flatMap((s) => {
+      const spos = posText(sensePos(project, l, s), o.glossLangs)
+      return senseLangs
+        .map((g) => ({ lang: g, text: s.definition[g] ?? '', tags: s.tags, pos: spos }))
         .filter((x) => x.text)
-    )
+    })
     const forms = [
       ...Object.entries(l.stems).map(([k, v]) => ({ label: k, text: v })),
       ...Object.entries(l.forms).map(([k, f]) => ({ label: k, text: f.surface }))
@@ -104,9 +107,9 @@ export function dictionaryHtml(project: Project, lang: Language, o: DictOptions)
     if (e.pos) parts.push(`<span class="pos">${esc(e.pos)}</span>`)
     const senses =
       e.senses.length > 1
-        ? `<ol class="senses">${e.senses.map((s) => `<li lang="${s.lang}">${esc(s.text)}${s.tags.length ? ` <span class="tags">${esc(s.tags.join(', '))}</span>` : ''}</li>`).join('')}</ol>`
+        ? `<ol class="senses">${e.senses.map((s) => `<li lang="${s.lang}">${s.pos ? `<span class="spos">${esc(s.pos)}</span> ` : ''}${esc(s.text)}${s.tags.length ? ` <span class="tags">${esc(s.tags.join(', '))}</span>` : ''}</li>`).join('')}</ol>`
         : e.senses[0]
-          ? `<span class="sense" lang="${e.senses[0].lang}">${esc(e.senses[0].text)}</span>`
+          ? `<span class="sense" lang="${e.senses[0].lang}">${e.senses[0].pos ? `<span class="spos">${esc(e.senses[0].pos)}</span> ` : ''}${esc(e.senses[0].text)}</span>`
           : ''
     let extra = ''
     if (o.includeForms && e.forms.length)
@@ -134,6 +137,7 @@ export function dictionaryHtml(project: Project, lang: Language, o: DictOptions)
   .pos { font-style: italic; color: #555; font-size: 10pt; }
   .senses { margin: 0; padding-left: 1.4em; text-indent: 0; }
   .tags { color: #888; font-size: 9pt; }
+  .spos { font-style: italic; color: #888; font-size: 9.5pt; }
   .forms, .ety, .notes { font-size: 9.5pt; color: #444; text-indent: 0; margin-top: 1px; }
   .ety { color: #6a5a3a; }
   @media print { body { padding: 0; } }`
@@ -155,8 +159,10 @@ export function dictionaryMarkdown(project: Project, lang: Language, o: DictOpti
     if (e.pos) head += ` *${e.pos}*`
     const senses =
       e.senses.length > 1
-        ? e.senses.map((s, i) => `${i + 1}. ${s.text}`).join(' ')
-        : (e.senses[0]?.text ?? '')
+        ? e.senses.map((s, i) => `${i + 1}. ${s.pos ? `*${s.pos}* ` : ''}${s.text}`).join(' ')
+        : e.senses[0]
+          ? `${e.senses[0].pos ? `*${e.senses[0].pos}* ` : ''}${e.senses[0].text}`
+          : ''
     lines.push(`- ${head} — ${senses}`)
     if (o.includeForms && e.forms.length)
       lines.push(`  - ${e.forms.map((f) => `*${f.label}* ${f.text}`).join(' · ')}`)
@@ -167,7 +173,7 @@ export function dictionaryMarkdown(project: Project, lang: Language, o: DictOpti
 
 /**
  * 逐条模板：{{lemma}} {{ipa}} {{pos}} {{script}} {{definition}}（首义项）{{etymology}} {{notes}} {{tags}}，
- * 块：{{#senses}}{{n}} {{text}} {{lang}}{{/senses}}、{{#forms}}{{label}} {{text}}{{/forms}}。
+ * 块：{{#senses}}{{n}} {{pos}} {{text}} {{lang}}{{/senses}}（pos 是义项自己的词类，跟词条一样时为空）、{{#forms}}{{label}} {{text}}{{/forms}}。
  */
 export function renderEntries(
   project: Project,
@@ -190,6 +196,7 @@ export function renderEntries(
         'senses',
         e.senses.map((x, i) => ({
           n: String(i + 1),
+          pos: x.pos,
           text: x.text,
           lang: x.lang,
           tags: x.tags.join(', ')

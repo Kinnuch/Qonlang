@@ -22,6 +22,7 @@
   import { parseRuleText, runRules, type RuleProgram } from '$lib/engine/sca'
   import { languageParseOptions } from '$lib/engine/phon'
   import Portal from '$lib/ui/Portal.svelte'
+  import ImportPreview from '$lib/ui/ImportPreview.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import RuleList from '$lib/ui/RuleList.svelte'
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
@@ -127,6 +128,26 @@
   let rulesView = $state<'list' | 'source'>(memo.rulesView ?? 'list')
   let pasteOpen = $state(false)
   let pasteText = $state('')
+  /** 粘贴的字符表逐行拆开：字符、转写、名称 */
+  const pasteItems = $derived(
+    pasteText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [char, value = '', ...rest] = line.split(/\t+| +/)
+        return { char, value, name: rest.join(' ') }
+      })
+  )
+  /** 从字体读出来、还没导入的字形：先在检视器里看样例，确认了再连字体一起放进来 */
+  let fontPending = $state.raw<{
+    name: string
+    dataUrl: string
+    family: string
+    /** 样例里临时用来显示这个字体的 font-family */
+    previewFamily: string
+    glyphs: { char: string; name: string; value: string }[]
+  } | null>(null)
   let testText = $state(memo.testText ?? '')
   let importedFlash = $state(0)
   $effect(() => {
@@ -176,10 +197,17 @@
     BUILTIN_CATS.includes(c) ? t(`script.categories.${c}`) : c
 
   $effect(() => {
-    inspectorTitle =
-      glyph && tab === 'glyphs' ? glyph.char : script ? script.name : t('script.title')
+    const importing = tab === 'glyphs' && (pasteOpen || !!fontPending)
+    inspectorTitle = importing
+      ? t('importPreview.title')
+      : glyph && tab === 'glyphs'
+        ? glyph.char
+        : script
+          ? script.name
+          : t('script.title')
     // 标题显示的是字形本身时，用这套文字的字体，否则会是方框
-    inspectorTitleStyle = glyph && tab === 'glyphs' && script ? fontFamilyCss(script) : ''
+    inspectorTitleStyle =
+      !importing && glyph && tab === 'glyphs' && script ? fontFamilyCss(script) : ''
   })
   $effect(() => {
     if (script) ensureScriptFont(script)
@@ -366,40 +394,70 @@
     const f = files[0]
     if (!f) return
     const ext = f.name.toLowerCase().split('.').pop() ?? ''
-    script.font = {
-      family: script.font.family,
-      dataUrl: fontDataUrl(f.name, f.base64),
-      fileName: f.name
+    const dataUrl = fontDataUrl(f.name, f.base64)
+    // 只内嵌字体、或者读不了字形表的格式：直接换上
+    if (!readGlyphs || !['ttf', 'otf', 'ttc'].includes(ext)) {
+      embedFont(f.name, dataUrl)
+      return
     }
-    ensureScriptFont(script)
-    touch()
-    if (!readGlyphs || !['ttf', 'otf', 'ttc'].includes(ext)) return
     try {
       const parsed = parseFont(base64ToBuffer(f.base64))
-      if (parsed.family && !script.font.family) script.font.family = parsed.family
-      mergeGlyphs(
-        parsed.glyphs
+      const previewFamily = `qy-font-preview-${Date.now()}`
+      try {
+        const face = new FontFace(previewFamily, `url(${dataUrl})`)
+        void face
+          .load()
+          .then((ff) => document.fonts.add(ff))
+          .catch(() => {})
+      } catch {
+        /* 非浏览器环境 */
+      }
+      pasteOpen = false
+      fontPending = {
+        name: f.name,
+        dataUrl,
+        family: parsed.family || '',
+        previewFamily,
+        glyphs: parsed.glyphs
           .filter((g) => g.codepoint > 0x20 && !(g.codepoint >= 0x7f && g.codepoint <= 0xa0))
           .map((g) => ({
             char: g.char,
             name: g.name,
             value: /^[A-Za-z0-9]$/.test(g.char) ? g.char : ''
           }))
-      )
+      }
     } catch (e) {
+      embedFont(f.name, dataUrl)
       ui.toast(String(e), { kind: 'error' })
     }
   }
+  function embedFont(fileName: string, dataUrl: string, family = ''): void {
+    if (!script) return
+    script.font = { family: script.font.family || family, dataUrl, fileName }
+    ensureScriptFont(script)
+    touch()
+  }
+  function applyFontPending(): void {
+    const p = fontPending
+    if (!p || !script) return
+    embedFont(p.name, p.dataUrl, p.family)
+    mergeGlyphs(p.glyphs)
+    fontPending = null
+  }
+  /** 字形导入样例（粘贴的或从字体读的）：前 60 个，已经有的标出来 */
+  const glyphSample = $derived.by(() => {
+    if (!script || tab !== 'glyphs') return null
+    const items = fontPending ? fontPending.glyphs : pasteOpen ? pasteItems : null
+    if (!items) return null
+    const have = new Set(script.glyphs.map((g) => g.char))
+    return {
+      total: items.length,
+      skip: items.filter((g) => have.has(g.char)).length,
+      glyphs: items.slice(0, 60).map((g) => ({ ...g, skip: have.has(g.char) }))
+    }
+  })
   function importPaste(): void {
-    const items = pasteText
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [char, value = '', ...rest] = line.split(/\t+| +/)
-        return { char, value, name: rest.join(' ') }
-      })
-    mergeGlyphs(items)
+    mergeGlyphs(pasteItems)
     pasteText = ''
     pasteOpen = false
   }
@@ -459,8 +517,12 @@
         <button class="btn sm" onclick={() => importFont(true)}
           ><FileType size={14} />{t('script.importFromFont')}</button
         >
-        <button class="btn sm" onclick={() => (pasteOpen = !pasteOpen)}
-          ><ClipboardPaste size={14} />{t('script.importText')}</button
+        <button
+          class="btn sm"
+          onclick={() => {
+            pasteOpen = !pasteOpen
+            fontPending = null
+          }}><ClipboardPaste size={14} />{t('script.importText')}</button
         >
         <button class="btn ghost sm" onclick={autoCategorize}
           ><Wand2 size={14} />{t('script.autoCategorize')}</button
@@ -480,6 +542,25 @@
               onclick={() => (pasteOpen = false)}>{t('common.cancel')}</button
             ><button class="btn primary sm" onclick={importPaste}
               >{t('script.importTextRun')}</button
+            >
+          </div>
+        </div>
+      {/if}
+      {#if fontPending}
+        <div class="card paste">
+          <p class="small">
+            {t('script.fontGlyphs', {
+              name: fontPending.name,
+              n: fontPending.glyphs.length,
+              skip: glyphSample?.skip ?? 0
+            })}
+          </p>
+          <div class="row">
+            <span class="grow"></span><button
+              class="btn ghost sm"
+              onclick={() => (fontPending = null)}>{t('common.cancel')}</button
+            ><button class="btn primary sm" onclick={applyFontPending}
+              >{t('script.importFontRun')}</button
             >
           </div>
         </div>
@@ -696,7 +777,17 @@
 {#if lang && script}
   {@const sc = script}
   <Portal>
-    {#if tab === 'glyphs' && glyph}
+    {#if glyphSample}
+      <ImportPreview
+        kind={glyphSample.total ? 'glyphs' : 'empty'}
+        total={glyphSample.total}
+        glyphs={glyphSample.glyphs}
+        glyphStyle={fontPending
+          ? `font-family:"${fontPending.previewFamily}",var(--font-script)`
+          : fontFamilyCss(sc)}
+        source={fontPending?.name ?? ''}
+      />
+    {:else if tab === 'glyphs' && glyph}
       {@const g = glyph}
       <div class="preview-glyph" style={fontCss(sc)}>{g.char || '·'}</div>
       <div class="field">

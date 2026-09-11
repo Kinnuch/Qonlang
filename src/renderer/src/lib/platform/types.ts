@@ -86,6 +86,8 @@ export interface CsvPreset {
   sensePrefixMap?: string
   /** 方括号标记 → 处理方式（{ action, value }），读入时清洗 */
   senseMarkers?: Record<string, unknown>
+  /** 词类标记 → 处理方式（{ action, value }），读入时清洗 */
+  posMarkers?: Record<string, unknown>
 }
 
 export const DEFAULT_PREFS: Prefs = {

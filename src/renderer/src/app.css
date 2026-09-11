@@ -313,6 +313,19 @@ kbd {
 .flash-ok {
   animation: flash-ok 0.9s ease-out;
 }
+/* 导入样例里跟着设置变了的地方：先高亮，再慢慢褪掉 */
+@keyframes flash-change {
+  0%,
+  20% {
+    background-color: color-mix(in srgb, var(--warn) 40%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+.flash-change {
+  animation: flash-change 1.6s ease-out;
+}
 @keyframes fade-out {
   to {
     opacity: 0;

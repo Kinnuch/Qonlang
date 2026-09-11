@@ -1,20 +1,29 @@
 <script lang="ts">
   /**
-   * 表格导入（语料、短语共用）：选文件或直接粘贴 → 挑分隔符、勾表头 → 每列挑字段 → 看前几行 → 导入。
+   * 表格导入（语料、短语共用），放在页面主区里：选文件或直接粘贴 → 挑分隔符、勾表头 → 每列挑字段 → 导入；
+   * 也能选千语集导出的 JSON，整条连分析一起导入。检视器里实时显示导入样例。
    * 分隔符默认自动：不是每行都有同一个分隔符时，当成一行一条、不分列（句子里的逗号不会把句子切开）。
-   * 记录怎么变成条目由调用方的 onimport 决定。
+   * 记录怎么变成条目由调用方的 onimport（JSON 是 json.run）决定。
    */
+  import { onMount } from 'svelte'
   import { platform } from '$lib/platform'
   import { t } from '$lib/i18n/index.svelte'
   import { detectDelimiter, parseCsv, type Delimiter } from '$lib/core/csv'
   import { guessColumns, rowsToRecords, type ImportField } from '$lib/importers/corpusIO'
+  import { normalizeSentence } from '$lib/core/sentenceDedup'
+  import { PREVIEW_LIMIT } from '$lib/importers/preview'
   import { ioFieldLabel } from '$lib/ui/ioLabels'
+  import Portal from './Portal.svelte'
+  import ImportPreview from './ImportPreview.svelte'
   import { FileUp, X, BookOpenText } from '@lucide/svelte'
 
   let {
     title,
     fields,
     guide = '',
+    exists = () => false,
+    json = undefined,
+    startWithJson = false,
     onimport,
     onclose
   }: {
@@ -22,6 +31,15 @@
     fields: ImportField[]
     /** 格式说明的网址（使用指南里讲表格列名的那一节） */
     guide?: string
+    /** 这门语言里是不是已经有这句原文了（样例里标「会跳过」） */
+    exists?: (text: string) => boolean
+    /** 能导入千语集导出的 JSON 时给：preview 只读成记录，run 真正导入 */
+    json?: {
+      preview: (content: string) => Record<string, string>[] | null
+      run: (content: string) => void
+    }
+    /** 一打开就去选 JSON 文件（菜单里点的是「从 JSON 导入」） */
+    startWithJson?: boolean
     onimport: (records: Record<string, string>[]) => void
     onclose: () => void
   } = $props()
@@ -39,6 +57,9 @@
   let raw = $state('')
   let fileName = $state('')
   let split = $state<Split | 'auto'>('auto')
+  /** 选的是 JSON 文件时它的内容（这时不分列、不挑字段） */
+  let jsonText = $state('')
+  const jsonRecords = $derived(jsonText && json ? json.preview(jsonText) : null)
 
   const lines = $derived(raw.split(/\r?\n/).filter((l) => l.trim()))
   /** 自动：大多数行都有同一个分隔符才分列 */
@@ -67,31 +88,50 @@
     columns = columns.map((c, j) => (j === i ? key : c))
   }
 
-  async function pickFile(): Promise<void> {
+  const total = $derived(jsonText ? (jsonRecords?.length ?? 0) : records.length)
+  /** 样例：前几条，标出会跳过的（原文为空、已经有了、跟前面重复） */
+  const sample = $derived.by(() => {
+    const seen = new Set<string>()
+    return (jsonText ? (jsonRecords ?? []) : records).slice(0, PREVIEW_LIMIT).map((rec) => {
+      const text = rec.text ?? ''
+      const k = normalizeSentence(text)
+      const skip = !k
+        ? t('importPreview.skipEmpty')
+        : exists(text)
+          ? t('importPreview.skipExisting')
+          : seen.has(k)
+            ? t('importPreview.skipRepeat')
+            : undefined
+      seen.add(k)
+      return { rec, skip }
+    })
+  })
+
+  async function pickFile(onlyJson = false): Promise<void> {
     const [f] = await platform.readTextFiles({
       multiple: false,
-      extensions: ['csv', 'tsv', 'txt']
+      extensions: onlyJson ? ['json'] : json ? ['csv', 'tsv', 'txt', 'json'] : ['csv', 'tsv', 'txt']
     })
     if (!f) return
     fileName = f.name
-    raw = f.content
+    const isJson = !!json && /\.json$/i.test(f.name)
+    jsonText = isJson ? f.content : ''
+    raw = isJson ? '' : f.content
   }
+  onMount(() => {
+    if (startWithJson) void pickFile(true)
+  })
   function run(): void {
+    if (jsonText) {
+      if (json && jsonRecords?.length) json.run(jsonText)
+      return
+    }
     if (!records.some((r) => r.text)) return
     onimport($state.snapshot(records) as Record<string, string>[])
   }
-  function onKey(e: KeyboardEvent): void {
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      onclose()
-    }
-  }
 </script>
 
-<svelte:window onkeydown={onKey} />
-
-<div class="backdrop" role="presentation" onclick={onclose}></div>
-<div class="dlg card" role="dialog" aria-modal="true" aria-label={title}>
+<div class="panel card">
   <div class="row">
     <strong class="grow">{title}</strong>
     {#if guide}
@@ -102,88 +142,99 @@
         ><BookOpenText size={14} />{t('csv.formatGuide')}</button
       >
     {/if}
-    <button class="btn ghost icon sm" onclick={onclose}><X size={16} /></button>
+    <button class="btn ghost icon sm" title={t('common.close')} onclick={onclose}
+      ><X size={16} /></button
+    >
   </div>
-  <div class="row">
-    <button class="btn sm" onclick={pickFile}><FileUp size={14} />{t('io.pickFile')}</button>
+  <div class="row opts">
+    <button class="btn sm" onclick={() => pickFile()}><FileUp size={14} />{t('io.pickFile')}</button
+    >
     <span class="small muted grow">{fileName || t('io.orPaste')}</span>
-    <label class="row small"
-      >{t('io.split')}
-      <select class="select" bind:value={split}>
-        {#each SPLITS as s (s.key)}<option value={s.value}>{t(`io.splits.${s.key}`)}</option>{/each}
-      </select></label
-    >
-    <label class="row check small"
-      ><input
-        type="checkbox"
-        checked={hasHeader}
-        onchange={(e) => (hasHeader = (e.currentTarget as HTMLInputElement).checked)}
-      />{t('io.hasHeader')}</label
-    >
+    {#if !jsonText}
+      <label class="row small"
+        >{t('io.split')}
+        <select class="select" bind:value={split}>
+          {#each SPLITS as s (s.key)}<option value={s.value}>{t(`io.splits.${s.key}`)}</option
+            >{/each}
+        </select></label
+      >
+      <label class="row check small"
+        ><input
+          type="checkbox"
+          checked={hasHeader}
+          onchange={(e) => (hasHeader = (e.currentTarget as HTMLInputElement).checked)}
+        />{t('io.hasHeader')}</label
+      >
+    {/if}
   </div>
-  <textarea class="textarea data" rows="4" placeholder={t('io.pastePlaceholder')} bind:value={raw}
-  ></textarea>
-  {#if colCount}
-    <div class="map">
-      <table class="table">
-        <thead>
-          <tr>
-            {#each columns as col, i (i)}
-              <th class:off={!col}>
-                <select
-                  class="select"
-                  value={col}
-                  onchange={(e) => setColumn(i, (e.currentTarget as HTMLSelectElement).value)}
-                >
-                  <option value="">{t('io.ignore')}</option>
-                  {#each fields as f (f.key)}<option value={f.key}>{ioFieldLabel(f.key)}</option
-                    >{/each}
-                </select>
-                {#if header}<div class="small muted">{header[i] ?? ''}</div>{/if}
-              </th>
-            {/each}
-          </tr>
-        </thead>
-        <tbody>
-          {#each body.slice(0, 5) as row, r (r)}
+  {#if jsonText}
+    <p class="small" class:warn={!jsonRecords}>
+      {jsonRecords ? t('io.jsonFile') : t('io.badJson')}
+    </p>
+  {:else}
+    <textarea class="textarea data" rows="4" placeholder={t('io.pastePlaceholder')} bind:value={raw}
+    ></textarea>
+    {#if colCount}
+      <div class="map">
+        <table class="table">
+          <thead>
             <tr>
-              {#each columns as col, i (i)}<td class="data" class:off={!col}>{row[i] ?? ''}</td
-                >{/each}
+              {#each columns as col, i (i)}
+                <th class:off={!col}>
+                  <select
+                    class="select"
+                    value={col}
+                    onchange={(e) => setColumn(i, (e.currentTarget as HTMLSelectElement).value)}
+                  >
+                    <option value="">{t('io.ignore')}</option>
+                    {#each fields as f (f.key)}<option value={f.key}>{ioFieldLabel(f.key)}</option
+                      >{/each}
+                  </select>
+                  {#if header}<div class="small muted">{header[i] ?? ''}</div>{/if}
+                </th>
+              {/each}
             </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {#each body.slice(0, 5) as row, r (r)}
+              <tr>
+                {#each columns as col, i (i)}<td class="data" class:off={!col}>{row[i] ?? ''}</td
+                  >{/each}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
   {/if}
   <div class="row">
-    <span class="small muted grow">{t('io.rowsReady', { n: records.length })}</span>
+    <span class="small muted grow">{t('io.rowsReady', { n: total })}</span>
     <button class="btn" onclick={onclose}>{t('common.cancel')}</button>
-    <button class="btn primary" disabled={!records.some((r) => r.text)} onclick={run}
-      >{t('io.import')}</button
+    <button
+      class="btn primary"
+      disabled={jsonText ? !jsonRecords?.length : !records.some((r) => r.text)}
+      onclick={run}>{t('io.import')}</button
     >
   </div>
 </div>
 
+<Portal>
+  <ImportPreview
+    kind={total ? 'records' : 'empty'}
+    {total}
+    records={sample}
+    fieldLabel={ioFieldLabel}
+    source={fileName}
+  />
+</Portal>
+
 <style>
-  .backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 90;
-    background: rgba(0, 0, 0, 0.18);
-  }
-  .dlg {
-    position: fixed;
-    z-index: 91;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: min(880px, 92vw);
-    max-height: 86vh;
+  .panel {
     display: flex;
     flex-direction: column;
     gap: 10px;
     padding: 14px 16px;
-    overflow: hidden;
+    max-width: 980px;
   }
   .map {
     overflow: auto;
@@ -195,7 +246,22 @@
     vertical-align: top;
     min-width: 130px;
   }
+  /* 主区窄的时候这一排折行，提示文字不被挤成竖排 */
+  .opts {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+  .opts .grow {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+  .opts label {
+    white-space: nowrap;
+  }
   .off {
     opacity: 0.45;
+  }
+  .warn {
+    color: var(--warn);
   }
 </style>

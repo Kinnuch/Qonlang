@@ -10,6 +10,7 @@
   import { wordHover } from '$lib/state/wordHover.svelte'
   import LexemeCard from './LexemeCard.svelte'
   import { etymologyText } from '$lib/core/etymology'
+  import { posText, sensePos } from '$lib/core/pos'
   import type { Id } from '$lib/core/model'
   import { BookOpen, Blocks, X, TriangleAlert, SearchX } from '@lucide/svelte'
 
@@ -185,7 +186,13 @@
             </div>
             <ol class="cand-senses">
               {#each x.lexeme.senses.slice(0, 4) as se (se.id)}
-                <li>{pickText(se.definition, glossLangs)}</li>
+                {@const sp = project ? sensePos(project, x.lexeme, se) : undefined}
+                <li>
+                  {#if sp}<span class="spos">{posText(sp, glossLangs)}</span>{/if}{pickText(
+                    se.definition,
+                    glossLangs
+                  )}
+                </li>
               {/each}
             </ol>
           {:else if x.morpheme}
@@ -336,6 +343,12 @@
     padding-left: 18px;
     font-size: 13px;
     flex: 1;
+  }
+  .spos {
+    margin-right: 4px;
+    font-style: italic;
+    font-size: 0.9em;
+    color: var(--text-3);
   }
   .cand .pick {
     align-self: flex-start;

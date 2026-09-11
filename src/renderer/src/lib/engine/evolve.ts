@@ -4,6 +4,7 @@
  */
 import type { Id, Lexeme, Morpheme, Project, RuleSet } from '$lib/core/model'
 import { createLexeme, now } from '$lib/core/factory'
+import { lexemePosIds } from '$lib/core/pos'
 import { runRules, type RuleProgram } from '$lib/engine/sca'
 
 export interface EvolveOptions {
@@ -52,10 +53,11 @@ export function planEvolution(project: Project, o: EvolveOptions): EvolveRow[] {
     ? project.morphemes.filter((m) => m.languageId === o.sourceLanguageId)
     : project.lexemes.filter((l) => l.languageId === o.sourceLanguageId)
   for (const l of sources) {
+    // 复合词类里有这个词类、某个义项是这个词类的词也算
     if (
       !morphemeMode &&
       o.posIds?.length &&
-      (!(l as Lexeme).posId || !o.posIds.includes((l as Lexeme).posId!))
+      !lexemePosIds(project, l as Lexeme).some((id) => o.posIds!.includes(id))
     )
       continue
     const input = morphemeMode ? (l as Morpheme).form : inputOf(l as Lexeme, o.inputField)

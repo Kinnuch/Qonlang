@@ -18,6 +18,7 @@
     type RunResult
   } from '$lib/engine/sca'
   import Portal from '$lib/ui/Portal.svelte'
+  import ImportPreview from '$lib/ui/ImportPreview.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
   import RuleList from '$lib/ui/RuleList.svelte'
@@ -34,7 +35,8 @@
     List,
     Code,
     GitBranch,
-    Sprout
+    Sprout,
+    X
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   let evolveOpen = $state(false)
@@ -78,7 +80,7 @@
     if (active && activeId !== active.id) activeId = active.id
   })
   $effect(() => {
-    inspectorTitle = t('soundChanges.testBench')
+    inspectorTitle = rulePending ? t('importPreview.title') : t('soundChanges.testBench')
   })
 
   // 解析（去抖）。规则集第一个绑定了语言的阶段所属语言的音类和多合字母作为基础。
@@ -198,39 +200,69 @@
     })
   }
 
+  type RuleFile = { name: string; content: string }
+  type RuleFormat = 'yinbianji' | 'lexicanter' | 'sca2' | 'plain'
+  /** 选好、还没导入的规则文件：主区挑格式、起名字，检视器里显示转换出来的规则 */
+  let rulePending = $state.raw<RuleFile[] | null>(null)
+  let ruleFormat = $state<RuleFormat>('plain')
+  let ruleName = $state('')
+
+  /** 音变姬的文件按名字或内容分：音类、替换、词库（不要）、规则 */
+  function yinbianjiPart(f: RuleFile): 'category' | 'replace' | 'lexicon' | 'rule' {
+    const lower = f.name.toLowerCase()
+    const body = f.content
+    if (lower.includes('categor') || (!body.includes('>') && /^[A-Z]=/m.test(body)))
+      return 'category'
+    if (lower.includes('replace') || (!body.includes('>') && /^\S+\|\S+/m.test(body)))
+      return 'replace'
+    return lower.includes('lexicon') ? 'lexicon' : 'rule'
+  }
+  /** 按选的格式转成千语集的规则文本 */
+  const ruleText = $derived.by(() => {
+    const files = rulePending
+    if (!files?.length) return ''
+    if (ruleFormat === 'yinbianji') {
+      const part = (k: string): string =>
+        files
+          .filter((f) => yinbianjiPart(f) === k)
+          .map((f) => f.content + '\n')
+          .join('')
+      return fromYinbianji(part('category'), part('replace'), part('rule'))
+    }
+    const content = files[0].content
+    return ruleFormat === 'lexicanter'
+      ? fromLexicanter(content)
+      : ruleFormat === 'sca2'
+        ? fromSca2(content)
+        : content
+  })
+  const ruleLines = $derived(ruleText.replace(/\s+$/, '').split(/\r?\n/))
+
   async function importYinbianji(): Promise<void> {
     const files = await platform.readTextFiles({ multiple: true, extensions: ['txt'] })
     if (!files.length) return
-    let category = ''
-    let replace = ''
-    let rule = ''
-    let name = ''
-    for (const f of files) {
-      const lower = f.name.toLowerCase()
-      const body = f.content
-      if (lower.includes('categor') || (!body.includes('>') && /^[A-Z]=/m.test(body)))
-        category += body + '\n'
-      else if (lower.includes('replace') || (!body.includes('>') && /^\S+\|\S+/m.test(body)))
-        replace += body + '\n'
-      else if (lower.includes('lexicon')) continue
-      else {
-        rule += body + '\n'
-        name = f.name.replace(/rule\.txt$/i, '').replace(/\.txt$/i, '')
-      }
-    }
-    addSet(fromYinbianji(category, replace, rule), name || t('soundChanges.untitledSet'))
+    const rule = files.filter((f) => yinbianjiPart(f) === 'rule').pop()
+    openRuleImport(
+      files,
+      'yinbianji',
+      rule ? rule.name.replace(/rule\.txt$/i, '').replace(/\.txt$/i, '') : ''
+    )
   }
 
   async function importConverted(kind: 'lexicanter' | 'sca2' | 'plain'): Promise<void> {
     const [f] = await platform.readTextFiles({ multiple: false, extensions: ['txt'] })
     if (!f) return
-    const text =
-      kind === 'lexicanter'
-        ? fromLexicanter(f.content)
-        : kind === 'sca2'
-          ? fromSca2(f.content)
-          : f.content
-    addSet(text, f.name.replace(/\.txt$/i, ''))
+    openRuleImport([f], kind, f.name.replace(/\.txt$/i, ''))
+  }
+  function openRuleImport(files: RuleFile[], format: RuleFormat, name: string): void {
+    rulePending = files.map((f) => ({ name: f.name, content: f.content }))
+    ruleFormat = format
+    ruleName = name
+  }
+  function runRuleImport(): void {
+    if (!rulePending || !ruleText.trim()) return
+    addSet(ruleText, ruleName.trim() || t('soundChanges.untitledSet'))
+    rulePending = null
   }
 
   /** 每个规则集一份 .txt，放进一个文件夹；重名的加序号 */
@@ -304,7 +336,45 @@
   </div>
   <Hint id="soundchanges" text={t('soundChanges.hint')} />
 
-  {#if !active}
+  {#if rulePending}
+    <div class="rule-import-wrap">
+      <div class="card rule-import">
+        <div class="row">
+          <strong class="grow">{t('soundChanges.importTitle')}</strong>
+          <button
+            class="btn ghost icon sm"
+            title={t('common.close')}
+            onclick={() => (rulePending = null)}><X size={16} /></button
+          >
+        </div>
+        <span class="small muted"
+          >{t('soundChanges.importFiles', {
+            names: rulePending.map((f) => f.name).join('、')
+          })}</span
+        >
+        <label class="field"
+          ><span class="small muted">{t('soundChanges.setName')}</span>
+          <input class="input" bind:value={ruleName} /></label
+        >
+        <label class="field"
+          ><span class="small muted">{t('soundChanges.importFormat')}</span>
+          <select class="select" bind:value={ruleFormat}>
+            <option value="yinbianji">{t('soundChanges.importYinbianji')}</option>
+            <option value="lexicanter">{t('soundChanges.importLexicanter')}</option>
+            <option value="sca2">{t('soundChanges.importSca2')}</option>
+            <option value="plain">{t('soundChanges.importPlain')}</option>
+          </select></label
+        >
+        <div class="row">
+          <span class="grow"></span>
+          <button class="btn" onclick={() => (rulePending = null)}>{t('common.cancel')}</button>
+          <button class="btn primary" disabled={!ruleText.trim()} onclick={runRuleImport}
+            >{t('io.import')}</button
+          >
+        </div>
+      </div>
+    </div>
+  {:else if !active}
     <p class="muted">{t('soundChanges.empty')}</p>
   {:else}
     {@const rs = active}
@@ -388,7 +458,16 @@
   {/if}
 </div>
 
-{#if active}
+{#if rulePending}
+  <Portal>
+    <ImportPreview
+      kind={ruleText.trim() ? 'lines' : 'empty'}
+      total={ruleLines.length}
+      lines={ruleLines.slice(0, 400)}
+      source={rulePending.map((f) => f.name).join('|')}
+    />
+  </Portal>
+{:else if active}
   {@const rs = active}
   <Portal>
     <div class="field">
@@ -667,5 +746,17 @@
     width: 180px;
     padding-top: 3px;
     padding-bottom: 3px;
+  }
+  .rule-import-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+  .rule-import {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 640px;
+    padding: 14px 16px;
   }
 </style>
