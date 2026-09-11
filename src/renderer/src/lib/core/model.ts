@@ -407,7 +407,8 @@ export interface Sense {
   definition: LocalizedText
   tags: string[]
   dialectIds: Id[]
-  register: string
+  /** 语域，可以有几个（古语、文学……） */
+  registers: string[]
   examples: Id[]
 }
 

@@ -29,3 +29,15 @@ export function registerShort(text: string): string {
   if (abbr.length >= letters.length - 1) return word
   return abbr.join('') + '.'
 }
+
+/** 一段语域文字拆成几个（旧项目的 register、CSV 里的语域列）：按顿号、逗号、分号分开，去掉重复 */
+export function splitRegisters(text: string): string[] {
+  return [
+    ...new Set(
+      (text ?? '')
+        .split(/[、，,；;]/)
+        .map((x) => x.trim())
+        .filter(Boolean)
+    )
+  ]
+}

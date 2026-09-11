@@ -680,6 +680,7 @@ const en: Dict = {
     exampleKinds: { sentence: 'corpus', phrase: 'phrase', doc: 'doc' },
     registerPresets:
       'everyday,formal,colloquial,written,literary,poetic,religious,divine,archaic,slang,taboo,honorific,academic,dialectal,childish',
+    registersPlaceholder: 'Registers (press Enter to add; several allowed)',
     deleted: 'Deleted entry “{lemma}”',
     search: 'Search lexicon: word, definition, forms, pronunciation…',
     sort: 'Sort',

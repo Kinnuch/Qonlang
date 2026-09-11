@@ -116,7 +116,7 @@ export function createEtymology(): Etymology {
 }
 
 export function createSense(): Sense {
-  return { id: newId(), definition: {}, tags: [], dialectIds: [], register: '', examples: [] }
+  return { id: newId(), definition: {}, tags: [], dialectIds: [], registers: [], examples: [] }
 }
 
 export function createLexeme(languageId: Id, lemma = ''): Lexeme {

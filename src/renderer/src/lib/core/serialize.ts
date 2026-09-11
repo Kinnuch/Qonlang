@@ -9,6 +9,7 @@ import {
   type SlotGenerator
 } from './model'
 import { createEtymology, createProject, newId } from './factory'
+import { splitRegisters } from './register'
 
 export const PROJECT_EXTENSION = '.laim.json'
 
@@ -21,8 +22,20 @@ export class ProjectParseError extends Error {
   }
 }
 
+/**
+ * 写盘时每个义项另带一份拼起来的 register（顿号连接）：0.7.1 及更早的版本只认这个字段，打开新文件也看得到语域。
+ * 读回来时迁移会把它去掉，只留 registers。
+ */
+function withLegacyRegister(key: string, value: unknown): unknown {
+  if (key !== 'senses' || !Array.isArray(value)) return value
+  return value.map((se: unknown) => {
+    const regs = (se as { registers?: unknown } | null)?.registers
+    return Array.isArray(regs) ? { ...(se as object), register: regs.join('、') } : se
+  })
+}
+
 export function serializeProject(p: Project): string {
-  return JSON.stringify(p, null, 2) + '\n'
+  return JSON.stringify(p, withLegacyRegister, 2) + '\n'
 }
 
 /** 解析并迁移到当前 schema。缺失的顶层集合补空，未知字段保留。 */
@@ -82,6 +95,13 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
     if (!Array.isArray(l.relations)) l.relations = []
     if (!l.scriptForms || typeof l.scriptForms !== 'object') l.scriptForms = {}
     if (!Array.isArray(l.images)) l.images = []
+    // 语域从一段文字改成了列表：旧文件里的 register 拆开放进 registers
+    for (const se of Array.isArray(l.senses) ? l.senses : []) {
+      const legacy = (se as { register?: unknown }).register
+      if (!Array.isArray(se.registers))
+        se.registers = typeof legacy === 'string' ? splitRegisters(legacy) : []
+      delete (se as { register?: unknown }).register
+    }
     l.etymology = migrateEtymology(l.etymology)
   }
   for (const m of merged.morphemes) m.etymology = migrateEtymology(m.etymology)
@@ -153,7 +173,7 @@ function migrateEtymology(e: Etymology | undefined): Etymology {
  * 返回相对路径 → 内容。规则集另出一份纯文本。
  */
 export function projectToFolder(p: Project): Record<string, string> {
-  const j = (v: unknown): string => JSON.stringify(v, null, 2) + '\n'
+  const j = (v: unknown): string => JSON.stringify(v, withLegacyRegister, 2) + '\n'
   const files: Record<string, string> = {
     'project.json': j({ schemaVersion: p.schemaVersion, meta: p.meta, settings: p.settings }),
     'languages.json': j(p.languages),

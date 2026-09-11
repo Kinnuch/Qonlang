@@ -658,6 +658,7 @@ export default {
     examplesFor: '「{lemma}」的全部例句',
     exampleKinds: { sentence: '语料', phrase: '短语', doc: '文档' },
     registerPresets: '日常,正式,口语,书面,文学,诗歌,宗教,神祇,古语,俚语,禁忌,敬语,学术,方言,儿语',
+    registersPlaceholder: '语域（回车添加，可以几个）',
     deleted: '已删除词条「{lemma}」',
     search: '搜索词库：单词、释义、屈折形、发音…',
     sort: '排序',

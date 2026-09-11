@@ -501,7 +501,7 @@ function makeAelith(): void {
   kaso.senses[0].tags = ['建筑']
   const kasoHome = createSense()
   kasoHome.definition = { zh: '家；家庭', en: 'home; household' }
-  kasoHome.register = '口语'
+  kasoHome.registers = ['口语']
   kasoHome.tags = ['引申']
   kaso.senses.push(kasoHome)
   kaso.notes = '最常用的名词之一。'
@@ -1146,7 +1146,7 @@ function makeTsahun(): void {
   const hu = lex.get('hu35')!
   const huWay = createSense()
   huWay.definition = { zh: '方法；办法', en: 'way; method' }
-  huWay.register = '书面'
+  huWay.registers = ['书面']
   hu.senses.push(huWay)
   hu.notes = '「路」引申为「方法」。'
   const tsa = lex.get('tsa55')!

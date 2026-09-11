@@ -1,6 +1,6 @@
 <script lang="ts">
   /** 显示模式下的词条卡：只读、简约，把录入模式记录的信息排版出来 */
-  import type { Id, Lexeme, Project } from '$lib/core/model'
+  import type { Id, Lexeme, Project, Sense } from '$lib/core/model'
   import { relationLabel } from '$lib/ui/labels'
   import { morphemeLabel } from '$lib/core/etymology'
   import { t, pickText } from '$lib/i18n/index.svelte'
@@ -66,6 +66,10 @@
     }
   }
   /** 语域方框里写什么：设置里选单字就取简写，选全称就整个写 */
+  /** 这个义项的几个语域（去掉空的和重复的） */
+  const regsOf = (s: Sense): string[] => [
+    ...new Set((s.registers ?? []).map((r) => r.trim()).filter(Boolean))
+  ]
   const regLabel = (r: string): string =>
     ui.prefs.registerDisplay === 'full' ? r.trim() : registerShort(r)
   function lemmaOf(id: Id): string {
@@ -124,13 +128,15 @@
       <li>
         {#each glossLangs as g (g)}
           {#if s.definition[g]}<p class="def" lang={g}>
-              {#if s.register.trim() && g === firstLang}<span class="reg" title={s.register}
-                  >{regLabel(s.register)}</span
-                >{/if}{s.definition[g]}
+              {#if g === firstLang}{#each regsOf(s) as r (r)}<span class="reg" title={r}
+                    >{regLabel(r)}</span
+                  >{/each}{/if}{s.definition[g]}
             </p>{/if}
         {/each}
-        {#if !firstLang && s.register.trim()}
-          <p class="def"><span class="reg" title={s.register}>{regLabel(s.register)}</span></p>
+        {#if !firstLang && regsOf(s).length}
+          <p class="def">
+            {#each regsOf(s) as r (r)}<span class="reg" title={r}>{regLabel(r)}</span>{/each}
+          </p>
         {/if}
         {#if s.tags.length}
           <p class="tiny muted tags">{s.tags.join(' · ')}</p>

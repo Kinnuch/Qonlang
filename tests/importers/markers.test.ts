@@ -116,17 +116,17 @@ describe('bracket markers', () => {
     )
     expect(r.created).toBe(3)
     const [kalo, tavi, sen] = p.lexemes
-    expect(kalo.senses.map((s) => [s.definition.zh, s.register, s.tags])).toEqual([
-      ['房屋', '', []],
-      ['宅第', '古语', []],
-      ['卡洛', '人名', []]
+    expect(kalo.senses.map((s) => [s.definition.zh, s.registers, s.tags])).toEqual([
+      ['房屋', [], []],
+      ['宅第', ['古语'], []],
+      ['卡洛', ['人名'], []]
     ])
     expect(kalo.notes).toBe('常用词')
     // 单词前的标记管整个词条；值留空就用括号里的字
     expect(tavi.lemma).toBe('Tavi')
-    expect(tavi.senses.map((s) => [s.definition.zh, s.register])).toEqual([
-      ['河', '专'],
-      ['小溪', '专']
+    expect(tavi.senses.map((s) => [s.definition.zh, s.registers])).toEqual([
+      ['河', ['专']],
+      ['小溪', ['专']]
     ])
     expect(sen.senses.map((s) => [s.definition.zh, s.tags])).toEqual([
       ['星', []],
@@ -142,14 +142,14 @@ describe('bracket markers', () => {
     m.columns = [{ kind: 'lemma' }, { kind: 'definition', lang: 'zh' }]
     m.senseMarkers = { 古: reg('古语'), 方: reg('方言') }
     applyCsvImport(p, [['kalo', '1、（古）宅第；2、（方）玉米；3、（大的）房子']], m)
-    expect(p.lexemes[0].senses.map((s) => [s.definition.zh, s.register])).toEqual([
-      ['宅第', '古语'],
-      ['玉米', '方言'],
-      ['（大的）房子', '']
+    expect(p.lexemes[0].senses.map((s) => [s.definition.zh, s.registers])).toEqual([
+      ['宅第', ['古语']],
+      ['玉米', ['方言']],
+      ['（大的）房子', []]
     ])
   })
 
-  it('leaves definitions alone without rules; a register column wins and the marker becomes a tag', () => {
+  it('leaves definitions alone without rules; a register column and markers all become registers', () => {
     const p = blank()
     const m = defaultMapping(p.languages[0].id, 3)
     m.hasHeader = false
@@ -160,9 +160,14 @@ describe('bracket markers', () => {
     applyCsvImport(p, [['kalo2', '【古】宅第', '书面']], m)
     expect(p.lexemes[1].senses[0]).toMatchObject({
       definition: { zh: '宅第' },
-      register: '书面',
-      tags: ['古语']
+      registers: ['书面', '古语'],
+      tags: []
     })
+    // 连着几个标记就是几个语域
+    m.columns = [{ kind: 'lemma' }, { kind: 'definition', lang: 'zh' }, { kind: 'ignore' }]
+    m.senseMarkers = { 古: reg('古语'), 文: reg('文学') }
+    applyCsvImport(p, [['kalo3', '【古】【文】宅第', '']], m)
+    expect(p.lexemes[2].senses[0].registers).toEqual(['古语', '文学'])
   })
 
   it('works together with the sense prefix map; presets are cleaned on load', () => {
@@ -175,9 +180,9 @@ describe('bracket markers', () => {
     applyCsvImport(p, [['tal', '1【古】离开；2前往']], m)
     applyCsvImport(p, [['tal2', '1、（古）离开；2前往']], m)
     for (const lx of p.lexemes)
-      expect(lx.senses.map((s) => [s.definition.zh, s.tags, s.register])).toEqual([
-        ['离开', ['一价'], '古语'],
-        ['前往', ['二价'], '']
+      expect(lx.senses.map((s) => [s.definition.zh, s.tags, s.registers])).toEqual([
+        ['离开', ['一价'], ['古语']],
+        ['前往', ['二价'], []]
       ])
     expect(
       cleanMarkerRules({ 古: { action: 'register', value: '古语' }, 坏: { action: 'x' }, 空: null })

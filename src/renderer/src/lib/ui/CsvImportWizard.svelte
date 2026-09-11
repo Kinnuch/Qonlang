@@ -93,7 +93,7 @@
   const registerOptions = $derived([
     ...new Set([
       ...t('lexicon.registerPresets').split(','),
-      ...project.lexemes.flatMap((l) => l.senses.map((s) => s.register)).filter(Boolean)
+      ...project.lexemes.flatMap((l) => l.senses.flatMap((s) => s.registers)).filter(Boolean)
     ])
   ])
   /** 没动过的标记默认映射成同名语域 */

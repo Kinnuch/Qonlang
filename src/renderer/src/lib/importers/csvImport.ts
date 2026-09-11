@@ -380,7 +380,7 @@ const mapsToSense = (r: MarkerRule | undefined): boolean =>
   r?.action === 'register' || r?.action === 'tag'
 
 /**
- * 把标记落到义项上：设语域的第一个生效（义项已经有别的语域时记成标签），设标签的加标签。返回用上了没有。
+ * 把标记落到义项上：设语域的加进语域（可以几个），设标签的加标签。返回用上了没有。
  */
 export function applyMarkers(
   sense: Sense,
@@ -392,8 +392,9 @@ export function applyMarkers(
     const rule = rules[label]
     if (!rule || (rule.action !== 'register' && rule.action !== 'tag')) continue
     const value = rule.value.trim() || label
-    if (rule.action === 'register' && !sense.register) sense.register = value
-    else if (sense.register !== value && !sense.tags.includes(value)) sense.tags.push(value)
+    // 一个义项可以有几个语域：设语域的都加进语域，设标签的加进标签
+    const list = rule.action === 'register' ? sense.registers : sense.tags
+    if (!list.includes(value)) list.push(value)
     used = true
   }
   return used
@@ -640,7 +641,9 @@ export function applyCsvImport(
             break
           }
           case 'register':
-            sense.register = raw
+            // 语域列里几个语域用逗号、顿号隔开
+            for (const r of splitTags(raw, mapping.tagSeparator))
+              if (!sense.registers.includes(r)) sense.registers.push(r)
             break
           case 'gloss':
           case 'morphemeType':
@@ -734,7 +737,7 @@ const joinSenses = (parts: string[]): string =>
 
 /**
  * 从已有词位反推一个 CSV（导出）。每种释义语言一列，义项用分号隔开，
- * 义项的语域写在前面成【语域】，再导入时向导把它认成标记、设回语域。
+ * 义项的语域写在前面成【语域】（几个就连写几个），再导入时向导把它们认成标记、设回语域。
  */
 export function lexemesToRows(
   project: Project,
@@ -760,7 +763,14 @@ export function lexemesToRows(
       joinSenses(
         l.senses
           .filter((s) => s.definition[g])
-          .map((s) => (s.register.trim() ? `【${s.register.trim()}】` : '') + s.definition[g])
+          .map(
+            (s) =>
+              s.registers
+                .map((r) => r.trim())
+                .filter(Boolean)
+                .map((r) => `【${r}】`)
+                .join('') + s.definition[g]
+          )
       )
     ),
     l.tags.join(','),

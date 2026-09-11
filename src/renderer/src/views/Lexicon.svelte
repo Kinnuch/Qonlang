@@ -272,7 +272,7 @@
   /** 搜索用：词条在某个字段里的文字（field 为 null 时是默认那一组）；只读要找的那个字段 */
   function lexemeFieldValues(l: Lexeme, field: string | null): string[] {
     const defs = (): string[] =>
-      l.senses.flatMap((se) => [...Object.values(se.definition), se.register])
+      l.senses.flatMap((se) => [...Object.values(se.definition), ...se.registers])
     const forms = (): string[] => Object.values(l.forms).map((f) => f.surface)
     const ipa = (): string[] => Object.values(l.pronunciations).map((pr) => pr.ipa)
     const etym = (): string[] => [
@@ -300,7 +300,7 @@
       case 'tag':
         return l.tags
       case 'register':
-        return l.senses.map((se) => se.register).filter(Boolean)
+        return l.senses.flatMap((se) => se.registers)
       case 'etym':
         return etym()
       case 'note':
@@ -330,7 +330,7 @@
   const registerOptions = $derived([
     ...new Set([
       ...t('lexicon.registerPresets').split(','),
-      ...project.lexemes.flatMap((l) => l.senses.map((se) => se.register)).filter(Boolean)
+      ...project.lexemes.flatMap((l) => l.senses.flatMap((se) => se.registers)).filter(Boolean)
     ])
   ])
   const isDup = (l: Lexeme): boolean => (lemmaCounts.get(l.languageId + ' ' + l.lemma) ?? 0) > 1
@@ -1289,9 +1289,6 @@
           }}><Plus size={14} />{t('lexicon.addSense')}</button
         >
       </div>
-      <datalist id="dl-registers"
-        >{#each registerOptions as r (r)}<option value={r}></option>{/each}</datalist
-      >
       {#each l.senses as s, i (s.id)}
         <div class="sense card">
           <div class="row">
@@ -1311,12 +1308,11 @@
             placeholder={t('lexicon.definition')}
             onchange={() => touch(l)}
           />
-          <input
-            class="input"
-            list="dl-registers"
-            placeholder={t('lexicon.register')}
-            bind:value={s.register}
-            oninput={() => touch(l)}
+          <TagInput
+            bind:tags={s.registers}
+            suggestions={registerOptions}
+            placeholder={t('lexicon.registersPlaceholder')}
+            onchange={() => touch(l)}
           />
         </div>
       {/each}
