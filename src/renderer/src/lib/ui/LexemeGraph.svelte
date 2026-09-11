@@ -12,7 +12,7 @@
     findLanguageByName,
     morphemeLabel
   } from '$lib/core/etymology'
-  import { relationLabel } from '$lib/ui/labels'
+  import { etymologyTypeLabel, relationLabel } from '$lib/ui/labels'
 
   let {
     project,
@@ -140,7 +140,7 @@
               ? (project.lexemes.find((x) => x.id === ms.id)?.lemma ?? '?')
               : ms.form
         if (!form) continue
-        const edge = t(`lexicon.etyTypes.${m ? m.etymology.type : 'unknown'}`)
+        const edge = etymologyTypeLabel(m ? m.etymology.type : 'unknown')
         if (ms.kind === 'external')
           sources.push(...externalNodes(`msrc${i}-${j}`, ms.language, ms.form, ms.meaning, edge))
         else
@@ -183,7 +183,7 @@
         sub: defOf(x.id),
         lexemeId: x.id,
         kind: 'lexeme',
-        edge: t(`lexicon.etyTypes.${x.etymology.type}`),
+        edge: etymologyTypeLabel(x.etymology.type),
         x: 0,
         y: 0
       }))

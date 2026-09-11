@@ -30,6 +30,8 @@ export interface Project {
   phrasebook: Phrase[]
   abbreviations: Abbreviation[]
   docs: DocPage[]
+  /** 词条检视器里用户自己加的模块（异体字、文化注释……），在「词类与维度」里定义 */
+  customFields: CustomField[]
   settings: ProjectSettings
 }
 
@@ -392,6 +394,8 @@ export interface Lexeme {
   /** 用户标注的词间关系（同义、反义、参见……种类自定义） */
   relations: LexemeRelation[]
   notes: string
+  /** 检视器模块的内容：模块 id → 文字（列表型用顿号隔开）；一个都没填就没有这个字段 */
+  custom?: Record<Id, string>
   createdAt: string
   updatedAt: string
 }
@@ -405,6 +409,36 @@ export interface LexemeImage {
 export interface LexemeRelation {
   kind: string
   lexemeId: Id
+}
+
+/** 检视器模块的内容怎么录：text 一段文字（可以换行）；list 几项（顿号、逗号、分号隔开，词条卡里一项一个框） */
+export type CustomFieldKind = 'text' | 'list'
+export const CUSTOM_FIELD_KINDS: CustomFieldKind[] = ['text', 'list']
+/** 模块在词条卡里放在哪：释义上方 / 释义与词源之间（默认）/ 词源下方 / 最下面 */
+export type CustomFieldPosition = 'beforeSenses' | 'afterSenses' | 'afterEtymology' | 'end'
+export const CUSTOM_FIELD_POSITIONS: CustomFieldPosition[] = [
+  'beforeSenses',
+  'afterSenses',
+  'afterEtymology',
+  'end'
+]
+
+/**
+ * 检视器模块：用户给词条加的一块内容（异体字、文化注释、地域分布……），不用为每门语言往软件里加字段。
+ * 词条卡按 position 排进去；CSV 导入时列名跟标题或别名一样就对上这一列。
+ */
+export interface CustomField {
+  id: Id
+  /** 标题（按释义语言写） */
+  name: LocalizedText
+  kind: CustomFieldKind
+  position: CustomFieldPosition
+  /** 只给这几门语言的词条用；空着是所有语言 */
+  languageIds: Id[]
+  /** 内容用哪套文字的字体显示（异体字这类）；null 用正文字体 */
+  scriptId: Id | null
+  /** 导入时除了标题还认这些列名 */
+  aliases: string[]
 }
 
 export interface Sense {
@@ -485,6 +519,8 @@ export interface Paradigm {
   name: LocalizedText
   /** 变体列表；空表示只有一套形式 */
   variants: ParadigmVariant[]
+  /** 没选变体时那一套的名字；空着显示「通用」 */
+  baseVariantName?: string
   /** 参与笛卡尔积的维度 */
   dimensionIds: Id[]
   /** 被屏蔽的组合，键为槽位 key */

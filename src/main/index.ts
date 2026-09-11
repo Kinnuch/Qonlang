@@ -16,6 +16,13 @@ import { spawn } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import gilatodFont from '../../resources/fonts/Gilatod_unicode.otf?asset'
+import {
+  DEFAULT_HEIGHT,
+  DEFAULT_WIDTH,
+  WINDOW_STATE_VERSION,
+  fitWindowState,
+  type WindowState
+} from './windowState'
 
 const APP_ID = 'io.github.kinnuch.qonlang'
 const GUIDE_URL = 'https://kinnuch.github.io/cerf/qonlang/'
@@ -327,14 +334,6 @@ const dialogText = {
   }
 }
 
-interface WindowState {
-  width: number
-  height: number
-  x?: number
-  y?: number
-  maximized?: boolean
-}
-
 /** 上次关窗时的大小与位置；读不到就用默认值 */
 function readWindowState(): WindowState {
   try {
@@ -346,12 +345,13 @@ function readWindowState(): WindowState {
         height: Math.max(600, Math.round(w.height)),
         x: typeof w.x === 'number' ? Math.round(w.x) : undefined,
         y: typeof w.y === 'number' ? Math.round(w.y) : undefined,
-        maximized: !!w.maximized
+        maximized: !!w.maximized,
+        v: typeof w.v === 'number' ? w.v : 1
       }
   } catch {
     // 头一次启动，或者文件坏了，用默认值
   }
-  return { width: 1280, height: 820 }
+  return { width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT, v: WINDOW_STATE_VERSION }
 }
 
 function saveWindowState(): void {
@@ -360,7 +360,11 @@ function saveWindowState(): void {
   const b = maximized ? mainWindow.getNormalBounds() : mainWindow.getBounds()
   try {
     // 同步写：关窗时进程随即退出，异步写来不及落盘
-    writeFileSync(windowFile(), JSON.stringify({ ...b, maximized }, null, 2), 'utf8')
+    writeFileSync(
+      windowFile(),
+      JSON.stringify({ ...b, maximized, v: WINDOW_STATE_VERSION }, null, 2),
+      'utf8'
+    )
   } catch {
     // 记不住窗口大小不该影响正常使用
   }
@@ -380,6 +384,12 @@ function createWindow(): void {
     ws.x = undefined
     ws.y = undefined
   }
+  // 按记录所在的屏幕放进工作区（旧版记下的窄窗口先放宽一次）
+  const display =
+    ws.x !== undefined && ws.y !== undefined
+      ? screen.getDisplayMatching({ x: ws.x, y: ws.y, width: ws.width, height: ws.height })
+      : screen.getPrimaryDisplay()
+  Object.assign(ws, fitWindowState(ws, display.workArea))
   mainWindow = new BrowserWindow({
     width: ws.width,
     height: ws.height,

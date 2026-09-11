@@ -62,6 +62,7 @@ const TABLE_LABELS: Record<string, string> = {
   phrasebook: '短语',
   abbreviations: '缩写表',
   docs: '文档',
+  customFields: '检视器模块',
   chunks: '长内容分段'
 }
 

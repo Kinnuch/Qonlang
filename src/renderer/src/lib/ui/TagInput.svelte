@@ -11,7 +11,8 @@
     tags?: string[]
     suggestions?: string[]
     placeholder?: string
-    onchange?: () => void
+    /** 改完之后调用，带上现在的标签（没绑定 tags 时拿它写回去） */
+    onchange?: (tags: string[]) => void
   } = $props()
 
   let text = $state('')
@@ -24,13 +25,13 @@
       .filter(Boolean)
     if (parts.length) {
       for (const p of parts) if (!tags.includes(p)) tags.push(p)
-      onchange?.()
+      onchange?.(tags)
     }
     text = ''
   }
   function remove(i: number): void {
     tags.splice(i, 1)
-    onchange?.()
+    onchange?.(tags)
   }
   function onKey(e: KeyboardEvent): void {
     if (e.key === 'Enter' || e.key === ',' || e.key === '，') {

@@ -3,6 +3,7 @@
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { etymologyText } from '$lib/core/etymology'
   import type { Id, Morpheme, Project } from '$lib/core/model'
+  import { etymologyTypeLabel } from '$lib/ui/labels'
 
   let {
     morpheme,
@@ -68,7 +69,7 @@
     <section>
       <h4>{t('lexicon.etymology')}</h4>
       <p class="ety data">
-        <span class="muted">{t(`lexicon.etyTypes.${morpheme.etymology.type}`)}</span>
+        <span class="muted">{etymologyTypeLabel(morpheme.etymology.type)}</span>
         {etymologyText(project, morpheme.etymology, morpheme.form)}
       </p>
       {#if morpheme.etymology.notes}<p class="small muted">{morpheme.etymology.notes}</p>{/if}

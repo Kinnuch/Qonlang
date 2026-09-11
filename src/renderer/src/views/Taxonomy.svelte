@@ -3,10 +3,19 @@
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
-  import { newId } from '$lib/core/factory'
-  import type { GrammaticalCategory, Id, PartOfSpeech } from '$lib/core/model'
+  import { createCustomField, newId } from '$lib/core/factory'
+  import {
+    CUSTOM_FIELD_KINDS,
+    CUSTOM_FIELD_POSITIONS,
+    type CustomField,
+    type GrammaticalCategory,
+    type Id,
+    type PartOfSpeech
+  } from '$lib/core/model'
+  import { customFieldTitle } from '$lib/core/customFields'
   import { compoundLabels, isCompoundPos } from '$lib/core/pos'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
+  import TagInput from '$lib/ui/TagInput.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { Plus, Trash2, X, ChevronUp, ChevronDown, ArrowDownAZ } from '@lucide/svelte'
 
@@ -93,6 +102,49 @@
     ;[arr[i], arr[j]] = [arr[j], arr[i]]
     projectState.touch()
   }
+  // ───── 检视器模块 ─────
+  function customUse(f: CustomField): number {
+    return project.lexemes.filter((l) => !!l.custom?.[f.id]?.trim()).length
+  }
+  function addCustomField(): void {
+    project.customFields.push(createCustomField())
+    projectState.touch()
+  }
+  /** 删模块连同各词条里填的内容一起删；撤销时都放回去 */
+  function removeCustomField(f: CustomField): void {
+    const idx = project.customFields.indexOf(f)
+    const snap = $state.snapshot(f) as CustomField
+    const filled = project.lexemes.flatMap((l) =>
+      l.custom && f.id in l.custom ? [[l.id, l.custom[f.id]] as const] : []
+    )
+    project.customFields.splice(idx, 1)
+    for (const l of project.lexemes)
+      if (l.custom && f.id in l.custom) {
+        delete l.custom[f.id]
+        if (!Object.keys(l.custom).length) delete l.custom
+      }
+    projectState.touch()
+    ui.toast(t('taxonomy.deletedCustomField', { name: customFieldTitle(snap, glossLangs) }), {
+      action: {
+        label: t('common.undo'),
+        run: () => {
+          project.customFields.splice(Math.min(idx, project.customFields.length), 0, snap)
+          for (const [id, v] of filled) {
+            const l = project.lexemes.find((x) => x.id === id)
+            if (l) l.custom = { ...l.custom, [snap.id]: v }
+          }
+          projectState.touch()
+        }
+      }
+    })
+  }
+  /** 字体候选：项目里的每套文字，前面带上语言名 */
+  const scriptChoices = $derived(
+    project.languages.flatMap((lg) =>
+      lg.scripts.map((sc) => ({ id: sc.id, label: `${lg.name} · ${sc.name}` }))
+    )
+  )
+
   function sortBy<T>(arr: T[], key: (x: T) => string): void {
     const sorted = [...arr].sort((a, b) =>
       key(a).localeCompare(key(b), undefined, { sensitivity: 'base' })
@@ -316,6 +368,128 @@
       </div>
     {/each}
   </section>
+
+  <section>
+    <div class="row head">
+      <h3 class="grow">
+        {t('taxonomy.customFields')}
+        <HelpDot tip={t('taxonomy.customFieldsHint')} />
+      </h3>
+      <button class="btn sm" onclick={addCustomField}
+        ><Plus size={14} />{t('taxonomy.addCustomField')}</button
+      >
+    </div>
+    {#each project.customFields as f (f.id)}
+      <div class="card item">
+        <div class="grow">
+          <LocalizedInput
+            bind:value={f.name}
+            languages={glossLangs}
+            placeholder={t('taxonomy.customFieldName')}
+            onchange={() => projectState.touch()}
+          />
+        </div>
+        <div class="field pick">
+          <label for={`cf-kind-${f.id}`}>{t('taxonomy.customKind')}</label>
+          <select
+            id={`cf-kind-${f.id}`}
+            class="select"
+            bind:value={f.kind}
+            onchange={() => projectState.touch()}
+          >
+            {#each CUSTOM_FIELD_KINDS as k (k)}<option value={k}
+                >{t(`taxonomy.customKinds.${k}`)}</option
+              >{/each}
+          </select>
+        </div>
+        <div class="field pick">
+          <label for={`cf-pos-${f.id}`}>{t('taxonomy.customPosition')}</label>
+          <select
+            id={`cf-pos-${f.id}`}
+            class="select"
+            bind:value={f.position}
+            onchange={() => projectState.touch()}
+          >
+            {#each CUSTOM_FIELD_POSITIONS as ps (ps)}<option value={ps}
+                >{t(`taxonomy.customPositions.${ps}`)}</option
+              >{/each}
+          </select>
+        </div>
+        <span class="small muted use">{t('taxonomy.inUse', { n: customUse(f) })}</span>
+        <button
+          class="btn ghost icon sm"
+          title={t('lexicon.moveUp')}
+          onclick={() => moveIn(project.customFields, f, -1)}><ChevronUp size={14} /></button
+        >
+        <button
+          class="btn ghost icon sm"
+          title={t('lexicon.moveDown')}
+          onclick={() => moveIn(project.customFields, f, 1)}><ChevronDown size={14} /></button
+        >
+        <button
+          class="btn ghost icon sm danger"
+          title={t('common.delete')}
+          onclick={() => removeCustomField(f)}><Trash2 size={14} /></button
+        >
+        <div class="stems">
+          <span class="small muted">{t('taxonomy.customLanguages')}</span>
+          {#if !f.languageIds.length}<span class="small">{t('taxonomy.customAllLanguages')}</span
+            >{/if}
+          {#each f.languageIds as lid (lid)}
+            <span class="part-chip"
+              >{project.languages.find((x) => x.id === lid)?.name ?? '?'}<button
+                class="btn ghost icon sm"
+                title={t('common.delete')}
+                onclick={() => {
+                  f.languageIds = f.languageIds.filter((x) => x !== lid)
+                  projectState.touch()
+                }}><X size={12} /></button
+              ></span
+            >
+          {/each}
+          <select
+            class="select part-add"
+            value=""
+            onchange={(e) => {
+              const el = e.currentTarget as HTMLSelectElement
+              if (el.value) {
+                f.languageIds = [...f.languageIds, el.value]
+                projectState.touch()
+              }
+              el.value = ''
+            }}
+          >
+            <option value="">{t('taxonomy.addLanguage')}</option>
+            {#each project.languages.filter((x) => !f.languageIds.includes(x.id)) as x (x.id)}<option
+                value={x.id}>{x.name}</option
+              >{/each}
+          </select>
+          <span class="small muted gap-left">{t('taxonomy.customScript')}</span>
+          <select
+            class="select part-add"
+            value={f.scriptId ?? ''}
+            onchange={(e) => {
+              f.scriptId = (e.currentTarget as HTMLSelectElement).value || null
+              projectState.touch()
+            }}
+          >
+            <option value="">{t('taxonomy.customScriptNone')}</option>
+            {#each scriptChoices as sc (sc.id)}<option value={sc.id}>{sc.label}</option>{/each}
+          </select>
+        </div>
+        <div class="stems">
+          <span class="small muted">{t('taxonomy.customAliases')}</span>
+          <div class="grow">
+            <TagInput
+              bind:tags={f.aliases}
+              placeholder={t('taxonomy.customAliasesPlaceholder')}
+              onchange={() => projectState.touch()}
+            />
+          </div>
+        </div>
+      </div>
+    {/each}
+  </section>
 </div>
 
 <style>
@@ -404,5 +578,12 @@
   }
   .self-start {
     align-self: flex-start;
+  }
+  .pick {
+    width: 150px;
+    margin: 0;
+  }
+  .gap-left {
+    margin-left: 12px;
   }
 </style>

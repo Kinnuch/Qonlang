@@ -20,11 +20,13 @@ import {
   createSense,
   createPhrase,
   createDoc,
+  createCustomField,
   newId
 } from '$lib/core/factory'
 import { serializeProject } from '$lib/core/serialize'
 import { inferFeatures } from '$lib/ipa/features'
 import { analyzeSentence } from '$lib/engine/gloss'
+import { homographIds, piecesOf, rankHomographs } from '$lib/engine/gloss/candidates'
 import { makeContext, deriveForms, paradigmFor } from '$lib/engine/morph'
 import type {
   GrammaticalCategory,
@@ -105,12 +107,29 @@ function svgImage(label: string, color: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240"><rect width="320" height="240" fill="${color}"/><text x="160" y="134" font-size="40" text-anchor="middle" fill="#fff" font-family="sans-serif">${label}</text></svg>`
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg)
 }
-/** 跑一遍自动分析；认得出来的标成已确认，示例打开就是「做完」的样子 */
+/**
+ * 跑一遍自动分析；认得出来的标成已确认，示例打开就是「做完」的样子。
+ * 几个同形词条时先按这句自己的译文挑（跟语料页挑候选同一个判断），挑不出来就留着不确认。
+ */
 function analyzeAll(p: Project, sentences: Sentence[]): number {
   let bad = 0
+  const defPieces = (id: Id): string[] => {
+    const l = p.lexemes.find((x) => x.id === id)
+    return l ? piecesOf(l.senses.flatMap((se) => Object.values(se.definition)).join('；')) : []
+  }
   for (const s of sentences) {
     analyzeSentence(p, s, { force: true })
     for (const t of s.tokens) {
+      const ids = homographIds(t)
+      if (ids.length > 1) {
+        const ranked = rankHomographs(ids, s, undefined, defPieces)
+        if (ranked.length !== 1) {
+          bad++
+          continue
+        }
+        const at = t.analyses.findIndex((x) => x.lexemeId === ranked[0] && x.morphs.length === 1)
+        if (at >= 0) t.chosen = at
+      }
       const a = t.analyses[t.chosen]
       if (a && !a.morphs.some((m) => m.gloss === '?')) t.confirmed = true
       else bad++
@@ -146,7 +165,7 @@ function makeAelith(): void {
   const p = createProject({
     name: 'Aelith',
     template: 'family',
-    appVersion: '0.6.5',
+    appVersion: '0.7.3',
     uiLocale: 'zh'
   })
   p.meta.author = '千语集示例'
@@ -231,6 +250,22 @@ function makeAelith(): void {
   const A = pos(p, '形容词', 'adjective', 'adj.')
   const PRO = pos(p, '代词', 'pronoun', 'pron.')
   const PART = pos(p, '小品词', 'particle', 'part.')
+  // 词干槽：动词有「词干 / 过去词干」两个，词条录入时逐个填，构形流水线的「词干」从这里挑
+  N.stemSlots = [{ name: '词干', notes: '词头本身' }]
+  A.stemSlots = [{ name: '词干', notes: '词头本身' }]
+  V.stemSlots = [
+    { name: '词干', notes: '词头去掉末尾的连字符；现在时与大多数形式从这里起' },
+    { name: '过去词干', notes: '只有不规则动词有（如 ol- 的 oldu），过去时从这里起' }
+  ]
+  // 复合词类：一个词既当形容词又当名词，每个义项各记一个（构形沿用组成词类的）
+  const AN: PartOfSpeech = {
+    id: newId(),
+    name: { zh: '形容词/名词', en: 'adjective/noun' },
+    abbr: 'adj./n.',
+    paradigmId: null,
+    components: [A.id, N.id]
+  }
+  p.posList.push(AN)
   const num = category(p, '数', 'number', [
     ['单数', 'singular', 'SG'],
     ['复数', 'plural', 'PL']
@@ -514,8 +549,19 @@ function makeAelith(): void {
   nolNorth.dialectIds = [northDialect.id]
   nol.senses.push(nolNorth)
   nol.images.push({ id: newId(), dataUrl: svgImage('nöl', '#d97706'), caption: '太阳' })
-  // 同形兼类：kara 既是形容词也当名词「黑色」
-  lex.get('kara')!.extraPosIds = [N.id]
+  // 同形兼类：kara 设成复合词类「形容词/名词」，两个义项各记自己的词类（跟词条不同的在词条卡里淡色标出）
+  const kara = lex.get('kara')!
+  kara.posId = AN.id
+  kara.senses[0].posId = A.id
+  const karaNoun = createSense()
+  karaNoun.definition = { zh: '黑色', en: 'the colour black' }
+  karaNoun.posId = N.id
+  kara.senses.push(karaNoun)
+  // 一个义项几个语域：词条卡里并排几个方框
+  const dunarMortal = createSense()
+  dunarMortal.definition = { zh: '人世；尘世', en: 'the mortal world' }
+  dunarMortal.registers = ['文学', '宗教']
+  lex.get('dünar')!.senses.push(dunarMortal)
   const rel = (a: string, kind: string, b: string): void => {
     lex.get(a)!.relations.push({ kind, lexemeId: lex.get(b)!.id })
   }
@@ -524,6 +570,9 @@ function makeAelith(): void {
   rel('göl', 'related', 'teli')
   rel('kel-', 'antonym', 'git-')
   rel('kaso', 'related', 'dünar')
+  // 关系种类可以自己写
+  rel('göl', '押韵', 'nöl')
+  rel('nöl', '押韵', 'göl')
   // 派生词、复合词、借词：三种词源
   const kasolu = createLexeme(L.id, 'kasolu')
   kasolu.posId = N.id
@@ -572,6 +621,23 @@ function makeAelith(): void {
     notes: '自定义来源里带连字符的形式，关系图会拆成两个节点。'
   }
   p.lexemes.push(sawa)
+  // 自定义词源类别：不在内置列表里就直接写字；中间态也可以有自己的类别
+  const bilkaso = createLexeme(L.id, 'bilkaso')
+  bilkaso.posId = N.id
+  bilkaso.senses[0].definition = {
+    zh: '学堂（仿 Tsahun 的「学-房子」）',
+    en: 'school (calqued on Tsahun “learn-house”)'
+  }
+  bilkaso.tags = ['复合', '建筑']
+  bilkaso.features[harmony.id] = value(harmony, 'B')
+  bilkaso.stems = { 词干: 'bilkaso' }
+  bilkaso.etymology = {
+    type: '仿译',
+    sources: [{ kind: 'external', language: 'Tsahun', form: 'hok33-wa55', meaning: '学-房子' }],
+    stages: [{ id: newId(), form: 'bil-kaso', type: 'compound', notes: '先照字面拼成复合词' }],
+    notes: '类别写的是「仿译」，内置列表里没有，词条卡原样显示。'
+  }
+  p.lexemes.push(bilkaso)
   // 祖语也有词条：现代词的来源指向它，关系图里可以跨语言跳
   const pKasu = createLexeme(P.id, 'kasu')
   pKasu.posId = N.id
@@ -651,6 +717,8 @@ function makeAelith(): void {
   // 动词：变体「口语」把第一人称的 -Ŭm 换成 -Ŭ；否定现在第三人称用迂说法，屏蔽掉
   const spoken = { id: newId(), name: '口语' }
   const verbP = paradigm(p, '动词', 'verb', [polarity, tense, person], { variants: [spoken] })
+  // 没选变体时那一套也可以改名（默认叫「通用」）
+  verbP.baseVariantName = '书面'
   const personSuffix: Record<string, string> = { '1': '¢Ŭm', '2': '¢sAn', '3': '' }
   for (const po of polarity.values)
     for (const te of tense.values)
@@ -746,6 +814,17 @@ function makeAelith(): void {
     位格: { surface: 'bizde', derived: false, override: true, trace: [] },
     与格: { surface: 'bizke', derived: false, override: true, trace: [] }
   }
+  // 作用于所有词的构形：小品词 ve「和」后面，下一个词词首的清塞音浊化（tovar → dovar）。
+  // 不往词条里写形式；语料分词时拿它反推，dovar 认成 tovar「朋友」
+  const sandhi = category(p, '连读', 'sandhi', [['浊化', 'voicing', 'VOI']])
+  const sandhiP = paradigm(p, '连读浊化', 'sandhi voicing', [sandhi], {
+    appliesToAll: true,
+    appliesToLanguageId: L.id
+  })
+  sandhiP.generators[value(sandhi, 'VOI')] = pipeline(
+    '',
+    step('adjust', { text: ['p > b / #_', 't > d / #_', 'k > g / #_'].join('\n') })
+  )
   console.log(`  Aelith 推导屈折形 ${deriveAll(p, L)} 个`)
 
   // ── 文字：卢恩区做一套刻文 ──
@@ -790,6 +869,25 @@ function makeAelith(): void {
   L.scripts.push(runes)
   kaso.scriptForms[runes.id] = 'ᚲᚨᛊᛟ'
 
+  // ── 检视器模块：词库本身没有的内容自己加一块（「词库 → 词类与维度」最下面定义）──
+  const culture = createCustomField({ zh: '文化注释', en: 'Cultural note' })
+  culture.languageIds = [L.id]
+  culture.aliases = ['culture', '文化']
+  const runeVariants = createCustomField({ zh: '刻文异体', en: 'Rune variants' })
+  runeVariants.kind = 'list'
+  runeVariants.position = 'afterEtymology'
+  runeVariants.scriptId = runes.id
+  runeVariants.languageIds = [L.id]
+  p.customFields.push(culture, runeVariants)
+  kaso.custom = {
+    [culture.id]: '盖新房时在门槛下埋一块湖边的石头（muk），盼房子像石头一样稳。',
+    [runeVariants.id]: 'ᚲᚨᛊᛟ、ᚲᛊ'
+  }
+  nol.custom = {
+    [culture.id]: '北方话把「太阳」引申成「白天」；问候语 nöl sen 字面是「太阳你」。'
+  }
+  lex.get('sepe')!.custom = { [runeVariants.id]: 'ᛊᛖᛈᛖ、ᛊᛈ' }
+
   // ── 语料 ──
   const sentences: [string, string, string, string, string[]][] = [
     [
@@ -827,7 +925,15 @@ function makeAelith(): void {
       'The householder and the child are at the lake.',
       '民歌',
       ['派生']
-    ]
+    ],
+    [
+      'ilen ve dovar gölde',
+      '孩子和朋友在湖边。',
+      'The child and the friend are at the lake.',
+      '民歌',
+      ['连读']
+    ],
+    ['Mira kasoda jatdu', 'Mira 在房子里睡了。', 'Mira slept in the house.', '民歌', ['人名']]
   ]
   const sents: Sentence[] = []
   for (const [text, zh, en, source, tags] of sentences) {
@@ -842,9 +948,15 @@ function makeAelith(): void {
   }
   sents[0].extraLines.push({ label: '直译', text: '孩子-复数 房子-位格 睡-过去' })
   sents[0].notes = '教科书例句：数与格叠加在同一个词上。'
+  // 例句可以手填文字写法（盖过按规则转写的）：这里在词之间加了卢恩分隔点
+  sents[1].scriptForms[runes.id] = 'ᛗᛖᚾ᛫ᛏᛖᛚᛁᛗ᛫ᚨᛚᛞᚢᛗ'
+  sents[6].notes = 'dovar 是 tovar 在 ve 后面浊化的样子，靠构形「连读浊化」反推认出来。'
+  sents[7].notes =
+    'Mira 是人名，词库里没有：悬浮时写明「没有找到」，可以在搜索框里指定一个词条，也可以留着不管。'
   const badAe = analyzeAll(p, sents)
   kaso.senses[0].examples.push(sents[0].id)
   lex.get('ilen')!.senses[0].examples.push(sents[0].id, sents[5].id)
+  lex.get('tovar')!.senses[0].examples.push(sents[3].id, sents[6].id)
   if (badAe) console.log(`  Aelith 语料里还有 ${badAe} 个词没认出来`)
 
   // ── 短语簿 ──
@@ -892,11 +1004,12 @@ function makeAelith(): void {
     '- **文字**：卢恩刻文、映射规则、手填的文字写法',
     '- **音变**：两套规则集，阶段绑定语言，测试台词表',
     '- **语素**：词根 / 前缀 / 后缀 / 中缀 / 环缀 / 附着词 / 小品词，异体形环境，词源',
-    '- **词库**：多义项、语域、方言、标签、维度、词源链（词根 / 复合 / 派生 / 音变 / 借词）、关系、配图、手改发音',
-    '- **构形**：流水线的八种步骤（前缀、后缀、中缀、环缀、音变、模板、重叠、微调）、变体、继承、屏蔽槽位、手填表',
-    '- **语料**：已 gloss 并确认的例句、其他正字法、自由行、出处与标签',
+    '- **词库**：多义项、一个义项几个语域（dünar）、方言、标签、维度、复合词类与义项自己的词类（kara）、词干槽、词源链（词根 / 复合 / 派生 / 音变 / 借词 / 自己写的类别「仿译」）、自定义关系种类（押韵）、配图、手改发音',
+    '- **检视器模块**：「词类与维度」最下面定义的「文化注释」与「刻文异体」（用刻文的字体显示），打开 kaso、nöl、sepe 看',
+    '- **构形**：流水线的八种步骤（前缀、后缀、中缀、环缀、音变、模板、重叠、微调）、变体（基础那套改名叫「书面」）、继承、屏蔽槽位、手填表、作用于所有词的「连读浊化」（ve 后面 tovar → dovar）',
+    '- **语料**：已 gloss 并确认的例句、其他正字法、手填的文字写法、自由行、出处与标签；dovar 靠「连读浊化」反推认出；人名 Mira 故意没进词库，悬浮时是「没有找到」',
     '- **短语**：分类、变体、发音、方括号占位符',
-    '- **文档**：项目级与语言级页面',
+    '- **文档**：项目级与语言级页面，写 `[[kaso]]` 就能点到词库里的词',
     '- **设置**：导出模板、缩写表',
     '',
     '想看孤立语、声调、音节文字与竖排，请打开另一个示例 **Tsahun**。'
@@ -914,14 +1027,17 @@ function makeAelith(): void {
     '',
     '| | 单数 | 复数 |',
     '|---|---|---|',
-    '| 主格 | kaso | kasolar |',
+    '| 主格 | [[kaso]] | kasolar |',
     '| 位格 | kasoda | kasolarda |',
     '',
     '## 动词',
     '词根-否定-时-人称：`sör-me-dü-m` 我没看见。第三人称零标记，否定现在第三人称用迂说法（构形里已屏蔽）。',
     '',
     '## 疑问',
-    '句末附着词 =mU：`sen kelsen mü`。'
+    '句末附着词 =mU：`sen kelsen mü`。',
+    '',
+    '## 连读',
+    '小品词 ve 后面，下一个词词首的 p t k 浊化：`ilen ve dovar`（[[tovar]]「朋友」）。构形页的「连读浊化」作用于所有词，语料分词时反推回原形。'
   ].join('\n')
   const protoDoc = createDoc(P.id, '祖语拟构说明')
   protoDoc.markdown =
@@ -947,7 +1063,8 @@ function makeAelith(): void {
     ['AGT', '施事名词化', 'agent nominalizer'],
     ['DIM', '小称', 'diminutive'],
     ['SUP', '最高级', 'superlative'],
-    ['PRIV', '无…的', 'privative']
+    ['PRIV', '无…的', 'privative'],
+    ['VOI', '连读浊化', 'sandhi voicing']
   ])
   p.settings.exportTemplates.push(
     {
@@ -973,7 +1090,7 @@ function makeTsahun(): void {
   const p = createProject({
     name: 'Tsahun',
     template: 'blank',
-    appVersion: '0.6.5',
+    appVersion: '0.7.3',
     uiLocale: 'zh'
   })
   p.meta.author = '千语集示例'
@@ -1091,6 +1208,7 @@ function makeTsahun(): void {
   const PRO = pos(p, '代词', 'pronoun', 'pron.')
   const PART = pos(p, '小品词', 'particle', 'part.')
   const NUM = pos(p, '数词', 'numeral', 'num.')
+  N.stemSlots = [{ name: '词干', notes: '单音节词本身；重叠复数从这里起' }]
   const number = category(p, '数', 'number', [
     ['单数', 'singular', 'SG'],
     ['复数', 'plural', 'PL']
@@ -1117,6 +1235,8 @@ function makeTsahun(): void {
     ['pak51', A, '大', 'big', ['尺寸']],
     ['sin35', A, '小', 'small', ['尺寸']],
     ['hok33', A, '红', 'red', ['颜色']],
+    // 同形词：跟上面的「红」同音同调，语料里按译文挑
+    ['hok33', V, '学；学习', 'learn; study', ['认知']],
     ['ngo21', PRO, '我', 'I', []],
     ['ni33', PRO, '你', 'you', []],
     ['ta51', PRO, '他 / 她', 'he / she', []],
@@ -1124,6 +1244,7 @@ function makeTsahun(): void {
     ['lo21', PART, '疑问语气', 'question particle', []],
     ['ka55', PART, '领属连接', 'possessive linker', []],
     ['mo35', PART, '否定', 'negation', []],
+    ['tui55', PART, '们（复数）', 'plural marker', []],
     ['it55', NUM, '一', 'one', ['数']],
     ['ni51', NUM, '二', 'two', ['数']],
     ['sam33', NUM, '三', 'three', ['数']]
@@ -1146,7 +1267,7 @@ function makeTsahun(): void {
   const hu = lex.get('hu35')!
   const huWay = createSense()
   huWay.definition = { zh: '方法；办法', en: 'way; method' }
-  huWay.registers = ['书面']
+  huWay.registers = ['书面', '正式']
   hu.senses.push(huWay)
   hu.notes = '「路」引申为「方法」。'
   const tsa = lex.get('tsa55')!
@@ -1229,13 +1350,12 @@ function makeTsahun(): void {
     step('reduplication', { scope: 'initial', length: 2 })
   )
   A.paradigmId = adjP.id
-  const proP = paradigm(p, '代词（手填）', 'pronoun (table)', [number])
-  for (const v of number.values) proP.generators[v.id] = { kind: 'table' }
+  // 代词复数：后面空一格接 tui55「们」。@tui55 在语素表里没有，就引用词库里的同名词条；
+  // 推出来的 ngo21 tui55 带空格，语料里连着的两个词会并成一个认
+  const proP = paradigm(p, '代词（后接 tui55）', 'pronoun (+ tui55)', [number])
+  proP.generators[value(number, 'SG')] = pipeline('词干')
+  proP.generators[value(number, 'PL')] = pipeline('词干', step('suffix', { text: ' @tui55' }))
   PRO.paradigmId = proP.id
-  lex.get('ngo21')!.forms = {
-    单数: { surface: 'ngo21', derived: false, override: true, trace: [] },
-    复数: { surface: 'ngo21 lun35', derived: false, override: true, trace: [] }
-  }
   console.log(`  Tsahun 推导屈折形 ${deriveAll(p, L)} 个`)
 
   // ── 文字：音节文字（切罗基区），拼合 + 竖排 ──
@@ -1276,9 +1396,25 @@ function makeTsahun(): void {
     vowels: 'a i u e o'
   }
   syl.rules = '@glyphs'
+  // 括号连内容都不写：短语里 (lo21) 这种可省的语气词不进音节文字
+  syl.parens = 'omit'
   syl.notes =
     '拼合模式：mek → me + ka + 消音符。数字声调不写进文字。勾了「竖排显示」，语料与词库里都竖着排。'
   L.scripts.push(syl)
+
+  // ── 检视器模块：「异体字」用音节文字的字体显示在释义上方，「语用说明」放在最下面 ──
+  const glyphOf = (v: string): string => syl.glyphs.find((g) => g.value === v)?.char ?? ''
+  const variantChars = createCustomField({ zh: '异体字', en: 'Variant characters' })
+  variantChars.kind = 'list'
+  variantChars.position = 'beforeSenses'
+  variantChars.scriptId = syl.id
+  variantChars.aliases = ['variants', '异体']
+  const usage = createCustomField({ zh: '语用说明', en: 'Usage note' })
+  usage.position = 'end'
+  p.customFields.push(variantChars, usage)
+  lex.get('wa55')!.custom = { [variantChars.id]: [glyphOf('wa'), glyphOf('wo')].join('、') }
+  lex.get('lo21')!.custom = { [usage.id]: '只放在句末；熟人之间常省掉，短语簿里写成 (lo21)。' }
+  lex.get('ta33')!.custom = { [usage.id]: '紧跟在动词后面，中间不插别的词。' }
 
   // ── 语料 ──
   const sentences: [string, string, string, string, string[]][] = [
@@ -1305,7 +1441,11 @@ function makeTsahun(): void {
       'The people took the road.',
       '民间故事',
       ['复数', '重叠']
-    ]
+    ],
+    ['ngo21 tui55 lai33', '我们来了。', 'We came.', '语法书 · 代词复数', ['复数']],
+    ['ngo21 hok33 ta33', '我学了。', 'I studied.', '语法书 · 同形词', ['同形词']],
+    ['wa55 hok33', '房子是红的。', 'The house is red.', '语法书 · 同形词', ['同形词']],
+    ['hok33 lo21', '是这个吗？', 'Is it this one?', '语法书 · 同形词', ['同形词']]
   ]
   const sents: Sentence[] = []
   for (const [text, zh, en, source, tags] of sentences) {
@@ -1321,6 +1461,9 @@ function makeTsahun(): void {
   sents[0].extraLines.push({ label: '声调', text: '21 51 33 51' })
   sents[1].notes = '疑问语气词放句末。'
   const badTs = analyzeAll(p, sents)
+  // hok33 lo21 的译文分不出是「红」还是「学」，留着没确认：原文下画波浪线，悬浮时并排给两个候选
+  sents[sents.length - 1].notes =
+    'hok33 有「红」「学」两个同形词，这句的译文分不出来：悬浮时并排给候选，点「就是这个」固定下来。'
   lex.get('kwe51')!.senses[0].examples.push(sents[0].id)
   lex.get('lun35')!.senses[0].examples.push(sents[1].id, sents[5].id)
   if (badTs) console.log(`  Tsahun 语料里还有 ${badTs} 个词没认出来`)
@@ -1344,6 +1487,8 @@ function makeTsahun(): void {
   phrase('问候', 'hem55 ni33', '再见（字面：看你）', 'goodbye (lit. see you)')
   phrase('句式', 'ngo21 jam55 [数词] tsa55', '我给[数词]份水', 'I give [numeral] water')
   phrase('市集', 'sip51 pak51 lo21', '鱼大吗？', 'Is the fish big?')
+  // 括号里的可省；音节文字设了「括号连内容都不写」，文字行里没有 (lo21)
+  phrase('句式', 'ni33 hem55 (lo21)', '你看见了（吗）', 'You saw it (?)')
 
   // ── 文档、缩写、导出模板 ──
   const about = createDoc(null, '关于这个示例')
@@ -1355,16 +1500,18 @@ function makeTsahun(): void {
     '- **声调**：韵律类型选「声调」，五个调各有调符与数字',
     '- **双正字法**：罗马化（数字标调）与西里尔正字，例句可以并列两种写法',
     '- **文字**：音节文字的**拼合**（辅音+元音自动拼格，尾辅音用消音符）与**竖排显示**',
-    '- **构形**：孤立语也有构形——重叠出复数与强调，代词用手填表',
-    '- **语料**：重叠形也能被自动 gloss 认出来（`lun35lun35`）',
-    '- **词库**：同音异调的最小对、复合词、整套借入的数词'
+    '- **构形**：孤立语也有构形——重叠出复数与强调；代词复数后面空一格接 `@tui55`（语素表里没有就引用同名词条），推出带空格的 `ngo21 tui55`',
+    '- **语料**：重叠形也能被自动 gloss 认出来（`lun35lun35`），带空格的 `ngo21 tui55` 并成一个词认；`hok33 lo21` 里的同形词故意没确认，悬浮时并排给候选',
+    '- **词库**：同音异调的最小对、同形词 hok33（红 / 学）、复合词、整套借入的数词、一个义项几个语域（hu35）',
+    '- **检视器模块**：「异体字」用音节文字的字体显示在释义上方（wa55），「语用说明」放在最下面（lo21、ta33）',
+    '- **文字的括号设置**：音节文字设成「括号连内容都不写」，短语 `ni33 hem55 (lo21)` 的文字行里没有括号那段'
   ].join('\n')
   const doc = createDoc(L.id, 'Tsahun 语法概要')
   doc.markdown = [
     '# Tsahun 语法概要',
     '',
     '## 声调',
-    '五个声调：55 高平、35 升、21 低降、51 降、33 中平。同音节异调是不同的词：tsa55「水」/ tsa21「火」。',
+    '五个声调：55 高平、35 升、21 低降、51 降、33 中平。同音节异调是不同的词：[[tsa55]]「水」/ [[tsa21]]「火」。',
     '',
     '## 语序',
     'SVO；领属用 ka55 连接：`ta51 ka55 wa55` 他的房子。',
@@ -1373,7 +1520,7 @@ function makeTsahun(): void {
     '完成体 ta33 在动词后；否定 mo35 在动词前。',
     '',
     '## 复数',
-    '名词整词重叠：`lun35lun35` 人们。'
+    '名词整词重叠：`lun35lun35` 人们。代词后面接 [[tui55]]：`ngo21 tui55` 我们。'
   ].join('\n')
   p.docs.push(about, doc)
   abbrs(p, [

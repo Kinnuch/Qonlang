@@ -1,7 +1,8 @@
 <script lang="ts">
   /** 显示模式下的词条卡：只读、简约，把录入模式记录的信息排版出来 */
-  import type { Id, Lexeme, Project, Sense } from '$lib/core/model'
-  import { relationLabel } from '$lib/ui/labels'
+  import type { CustomFieldPosition, Id, Lexeme, Project, Sense } from '$lib/core/model'
+  import { etymologyTypeLabel, relationLabel } from '$lib/ui/labels'
+  import { customFieldScript, customFieldsFor, customItems } from '$lib/core/customFields'
   import { morphemeLabel } from '$lib/core/etymology'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { ui } from '$lib/state/ui.svelte'
@@ -53,6 +54,16 @@
       : []
   )
 
+  /** 检视器模块：这门语言用得上、又填了内容的，带上字体 */
+  const customs = $derived(
+    customFieldsFor(project, l.languageId)
+      .map((f) => {
+        const sc = customFieldScript(project, f)
+        return { f, value: (l.custom?.[f.id] ?? '').trim(), font: sc ? fontCss(sc) : undefined }
+      })
+      .filter((x) => x.value)
+  )
+
   function sourceText(s: Lexeme['etymology']['sources'][number]): { text: string; id?: Id } {
     if (s.kind === 'morpheme') {
       const m = project.morphemes.find((x) => x.id === s.id)
@@ -77,6 +88,22 @@
     return project.lexemes.find((x) => x.id === id)?.lemma ?? '?'
   }
 </script>
+
+{#snippet customBlocks(where: CustomFieldPosition)}
+  {#each customs.filter((x) => x.f.position === where) as x (x.f.id)}
+    <section>
+      <h4>{pickText(x.f.name, glossLangs)}</h4>
+      {#if x.f.kind === 'list'}
+        <div class="cf-items">
+          {#each customItems(x.value) as it, i (i)}<span class="cf-item" style={x.font}>{it}</span
+            >{/each}
+        </div>
+      {:else}
+        <p class="cf-text" style={x.font}>{x.value}</p>
+      {/if}
+    </section>
+  {/each}
+{/snippet}
 
 <article class="entry" class:has-img={!!l.images?.length}>
   {#if l.images?.[0]}
@@ -123,6 +150,8 @@
     </div>
   {/if}
 
+  {@render customBlocks('beforeSenses')}
+
   <ol class="senses">
     {#each l.senses as s (s.id)}
       {@const firstLang = glossLangs.find((g) => s.definition[g])}
@@ -156,12 +185,14 @@
     </div>
   {/if}
 
+  {@render customBlocks('afterSenses')}
+
   {#if l.etymology.sources.length || l.etymology.stages.length || l.etymology.notes}
     <section>
       <h4>{t('lexicon.etymology')}</h4>
       <p class="ety">
         {#if l.etymology.type !== 'unknown'}<span class="muted"
-            >{t(`lexicon.etyTypes.${l.etymology.type}`)}</span
+            >{etymologyTypeLabel(l.etymology.type)}</span
           >{/if}
         {#each l.etymology.sources as s, i (i)}
           {@const st = sourceText(s)}
@@ -179,6 +210,8 @@
       {#if l.etymology.notes}<p class="small muted">{l.etymology.notes}</p>{/if}
     </section>
   {/if}
+
+  {@render customBlocks('afterEtymology')}
 
   {#if filledStems.length || filledForms.length}
     <section>
@@ -235,6 +268,8 @@
       <p class="small notes">{l.notes}</p>
     </section>
   {/if}
+
+  {@render customBlocks('end')}
 </article>
 
 <style>
@@ -420,6 +455,23 @@
     gap: 8px;
   }
   .notes {
+    white-space: pre-wrap;
+  }
+  /* 检视器模块：列表一项一个框，文字照原样换行 */
+  .cf-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .cf-item {
+    padding: 1px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+  }
+  .cf-text {
+    font-size: 14px;
+    line-height: 1.6;
     white-space: pre-wrap;
   }
 </style>

@@ -17,7 +17,9 @@ import {
   type DocPage,
   type Script,
   type Sense,
-  type Etymology
+  type Etymology,
+  type CustomField,
+  type LocalizedText
 } from './model'
 
 export function newId(): Id {
@@ -117,6 +119,19 @@ export function createEtymology(): Etymology {
 
 export function createSense(): Sense {
   return { id: newId(), definition: {}, tags: [], dialectIds: [], registers: [], examples: [] }
+}
+
+/** 新的检视器模块：一段文字，放在释义与词源之间，所有语言都用 */
+export function createCustomField(name: LocalizedText = {}): CustomField {
+  return {
+    id: newId(),
+    name,
+    kind: 'text',
+    position: 'afterSenses',
+    languageIds: [],
+    scriptId: null,
+    aliases: []
+  }
 }
 
 export function createLexeme(languageId: Id, lemma = ''): Lexeme {
@@ -250,6 +265,7 @@ export function createProject(opts: CreateProjectOptions): Project {
     phrasebook: [],
     abbreviations: [],
     docs: [],
+    customFields: [],
     settings: {
       defaultLanguageId: languages[0]?.id ?? null,
       glossLanguages,

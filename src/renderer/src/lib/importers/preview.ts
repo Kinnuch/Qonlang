@@ -7,7 +7,7 @@ import type { Project } from '$lib/core/model'
 export const PREVIEW_LIMIT = 8
 
 /**
- * 临时副本：词类、维度各拷一份（导入会往里加），语言列表与设置换成浅拷贝（导入会往里加新语言、改默认语言），
+ * 临时副本：词类、维度各拷一份（导入会往里加），语言列表、检视器模块与设置换成浅拷贝（导入会往里加新语言、新模块，改默认语言），
  * 词条、语素、例句、短语、规则集、文档都从空的开始；其余只读着用。
  */
 export function scratchProject(p: Project): Project {
@@ -20,6 +20,7 @@ export function scratchProject(p: Project): Project {
     languages: p.languages.map((l) => ({ ...l, dialects: [...l.dialects] })),
     posList: clone(p.posList),
     categories: clone(p.categories),
+    customFields: [...(p.customFields ?? [])],
     lexemes: [],
     morphemes: [],
     sentences: [],

@@ -18,6 +18,7 @@
   import { flashChange, type FlashChangeArg } from '$lib/ui/flash'
   import { findPos, posText, sensePos } from '$lib/core/pos'
   import { registerShort } from '$lib/core/register'
+  import { customFieldTitle } from '$lib/core/customFields'
 
   let {
     kind,
@@ -160,7 +161,12 @@
           .join(' · ')
       ],
       [t('lexicon.features'), featureText(p, l.features)],
-      [t('common.notes'), l.notes]
+      [t('common.notes'), l.notes],
+      // 检视器模块：标题 · 内容
+      ...(p.customFields ?? []).map((f): [string, string] => [
+        customFieldTitle(f, langs) || '?',
+        l.custom?.[f.id] ?? ''
+      ])
     ])
   }
   function morphemeFacts(p: Project, m: Morpheme): Fact[] {

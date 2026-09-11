@@ -15,6 +15,13 @@
   import { derivePronunciations } from '$lib/core/pronounce'
   import { etymologyOrigin } from '$lib/core/etymology'
   import {
+    customFieldScript,
+    customFieldsFor,
+    customFieldTitle,
+    customItems,
+    setCustomValue
+  } from '$lib/core/customFields'
+  import {
     ensureCompoundPos,
     findPos,
     lexemePosIds,
@@ -36,6 +43,7 @@
   } from '$lib/engine/morph'
   import {
     ETYMOLOGY_TYPES,
+    type CustomFieldPosition,
     type Id,
     type Lexeme,
     type Paradigm,
@@ -264,8 +272,16 @@
     return m
   })
   const collator = $derived(makeCollator(language?.alphabet ?? []))
+  /** 搜索字段：内置的，再加每个检视器模块（标题或别名写成 标题=内容） */
+  const searchFields = $derived([
+    ...SEARCH_FIELDS.lexicon,
+    ...project.customFields.map((f) => ({
+      key: `custom:${f.id}`,
+      aliases: [...Object.values(f.name).filter(Boolean), ...f.aliases]
+    }))
+  ])
   const list = $derived.by(() => {
-    const pq = parseQuery(query, SEARCH_FIELDS.lexicon)
+    const pq = parseQuery(query, searchFields)
     const arr = inLang.filter((l) => {
       for (const [key, sel] of Object.entries(colFilters))
         if (!filterValues(l, key).some((v) => sel.has(v))) return false
@@ -331,9 +347,11 @@
         return lg ? lg.scripts.map((sc) => lexemeScript(lg, sc, l)) : []
       }
       default:
+        if (field?.startsWith('custom:')) return [l.custom?.[field.slice(7)] ?? '']
         return [
           l.lemma,
           l.notes,
+          ...Object.values(l.custom ?? {}),
           ...l.tags,
           ...defs(),
           ...Object.values(l.stems),
@@ -457,6 +475,11 @@
       cols.push({
         key: `feat:${c.id}`,
         label: `${t('lexicon.colFeature')}: ${pickText(c.name, glossLangs)}`
+      })
+    for (const f of langId ? customFieldsFor(project, langId) : project.customFields)
+      cols.push({
+        key: `custom:${f.id}`,
+        label: customFieldTitle(f, glossLangs) || t('taxonomy.customUntitled')
       })
     for (const lg of project.languages)
       if (!selLang || lg.id === selLang.id)
@@ -586,6 +609,7 @@
       const v = project.categories.find((c) => c.id === cid)?.values.find((x) => x.id === vid)
       return v ? pickText(v.name, glossLangs) || v.abbr : ''
     }
+    if (key.startsWith('custom:')) return (l.custom?.[key.slice(7)] ?? '').replace(/\n+/g, ' ')
     if (key.startsWith('stem:')) return l.stems[key.slice(5)] ?? ''
     if (key.startsWith('form:')) return l.forms[key.slice(5)]?.surface ?? ''
     if (key.startsWith('script:')) {
@@ -1262,6 +1286,40 @@
   </Portal>
 {/if}
 
+<!-- 检视器模块的录入框：跟词条卡一样按位置排 -->
+{#snippet customEditors(l: Lexeme, where: CustomFieldPosition)}
+  {#each customFieldsFor(project, l.languageId).filter((f) => f.position === where) as f (f.id)}
+    {@const sc = customFieldScript(project, f)}
+    {@const title = customFieldTitle(f, glossLangs) || t('taxonomy.customUntitled')}
+    <div class="field">
+      {#if f.kind === 'list'}
+        <span class="small muted">{title}</span>
+        <TagInput
+          tags={customItems(l.custom?.[f.id] ?? '')}
+          placeholder={t('lexicon.customListPlaceholder')}
+          onchange={(tags) => {
+            setCustomValue(l, f.id, tags.join('、'))
+            touch(l)
+          }}
+        />
+      {:else}
+        <label for={`cf-${f.id}`}>{title}</label>
+        <textarea
+          id={`cf-${f.id}`}
+          class="textarea"
+          rows="2"
+          style={sc ? fontCss(sc) : undefined}
+          value={l.custom?.[f.id] ?? ''}
+          oninput={(e) => {
+            setCustomValue(l, f.id, (e.currentTarget as HTMLTextAreaElement).value)
+            touch(l)
+          }}
+        ></textarea>
+      {/if}
+    </div>
+  {/each}
+{/snippet}
+
 {#if selected && mode === 'entries' && editMode}
   {@const l = selected}
   <Portal>
@@ -1374,6 +1432,8 @@
       </div>
     {/if}
 
+    {@render customEditors(l, 'beforeSenses')}
+
     <div class="field">
       <div class="row">
         <span class="small muted">{t('lexicon.senses')}</span><HelpDot key="senses" /><span
@@ -1445,6 +1505,8 @@
       {/each}
     </div>
 
+    {@render customEditors(l, 'afterSenses')}
+
     <div class="field">
       <div class="row">
         <span class="small muted">{t('lexicon.etymology')}</span><HelpDot key="etymology" />
@@ -1458,6 +1520,8 @@
         onchange={() => touch(l)}
       />
     </div>
+
+    {@render customEditors(l, 'afterEtymology')}
 
     <div class="field">
       <div class="row">
@@ -1663,7 +1727,9 @@
               rederive(l)
             }}
           >
-            <option value="">{t('paradigms.variantBase')}</option>
+            <option value=""
+              >{paradigmOf(l)?.baseVariantName?.trim() || t('paradigms.variantBase')}</option
+            >
             {#each paradigmOf(l)?.variants ?? [] as v (v.id)}<option value={v.id}>{v.name}</option
               >{/each}
           </select>
@@ -1794,6 +1860,8 @@
       <textarea id="lx-notes" class="textarea" bind:value={l.notes} oninput={() => touch(l)}
       ></textarea>
     </div>
+
+    {@render customEditors(l, 'end')}
 
     <LexemeExamples lexeme={l} {project} {glossLangs} />
 

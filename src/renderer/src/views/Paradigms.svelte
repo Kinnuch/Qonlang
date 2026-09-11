@@ -264,6 +264,8 @@
     })
   })
   const variants = $derived(active?.variants ?? [])
+  /** 没选变体时那一套的名字：用户改过就用改的 */
+  const baseName = $derived(active?.baseVariantName?.trim() || t('paradigms.variantBase'))
   /** 「2 × 6」这样的维度规模，用在槽位说明里 */
   const dimSizes = $derived(
     (active?.dimensionIds ?? [])
@@ -281,12 +283,17 @@
     editVariantId = v.id
     touch()
   }
+  /** 重命名选中的变体；没选变体时改的是基础那套的名字（清空或写回默认名就恢复默认） */
   async function renameVariant(): Promise<void> {
+    if (!active) return
     const v = variants.find((x) => x.id === editVariantId)
-    if (!v) return
-    const name = (await ui.prompt(t('paradigms.variantName'), v.name))?.trim()
-    if (!name) return
-    v.name = name
+    const name = (await ui.prompt(t('paradigms.variantName'), v ? v.name : baseName))?.trim()
+    if (name === undefined) return
+    if (v) {
+      if (!name) return
+      v.name = name
+    } else if (!name || name === t('paradigms.variantBase')) delete active.baseVariantName
+    else active.baseVariantName = name
     touch()
   }
   function removeVariant(): void {
@@ -607,7 +614,7 @@
           <span class="small muted">{t('paradigms.variants')}</span>
           <div class="seg">
             <button class:active={editVariantId === null} onclick={() => (editVariantId = null)}
-              >{t('paradigms.variantBase')}</button
+              >{baseName}</button
             >
             {#each variants as v (v.id)}
               <button class:active={editVariantId === v.id} onclick={() => (editVariantId = v.id)}
@@ -618,8 +625,8 @@
           <button class="btn ghost sm" onclick={addVariant}
             ><Plus size={13} />{t('paradigms.addVariant')}</button
           >
+          <button class="btn ghost sm" onclick={renameVariant}>{t('common.rename')}</button>
           {#if editVariantId}
-            <button class="btn ghost sm" onclick={renameVariant}>{t('common.rename')}</button>
             <button class="btn ghost sm danger" onclick={removeVariant}>{t('common.delete')}</button
             >
           {/if}

@@ -86,9 +86,9 @@ export default {
     exampleOpened: '已打开示例工程「{name}」',
     exampleDesc: {
       aelith:
-        '黏着先验语：祖语→现代语的语系、元音和谐、多槽位后缀、流水线构形的八种步骤、变体与继承、词源链与关系图、已 gloss 的语料、卢恩刻文。',
+        '黏着先验语：祖语→现代语的语系、元音和谐、流水线构形的八种步骤、变体与继承、连读浊化反推、复合词类、检视器模块、词源链与关系图、已 gloss 的语料、卢恩刻文。',
       tsahun:
-        '孤立声调语：五个声调、罗马化与西里尔双正字法、音节文字的拼合与竖排、重叠构形与手填表、量词与借词。'
+        '孤立声调语：五个声调、罗马化与西里尔双正字法、音节文字的拼合与竖排、重叠构形、带空格的屈折形、同形词候选、用文字字体显示的异体字模块。'
     },
     coffee: '请我喝咖啡',
     changelog: '更新日志',
@@ -681,6 +681,7 @@ export default {
     exampleKinds: { sentence: '语料', phrase: '短语', doc: '文档' },
     registerPresets: '日常,正式,口语,书面,文学,诗歌,宗教,神祇,古语,俚语,禁忌,敬语,学术,方言,儿语',
     registersPlaceholder: '语域（回车添加，可以几个）',
+    customListPlaceholder: '回车添加，可以几项',
     deleted: '已删除词条「{lemma}」',
     search: '搜索词库：单词、释义、屈折形、发音…',
     sort: '排序',
@@ -774,7 +775,30 @@ export default {
     valueAbbr: 'gloss 缩写',
     deletedPos: '已删除词类「{name}」',
     deletedCategory: '已删除维度「{name}」',
-    inUse: '{n} 个词条在用'
+    inUse: '{n} 个词条在用',
+    customFields: '检视器模块',
+    customFieldsHint:
+      '给词条加一块自己的内容（异体字、文化注释……）：录入模式里填，词条卡里显示。导入表格时，列名跟标题或别名一样就自动对上这一列。',
+    addCustomField: '新增模块',
+    customFieldName: '标题',
+    customUntitled: '未命名模块',
+    customKind: '内容',
+    customKinds: { text: '一段文字', list: '几项（顿号隔开）' },
+    customPosition: '位置',
+    customPositions: {
+      beforeSenses: '释义上方',
+      afterSenses: '释义与词源之间',
+      afterEtymology: '词源下方',
+      end: '最下面'
+    },
+    customLanguages: '用于',
+    customAllLanguages: '所有语言',
+    addLanguage: '＋ 语言',
+    customScript: '字体',
+    customScriptNone: '正文字体',
+    customAliases: '导入时也认的列名',
+    customAliasesPlaceholder: '列名（回车添加）',
+    deletedCustomField: '已删除模块「{name}」'
   },
   csv: {
     title: 'CSV 导入',
@@ -788,6 +812,8 @@ export default {
     targetMorphemes: '语素',
     language: '目标语言',
     mapping: '列映射',
+    mappingHint:
+      '表里有词库本身没有的列（异体字、文化注释……）？到「词类与维度」加一个检视器模块，标题或别名跟列名一样就自动对上；也可以在这里选「检视器模块」、写一个新标题，导入时自动新建。',
     column: '列',
     field: '字段',
     sample: '示例',
@@ -798,6 +824,7 @@ export default {
       definition: '释义',
       tags: '标签',
       notes: '备注',
+      custom: '检视器模块',
       protoForm: '词源来源',
       etymologyNotes: '词源说明',
       stem: '词干',
@@ -838,7 +865,7 @@ export default {
     formatGuideHint: '在网站上打开 CSV 的列名、写法与示例',
     markers: '单词、释义、备注里的标记',
     markersHint:
-      '【专】【古】这类方括号标记，序号后面紧跟的括号也算。一般设为语域；释义里的标记管到下一个标记或分号。',
+      '【专】【古】这类方括号标记；序号后面、词类缩写（n. adj.）后面紧跟的括号也算，括号里像一句说明的默认原样保留。一般设为语域；释义里的标记管到下一个标记或分号。',
     marker: '标记',
     markerCount: '次数 · 所在列',
     markerAction: '处理',
@@ -889,6 +916,9 @@ export default {
     reportPosMarked: '按词类标记设了词类的义项：{n} 个',
     reportNewCategories: '新建维度：{list}',
     reportNewDialects: '新建方言：{list}',
+    reportNewCustomFields: '新建检视器模块：{list}',
+    customName: '模块标题',
+    customNew: '将新建',
     needLemma: '至少要有一列映射为「词头 / 形式」。',
     preview: '预览（前 {n} 行）',
     paste: '或直接粘贴表格内容（从 Excel / Google 表格复制即可）',

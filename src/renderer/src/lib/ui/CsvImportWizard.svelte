@@ -12,6 +12,7 @@
   import {
     applyCsvImport,
     cleanMarkerRules,
+    defaultMarkerAction,
     defaultMapping,
     findMarkers,
     guessMapping,
@@ -36,6 +37,7 @@
     type PosRule
   } from '$lib/importers/csvImport'
   import { posName } from '$lib/core/pos'
+  import { customFieldTitle, findCustomField } from '$lib/core/customFields'
   import { PREVIEW_LIMIT, scratchProject } from '$lib/importers/preview'
   import Portal from './Portal.svelte'
   import ImportPreview from './ImportPreview.svelte'
@@ -83,7 +85,7 @@
     const cols = Math.max(0, ...rows.map((r) => r.length))
     const base = defaultMapping(lid, cols)
     base.target = initialTarget
-    mapping = guessMapping(rows[0] ?? [], base)
+    mapping = guessMapping(rows[0] ?? [], base, project.customFields)
     report = null
   }
 
@@ -95,6 +97,7 @@
     const lang = project.settings.glossLanguages[0] ?? 'en'
     const head = (header[i] ?? '').trim()
     const named = GENERIC_HEADER.test(head) ? '' : head
+    const firstCustom = project.customFields[0]
     const spec: FieldSpec =
       kind === 'definition'
         ? { kind, lang }
@@ -110,11 +113,20 @@
                   ? { kind, label: named }
                   : kind === 'relation'
                     ? { kind, relKind: 'related' }
-                    : kind === 'pronunciation'
-                      ? { kind, orthography: '' }
-                      : kind === 'scriptForm'
-                        ? { kind, script: '' }
-                        : ({ kind } as FieldSpec)
+                    : kind === 'custom'
+                      ? {
+                          kind,
+                          name:
+                            head ||
+                            (firstCustom
+                              ? customFieldTitle(firstCustom, project.settings.glossLanguages)
+                              : '')
+                        }
+                      : kind === 'pronunciation'
+                        ? { kind, orthography: '' }
+                        : kind === 'scriptForm'
+                          ? { kind, script: '' }
+                          : ({ kind } as FieldSpec)
     mapping.columns[i] = spec
   }
   /** 这一列能选的字段：按导入目标给；当前值不在里面（刚换了目标）也留着，免得下拉框里找不到 */
@@ -162,9 +174,9 @@
       ...project.lexemes.flatMap((l) => l.senses.flatMap((s) => s.registers)).filter(Boolean)
     ])
   ])
-  /** 没动过的标记默认映射成同名语域 */
+  /** 没动过的标记：像语域的默认映射成同名语域，括号里像一句说明的原样保留 */
   function ruleOf(label: string): MarkerRule {
-    return mapping?.senseMarkers?.[label] ?? { action: 'register', value: label }
+    return mapping?.senseMarkers?.[label] ?? { action: defaultMarkerAction(label), value: label }
   }
   function setRule(label: string, patch: Partial<MarkerRule>): void {
     if (!mapping) return
@@ -401,7 +413,7 @@
       >
     </div>
 
-    <h3>{t('csv.mapping')}</h3>
+    <h3>{t('csv.mapping')} <HelpDot tip={t('csv.mappingHint')} /></h3>
     <div class="table-wrap">
       <table class="map">
         <thead
@@ -489,6 +501,18 @@
                         >{sc.name}</option
                       >{/each}
                   </select>
+                {:else if spec.kind === 'custom'}
+                  <span class="row custom-param">
+                    <input
+                      class="input extra"
+                      bind:value={spec.name}
+                      placeholder={t('csv.customName')}
+                      list="csv-custom"
+                    />
+                    {#if spec.name.trim() && !findCustomField(project.customFields, spec.name)}<span
+                        class="badge">{t('csv.customNew')}</span
+                      >{/if}
+                  </span>
                 {/if}
               </td>
             </tr>
@@ -501,6 +525,11 @@
       <datalist id="csv-relkinds"
         >{#each relationKinds as k (k)}<option value={k}>{relationLabel(k)}</option
           >{/each}</datalist
+      >
+      <datalist id="csv-custom"
+        >{#each project.customFields as f (f.id)}<option
+            value={customFieldTitle(f, project.settings.glossLanguages)}
+          ></option>{/each}</datalist
       >
       <datalist id="gloss-langs"
         >{#each project.settings.glossLanguages as g (g)}<option value={g}
@@ -740,6 +769,9 @@
         {#if report.newDialects?.length}<div>
             {t('csv.reportNewDialects', { list: report.newDialects.join(', ') })}
           </div>{/if}
+        {#if report.newCustomFields?.length}<div>
+            {t('csv.reportNewCustomFields', { list: report.newCustomFields.join(', ') })}
+          </div>{/if}
         {#if report.marked}<div>{t('csv.reportMarked', { n: report.marked })}</div>{/if}
         {#if report.posMarked}<div>{t('csv.reportPosMarked', { n: report.posMarked })}</div>{/if}
         {#each report.warnings as w (w)}<div class="warn">{w}</div>{/each}
@@ -872,5 +904,9 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+  }
+  .custom-param {
+    gap: 6px;
+    flex-wrap: nowrap;
   }
 </style>

@@ -109,18 +109,20 @@
 </script>
 
 <div class="editor">
-  <div class="gutter" style:transform={`translateY(${-scrollTop}px)`}>
-    {#each lines as _l, i (i)}
-      {@const d = diagByLine.get(i + 1)}
-      <div
-        class="ln"
-        class:err={d?.severity === 'error'}
-        class:warn={d?.severity === 'warning'}
-        title={d?.message}
-      >
-        {i + 1}
-      </div>
-    {/each}
+  <div class="gutter">
+    <div class="gutter-lines" style:transform={`translateY(${-scrollTop}px)`}>
+      {#each lines as _l, i (i)}
+        {@const d = diagByLine.get(i + 1)}
+        <div
+          class="ln"
+          class:err={d?.severity === 'error'}
+          class:warn={d?.severity === 'warning'}
+          title={d?.message}
+        >
+          {i + 1}
+        </div>
+      {/each}
+    </div>
   </div>
   <div class="body">
     <pre
@@ -166,13 +168,16 @@
     top: 0;
     bottom: 0;
     width: 44px;
-    padding: 10px 0;
     text-align: right;
     color: var(--text-3);
     background: var(--bg-sunken);
     border-right: 1px solid var(--border);
     user-select: none;
     overflow: hidden;
+  }
+  /* 栏本身不动、只负责裁切，里面这层跟着滚动平移；整栏一起平移时，栏高以外的行号会被裁掉 */
+  .gutter-lines {
+    padding: 10px 0;
   }
   .ln {
     padding-right: 8px;

@@ -94,9 +94,9 @@ const en: Dict = {
     exampleOpened: 'Opened the example project “{name}”',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: proto-to-modern family, vowel harmony, multi-slot suffixes, all eight pipeline steps, variants and inheritance, etymology chains and the relation graph, glossed corpus, runic script.',
+        'Agglutinative a priori language: proto-to-modern family, vowel harmony, all eight pipeline steps, variants and inheritance, sandhi undone in the corpus, compound parts of speech, inspector modules, etymology chains and the relation graph, glossed corpus, runic script.',
       tsahun:
-        'Isolating tone language: five tones, Latin and Cyrillic orthographies, syllabary packing and vertical layout, reduplication paradigms and hand-filled tables, classifiers and loans.'
+        'Isolating tone language: five tones, Latin and Cyrillic orthographies, syllabary packing and vertical layout, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font.'
     },
     coffee: 'Buy me a coffee',
     changelog: 'Changelog',
@@ -705,6 +705,7 @@ const en: Dict = {
     registerPresets:
       'everyday,formal,colloquial,written,literary,poetic,religious,divine,archaic,slang,taboo,honorific,academic,dialectal,childish',
     registersPlaceholder: 'Registers (press Enter to add; several allowed)',
+    customListPlaceholder: 'Enter to add; several allowed',
     deleted: 'Deleted entry “{lemma}”',
     search: 'Search lexicon: word, definition, forms, pronunciation…',
     sort: 'Sort',
@@ -799,7 +800,30 @@ const en: Dict = {
     valueAbbr: 'Gloss abbreviation',
     deletedPos: 'Deleted part of speech “{name}”',
     deletedCategory: 'Deleted dimension “{name}”',
-    inUse: 'used by {n} entries'
+    inUse: 'used by {n} entries',
+    customFields: 'Inspector modules',
+    customFieldsHint:
+      'Add a block of your own to entries (variant characters, cultural notes…): fill it in edit mode, see it on the entry card. When importing a table, a column named like the title or an alias maps to it automatically.',
+    addCustomField: 'Add module',
+    customFieldName: 'Title',
+    customUntitled: 'Untitled module',
+    customKind: 'Content',
+    customKinds: { text: 'Text', list: 'List (comma-separated)' },
+    customPosition: 'Position',
+    customPositions: {
+      beforeSenses: 'Above senses',
+      afterSenses: 'Between senses and etymology',
+      afterEtymology: 'Below etymology',
+      end: 'At the bottom'
+    },
+    customLanguages: 'For',
+    customAllLanguages: 'all languages',
+    addLanguage: '+ Language',
+    customScript: 'Font',
+    customScriptNone: 'Body font',
+    customAliases: 'Also match columns named',
+    customAliasesPlaceholder: 'Column name (Enter to add)',
+    deletedCustomField: 'Deleted module “{name}”'
   },
   csv: {
     title: 'CSV import',
@@ -813,6 +837,8 @@ const en: Dict = {
     targetMorphemes: 'Morphemes',
     language: 'Target language',
     mapping: 'Column mapping',
+    mappingHint:
+      'Columns the lexicon has no field for (variant characters, cultural notes…)? Add an inspector module under “Parts of speech & dimensions”: a column named like its title or an alias maps to it automatically. Or pick “Inspector module” here and type a new title; it is created on import.',
     column: 'Column',
     field: 'Field',
     sample: 'Sample',
@@ -823,6 +849,7 @@ const en: Dict = {
       definition: 'Definition',
       tags: 'Tags',
       notes: 'Notes',
+      custom: 'Inspector module',
       protoForm: 'Etymology source',
       etymologyNotes: 'Etymology notes',
       stem: 'Stem',
@@ -863,7 +890,7 @@ const en: Dict = {
     formatGuideHint: 'Open the CSV column names, conventions and examples on the website',
     markers: 'Markers in words, definitions and notes',
     markersHint:
-      'Bracketed markers like 【PN】 or [arch.], including the first bracket after a sense number. Usually set as a register; in definitions a marker covers the text up to the next marker or semicolon.',
+      'Bracketed markers like 【PN】 or [arch.]; the first bracket right after a sense number or a part-of-speech abbreviation (n. (archaic) …) counts too — one that reads like a phrase is kept as text by default. Usually set as a register; in definitions a marker covers the text up to the next marker or semicolon.',
     marker: 'Marker',
     markerCount: 'Count · columns',
     markerAction: 'Handling',
@@ -914,6 +941,9 @@ const en: Dict = {
     reportPosMarked: 'Senses given a part of speech from labels: {n}',
     reportNewCategories: 'New dimensions: {list}',
     reportNewDialects: 'New dialects: {list}',
+    reportNewCustomFields: 'New inspector modules: {list}',
+    customName: 'Module title',
+    customNew: 'new',
     needLemma: 'Map at least one column to “Lemma / form”.',
     preview: 'Preview (first {n} rows)',
     paste: 'Or paste spreadsheet content (copied from Excel / Google Sheets)',

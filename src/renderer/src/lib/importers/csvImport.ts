@@ -3,6 +3,7 @@
  * 不预设任何列名；映射由用户在向导里指定，可存为预设。
  */
 import type {
+  CustomField,
   Dialect,
   Etymology,
   EtymologyType,
@@ -16,8 +17,17 @@ import type {
   Project,
   Sense
 } from '$lib/core/model'
-import { createLexeme, createMorpheme, createSense, newId, now } from '$lib/core/factory'
+import {
+  createCustomField,
+  createLexeme,
+  createMorpheme,
+  createSense,
+  newId,
+  now
+} from '$lib/core/factory'
 import { etymologyOrigin } from '$lib/core/etymology'
+import { customFieldTitle, findCustomField } from '$lib/core/customFields'
+import { splitRegisters } from '$lib/core/register'
 import { ensureCompoundPos, posName, posParadigmId, sensePos } from '$lib/core/pos'
 
 export type FieldSpec =
@@ -50,6 +60,8 @@ export type FieldSpec =
   | { kind: 'scriptForm'; script?: string }
   | { kind: 'paradigm' }
   | { kind: 'paradigmVariant' }
+  /** name：检视器模块的标题或别名；项目里没有就按这个名字新建 */
+  | { kind: 'custom'; name: string }
   // 语素专用
   | { kind: 'gloss' }
   | { kind: 'morphemeType' }
@@ -79,6 +91,7 @@ export const LEXEME_FIELDS: FieldSpec['kind'][] = [
   'form',
   'paradigm',
   'paradigmVariant',
+  'custom',
   'notes'
 ]
 
@@ -182,6 +195,8 @@ export interface ImportReport {
   posMarked?: number
   /** 方言列里新建的方言 */
   newDialects?: string[]
+  /** 导入时新建的检视器模块 */
+  newCustomFields?: string[]
 }
 
 export function defaultMapping(languageId: Id, columnCount: number): CsvMapping {
@@ -202,11 +217,19 @@ export function defaultMapping(languageId: Id, columnCount: number): CsvMapping 
   }
 }
 
-/** 猜一个起手映射：常见表头名 → 字段（中英各给一些同义词，全部可改） */
-export function guessMapping(header: string[], mapping: CsvMapping): CsvMapping {
+/**
+ * 猜一个起手映射：常见表头名 → 字段（中英各给一些同义词，全部可改）。
+ * 列名跟检视器模块的标题或别名一样时先对上那个模块。
+ */
+export function guessMapping(
+  header: string[],
+  mapping: CsvMapping,
+  customFields: readonly CustomField[] = []
+): CsvMapping {
   const cols = header.map((h): FieldSpec => {
     const k = h.trim().toLowerCase()
     if (!k) return { kind: 'ignore' }
+    if (findCustomField(customFields, h)) return { kind: 'custom', name: h.trim() }
     if (/^(词头|词|单词|词位|词条|词根|字典形|word|lemma|entry|headword|root|form)$/.test(k))
       return { kind: 'lemma' }
     if (/^(词类|词性|pos|part of speech|category)$/.test(k)) return { kind: 'pos' }
@@ -407,15 +430,24 @@ const ETYMOLOGY_ALIASES: Record<string, EtymologyType> = {
   native: 'inherited',
   继承: 'inherited',
   固有: 'inherited',
+  // 词典里常见的缩写（bor. inh. 这类，末尾的点去掉再比）
+  bor: 'borrowing',
+  borr: 'borrowing',
+  inh: 'inherited',
+  der: 'derivation',
+  deriv: 'derivation',
+  comp: 'compound',
+  cpd: 'compound',
   unknown: 'unknown',
   未知: 'unknown',
   不明: 'unknown'
 }
 
-/** 词源类别：认得的写法转成内置类别，认不出的原样当自定义类别 */
+/** 词源类别：认得的写法（末尾的缩写点可有可无）转成内置类别，认不出的原样当自定义类别 */
 export function etymologyTypeOf(text: string): string {
   const s = text.trim()
-  return ETYMOLOGY_ALIASES[s.toLowerCase()] ?? s
+  const k = s.toLowerCase()
+  return ETYMOLOGY_ALIASES[k] ?? ETYMOLOGY_ALIASES[k.replace(/\.$/, '')] ?? s
 }
 
 /** 备注前面加上说明（列名之类）：「出处：……」 */
@@ -614,6 +646,10 @@ const NUMBERED_RE = new RegExp(
 const LEADING_RE = new RegExp(`^\\s*(?:${bracketGroups([...ROUND_PAIRS, ...BRACKET_PAIRS])})`, 'u')
 const EDGE_SEPARATORS = /^[\s，,、:：]+|[\s，,、:：]+$/g
 
+/** 拿掉标记后两边的文字接起来：接缝两边都是空白时只留一个 */
+const joinGap = (a: string, b: string): string =>
+  /\s$/.test(a) && /^\s/.test(b) ? a + b.trimStart() : a + b
+
 export interface MarkedSegment {
   text: string
   /** 管这一段的标记（括号里的字），按出现顺序 */
@@ -633,11 +669,13 @@ interface MarkerHit {
  * 文字里算得上标记的括号：后面还得有文字（行尾的 [kat] 多半是音标），纯数字（脚注 [1]）不算，
  * 方括号 [] 前面不能紧挨拉丁字母或数字（colo[u]r 不算）。给了 rules 时只要其中处理方式不是 keep 的。
  * leadingIsNumbered：开头原本是个数字编码（已经拿掉了），开头那组括号按序号后的算。
+ * afterPos：这段归词类标记管（开头有 n. 这类，或者同一格前面出现过），词类标记后面紧跟的第一组圆括号也算，括号里可以是几个词。
  */
 function scanMarkers(
   text: string,
   rules?: Record<string, MarkerRule>,
-  leadingIsNumbered = false
+  leadingIsNumbered = false,
+  afterPos = false
 ): MarkerHit[] {
   const hits: MarkerHit[] = []
   const labelOf = (m: RegExpMatchArray): string => m.slice(1).find((x) => x !== undefined) ?? ''
@@ -654,6 +692,13 @@ function scanMarkers(
   if (leadingIsNumbered) {
     const m = text.match(LEADING_RE)
     if (m) push(0, m[0].length, labelOf(m))
+  }
+  if (afterPos) {
+    // 词类标记（已经拿掉了的也算）后面紧跟的第一组圆括号：n. (archaic) …、adj. (slang, vulgar) …
+    const lead = POS_LEAD_RE.exec(text)?.[0].length ?? 0
+    const from = lead + (POS_CHAIN_RE.exec(text.slice(lead))?.[0].length ?? 0)
+    const m = POS_PAREN_RE.exec(text.slice(from))
+    if (m) push(0, from + m[0].length, labelOf(m))
   }
   for (const m of text.matchAll(NUMBERED_RE)) {
     const cut = m.index ?? 0
@@ -679,15 +724,16 @@ export function markerLabels(text: string): string[] {
 export function splitByMarkers(
   text: string,
   rules: Record<string, MarkerRule>,
-  leadingIsNumbered = false
+  leadingIsNumbered = false,
+  afterPos = false
 ): MarkedSegment[] {
   const out: MarkedSegment[] = []
   let markers: string[] = []
   let buf = ''
   let last = 0
-  for (const m of scanMarkers(text, rules, leadingIsNumbered)) {
+  for (const m of scanMarkers(text, rules, leadingIsNumbered, afterPos)) {
     const cut = Math.max(last, m.cut)
-    buf += text.slice(last, cut)
+    buf = joinGap(buf, text.slice(last, cut))
     const before = buf.replace(EDGE_SEPARATORS, '')
     if (before) {
       out.push({ text: before, markers })
@@ -697,7 +743,7 @@ export function splitByMarkers(
     markers.push(m.label)
     last = m.end
   }
-  const rest = (buf + text.slice(last)).replace(EDGE_SEPARATORS, '')
+  const rest = joinGap(buf, text.slice(last)).replace(EDGE_SEPARATORS, '')
   if (rest || markers.length) out.push({ text: rest, markers })
   return out
 }
@@ -706,17 +752,18 @@ export function splitByMarkers(
 export function removeMarkers(
   text: string,
   rules: Record<string, MarkerRule>,
-  leadingIsNumbered = false
+  leadingIsNumbered = false,
+  afterPos = false
 ): MarkedSegment {
   let out = ''
   let last = 0
   const markers: string[] = []
-  for (const m of scanMarkers(text, rules, leadingIsNumbered)) {
-    out += text.slice(last, Math.max(last, m.at))
+  for (const m of scanMarkers(text, rules, leadingIsNumbered, afterPos)) {
+    out = joinGap(out, text.slice(last, Math.max(last, m.at)))
     markers.push(m.label)
     last = m.end
   }
-  return { text: (out + text.slice(last)).trim(), markers }
+  return { text: joinGap(out, text.slice(last)).trim(), markers }
 }
 
 const mapsToSense = (r: MarkerRule | undefined): boolean =>
@@ -735,9 +782,10 @@ export function applyMarkers(
     const rule = rules[label]
     if (!rule || (rule.action !== 'register' && rule.action !== 'tag')) continue
     const value = rule.value.trim() || label
-    // 一个义项可以有几个语域：设语域的都加进语域，设标签的加进标签
+    // 一个义项可以有几个语域：设语域的都加进语域（slang, vulgar 这样逗号隔开的算几个），设标签的加进标签
+    const values = rule.action === 'register' ? splitRegisters(value) : [value]
     const list = rule.action === 'register' ? sense.registers : sense.tags
-    if (!list.includes(value)) list.push(value)
+    for (const v of values) if (!list.includes(v)) list.push(v)
     used = true
   }
   return used
@@ -755,6 +803,11 @@ export interface MarkerStat {
   sample: string
 }
 
+/** 没选过的标记默认怎么处理：像语域的（一个词，或者逗号隔开的几个词）设为语域，括号里像一句说明的原样保留 */
+export function defaultMarkerAction(label: string): MarkerRule['action'] {
+  return splitRegisters(label).every((x) => !/\s/.test(x)) ? 'register' : 'keep'
+}
+
 /** 表里单词、释义、备注列出现的标记，按次数从多到少 */
 export function findMarkers(rows: string[][], mapping: CsvMapping): MarkerStat[] {
   const cols = mapping.columns.flatMap((c, i) =>
@@ -763,9 +816,13 @@ export function findMarkers(rows: string[][], mapping: CsvMapping): MarkerStat[]
   if (!cols.length) return []
   const stats = new Map<string, MarkerStat>()
   for (const row of mapping.hasHeader ? rows.slice(1) : rows)
-    for (const ci of cols)
-      for (const part of (row[ci] ?? '').split(/[;；]/))
-        for (const m of scanMarkers(part)) {
+    for (const ci of cols) {
+      // 释义列里词类标记管到同一格下一个词类标记为止：归它管的义项，开头那组圆括号也算标记
+      const isDef = mapping.columns[ci].kind === 'definition'
+      let posSeen = false
+      for (const part of (row[ci] ?? '').split(/[;；]/)) {
+        if (isDef && scanPos(part).length) posSeen = true
+        for (const m of scanMarkers(part, undefined, false, posSeen)) {
           const st = stats.get(m.label)
           if (!st) {
             stats.set(m.label, {
@@ -780,6 +837,8 @@ export function findMarkers(rows: string[][], mapping: CsvMapping): MarkerStat[]
           st.count++
           if (!st.columns.includes(ci)) st.columns.push(ci)
         }
+      }
+    }
   return [...stats.values()].sort((a, b) => b.count - a.count)
 }
 
@@ -813,6 +872,8 @@ const POS_LEAD_RE = new RegExp(
   String.raw`^\s*(?:\d{1,3}\s*[、.．)）]\s*)?(?:(?:${bracketGroups(BRACKET_PAIRS)})\s*)*`,
   'u'
 )
+/** 词类标记后面紧跟的一组圆括号（n. (slang, vulgar) …）：括号里可以有空格、逗号，至多 40 个字，不跨分号 */
+const POS_PAREN_RE = /^\s*(?:（([^（）;；]{1,40})）|\(([^()；;]{1,40})\))/u
 
 export interface PosToken {
   /** 去掉末尾点的标记 */
@@ -1057,6 +1118,21 @@ export function applyCsvImport(
   /** 词源来源、关系等全部行都建好再挂，好指向这次导入的其他行 */
   const pendingSources: { ety: Etymology; text: string; language: string; ownerId: Id }[] = []
   const pendingRelations: { lx: Lexeme; kind: string; targets: string[] }[] = []
+  /** 检视器模块：按标题或别名找，项目里没有就按列里写的名字新建（一次导入只建一次） */
+  const customByName = new Map<string, CustomField>()
+  const customFieldFor = (name: string): CustomField | null => {
+    const key = name.trim()
+    if (!key) return null
+    if (!Array.isArray(project.customFields)) project.customFields = []
+    let f = customByName.get(key.toLowerCase()) ?? findCustomField(project.customFields, key)
+    if (!f) {
+      f = createCustomField({ [project.settings.glossLanguages[0] ?? 'zh']: key })
+      project.customFields.push(f)
+      ;(report.newCustomFields ??= []).push(key)
+    }
+    customByName.set(key.toLowerCase(), f)
+    return f
+  }
   for (const row of data) {
     let key = (row[keyCol] ?? '').trim()
     let protoFromArrow = ''
@@ -1124,9 +1200,12 @@ export function applyCsvImport(
             const cleaned: string[] = []
             /** 词类标记管到同一格里下一个词类标记为止 */
             let carry: string[] = []
+            /** 这一格里出现过词类标记没有（不管怎么处理）：归它管的义项开头那组圆括号也算标记 */
+            let posSeen = false
             for (const d of parts) {
               const r = extractSensePrefix(d, prefixMap)
               const numbered = r.tags.length > 0
+              if (scanPos(r.text).length) posSeen = true
               // 义项开头的词类标记先拿掉（这样 n.[古]金石 不会切出一个只有 n. 的义项），后面的方括号标记照常切
               const head = hasPos ? takePos(r.text, posRules) : { text: r.text, labels: [] }
               if (head.labels.length) carry = head.labels
@@ -1134,8 +1213,8 @@ export function applyCsvImport(
               const segs: MarkedSegment[] = !hasMarkers
                 ? [{ text: head.text, markers: [] }]
                 : mapping.splitSenses
-                  ? splitByMarkers(head.text, markerRules, numbered)
-                  : [removeMarkers(head.text, markerRules, numbered)]
+                  ? splitByMarkers(head.text, markerRules, numbered, posSeen)
+                  : [removeMarkers(head.text, markerRules, numbered, posSeen)]
               segs.forEach((seg, k) => {
                 let text = seg.text
                 // 标记切出来的一段开头也可以有自己的词类标记
@@ -1233,6 +1312,17 @@ export function applyCsvImport(
             else warnOnce(`找不到构形「${raw}」`)
             break
           }
+          case 'custom': {
+            const f = customFieldFor(spec.name)
+            if (!f) break
+            // 几列对上同一个模块时接着写：列表型用顿号接，文字型换一行
+            const before = lx.custom?.[f.id]
+            lx.custom = {
+              ...lx.custom,
+              [f.id]: before ? `${before}${f.kind === 'list' ? '、' : '\n'}${raw}` : raw
+            }
+            break
+          }
           case 'paradigmVariant':
             variantText = raw
             break
@@ -1281,12 +1371,17 @@ export function applyCsvImport(
       // 构形变体：在词条指名的构形里找，没指名就在词类绑定的构形里找
       if (variantText) {
         const pid = lx.paradigmId ?? posParadigmId(project, lx.posId)
-        const v = project.paradigms
-          .filter((p) => !pid || p.id === pid)
+        const pds = project.paradigms.filter((p) => !pid || p.id === pid)
+        const v = pds
           .flatMap((p) => p.variants)
           .find((x) => x.id === variantText || x.name.trim() === variantText)
+        const low = variantText.toLowerCase()
+        // 写的是基础那套的名字（改过的名字，或者默认的「通用」）：就是不选变体
+        const isBase = pds.some((p) =>
+          [p.baseVariantName?.trim(), '通用', 'base'].some((n) => !!n && n.toLowerCase() === low)
+        )
         if (v) lx.paradigmVariantId = v.id
-        else warnOnce(`找不到构形变体「${variantText}」`)
+        else if (!isBase) warnOnce(`找不到构形变体「${variantText}」`)
       }
       // 组装义项：各释义语言按序号对齐，第一条写进已有的义项
       const defLangs = Object.keys(defs)
@@ -1486,13 +1581,16 @@ export function lexemesToRows(
     const p = project.posList.find((x) => x.id === id)
     return p ? (Object.values(p.name)[0] ?? '') : ''
   }
+  const customs = project.customFields ?? []
   const header = [
     'lemma',
     'pos',
     ...glossLanguages.map((l) => `definition_${l}`),
     'tags',
     'proto',
-    'notes'
+    'notes',
+    // 检视器模块各一列，列名写标题：再导入时按标题对上
+    ...customs.map((f) => customFieldTitle(f, glossLanguages) || f.id)
   ]
   const rows = lexemes.map((l) => [
     l.lemma,
@@ -1515,7 +1613,8 @@ export function lexemesToRows(
     ),
     l.tags.join(','),
     etymologyOrigin(project, l.etymology),
-    l.notes
+    l.notes,
+    ...customs.map((f) => l.custom?.[f.id] ?? '')
   ])
   return [header, ...rows]
 }

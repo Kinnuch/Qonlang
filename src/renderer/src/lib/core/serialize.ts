@@ -2,6 +2,8 @@
  * 项目文件的读写：JSON 序列化、版本迁移、基本校验、文件夹格式导出。
  */
 import {
+  CUSTOM_FIELD_KINDS,
+  CUSTOM_FIELD_POSITIONS,
   SCHEMA_VERSION,
   type Etymology,
   type MorphStep,
@@ -89,17 +91,28 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
     'sentences',
     'phrasebook',
     'abbreviations',
-    'docs'
+    'docs',
+    'customFields'
   ] as const) {
     if (!Array.isArray(merged[key])) (merged as unknown as Record<string, unknown>)[key] = []
   }
   if (!merged.settings.imageSize) merged.settings.imageSize = { width: 320, height: 240 }
+  // 检视器模块（0.7.3 起）：缺的设置补上默认值
+  for (const f of merged.customFields) {
+    if (!f.name || typeof f.name !== 'object') f.name = {}
+    if (!CUSTOM_FIELD_KINDS.includes(f.kind)) f.kind = 'text'
+    if (!CUSTOM_FIELD_POSITIONS.includes(f.position)) f.position = 'afterSenses'
+    if (!Array.isArray(f.languageIds)) f.languageIds = []
+    if (!Array.isArray(f.aliases)) f.aliases = []
+    if (typeof f.scriptId !== 'string') f.scriptId = null
+  }
   for (const s of merged.sentences)
     if (!s.scriptForms || typeof s.scriptForms !== 'object') s.scriptForms = {}
   for (const l of merged.lexemes) {
     if (!Array.isArray(l.relations)) l.relations = []
     if (!l.scriptForms || typeof l.scriptForms !== 'object') l.scriptForms = {}
     if (!Array.isArray(l.images)) l.images = []
+    if (l.custom !== undefined && (!l.custom || typeof l.custom !== 'object')) delete l.custom
     // 语域从一段文字改成了列表：旧文件里的 register 拆开放进 registers
     for (const se of Array.isArray(l.senses) ? l.senses : []) {
       const legacy = (se as { register?: unknown }).register
@@ -190,7 +203,8 @@ export function projectToFolder(p: Project): Record<string, string> {
     'paradigms.json': j(p.paradigms),
     'sentences.json': j(p.sentences),
     'phrasebook.json': j(p.phrasebook),
-    'abbreviations.json': j(p.abbreviations)
+    'abbreviations.json': j(p.abbreviations),
+    'custom-fields.json': j(p.customFields)
   }
   // 规则文本各自一份，可直接喂给引擎或其他工具
   for (const r of p.ruleSets)
@@ -237,6 +251,7 @@ export function projectFromFolder(files: Record<string, string>): Project {
     sentences: read('sentences.json', []),
     phrasebook: read('phrasebook.json', []),
     abbreviations: read('abbreviations.json', []),
+    customFields: read('custom-fields.json', []),
     docs: []
   }
   if (!obj.meta) throw new ProjectParseError('缺少 project.json', 'not-a-project')
