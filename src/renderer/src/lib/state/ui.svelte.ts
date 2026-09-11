@@ -285,6 +285,7 @@ class UiState {
     this.prefs.showDerivedMark ??= true
     if (this.prefs.registerDisplay !== 'full') this.prefs.registerDisplay = 'short'
     this.prefs.checkUpdates ??= true
+    if (!(Number(this.prefs.updateCheckMinutes) >= 1)) this.prefs.updateCheckMinutes = 5
     this.prefs.skippedVersion ??= ''
     this.prefs.guideTourAlways ??= false
     if (!Array.isArray(this.prefs.seenTours)) this.prefs.seenTours = []

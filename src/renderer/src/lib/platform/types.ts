@@ -58,8 +58,10 @@ export interface Prefs {
   examplesPerEntry: number
   /** 各类可拖动面板的尺寸记忆：键 → 像素 */
   panelSizes: Record<string, number>
-  /** 启动时检查新版本 */
+  /** 自动检查新版本（启动后一次，之后按 updateCheckMinutes 的间隔一直查） */
   checkUpdates: boolean
+  /** 检查新版本的间隔（分钟） */
+  updateCheckMinutes: number
   /** 用户选择跳过的版本号 */
   skippedVersion: string
   /** 词条卡里给构形推导出来的形式标一个齿轮 */
@@ -112,6 +114,7 @@ export const DEFAULT_PREFS: Prefs = {
   panelSizes: {},
   showDerivedMark: true,
   checkUpdates: true,
+  updateCheckMinutes: 5,
   skippedVersion: '',
   guideTourAlways: false,
   seenTours: [],

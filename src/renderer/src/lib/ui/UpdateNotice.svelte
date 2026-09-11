@@ -16,25 +16,39 @@
   let total = $state(0)
   let error = $state('')
 
+  /** 这次运行里点过「稍后再说」的版本：同一个版本不再反复弹，出了更新的版本照样提示 */
+  let dismissed = ''
+  async function check(): Promise<void> {
+    // 正在提示、下载或安装时不再查
+    if (!ui.prefs.checkUpdates || info || phase !== 'idle') return
+    try {
+      const found = await platform.checkUpdate()
+      if (found && found.version !== ui.prefs.skippedVersion && found.version !== dismissed)
+        info = found
+    } catch {
+      // 离线或接口出错都当没有更新
+    }
+  }
+
   onMount(() => {
     platform.onUpdateProgress((p) => {
       received = p.received
       total = p.total
     })
     // 等界面先跑起来，别跟启动抢
-    const timer = setTimeout(async () => {
-      if (!ui.prefs.checkUpdates) return
-      try {
-        const found = await platform.checkUpdate()
-        if (found && found.version !== ui.prefs.skippedVersion) info = found
-      } catch {
-        // 离线或接口出错都当没有更新
-      }
-    }, 4000)
+    const timer = setTimeout(check, 4000)
     return () => clearTimeout(timer)
+  })
+  // 之后程序开着就按设置里的间隔一直查（默认 5 分钟）；改了间隔或开关立刻按新的来
+  $effect(() => {
+    if (!ui.prefs.checkUpdates) return
+    const minutes = Math.min(1440, Math.max(1, Number(ui.prefs.updateCheckMinutes) || 5))
+    const id = setInterval(check, minutes * 60_000)
+    return () => clearInterval(id)
   })
 
   function later(): void {
+    if (info) dismissed = info.version
     info = null
   }
   function skip(): void {

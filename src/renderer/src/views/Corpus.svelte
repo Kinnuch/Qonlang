@@ -57,7 +57,7 @@
     type HoverPart
   } from '$lib/state/wordHover.svelte'
   import { paradigmAffixes, reverseDerive } from '$lib/engine/morph/reverse'
-  import { lexemeMatchesGloss } from '$lib/core/glossMatch'
+  import { glossHasMeaning, lexemeMatchesGloss } from '$lib/core/glossMatch'
   import { renderScript, sentenceScript } from '$lib/script/render'
   import { dedupeSentences } from '$lib/state/dedupe'
   import StatsPanel from '$lib/ui/StatsPanel.svelte'
@@ -396,9 +396,14 @@
       if (byAffix) return { lexemeId: byAffix }
       // 还不行就逐段试：已确认的切分里，词干那一段往往才是词典里的形式
       for (const m of a?.morphs ?? []) {
+        // 已经挂着语素的段（感音、式、体这些）不是词典里的词：跳过去，找词干那一段
+        if (m.morphemeId) continue
         const seg = m.form.replace(/^[-=·']+|[-=·']+$/g, '')
         if (seg.length < 2) continue
-        const hit = lookupByForm(seg, m.gloss || gloss) ?? stripMorphemeAffix(seg, m.gloss || gloss)
+        const hit =
+          lookupByForm(seg, m.gloss || gloss) ??
+          stripMorphemeAffix(seg, m.gloss || gloss) ??
+          lookupByGlossAndForm(seg, m.gloss || gloss)
         if (hit) return { lexemeId: hit }
       }
       // 词条里找不到就查语素：限定词、小品词这类都在语素表里
@@ -447,6 +452,46 @@
    * 悬浮卡底部的切分：优先用这个词已确认的分析，
    * 每一段能对上语素或词条就挂上，点得开。
    */
+  /**
+   * 形式对不上时宽一点再找：这门语言里释义对得上 gloss 的词条，某个形式（词头、词干、屈折形，去掉附加符与音节点比）
+   * 整个出现在这一段里——带了前缀、重音写法不同的词干也认得出来（wéñgaus 里有 eñgaus）。取包含得最长的那个。
+   * gloss 里没有意思成分（纯缩写）时不猜。
+   */
+  let formCache: { key: string; list: { lexeme: Lexeme; forms: string[] }[] } | null = null
+  const foldForm = (x: string): string =>
+    foldDiacritics(x.normalize('NFC').toLowerCase()).replace(/[.·='’-]/g, '')
+  function lookupByGlossAndForm(form: string, gloss: string): Id | null {
+    if (!langId || !glossHasMeaning(gloss)) return null
+    const key = langId + '|' + project.meta.updatedAt
+    if (formCache?.key !== key)
+      formCache = {
+        key,
+        list: project.lexemes
+          .filter((l) => l.languageId === langId)
+          .map((l) => ({
+            lexeme: l,
+            forms: [
+              ...new Set(
+                [
+                  l.lemma,
+                  ...Object.values(l.stems),
+                  ...Object.values(l.forms).flatMap((f) => f.surface.split(/[,，;；/]\s*/))
+                ]
+                  .map((x) => foldForm(x ?? ''))
+                  .filter((x) => x.length >= 3)
+              )
+            ]
+          }))
+      }
+    const f = foldForm(form)
+    let best: { id: Id; len: number } | null = null
+    for (const c of formCache.list) {
+      const len = Math.max(0, ...c.forms.filter((x) => f.includes(x)).map((x) => x.length))
+      if (len && (!best || len > best.len) && lexemeMatchesGloss(c.lexeme, gloss))
+        best = { id: c.lexeme.id, len }
+    }
+    return best?.id ?? null
+  }
   function hoverParts(tk: Token): HoverPart[] {
     const idx = hoverIndexOf()
     const a =
@@ -463,14 +508,14 @@
         .replace(/^[-=·']+|[-=·']+$/g, '')
       const mo = idx?.morphemes.get(key)?.[0]
       if (mo) return { label: m.form, gloss: m.gloss, morphemeId: mo.id }
-      const lexemeId = lookupByForm(key, m.gloss)
-      // 这一段没有 gloss、也对不上词条和语素：悬浮时显示「没有找到」
-      return {
-        label: m.form,
-        gloss: m.gloss,
-        lexemeId,
-        missing: !lexemeId && (!m.gloss || m.gloss === '?')
-      }
+      // 词条：先按形式找；再看整个词分析出来的词条是不是就是这一段（意思对得上）；再按意思 + 形式包含宽一点找
+      const main = a.lexemeId ? lexemeById.get(a.lexemeId) : undefined
+      const lexemeId =
+        lookupByForm(key, m.gloss) ??
+        (main && glossHasMeaning(m.gloss) && lexemeMatchesGloss(main, m.gloss) ? main.id : null) ??
+        lookupByGlossAndForm(key, m.gloss)
+      // 既不是语素也挂不上词条——有没有 gloss 都一样：点开是「没有找到」，要手动指定
+      return { label: m.form, gloss: m.gloss, lexemeId, missing: !lexemeId }
     })
   }
   /** 便宜的可点判断：重的反推留到真正悬浮时再做 */

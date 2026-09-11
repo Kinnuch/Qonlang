@@ -110,6 +110,19 @@
         />
         {t('settings.checkUpdates')}
       </label>
+      <div class="field">
+        <label for="s-update-minutes">{t('settings.updateCheckMinutes')}</label>
+        <input
+          id="s-update-minutes"
+          type="number"
+          min="1"
+          max="1440"
+          class="input"
+          disabled={!ui.prefs.checkUpdates}
+          bind:value={ui.prefs.updateCheckMinutes}
+          onchange={() => ui.savePrefs()}
+        />
+      </div>
       <label class="row check">
         <input
           type="checkbox"

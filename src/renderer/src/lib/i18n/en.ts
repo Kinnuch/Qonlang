@@ -1447,13 +1447,14 @@ const en: Dict = {
     backupCount: 'Backups to keep',
     reopenLast: 'Reopen last project on launch',
     checkUpdates:
-      'Check for updates at startup (a notice; nothing downloads or installs until you click “Download & install”)',
+      'Check for new versions automatically (you are told as soon as one is out; nothing is downloaded until you click “Download and install”)',
     highlightDuplicates: 'Highlight duplicate entries (off leaves only the warning icon)',
     showHelpDots: 'Show the “?” usage hints next to panels',
     guideTourAlways:
       'Show the guided tour every time “Guide” is clicked (otherwise once per module)',
     showDerivedMark: 'Mark paradigm-derived forms with a gear ⚙ on the entry card',
     examplesPerEntry: 'Examples shown under an entry',
+    updateCheckMinutes: 'Check for new versions every … minutes',
     registerDisplay: 'Register labels on entry cards',
     registerDisplayShort:
       'Boxed short form (first character for CJK, abbreviations such as lit. otherwise)',
