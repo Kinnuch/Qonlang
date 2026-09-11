@@ -83,7 +83,13 @@
   const body = $derived(hasHeader ? table.slice(1) : table)
   // 换了表格或表头设置就重新猜一遍列；手动挑过的列在那之前一直算数
   let columns = $derived(guessColumns(header, fields, colCount))
-  const records = $derived(rowsToRecords(body, columns))
+  const records = $derived(rowsToRecords(body, columns, header))
+  /** 字段的显示名：正字法、文字带上它们的名字，自由行用列名 */
+  function labelOf(key: string): string {
+    if (key.startsWith('extra:')) return key.slice(6).replace(/^#\d+$/, t('io.fields.extra'))
+    const f = fields.find((x) => x.key === key)
+    return f?.label ? `${ioFieldLabel(key)} · ${f.label}` : ioFieldLabel(key)
+  }
   function setColumn(i: number, key: string): void {
     columns = columns.map((c, j) => (j === i ? key : c))
   }
@@ -187,7 +193,7 @@
                     onchange={(e) => setColumn(i, (e.currentTarget as HTMLSelectElement).value)}
                   >
                     <option value="">{t('io.ignore')}</option>
-                    {#each fields as f (f.key)}<option value={f.key}>{ioFieldLabel(f.key)}</option
+                    {#each fields as f (f.key)}<option value={f.key}>{labelOf(f.key)}</option
                       >{/each}
                   </select>
                   {#if header}<div class="small muted">{header[i] ?? ''}</div>{/if}
@@ -223,7 +229,7 @@
     kind={total ? 'records' : 'empty'}
     {total}
     records={sample}
-    fieldLabel={ioFieldLabel}
+    fieldLabel={labelOf}
     source={fileName}
   />
 </Portal>

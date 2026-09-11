@@ -517,8 +517,7 @@
       </section>
 
       <section class="block">
-        <h3>{t('phonology.chartPulmonic')}</h3>
-        <p class="small muted">{t('phonology.chartHint')}</p>
+        <h3>{t('phonology.chartPulmonic')} <HelpDot tip={t('phonology.chartHint')} /></h3>
         <div class="table-wrap">
           <table class="chart">
             <thead
@@ -580,7 +579,8 @@
   {:else if tab === 'classes'}
     <div class="scroll">
       <div class="row">
-        <p class="small muted grow">{t('phonology.classesHint')}</p>
+        <span class="grow"></span>
+        <HelpDot tip={t('phonology.classesHint')} />
         <button class="btn sm" onclick={quickClasses}
           ><Wand2 size={14} />{t('phonology.quickClasses')}</button
         >
@@ -692,8 +692,8 @@
               ><Code size={14} />{t('soundChanges.viewSource')}</button
             >
           </div>
+          <HelpDot tip={t('phonology.orthoRulesHint')} />
         </div>
-        <p class="small muted">{t('phonology.orthoRulesHint')}</p>
         <div class="editor-area">
           {#if orthoDir === 'toIpa'}
             {#if orthoView === 'list'}
@@ -724,7 +724,7 @@
   {:else if tab === 'syllable'}
     <div class="scroll form">
       <section class="block">
-        <h3>{t('phonology.syllable')}</h3>
+        <h3>{t('phonology.syllable')} <HelpDot tip={t('phonology.syllableHint')} /></h3>
         <label class="row check"
           ><input type="checkbox" bind:checked={lang.syllable.enabled} onchange={touch} />{t(
             'phonology.syllableEnabled'
@@ -747,7 +747,6 @@
             /></label
           >
         </div>
-        <p class="small muted">{t('phonology.syllableHint')}</p>
       </section>
       <section class="block">
         <h3>{t('phonology.prosody')}</h3>
@@ -856,7 +855,10 @@
     <div class="scroll form">
       <section class="block">
         <div class="row">
-          <h3 class="grow">{t('phonology.phonotactics')}</h3>
+          <h3 class="grow">
+            {t('phonology.phonotactics')}
+            <HelpDot tip={t('phonology.phonotacticsHint')} />
+          </h3>
           <button class="btn sm" onclick={fillFromInventory}
             ><Wand2 size={14} />{t('phonology.fillFromInventory')}</button
           >
@@ -919,7 +921,6 @@
             >
           </div>
         </div>
-        <p class="small muted">{t('phonology.phonotacticsHint')}</p>
       </section>
       <section class="block">
         <div class="row">

@@ -522,7 +522,7 @@ function registerIpc(): void {
     const r = await dialog.showOpenDialog(mainWindow!, {
       properties: ['openFile'],
       filters: [
-        { name: 'Qonlang project', extensions: ['json'] },
+        { name: 'Qonlang project', extensions: ['json', 'csv'] },
         { name: 'All files', extensions: ['*'] }
       ]
     })

@@ -4,6 +4,7 @@
    * 边是规则（目标 → 替换），跨阶段自然串成链，如 k → c → s。
    */
   import { t } from '$lib/i18n/index.svelte'
+  import HelpDot from './HelpDot.svelte'
   import { ruleOrdinals, type ParsedRule, type RuleProgram } from '$lib/engine/sca'
 
   let {
@@ -152,7 +153,7 @@
 {#if !graph || graph.edges.length === 0}
   <p class="muted">{t('soundChanges.chainEmpty')}</p>
 {:else}
-  <p class="small muted hint">{t('soundChanges.chainHint')}</p>
+  <div class="row"><span class="grow"></span><HelpDot tip={t('soundChanges.chainHint')} /></div>
   <div class="wrap">
     <svg width={graph.width} height={graph.height} class="chain">
       {#each graph.columns as c, i (i)}
@@ -206,9 +207,6 @@
 {/if}
 
 <style>
-  .hint {
-    margin-bottom: 6px;
-  }
   .wrap {
     flex: 1;
     min-height: 0;

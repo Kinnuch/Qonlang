@@ -3,6 +3,7 @@
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
+  import HelpDot from './HelpDot.svelte'
   import type { Id, Lexeme, Morpheme, RuleSet } from '$lib/core/model'
   import type { RuleProgram } from '$lib/engine/sca'
   import { planEvolution, applyEvolution, type EvolveRow } from '$lib/engine/evolve'
@@ -100,7 +101,8 @@
 <div class="evolve card" use:flashOn={doneFlash}>
   <div class="row head">
     <strong>{t('evolve.title')}</strong>
-    <span class="small muted grow">{t('evolve.hint')}</span>
+    <HelpDot tip={t('evolve.hint')} />
+    <span class="grow"></span>
     <button class="btn ghost icon sm" onclick={onclose}><X size={14} /></button>
   </div>
   <div class="grid">

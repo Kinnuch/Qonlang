@@ -59,6 +59,13 @@ async function kvSet(key: string, value: unknown): Promise<void> {
 }
 
 const pickerTypes = [{ description: 'Qonlang project', accept: { 'application/json': ['.json'] } }]
+/** 打开项目时还认整个项目导出的 CSV */
+const openPickerTypes = [
+  {
+    description: 'Qonlang project',
+    accept: { 'application/json': ['.json'], 'text/csv': ['.csv'] }
+  }
+]
 
 async function ensurePermission(
   handle: FileSystemFileHandle,
@@ -104,7 +111,7 @@ function pickViaInput(): Promise<File | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = '.json,application/json'
+    input.accept = '.json,application/json,.csv,text/csv'
     input.onchange = () => resolve(input.files?.[0] ?? null)
     input.oncancel = () => resolve(null)
     input.click()
@@ -131,7 +138,10 @@ export const webPlatform: PlatformAPI = {
   async openProject() {
     if (window.showOpenFilePicker) {
       try {
-        const [handle] = await window.showOpenFilePicker({ types: pickerTypes, multiple: false })
+        const [handle] = await window.showOpenFilePicker({
+          types: openPickerTypes,
+          multiple: false
+        })
         const file = await handle.getFile()
         const key = `handle:${crypto.randomUUID()}`
         await kvSet(key, handle)

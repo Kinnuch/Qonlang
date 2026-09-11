@@ -110,7 +110,7 @@
 <div class="card panel">
   <div class="row head">
     <strong>{t('dict.title')}</strong>
-    <span class="small muted grow">{t('dict.hint')}</span>
+    <span class="grow"></span>
     <button class="btn ghost icon sm" onclick={onclose}><X size={14} /></button>
   </div>
   <div class="two">

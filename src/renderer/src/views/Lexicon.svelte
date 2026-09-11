@@ -2024,7 +2024,8 @@
   .sense-pos {
     width: auto;
     max-width: 170px;
-    padding: 1px 6px;
+    padding: 1px 24px 1px 6px;
+    background-position: right 7px center;
     font-size: 12px;
     color: var(--text-2);
   }

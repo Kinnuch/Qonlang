@@ -286,7 +286,7 @@
       {#key importNonce}
         <TableImportDialog
           title={t('io.importPhrases')}
-          fields={phraseFields(glossLangs)}
+          fields={phraseFields(glossLangs, language)}
           guide={guideUrl('phrasebook', 'table-format')}
           exists={(text) => existingTexts.has(normalizeSentence(text))}
           json={{

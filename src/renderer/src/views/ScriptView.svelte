@@ -612,7 +612,8 @@
   {:else if tab === 'rules'}
     <div class="scroll">
       <div class="row">
-        <p class="small muted grow">{t('script.rulesHint')}</p>
+        <span class="grow"></span>
+        <HelpDot tip={t('script.rulesHint')} />
         <div class="seg">
           <button class:active={rulesView === 'list'} onclick={() => (rulesView = 'list')}
             ><List size={14} />{t('soundChanges.viewList')}</button
@@ -639,8 +640,9 @@
         {/if}
       </div>
       <details class="pack">
-        <summary class="small muted">{t('script.packing.title')}</summary>
-        <p class="small muted">{t('script.packing.hint')}</p>
+        <summary class="small muted"
+          >{t('script.packing.title')} <HelpDot tip={t('script.packing.hint')} /></summary
+        >
         <label class="row check"
           ><input
             type="checkbox"
@@ -871,7 +873,7 @@
         <HelpDot tip={t('script.verticalHint')} />
       </label>
       <div class="field">
-        <label for="s-parens">{t('script.parens')}</label>
+        <label for="s-parens">{t('script.parens')} <HelpDot tip={t('script.parensHint')} /></label>
         <select
           id="s-parens"
           class="select"
@@ -885,10 +887,9 @@
             <option value={pm}>{t(`script.parensModes.${pm}`)}</option>
           {/each}
         </select>
-        <span class="small muted">{t('script.parensHint')}</span>
       </div>
       <div class="field">
-        <span class="small muted">{t('script.font')}</span>
+        <span class="small muted">{t('script.font')} <HelpDot tip={t('script.fontHint')} /></span>
         <input
           class="input"
           bind:value={sc.font.family}
@@ -905,7 +906,6 @@
               ><X size={14} /></button
             >{/if}
         </div>
-        <p class="tiny muted">{t('script.fontHint')}</p>
       </div>
       <div class="field">
         <label for="s-test">{t('script.test')}</label>
@@ -1117,9 +1117,6 @@
   }
   .res td {
     padding: 2px 8px 2px 0;
-  }
-  .tiny {
-    font-size: 11px;
   }
   h3 {
     margin: 4px 0 2px;

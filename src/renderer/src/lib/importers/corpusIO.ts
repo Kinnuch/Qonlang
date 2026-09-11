@@ -4,7 +4,7 @@
  * - JSON：千语集自己导出的，整条连分析一起搬过来；换了项目对不上的词条、语素引用会丢掉分析，选中时重新分析
  * - 行间注释文本：莱比锡 / Markdown / HTML / LaTeX，一句接一句
  */
-import type { Analysis, Id, Phrase, Project, Sentence, Token } from '$lib/core/model'
+import type { Analysis, Id, Language, Phrase, Project, Sentence, Token } from '$lib/core/model'
 import { createPhrase, createSentence } from '$lib/core/factory'
 import { normalizeSentence } from '$lib/core/sentenceDedup'
 import { interlinear, toHtml, toLatex, toLeipzig, toMarkdown } from '$lib/engine/gloss'
@@ -20,6 +20,8 @@ export interface ImportField {
   key: string
   /** 表头里出现这些词就猜是它（拉丁字母的按整词比，汉字按包含） */
   hints: string[]
+  /** 显示时补在字段名后面的名字（哪套正字法、哪套文字） */
+  label?: string
 }
 
 export interface ImportResult {
@@ -45,22 +47,36 @@ function mentions(header: string, hint: string): boolean {
   return header.split(/[^\p{L}\p{N}]+/u).includes(hint)
 }
 
-/** 例句能导入的字段：原文、各释义语言的译文、出处、标签、备注 */
-export function sentenceFields(glossLangs: string[]): ImportField[] {
+/** 例句能导入的字段：原文、各释义语言的译文、别的正字法写法、各套文字的写法、出处、标签、备注、自由行 */
+export function sentenceFields(glossLangs: string[], language?: Language): ImportField[] {
   return [
     { key: 'text', hints: ['原文', '例句', '句子', 'text', 'sentence', 'original'] },
     ...glossLangs.map((l) => ({ key: `tr:${l}`, hints: [] })),
+    ...(language?.orthographies ?? [])
+      .filter((o) => !o.isPrimary)
+      .map((o) => ({ key: `ortho:${o.id}`, label: o.name, hints: [o.name.toLowerCase()] })),
+    ...(language?.scripts ?? []).map((sc) => ({
+      key: `script:${sc.id}`,
+      label: sc.name,
+      hints: [sc.name.toLowerCase()]
+    })),
     { key: 'source', hints: ['出处', '来源', 'source'] },
     { key: 'tags', hints: ['标签', 'tags', 'tag'] },
-    { key: 'notes', hints: ['备注', '注释', 'notes', 'note'] }
+    { key: 'notes', hints: ['备注', '注释', 'notes', 'note'] },
+    { key: 'extra', hints: ['自由行', '直译', 'literal'] }
   ]
 }
 
-/** 短语能导入的字段：原文、各释义语言的译文、分类、标签、变体 */
-export function phraseFields(glossLangs: string[]): ImportField[] {
+/** 短语能导入的字段：原文、各释义语言的译文、各套正字法的发音、分类、标签、变体 */
+export function phraseFields(glossLangs: string[], language?: Language): ImportField[] {
   return [
     { key: 'text', hints: ['原文', '短语', 'text', 'phrase', 'original'] },
     ...glossLangs.map((l) => ({ key: `tr:${l}`, hints: [] })),
+    ...(language?.orthographies ?? []).map((o) => ({
+      key: `pron:${o.id}`,
+      label: o.name,
+      hints: o.isPrimary ? ['发音', '读音', 'ipa', 'pronunciation'] : [o.name.toLowerCase()]
+    })),
     { key: 'category', hints: ['分类', '类别', 'category'] },
     { key: 'tags', hints: ['标签', 'tags', 'tag'] },
     { key: 'variants', hints: ['变体', 'variants', 'variant'] }
@@ -112,14 +128,20 @@ export function guessColumns(
 }
 
 /** 按列映射把表格行变成记录；同一个字段挑了几列就用「；」连起来 */
-export function rowsToRecords(rows: string[][], columns: string[]): Record<string, string>[] {
+export function rowsToRecords(
+  rows: string[][],
+  columns: string[],
+  header?: string[] | null
+): Record<string, string>[] {
   const out: Record<string, string>[] = []
   for (const row of rows) {
     const rec: Record<string, string> = {}
     columns.forEach((key, i) => {
       const v = (row[i] ?? '').trim()
       if (!key || !v) return
-      rec[key] = rec[key] ? `${rec[key]}；${v}` : v
+      // 自由行拿列名当标签，几列就是几行
+      const k = key === 'extra' ? `extra:${(header?.[i] ?? '').trim() || `#${i + 1}`}` : key
+      rec[k] = rec[k] ? `${rec[k]}；${v}` : v
     })
     if (Object.keys(rec).length) out.push(rec)
   }
@@ -177,9 +199,22 @@ export function importSentenceRecords(
     s.source = rec.source ?? ''
     s.tags = splitList(rec.tags, /[,，;；、|]/)
     s.notes = rec.notes ?? ''
+    for (const [k, v] of Object.entries(rec)) {
+      if (!v) continue
+      if (k.startsWith('ortho:')) s.orthoTexts[k.slice(6)] = v
+      else if (k.startsWith('script:')) s.scriptForms[k.slice(7)] = v
+      else if (k.startsWith('extra:'))
+        s.extraLines.push({ label: k.slice(6).replace(/^#\d+$/, ''), text: v })
+    }
     return s
   })
   return addUnique(project.sentences, languageId, items)
+}
+
+/** 变体「说法（备注）」：末尾括号里的是备注 */
+function variantOf(text: string): { text: string; note: string } {
+  const m = /^(.*?)\s*[（(]([^（）()]*)[）)]\s*$/u.exec(text)
+  return m && m[1].trim() ? { text: m[1].trim(), note: m[2].trim() } : { text, note: '' }
 }
 
 /** 记录 → 短语；变体按分号或竖线分开 */
@@ -193,7 +228,9 @@ export function importPhraseRecords(
     p.text = (rec.text ?? '').trim()
     p.translation = translationOf(rec)
     p.tags = splitList(rec.tags, /[,，;；、|]/)
-    p.variants = splitList(rec.variants, /[;；|]/).map((v) => ({ text: v, note: '' }))
+    p.variants = splitList(rec.variants, /[;；|]/).map(variantOf)
+    for (const [k, v] of Object.entries(rec))
+      if (k.startsWith('pron:') && v) p.pronunciations[k.slice(5)] = { ipa: v, irregular: true }
     return p
   })
   return addUnique(project.phrasebook, languageId, items)
@@ -412,6 +449,11 @@ export function sentenceRecord(s: Sentence): Record<string, string> {
   if (s.source) rec.source = s.source
   if (s.tags.length) rec.tags = s.tags.join('、')
   if (s.notes) rec.notes = s.notes
+  for (const [id, v] of Object.entries(s.orthoTexts)) if (v) rec[`ortho:${id}`] = v
+  for (const [id, v] of Object.entries(s.scriptForms)) if (v) rec[`script:${id}`] = v
+  s.extraLines.forEach((line, i) => {
+    if (line.text) rec[`extra:${line.label || `#${i + 1}`}`] = line.text
+  })
   return rec
 }
 
@@ -421,7 +463,9 @@ export function phraseRecord(p: Phrase): Record<string, string> {
   for (const [lang, v] of Object.entries(p.translation)) if (v) rec[`tr:${lang}`] = v
   if (p.category) rec.category = p.category
   if (p.tags.length) rec.tags = p.tags.join('、')
-  if (p.variants.length) rec.variants = p.variants.map((v) => v.text).join('；')
+  if (p.variants.length)
+    rec.variants = p.variants.map((v) => (v.note ? `${v.text}（${v.note}）` : v.text)).join('；')
+  for (const [id, pr] of Object.entries(p.pronunciations)) if (pr.ipa) rec[`pron:${id}`] = pr.ipa
   return rec
 }
 

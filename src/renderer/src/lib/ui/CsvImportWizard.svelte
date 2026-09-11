@@ -6,20 +6,29 @@
   import { i18n, t } from '$lib/i18n/index.svelte'
   import { parseCsv, type Delimiter } from '$lib/core/csv'
   import { MORPHEME_TYPES } from '$lib/core/factory'
+  import { ETYMOLOGY_TYPES } from '$lib/core/model'
+  import { relationLabel } from './labels'
+  import HelpDot from './HelpDot.svelte'
   import {
     applyCsvImport,
     cleanMarkerRules,
     defaultMapping,
     findMarkers,
     guessMapping,
-    FIELD_KINDS,
+    CODE_ACTIONS,
+    LEXEME_FIELDS,
+    MORPHEME_FIELDS,
     MARKER_ACTIONS,
+    cleanCodeRules,
+    codeRulesFromPrefixMap,
+    findPrefixCodes,
     cleanPosRules,
     defaultPosRule,
     findPosByText,
     findPosMarkers,
     POS_ACTIONS,
     POS_PRESETS,
+    type CodeRule,
     type CsvMapping,
     type FieldSpec,
     type ImportReport,
@@ -78,20 +87,66 @@
     report = null
   }
 
+  /** 列名只是字段的通称时（「来源」「备注」），不拿来当来源语言、备注前缀这些参数 */
+  const GENERIC_HEADER =
+    /^(原始形|祖语|proto|etymon|source|来源|词源来源|备注|注|注释|notes?|comment|中间态|stages?)$/i
   function setKind(i: number, kind: FieldSpec['kind']): void {
     if (!mapping) return
     const lang = project.settings.glossLanguages[0] ?? 'en'
+    const head = (header[i] ?? '').trim()
+    const named = GENERIC_HEADER.test(head) ? '' : head
     const spec: FieldSpec =
       kind === 'definition'
         ? { kind, lang }
         : kind === 'stem'
-          ? { kind, name: header[i] ?? '' }
+          ? { kind, name: head }
           : kind === 'form'
-            ? { kind, slot: header[i] ?? '' }
+            ? { kind, slot: head }
             : kind === 'feature'
-              ? { kind, category: header[i] ?? '' }
-              : ({ kind } as FieldSpec)
+              ? { kind, category: head }
+              : kind === 'protoForm'
+                ? { kind, language: named }
+                : kind === 'etymologyStage' || kind === 'notes'
+                  ? { kind, label: named }
+                  : kind === 'relation'
+                    ? { kind, relKind: 'related' }
+                    : kind === 'pronunciation'
+                      ? { kind, orthography: '' }
+                      : kind === 'scriptForm'
+                        ? { kind, script: '' }
+                        : ({ kind } as FieldSpec)
     mapping.columns[i] = spec
+  }
+  /** 这一列能选的字段：按导入目标给；当前值不在里面（刚换了目标）也留着，免得下拉框里找不到 */
+  function fieldsFor(current: FieldSpec['kind']): FieldSpec['kind'][] {
+    const list = mapping?.target === 'morphemes' ? MORPHEME_FIELDS : LEXEME_FIELDS
+    return list.includes(current) ? list : [...list, current]
+  }
+  /** 导入到哪门语言：正字法、文字的候选从它来 */
+  const importLang = $derived(project.languages.find((l) => l.id === mapping?.languageId))
+  /** 关系种类：同义、反义、参见、各词源类别，再加项目里用过的 */
+  const relationKinds = $derived(
+    [
+      ...new Set([
+        'synonym',
+        'antonym',
+        'related',
+        ...ETYMOLOGY_TYPES,
+        ...project.lexemes.flatMap((l) => l.relations.map((r) => r.kind))
+      ])
+    ].filter(Boolean)
+  )
+  /** 释义开头的数字编码（只对词条） */
+  const codeStats = $derived(
+    mapping && mapping.target === 'lexemes' ? findPrefixCodes(rows, mapping) : []
+  )
+  /** 没动过的编码原样留着：数字开头也可能就是正文 */
+  function codeRuleOf(code: string): CodeRule {
+    return mapping?.senseCodes?.[code] ?? { action: 'keep', value: '' }
+  }
+  function setCodeRule(code: string, patch: Partial<CodeRule>): void {
+    if (!mapping) return
+    mapping.senseCodes = { ...mapping.senseCodes, [code]: { ...codeRuleOf(code), ...patch } }
   }
 
   const lemmaMapped = $derived(!!mapping?.columns.some((c) => c.kind === 'lemma'))
@@ -168,13 +223,22 @@
       ...data.slice(0, PREVIEW_LIMIT)
     ]) as string[][]
     const scratch = scratchProject(project)
+    // 词源来源、关系要能链到项目里已有的单词和语素：拿真项目的列表当底子，样例只列新加的
+    scratch.lexemes = [...project.lexemes]
+    scratch.morphemes = [...project.morphemes]
     applyCsvImport(scratch, sample, m)
     const existing = new Set(
       m.target === 'lexemes'
         ? project.lexemes.filter((l) => l.languageId === m.languageId).map((l) => l.lemma)
         : project.morphemes.filter((x) => x.languageId === m.languageId).map((x) => x.form)
     )
-    return { project: scratch, total: data.length, existing }
+    return {
+      project: scratch,
+      total: data.length,
+      existing,
+      lexemes: scratch.lexemes.slice(project.lexemes.length),
+      morphemes: scratch.morphemes.slice(project.morphemes.length)
+    }
   })
 
   function run(): void {
@@ -202,7 +266,8 @@
       tagSeparator: mapping.tagSeparator,
       splitProtoArrow: mapping.splitProtoArrow,
       splitSenses: mapping.splitSenses,
-      sensePrefixMap: mapping.sensePrefixMap,
+      sensePrefixMap: '',
+      senseCodes: cleanCodeRules($state.snapshot(mapping.senseCodes)),
       senseMarkers: effectiveMarkers(),
       posMarkers: effectivePosMarkers()
     }
@@ -217,7 +282,12 @@
     mapping.tagSeparator = p.tagSeparator
     mapping.splitProtoArrow = p.splitProtoArrow
     if (p.splitSenses !== undefined) mapping.splitSenses = p.splitSenses
-    mapping.sensePrefixMap = p.sensePrefixMap ?? ''
+    // 老预设的「编码=标签」转成编码表
+    mapping.sensePrefixMap = ''
+    mapping.senseCodes = {
+      ...codeRulesFromPrefixMap(p.sensePrefixMap ?? ''),
+      ...cleanCodeRules(p.senseCodes)
+    }
     mapping.senseMarkers = cleanMarkerRules(p.senseMarkers)
     mapping.posMarkers = cleanPosRules(p.posMarkers)
     mapping.columns = mapping.columns.map(
@@ -353,7 +423,8 @@
                   onchange={(e) =>
                     setKind(i, (e.currentTarget as HTMLSelectElement).value as FieldSpec['kind'])}
                 >
-                  {#each FIELD_KINDS as k (k)}<option value={k}>{t(`csv.fieldKinds.${k}`)}</option
+                  {#each fieldsFor(spec.kind) as k (k)}<option value={k}
+                      >{t(`csv.fieldKinds.${k}`)}</option
                     >{/each}
                 </select>
               </td>
@@ -383,12 +454,54 @@
                     bind:value={spec.category}
                     placeholder={t('csv.categoryName')}
                   />
+                {:else if spec.kind === 'protoForm'}
+                  <input
+                    class="input extra"
+                    bind:value={spec.language}
+                    placeholder={t('csv.sourceLanguage')}
+                    list="csv-langs"
+                  />
+                {:else if spec.kind === 'etymologyStage' || spec.kind === 'notes'}
+                  <input
+                    class="input extra"
+                    bind:value={spec.label}
+                    placeholder={spec.kind === 'notes' ? t('csv.notesLabel') : t('csv.stageLabel')}
+                  />
+                {:else if spec.kind === 'relation'}
+                  <input
+                    class="input extra"
+                    bind:value={spec.relKind}
+                    placeholder={t('csv.relationKind')}
+                    title={relationLabel(spec.relKind)}
+                    list="csv-relkinds"
+                  />
+                {:else if spec.kind === 'pronunciation'}
+                  <select class="select extra" bind:value={spec.orthography}>
+                    <option value="">{t('csv.primaryOrthography')}</option>
+                    {#each importLang?.orthographies ?? [] as o (o.id)}<option value={o.name}
+                        >{o.name}</option
+                      >{/each}
+                  </select>
+                {:else if spec.kind === 'scriptForm'}
+                  <select class="select extra" bind:value={spec.script}>
+                    <option value="">{t('csv.firstScript')}</option>
+                    {#each importLang?.scripts ?? [] as sc (sc.id)}<option value={sc.name}
+                        >{sc.name}</option
+                      >{/each}
+                  </select>
                 {/if}
               </td>
             </tr>
           {/each}
         </tbody>
       </table>
+      <datalist id="csv-langs"
+        >{#each project.languages as l (l.id)}<option value={l.name}></option>{/each}</datalist
+      >
+      <datalist id="csv-relkinds"
+        >{#each relationKinds as k (k)}<option value={k}>{relationLabel(k)}</option
+          >{/each}</datalist
+      >
       <datalist id="gloss-langs"
         >{#each project.settings.glossLanguages as g (g)}<option value={g}
           ></option>{/each}</datalist
@@ -424,23 +537,68 @@
       <label class="row check"
         ><input type="checkbox" bind:checked={mapping.splitSenses} />{t('csv.splitSenses')}</label
       >
-      {#if mapping.target === 'lexemes'}
-        <label class="field wide"
-          ><span>{t('csv.sensePrefixMap')}</span>
-          <textarea
-            class="textarea data"
-            rows="3"
-            placeholder={t('csv.sensePrefixMapPlaceholder')}
-            bind:value={mapping.sensePrefixMap}
-          ></textarea>
-          <span class="small muted">{t('csv.sensePrefixMapHint')}</span></label
-        >
-      {/if}
     </div>
 
+    {#if codeStats.length}
+      <h3>{t('csv.codes')} <HelpDot tip={t('csv.codesHint')} /></h3>
+      <div class="table-wrap">
+        <table class="map">
+          <thead
+            ><tr
+              ><th>{t('csv.code')}</th><th>{t('csv.markerCount')}</th><th>{t('csv.sample')}</th><th
+                >{t('csv.markerAction')}</th
+              ><th>{t('csv.codeValue')}</th></tr
+            ></thead
+          >
+          <tbody>
+            {#each codeStats as st (st.code)}
+              {@const rule = codeRuleOf(st.code)}
+              <tr class:mapped={rule.action !== 'keep'}>
+                <td class="hdr data">{st.code}</td>
+                <td class="muted nowrap"
+                  >{st.count} · {st.columns
+                    .map((ci) => (mapping?.hasHeader && header[ci]) || String(ci + 1))
+                    .join('、')}</td
+                >
+                <td class="sample data" title={st.sample}>{st.sample}</td>
+                <td>
+                  <select
+                    class="select"
+                    value={rule.action}
+                    onchange={(e) =>
+                      setCodeRule(st.code, {
+                        action: (e.currentTarget as HTMLSelectElement).value as CodeRule['action']
+                      })}
+                  >
+                    {#each CODE_ACTIONS as a (a)}<option value={a}
+                        >{t(`csv.codeActions.${a}`)}</option
+                      >{/each}
+                  </select>
+                </td>
+                <td>
+                  {#if rule.action !== 'drop'}
+                    <!-- 填了标签就当作要设成标签 -->
+                    <input
+                      class="input extra"
+                      value={rule.value}
+                      placeholder={st.code}
+                      oninput={(e) =>
+                        setCodeRule(st.code, {
+                          value: (e.currentTarget as HTMLInputElement).value,
+                          action: 'tag'
+                        })}
+                    />
+                  {/if}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+
     {#if posStats.length}
-      <h3>{t('csv.posMarkers')}</h3>
-      <p class="small muted">{t('csv.posMarkersHint')}</p>
+      <h3>{t('csv.posMarkers')} <HelpDot tip={t('csv.posMarkersHint')} /></h3>
       <div class="table-wrap">
         <table class="map">
           <thead
@@ -503,8 +661,7 @@
     {/if}
 
     {#if markerStats.length}
-      <h3>{t('csv.markers')}</h3>
-      <p class="small muted">{t('csv.markersHint')}</p>
+      <h3>{t('csv.markers')} <HelpDot tip={t('csv.markersHint')} /></h3>
       <div class="table-wrap">
         <table class="map">
           <thead
@@ -580,6 +737,9 @@
         {#if report.newCategories.length}<div>
             {t('csv.reportNewCategories', { list: report.newCategories.join(', ') })}
           </div>{/if}
+        {#if report.newDialects?.length}<div>
+            {t('csv.reportNewDialects', { list: report.newDialects.join(', ') })}
+          </div>{/if}
         {#if report.marked}<div>{t('csv.reportMarked', { n: report.marked })}</div>{/if}
         {#if report.posMarked}<div>{t('csv.reportPosMarked', { n: report.posMarked })}</div>{/if}
         {#each report.warnings as w (w)}<div class="warn">{w}</div>{/each}
@@ -607,8 +767,8 @@
       kind={preview && mapping ? mapping.target : 'empty'}
       total={preview?.total ?? 0}
       project={preview?.project}
-      lexemes={preview?.project.lexemes ?? []}
-      morphemes={preview?.project.morphemes ?? []}
+      lexemes={preview?.lexemes ?? []}
+      morphemes={preview?.morphemes ?? []}
       duplicates={preview?.existing}
       source={fileName}
     />
@@ -616,9 +776,6 @@
 </Portal>
 
 <style>
-  .field.wide {
-    grid-column: 1 / -1;
-  }
   .wizard {
     display: flex;
     flex-direction: column;

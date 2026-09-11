@@ -3,8 +3,12 @@
  * 不预设任何列名；映射由用户在向导里指定，可存为预设。
  */
 import type {
+  Dialect,
+  Etymology,
+  EtymologyType,
   GrammaticalCategory,
   Id,
+  Language,
   Lexeme,
   Morpheme,
   MorphemeType,
@@ -14,7 +18,7 @@ import type {
 } from '$lib/core/model'
 import { createLexeme, createMorpheme, createSense, newId, now } from '$lib/core/factory'
 import { etymologyOrigin } from '$lib/core/etymology'
-import { ensureCompoundPos, posName, sensePos } from '$lib/core/pos'
+import { ensureCompoundPos, posName, posParadigmId, sensePos } from '$lib/core/pos'
 
 export type FieldSpec =
   | { kind: 'ignore' }
@@ -22,37 +26,92 @@ export type FieldSpec =
   | { kind: 'pos' }
   | { kind: 'definition'; lang: string }
   | { kind: 'tags' }
-  | { kind: 'notes' }
-  | { kind: 'protoForm' }
+  /** label：写进备注时加在前面的说明（比如列名），空着不加 */
+  | { kind: 'notes'; label?: string }
+  /** language：来源语言；是项目里的语言时按单词、语素链接过去 */
+  | { kind: 'protoForm'; language?: string }
   | { kind: 'etymologyNotes' }
+  | { kind: 'etymologyType' }
+  /** label：这个中间态的说明（比如哪个时期） */
+  | { kind: 'etymologyStage'; label?: string }
   | { kind: 'stem'; name: string }
   | { kind: 'form'; slot: string }
-  | { kind: 'pronunciation' }
+  /** orthography：正字法名，空着是主正字法 */
+  | { kind: 'pronunciation'; orthography?: string }
   | { kind: 'feature'; category: string }
   | { kind: 'register' }
   | { kind: 'senseTags' }
+  | { kind: 'language' }
+  // 词条专用
+  | { kind: 'dialects' }
+  /** relKind：关系种类（synonym、antonym、related、词源类别或自定义文字） */
+  | { kind: 'relation'; relKind: string }
+  /** script：文字名，空着是第一套文字 */
+  | { kind: 'scriptForm'; script?: string }
+  | { kind: 'paradigm' }
+  | { kind: 'paradigmVariant' }
   // 语素专用
   | { kind: 'gloss' }
   | { kind: 'morphemeType' }
+  | { kind: 'form2' }
+  | { kind: 'allomorphs' }
 
-export const FIELD_KINDS: FieldSpec['kind'][] = [
+/** 导入成词条时能选的字段（跟录入页面上能填的一一对应） */
+export const LEXEME_FIELDS: FieldSpec['kind'][] = [
   'ignore',
   'lemma',
+  'language',
   'pos',
   'definition',
-  'tags',
-  'notes',
-  'protoForm',
-  'etymologyNotes',
-  'stem',
-  'form',
-  'pronunciation',
-  'feature',
   'register',
   'senseTags',
-  'gloss',
-  'morphemeType'
+  'tags',
+  'dialects',
+  'feature',
+  'pronunciation',
+  'scriptForm',
+  'etymologyType',
+  'protoForm',
+  'etymologyStage',
+  'etymologyNotes',
+  'relation',
+  'stem',
+  'form',
+  'paradigm',
+  'paradigmVariant',
+  'notes'
 ]
+
+/** 导入成语素时能选的字段 */
+export const MORPHEME_FIELDS: FieldSpec['kind'][] = [
+  'ignore',
+  'lemma',
+  'language',
+  'morphemeType',
+  'form2',
+  'gloss',
+  'definition',
+  'allomorphs',
+  'feature',
+  'tags',
+  'etymologyType',
+  'protoForm',
+  'etymologyStage',
+  'etymologyNotes',
+  'notes'
+]
+
+export const FIELD_KINDS: FieldSpec['kind'][] = [...new Set([...LEXEME_FIELDS, ...MORPHEME_FIELDS])]
+
+/** 释义开头数字编码（动词价态这类）的处理方式 */
+export const CODE_ACTIONS = ['tag', 'drop', 'keep'] as const
+
+export interface CodeRule {
+  /** tag 拿掉编码、变成义项标签；drop 只拿掉编码；keep 原样留着 */
+  action: (typeof CODE_ACTIONS)[number]
+  /** 标签名，留空就用编码本身 */
+  value: string
+}
 
 /** 方括号标记（【专】〔古〕[arch.]）的处理方式 */
 export const MARKER_ACTIONS = ['register', 'tag', 'drop', 'keep'] as const
@@ -89,11 +148,13 @@ export interface CsvMapping {
   splitProtoArrow: boolean
   /** 释义列里的中英文分号拆成多个义项 */
   splitSenses: boolean
-  /**
-   * 义项前缀映射，每行「编码=标签」：释义开头出现这些编码（可连写，如 01 = 0 + 1）时
-   * 从释义里拿掉，变成这个义项的标签。空表示不处理。
-   */
+  /** 旧版的义项前缀映射（每行「编码=标签」），老预设里还会有；新的写在 senseCodes */
   sensePrefixMap: string
+  /**
+   * 释义开头紧挨着文字的数字编码 → 处理方式（「1离开；2前往」这种），键是单个数字，连写的 01 算 0 和 1。
+   * 设成标签的从释义里拿掉、变成义项标签；只去掉的拿掉不留；没列出的原样留着。
+   */
+  senseCodes?: Record<string, CodeRule>
   /**
    * 方括号标记 → 处理方式，键是括号里的字（【专】的「专」）。序号（1、 2. 3)）后面紧跟的第一组括号也算，圆括号也一样。
    * 释义里的标记管到下一个标记或分号为止，前后拆成不同义项；备注里以标记开头的一段变成新义项；
@@ -119,6 +180,8 @@ export interface ImportReport {
   marked?: number
   /** 按词类标记设了词类的义项数 */
   posMarked?: number
+  /** 方言列里新建的方言 */
+  newDialects?: string[]
 }
 
 export function defaultMapping(languageId: Id, columnCount: number): CsvMapping {
@@ -133,6 +196,7 @@ export function defaultMapping(languageId: Id, columnCount: number): CsvMapping 
     splitProtoArrow: false,
     splitSenses: true,
     sensePrefixMap: '',
+    senseCodes: {},
     senseMarkers: {},
     posMarkers: {}
   }
@@ -158,6 +222,21 @@ export function guessMapping(header: string[], mapping: CsvMapping): CsvMapping 
     if (/^(标签|tags?)$/.test(k)) return { kind: 'tags' }
     if (/^(备注|注|注释|notes?|comment)$/.test(k)) return { kind: 'notes' }
     if (/^(原始形|祖语|原始.*语|proto|etymon|source)$/.test(k)) return { kind: 'protoForm' }
+    if (/^(语言|language|lang)$/.test(k)) return { kind: 'language' }
+    if (/^(方言|dialects?)$/.test(k)) return { kind: 'dialects' }
+    if (/^(词源类别|词源类型|etymology type|etymology_type)$/.test(k))
+      return { kind: 'etymologyType' }
+    if (/^(词源说明|词源备注|etymology|etym|ety)$/.test(k)) return { kind: 'etymologyNotes' }
+    if (/^(中间态|中间形式|stages?)$/.test(k)) return { kind: 'etymologyStage' }
+    if (/^(同义词?|近义词|synonyms?)$/.test(k)) return { kind: 'relation', relKind: 'synonym' }
+    if (/^(反义词?|antonyms?)$/.test(k)) return { kind: 'relation', relKind: 'antonym' }
+    if (/^(关系|参见|relations?|see also|related)$/.test(k))
+      return { kind: 'relation', relKind: 'related' }
+    if (/^(构形|paradigm)$/.test(k)) return { kind: 'paradigm' }
+    if (/^(构形变体|paradigm variant)$/.test(k)) return { kind: 'paradigmVariant' }
+    if (/^(文字|文字写法|script)$/.test(k)) return { kind: 'scriptForm' }
+    if (/^(异体形|allomorphs?)$/.test(k)) return { kind: 'allomorphs' }
+    if (/^(form2|第二形式)$/.test(k)) return { kind: 'form2' }
     if (/^(发音|读音|音标|ipa|pronunciation)$/.test(k)) return { kind: 'pronunciation' }
     if (/^(gloss|缩写)$/.test(k)) return { kind: 'gloss' }
     if (/^(类型|type)$/.test(k)) return { kind: 'morphemeType' }
@@ -267,6 +346,84 @@ function resolvePos(
   return pos
 }
 
+/** 名字、缩写或 id 对得上的语言（不分大小写） */
+function findLanguage(project: Project, text: string): Language | undefined {
+  const s = text.trim().toLowerCase()
+  if (!s) return undefined
+  return project.languages.find(
+    (l) =>
+      l.id === text.trim() ||
+      l.name.trim().toLowerCase() === s ||
+      (!!l.abbr && l.abbr.trim().toLowerCase() === s)
+  )
+}
+
+/** 名字或 id 对得上的一项（正字法、文字） */
+function byName<T extends { id: Id; name: string }>(list: T[], text: string): T | undefined {
+  const s = text.trim().toLowerCase()
+  return s ? list.find((x) => x.id === text.trim() || x.name.trim().toLowerCase() === s) : undefined
+}
+
+/** 这门语言里名字或缩写对得上的方言，没有就新建一个 */
+function ensureDialect(
+  lang: Language | undefined,
+  name: string,
+  report: ImportReport
+): Dialect | null {
+  const s = name.trim()
+  if (!lang || !s) return null
+  const found = lang.dialects.find(
+    (d) => d.id === s || d.name.trim() === s || (!!d.abbr && d.abbr.trim() === s)
+  )
+  if (found) return found
+  const d: Dialect = { id: newId(), name: s, abbr: '' }
+  lang.dialects.push(d)
+  ;(report.newDialects ??= []).push(s)
+  return d
+}
+
+/** 词源类别的常见写法（中英文名字、说法）→ 内置类别 */
+const ETYMOLOGY_ALIASES: Record<string, EtymologyType> = {
+  root: 'root',
+  词根: 'root',
+  compound: 'compound',
+  compounding: 'compound',
+  复合: 'compound',
+  合成: 'compound',
+  derivation: 'derivation',
+  derived: 'derivation',
+  派生: 'derivation',
+  soundchange: 'soundChange',
+  'sound change': 'soundChange',
+  音变: 'soundChange',
+  borrowing: 'borrowing',
+  borrowed: 'borrowing',
+  loan: 'borrowing',
+  loanword: 'borrowing',
+  借词: 'borrowing',
+  借用: 'borrowing',
+  inherited: 'inherited',
+  inherit: 'inherited',
+  native: 'inherited',
+  继承: 'inherited',
+  固有: 'inherited',
+  unknown: 'unknown',
+  未知: 'unknown',
+  不明: 'unknown'
+}
+
+/** 词源类别：认得的写法转成内置类别，认不出的原样当自定义类别 */
+export function etymologyTypeOf(text: string): string {
+  const s = text.trim()
+  return ETYMOLOGY_ALIASES[s.toLowerCase()] ?? s
+}
+
+/** 备注前面加上说明（列名之类）：「出处：……」 */
+function withLabel(label: string | undefined, text: string): string {
+  const l = (label ?? '').trim()
+  return !l ? text : `${l}${/[\u3400-\u9fff]/.test(l) ? '：' : ': '}${text}`
+}
+
 function ensurePos(project: Project, name: string, report: ImportReport): PartOfSpeech {
   const found = findPosByText(project, name)
   if (found) return found
@@ -346,12 +503,15 @@ export function parsePrefixMap(text: string): Map<string, string> {
  */
 export function extractSensePrefix(
   text: string,
-  map: Map<string, string>
+  map: Map<string, string | null>
 ): { text: string; tags: string[] } {
   if (!map.size) return { text, tags: [] }
   const codes = [...map.keys()].sort((a, b) => b.length - a.length)
   let rest = text.trimStart()
+  // 一长串数字（2020年）是正文，不是连写的编码
+  if ((/^\d+/.exec(rest)?.[0].length ?? 0) > 3) return { text, tags: [] }
   const tags: string[] = []
+  let hits = 0
   // 编码后面得换一类字符（数字接汉字、字母接标点）或者紧跟下一个编码（01 = 0 + 1），
   // 免得 n=名词 把 night 吃成 ight、1=一价 把 12 吃成 2
   const fits = (c: string): boolean => {
@@ -368,12 +528,73 @@ export function extractSensePrefix(
   for (;;) {
     const hit = codes.find(fits)
     if (!hit) break
-    tags.push(map.get(hit)!)
+    // 只去掉的编码记成 null：拿掉，不留标签
+    const label = map.get(hit)
+    if (label) tags.push(label)
+    hits++
     rest = rest.slice(hit.length)
   }
   rest = rest.replace(/^[\s、.．)）:：,，]+/, '')
-  if (!tags.length || !rest) return { text, tags: [] }
+  if (!hits || !rest) return { text, tags: [] }
   return { text: rest, tags: [...new Set(tags)] }
+}
+
+/** 释义开头紧挨着文字的数字：「1离开」「01出发」算，「1、离开」「2. 前往」这种序号和「2020年」不算 */
+const CODE_RE = /^\s*(\d{1,3})\s?(?=[^\d\s、.．)）:：,，;；])/u
+
+export interface CodeStat {
+  /** 单个数字 */
+  code: string
+  count: number
+  /** 在哪几列见到（列序号） */
+  columns: number[]
+  /** 第一次见到时所在的那一段 */
+  sample: string
+}
+
+/** 释义列里义项开头的数字编码，按单个数字列出（连写的 01 算 0 和 1） */
+export function findPrefixCodes(rows: string[][], mapping: CsvMapping): CodeStat[] {
+  if (mapping.target !== 'lexemes') return []
+  const cols = mapping.columns.flatMap((c, i) => (c.kind === 'definition' ? [i] : []))
+  const stats = new Map<string, CodeStat>()
+  for (const row of mapping.hasHeader ? rows.slice(1) : rows)
+    for (const ci of cols)
+      for (const part of mapping.splitSenses ? (row[ci] ?? '').split(/[;；]/) : [row[ci] ?? '']) {
+        const m = CODE_RE.exec(part)
+        if (!m) continue
+        for (const code of new Set(m[1])) {
+          const st = stats.get(code)
+          if (!st) stats.set(code, { code, count: 1, columns: [ci], sample: part.trim() })
+          else {
+            st.count++
+            if (!st.columns.includes(ci)) st.columns.push(ci)
+          }
+        }
+      }
+  return [...stats.values()].sort((a, b) => a.code.localeCompare(b.code))
+}
+
+/** 预设里读来的编码表：只留认得的处理方式 */
+export function cleanCodeRules(raw: unknown): Record<string, CodeRule> {
+  const out: Record<string, CodeRule> = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [code, r] of Object.entries(raw as Record<string, unknown>)) {
+    const { action, value } = (r ?? {}) as { action?: unknown; value?: unknown }
+    if (code && (CODE_ACTIONS as readonly unknown[]).includes(action))
+      out[code] = {
+        action: action as CodeRule['action'],
+        value: typeof value === 'string' ? value : ''
+      }
+  }
+  return out
+}
+
+/** 旧版「编码=标签」文字转成编码表（老预设用） */
+export function codeRulesFromPrefixMap(text: string): Record<string, CodeRule> {
+  const out: Record<string, CodeRule> = {}
+  for (const [code, label] of parsePrefixMap(text))
+    out[code] = { action: 'tag', value: label === code ? '' : label }
+  return out
 }
 
 const BRACKET_PAIRS = ['【】', '〔〕', '〖〗', '［］', '[]', '〈〉']
@@ -815,6 +1036,27 @@ export function applyCsvImport(
       : project.morphemes.filter((m) => m.languageId === mapping.languageId).map((m) => m.form)
   )
 
+  /** 释义开头的编码：旧版「编码=标签」加上新的编码表；只去掉的记成 null */
+  const prefixMap = new Map<string, string | null>(parsePrefixMap(mapping.sensePrefixMap ?? ''))
+  for (const [code, rule] of Object.entries(mapping.senseCodes ?? {}))
+    if (rule.action === 'keep') prefixMap.delete(code)
+    else prefixMap.set(code, rule.action === 'tag' ? rule.value.trim() || code : null)
+  const warnOnce = (msg: string): void => {
+    if (!report.warnings.includes(msg)) report.warnings.push(msg)
+  }
+  /** 这一行属于哪门语言：有语言列就按它找，找不到或者没写就是导入时选的语言 */
+  const langCol = mapping.columns.findIndex((c) => c.kind === 'language')
+  const baseLang = project.languages.find((l) => l.id === mapping.languageId)
+  const langOf = (row: string[]): Language | undefined => {
+    const raw = langCol >= 0 ? (row[langCol] ?? '').trim() : ''
+    if (!raw) return baseLang
+    const hit = findLanguage(project, raw)
+    if (!hit) warnOnce(`找不到语言「${raw}」，这些行放进导入时选的语言`)
+    return hit ?? baseLang
+  }
+  /** 词源来源、关系等全部行都建好再挂，好指向这次导入的其他行 */
+  const pendingSources: { ety: Etymology; text: string; language: string; ownerId: Id }[] = []
+  const pendingRelations: { lx: Lexeme; kind: string; targets: string[] }[] = []
   for (const row of data) {
     let key = (row[keyCol] ?? '').trim()
     let protoFromArrow = ''
@@ -840,7 +1082,9 @@ export function applyCsvImport(
     existingLemmas.add(key)
 
     if (mapping.target === 'lexemes') {
-      const lx = createLexeme(mapping.languageId, key)
+      const lang = langOf(row)
+      const lx = createLexeme(lang?.id ?? mapping.languageId, key)
+      let variantText = ''
       const sense = lx.senses[0]
       const defs: Record<string, string[]> = {}
       /** 按义项序号记下从前缀里拆出来的标签 */
@@ -850,7 +1094,6 @@ export function applyCsvImport(
       /** 按义项序号记下管它的词类标记 */
       const sensePosLabels: string[][] = []
       const noteSenses: MarkedSegment[] = []
-      const prefixMap = parsePrefixMap(mapping.sensePrefixMap ?? '')
       if (protoFromArrow)
         lx.etymology.sources.push({
           kind: 'external',
@@ -936,12 +1179,64 @@ export function applyCsvImport(
                 }
               if (touched) kept = rest.join(raw.includes('；') ? '；' : '; ')
             }
-            if (kept) lx.notes = lx.notes ? `${lx.notes}\n${kept}` : kept
+            if (kept) {
+              const line = withLabel(spec.label, kept)
+              lx.notes = lx.notes ? `${lx.notes}\n${line}` : line
+            }
             break
           }
           case 'protoForm':
-            lx.etymology.sources.push({ kind: 'external', language: '', form: raw, meaning: '' })
-            if (lx.etymology.type === 'unknown') lx.etymology.type = 'inherited'
+            pendingSources.push({
+              ety: lx.etymology,
+              text: raw,
+              language: spec.language ?? '',
+              ownerId: lx.id
+            })
+            break
+          case 'etymologyType':
+            lx.etymology.type = etymologyTypeOf(raw)
+            break
+          case 'etymologyStage':
+            lx.etymology.stages.push({
+              id: newId(),
+              form: raw,
+              type: '',
+              notes: spec.label?.trim() ?? ''
+            })
+            break
+          case 'dialects':
+            for (const name of splitTags(raw, mapping.tagSeparator)) {
+              const d = ensureDialect(lang, name, report)
+              if (d && !lx.dialectIds.includes(d.id)) lx.dialectIds.push(d.id)
+            }
+            break
+          case 'relation':
+            pendingRelations.push({
+              lx,
+              kind: spec.relKind?.trim() || 'related',
+              targets: splitTags(raw, mapping.tagSeparator)
+            })
+            break
+          case 'scriptForm': {
+            const sc =
+              lang && (spec.script?.trim() ? byName(lang.scripts, spec.script) : lang.scripts[0])
+            if (sc) lx.scriptForms[sc.id] = raw
+            else
+              warnOnce(`「${lang?.name ?? ''}」里没有文字「${spec.script ?? ''}」，文字写法没导入`)
+            break
+          }
+          case 'paradigm': {
+            const pd = project.paradigms.find(
+              (p) => p.id === raw || Object.values(p.name).some((n) => n?.trim() === raw)
+            )
+            if (pd) lx.paradigmId = pd.id
+            else warnOnce(`找不到构形「${raw}」`)
+            break
+          }
+          case 'paradigmVariant':
+            variantText = raw
+            break
+          case 'language':
             break
           case 'etymologyNotes':
             lx.etymology.notes = raw
@@ -953,10 +1248,16 @@ export function applyCsvImport(
             lx.forms[spec.slot] = { surface: raw, derived: false, override: true, trace: [] }
             break
           case 'pronunciation': {
-            const ortho = project.languages
-              .find((l) => l.id === mapping.languageId)
-              ?.orthographies.find((o) => o.isPrimary)
+            const ortho =
+              lang &&
+              (spec.orthography?.trim()
+                ? byName(lang.orthographies, spec.orthography)
+                : lang.orthographies.find((o) => o.isPrimary))
             if (ortho) lx.pronunciations[ortho.id] = { ipa: raw, irregular: true }
+            else
+              warnOnce(
+                `「${lang?.name ?? ''}」里没有正字法「${spec.orthography ?? ''}」，发音没导入`
+              )
             break
           }
           case 'feature': {
@@ -971,10 +1272,22 @@ export function applyCsvImport(
             break
           case 'gloss':
           case 'morphemeType':
+          case 'form2':
+          case 'allomorphs':
             report.warnings.push(`列 ${ci + 1} 的字段类型只适用于语素，已忽略`)
             break
         }
       })
+      // 构形变体：在词条指名的构形里找，没指名就在词类绑定的构形里找
+      if (variantText) {
+        const pid = lx.paradigmId ?? posParadigmId(project, lx.posId)
+        const v = project.paradigms
+          .filter((p) => !pid || p.id === pid)
+          .flatMap((p) => p.variants)
+          .find((x) => x.id === variantText || x.name.trim() === variantText)
+        if (v) lx.paradigmVariantId = v.id
+        else warnOnce(`找不到构形变体「${variantText}」`)
+      }
       // 组装义项：各释义语言按序号对齐，第一条写进已有的义项
       const defLangs = Object.keys(defs)
       const senseCount = Math.max(1, ...defLangs.map((g) => (defs[g] ?? []).length))
@@ -1012,7 +1325,7 @@ export function applyCsvImport(
       lx.tags = [...new Set(lx.tags)]
       project.lexemes.push(lx)
     } else {
-      const m = createMorpheme(mapping.languageId, mapping.defaultMorphemeType)
+      const m = createMorpheme(langOf(row)?.id ?? mapping.languageId, mapping.defaultMorphemeType)
       m.form = key
       mapping.columns.forEach((spec, ci) => {
         const raw = (row[ci] ?? '').trim()
@@ -1037,9 +1350,45 @@ export function applyCsvImport(
           case 'pos':
             m.tags.push(raw)
             break
-          case 'notes':
+          case 'notes': {
+            const line = withLabel(spec.label, raw)
+            m.notes = m.notes ? `${m.notes}\n${line}` : line
+            break
+          }
           case 'etymologyNotes':
-            m.notes = m.notes ? `${m.notes}\n${raw}` : raw
+            m.etymology.notes = raw
+            break
+          case 'etymologyType':
+            m.etymology.type = etymologyTypeOf(raw)
+            break
+          case 'protoForm':
+            pendingSources.push({
+              ety: m.etymology,
+              text: raw,
+              language: spec.language ?? '',
+              ownerId: m.id
+            })
+            break
+          case 'etymologyStage':
+            m.etymology.stages.push({
+              id: newId(),
+              form: raw,
+              type: '',
+              notes: spec.label?.trim() ?? ''
+            })
+            break
+          case 'form2':
+            m.form2 = raw
+            break
+          case 'allomorphs':
+            // 几个异体形用分号隔开，形式和环境之间用斜杠：lar / _V；ler / Front_
+            for (const item of raw.split(/[;；\n]/)) {
+              const [form, ...env] = item.split('/')
+              if (form?.trim())
+                m.allomorphs.push({ form: form.trim(), environment: env.join('/').trim() })
+            }
+            break
+          case 'language':
             break
           case 'feature': {
             const [cid, vid] = ensureCategoryValue(project, spec.category, raw, report)
@@ -1055,6 +1404,56 @@ export function applyCsvImport(
     }
     report.created++
   }
+  // 词源来源与关系：全部行都建好了再挂，可以指向这次导入的其他行
+  const lemmaIndex = new Map<string, Lexeme[]>()
+  for (const l of project.lexemes) lemmaIndex.set(l.lemma, [...(lemmaIndex.get(l.lemma) ?? []), l])
+  const noHyphens = (s: string): string => s.replace(/^[-=]+|[-=]+$/g, '')
+  for (const { ety, text, language, ownerId } of pendingSources) {
+    const lang = language.trim() ? findLanguage(project, language) : undefined
+    for (const piece of text.split(/\s+\+\s+/)) {
+      // 「形式 ‘意义’」：引号里的是来源的意义
+      const quoted = /^(.*?)\s*[‘'"“](.*)[’'"”]\s*$/u.exec(piece.trim())
+      const form = (quoted ? quoted[1] : piece).trim()
+      if (!form) continue
+      // 来源语言是项目里的语言：先找同形的单词，再找语素，都没有才记成外部来源
+      const bare = form.replace(/^\*+/, '')
+      const lexeme = lang
+        ? (lemmaIndex.get(bare) ?? []).find((l) => l.languageId === lang.id && l.id !== ownerId)
+        : undefined
+      const morpheme =
+        lang && !lexeme
+          ? project.morphemes.find(
+              (x) =>
+                x.languageId === lang.id &&
+                x.id !== ownerId &&
+                noHyphens(x.form) === noHyphens(bare)
+            )
+          : undefined
+      if (lexeme) ety.sources.push({ kind: 'lexeme', id: lexeme.id })
+      else if (morpheme) ety.sources.push({ kind: 'morpheme', id: morpheme.id })
+      else
+        ety.sources.push({
+          kind: 'external',
+          language: lang?.name ?? language.trim(),
+          form,
+          meaning: quoted ? quoted[2].trim() : ''
+        })
+    }
+    if (ety.type === 'unknown') ety.type = 'inherited'
+  }
+  const missingTargets = new Set<string>()
+  for (const { lx, kind, targets } of pendingRelations)
+    for (const target of targets) {
+      const same = (lemmaIndex.get(target) ?? []).filter((l) => l.id !== lx.id)
+      const hit = same.find((l) => l.languageId === lx.languageId) ?? same[0]
+      if (!hit) missingTargets.add(target)
+      else if (!lx.relations.some((r) => r.kind === kind && r.lexemeId === hit.id))
+        lx.relations.push({ kind, lexemeId: hit.id })
+    }
+  if (missingTargets.size)
+    report.warnings.push(
+      `关系里这些单词在项目里找不到：${[...missingTargets].slice(0, 20).join('、')}${missingTargets.size > 20 ? '…' : ''}`
+    )
   if (marked) report.marked = marked
   if (posMarked) report.posMarked = posMarked
   project.meta.updatedAt = now()

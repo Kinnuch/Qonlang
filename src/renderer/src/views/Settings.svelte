@@ -5,7 +5,7 @@
   import { ui } from '$lib/state/ui.svelte'
   import { t, LOCALES } from '$lib/i18n/index.svelte'
   import { TOKENIZER_MODES } from '$lib/core/model'
-  import { Eye, FolderOutput } from '@lucide/svelte'
+  import { Eye, FileSpreadsheet, FolderOutput } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import { filterRows } from '$lib/ui/filterRows'
 
@@ -307,6 +307,12 @@
         ><FolderOutput size={16} />{t('settings.exportFolder')}</button
       >
       <span class="small muted">{t('settings.exportFolderDesc')}</span>
+    </div>
+    <div class="row">
+      <button class="btn" onclick={() => projectState.exportCsv()}
+        ><FileSpreadsheet size={16} />{t('settings.exportCsv')}</button
+      >
+      <span class="small muted">{t('settings.exportCsvDesc')}</span>
     </div>
     <div class="row">
       <button class="btn" onclick={() => projectState.exportReadOnly()}

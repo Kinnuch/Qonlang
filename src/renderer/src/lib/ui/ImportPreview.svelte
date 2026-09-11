@@ -5,7 +5,14 @@
    * 词条、语素用试导入的临时项目来显示；表格记录、字形、规则文本直接给数据。
    */
   import { onMount } from 'svelte'
-  import type { Lexeme, LocalizedText, Morpheme, Project } from '$lib/core/model'
+  import {
+    ETYMOLOGY_TYPES,
+    type Etymology,
+    type Lexeme,
+    type LocalizedText,
+    type Morpheme,
+    type Project
+  } from '$lib/core/model'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { flashChange, type FlashChangeArg } from '$lib/ui/flash'
@@ -106,6 +113,26 @@
       .filter(Boolean)
       .join(' · ')
   }
+  /** 词源一行：类别 · 来源 > 中间态 · 说明（链到的单词、语素写它们的形式） */
+  function etymologyText(p: Project, e: Etymology): string {
+    const sources = e.sources
+      .map((s) =>
+        s.kind === 'external'
+          ? [s.language, s.form, s.meaning ? `‘${s.meaning}’` : ''].filter(Boolean).join(' ')
+          : s.kind === 'lexeme'
+            ? (p.lexemes.find((x) => x.id === s.id)?.lemma ?? '?')
+            : (p.morphemes.find((x) => x.id === s.id)?.form ?? '?')
+      )
+      .join(' + ')
+    const chain = [sources, ...e.stages.map((st) => st.form)].filter(Boolean).join(' > ')
+    const type =
+      e.type === 'unknown'
+        ? ''
+        : (ETYMOLOGY_TYPES as readonly string[]).includes(e.type)
+          ? t(`lexicon.etyTypes.${e.type}`)
+          : e.type
+    return [type, chain, e.notes].filter(Boolean).join(' · ')
+  }
   function lexemeFacts(p: Project, l: Lexeme): Fact[] {
     return facts([
       [
@@ -117,15 +144,7 @@
           .join(' ')
       ],
       [t('lexicon.colTags'), l.tags.join(', ')],
-      [
-        t('lexicon.etymology'),
-        [
-          ...l.etymology.sources.map((s) => (s.kind === 'external' ? s.form : '')),
-          l.etymology.notes
-        ]
-          .filter(Boolean)
-          .join(' · ')
-      ],
+      [t('lexicon.etymology'), etymologyText(p, l.etymology)],
       [
         t('lexicon.stems'),
         Object.entries(l.stems)
@@ -146,6 +165,14 @@
   }
   function morphemeFacts(p: Project, m: Morpheme): Fact[] {
     return facts([
+      [t('morphemes.form2'), m.form2],
+      [
+        t('morphemes.allomorphs'),
+        m.allomorphs
+          .map((a) => (a.environment ? `${a.form} / ${a.environment}` : a.form))
+          .join('；')
+      ],
+      [t('lexicon.etymology'), etymologyText(p, m.etymology)],
       [t('lexicon.colTags'), m.tags.join(', ')],
       [t('lexicon.features'), featureText(p, m.features)],
       [t('common.notes'), m.notes]
@@ -166,7 +193,7 @@
       >
     {/if}
   </div>
-  <p class="small muted">{shown ? t('importPreview.hint') : t('importPreview.empty')}</p>
+  {#if !shown}<p class="small muted">{t('importPreview.empty')}</p>{/if}
 
   {#if kind === 'lexemes' && project}
     {@const pj = project}

@@ -16,7 +16,7 @@ export const PROJECT_EXTENSION = '.laim.json'
 export class ProjectParseError extends Error {
   constructor(
     message: string,
-    public readonly code: 'invalid-json' | 'not-a-project' | 'newer-schema'
+    public readonly code: 'invalid-json' | 'not-a-project' | 'newer-schema' | 'invalid-csv'
   ) {
     super(message)
   }
@@ -46,6 +46,11 @@ export function parseProject(text: string): Project {
   } catch {
     throw new ProjectParseError('文件不是合法的 JSON', 'invalid-json')
   }
+  return projectFromObject(raw)
+}
+
+/** 已经解析成对象的项目（项目文件、项目 CSV 读回来的）：检查、迁移到当前 schema */
+export function projectFromObject(raw: unknown): Project {
   if (!raw || typeof raw !== 'object' || !('schemaVersion' in raw) || !('meta' in raw)) {
     throw new ProjectParseError('文件不是千语集项目', 'not-a-project')
   }

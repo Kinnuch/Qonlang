@@ -39,6 +39,51 @@
     expanded = next
   }
   const maxOf = (b: Bucket[]): number => Math.max(1, ...b.map((x) => x.n))
+
+  /** 并排的统计块太矮时至少留这么高，免得长的那块只剩两三行可滚 */
+  const MIN_BLOCK = 200
+  /**
+   * 同一行里并排的几块按矮的那块定高，高的那块里面滚动。
+   * 宽度变了（换行方式跟着变）、数据或展开收起变了就重新量一遍。
+   */
+  function alignRows(
+    node: HTMLElement,
+    key: unknown
+  ): { update(k: unknown): void; destroy(): void } {
+    let frame = 0
+    let width = -1
+    const run = (): void => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const blocks = [...node.querySelectorAll<HTMLElement>(':scope > .group')]
+        for (const b of blocks) b.style.height = ''
+        const rows = new Map<number, HTMLElement[]>()
+        for (const b of blocks) rows.set(b.offsetTop, [...(rows.get(b.offsetTop) ?? []), b])
+        for (const list of rows.values()) {
+          if (list.length < 2) continue
+          // 量的是各块自己的高度（.cols 不拉伸）：按矮的定，太矮时放宽到 MIN_BLOCK（但不超过高的那块）
+          const hs = list.map((b) => b.offsetHeight)
+          const h = Math.max(Math.min(...hs), Math.min(MIN_BLOCK, Math.max(...hs)))
+          for (const b of list) if (b.offsetHeight !== h) b.style.height = `${h}px`
+        }
+      })
+    }
+    const ro = new ResizeObserver(() => {
+      if (node.clientWidth === width) return
+      width = node.clientWidth
+      run()
+    })
+    ro.observe(node)
+    void key
+    run()
+    return {
+      update: run,
+      destroy() {
+        ro.disconnect()
+        cancelAnimationFrame(frame)
+      }
+    }
+  }
 </script>
 
 {#if facts.length}
@@ -53,7 +98,7 @@
   </div>
 {/if}
 
-<div class="cols">
+<div class="cols" use:alignRows={[groups, rankings, expanded]}>
   {#each groups.filter((g) => g.buckets.length) as g (g.title)}
     {@const lim = g.max ?? 12}
     {@const open = expanded.has(g.title)}
@@ -85,22 +130,24 @@
   {#each rankings.filter((r) => r.items.length) as r (r.title)}
     <section class="group">
       <h3>{r.title}</h3>
-      <table class="tbl small">
-        <tbody>
-          {#each r.items as it (it.id)}
-            <tr
-              class:clickable={!!r.onpick}
-              role={r.onpick ? 'button' : undefined}
-              tabindex={r.onpick ? 0 : undefined}
-              onclick={() => r.onpick?.(it.id)}
-              onkeydown={(e) => e.key === 'Enter' && r.onpick?.(it.id)}
-            >
-              <td class="data">{it.label}</td>
-              <td class="muted num">{it.n}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+      <div class="list">
+        <table class="tbl small">
+          <tbody>
+            {#each r.items as it (it.id)}
+              <tr
+                class:clickable={!!r.onpick}
+                role={r.onpick ? 'button' : undefined}
+                tabindex={r.onpick ? 0 : undefined}
+                onclick={() => r.onpick?.(it.id)}
+                onkeydown={(e) => e.key === 'Enter' && r.onpick?.(it.id)}
+              >
+                <td class="data">{it.label}</td>
+                <td class="muted num">{it.n}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
     </section>
   {/each}
 </div>
@@ -126,18 +173,40 @@
   .cols {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 18px 28px;
+    gap: 14px 16px;
+    align-items: start;
   }
+  /* 每块统计一圈淡淡的圆边框，鼠标放上去这一块略微亮一点 */
   .group {
     display: flex;
     flex-direction: column;
     gap: 6px;
     min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    border-radius: var(--radius);
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+  .group:hover {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+  .group h3 {
+    margin: 0;
   }
   .bars {
     display: flex;
     flex-direction: column;
     gap: 3px;
+  }
+  /* 定了高的那块，列表在里面滚 */
+  .bars,
+  .list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
   }
   .bar-row {
     display: grid;

@@ -231,7 +231,9 @@
       </div>
     </div>
     <div class="field">
-      <label for="lang-alphabet">{t('languages.alphabet')}</label>
+      <label for="lang-alphabet"
+        >{t('languages.alphabet')} <HelpDot tip={t('languages.alphabetHint')} /></label
+      >
       <input
         id="lang-alphabet"
         class="input data"
@@ -241,10 +243,11 @@
           projectState.touch()
         }}
       />
-      <span class="hint">{t('languages.alphabetHint')}</span>
     </div>
     <div class="field">
-      <label for="lang-ignore">{t('languages.matchIgnore')}</label>
+      <label for="lang-ignore"
+        >{t('languages.matchIgnore')} <HelpDot tip={t('languages.matchIgnoreHint')} /></label
+      >
       <input
         id="lang-ignore"
         class="input data"
@@ -252,7 +255,6 @@
         bind:value={lang.matchIgnore}
         oninput={() => projectState.touch()}
       />
-      <span class="hint">{t('languages.matchIgnoreHint')}</span>
     </div>
     <div class="field">
       <div class="row">

@@ -570,14 +570,15 @@
     </div>
     {#if m.type === 'circumfix' || m.type === 'infix' || m.type === 'pattern'}
       <div class="field">
-        <label for="m-form2">{t('morphemes.form2')}</label>
+        <label for="m-form2"
+          >{t('morphemes.form2')} <HelpDot tip={t('morphemes.form2Hint')} /></label
+        >
         <input
           id="m-form2"
           class="input data"
           bind:value={m.form2}
           oninput={() => projectState.touch()}
         />
-        <span class="hint">{t('morphemes.form2Hint')}</span>
       </div>
     {/if}
     <div class="field">

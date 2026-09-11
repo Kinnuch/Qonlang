@@ -81,8 +81,7 @@ export default {
     lexicanterPick: '选择 .lexc 文件',
     definitionLang: '义项文本的语言',
     examples: '示例工程',
-    examplesHint:
-      '随软件一起带的两个虚构项目，把各个模块的功能都摆了一遍。打开后直接改都行，示例文件本身不会被覆盖（保存时会问你存到哪）。',
+    examplesHint: '两个虚构示例项目，打开随便改，原文件不会被覆盖。',
     openExample: '打开',
     exampleOpened: '已打开示例工程「{name}」',
     exampleDesc: {
@@ -127,15 +126,14 @@ export default {
     dialects: '方言',
     addDialect: '添加方言',
     alphabet: '字母表顺序',
-    alphabetHint: '用空格分隔字素，可含多字符（如 th）；用于词库排序。留空按 Unicode。',
+    alphabetHint: '空格分隔，可以有多字母（如 th）；词库按它排序。',
     matchIgnore: '模糊匹配时忽略的字符',
-    matchIgnoreHint:
-      '关系图跨语言找词、词源来源搜索时，先去掉这些字符再比。比如喉音 H1 / H2 / H3 都算 H 就填数字，词根里分音节的点就填 .；长音符、成音节符号这类变音符与大小写总是忽略。',
+    matchIgnoreHint: '跨语言找词、搜词源时先去掉这些字符再比，比如喉音数字、分音节的点。',
     lineage: '谱系'
   },
   soundChanges: {
     search: '搜索规则、音类、阶段',
-    hint: '规则集里的音类可直接引用「音系」页定义的音类与多合字母；阶段快照绑定语言后，构形的「拼接后跑音变」生成器和整库演化都能引用它。',
+    hint: '规则里可以直接用音系页的音类；阶段绑定语言后，构形和整库演化都能用它。',
     title: '音变',
     newSet: '新建规则集',
     untitledSet: '未命名规则集',
@@ -225,8 +223,7 @@ export default {
     noPreview: '自动生成的示例没有被这条规则改变',
     editRule: '编辑',
     input: '输入',
-    chainHint:
-      '每一列是一个阶段快照，节点是音段或音类，边是规则（目标 → 替换）。悬停看环境，点击选中该规则并联动右侧测试台。',
+    chainHint: '每列是一个阶段，边是规则；悬停看环境，点一下在测试台里选中这条规则。',
     chainEmpty: '还没有规则可画。'
   },
   chars: {
@@ -254,7 +251,7 @@ export default {
     rounded: '圆唇',
     others: '其他',
     composeBase: '基字',
-    composeHint: '先输入或点选一个基字，再点附标逐个叠加；也可以直接在这里打字。',
+    composeHint: '先选基字，再点附标叠加。',
     composePreview: '预览',
     normalize: '合成为预组合字符（NFC）',
     insert: '插入',
@@ -270,7 +267,7 @@ export default {
     codepoints: '码位'
   },
   morphemes: {
-    hint: '语素会被构形生成器以 @语素 引用（按环境挑异体形），也参与语料页的自动切分；词条的词源可指向这里的词根。',
+    hint: '构形用 @语素 引用这里的词缀，语料按它们自动切分。',
     title: '语素',
     sortType: '按类型',
     empty: '这门语言还没有语素。',
@@ -395,7 +392,7 @@ export default {
     title: '项目一致性',
     count: '{n} 个问题',
     clean: '没有发现问题',
-    hint: '断掉的引用、漏填的字段、重复的条目、没接上的配置；点条目可跳过去。只查当前语言（词类、维度、构形是全项目的）。',
+    hint: '断掉的引用、漏填的字段、重复的条目；点一条跳过去。',
     more: '还有 {n} 条…',
     less: '收起',
     kinds: {
@@ -474,12 +471,15 @@ export default {
       tags: '标签',
       notes: '备注',
       category: '分类',
-      variants: '变体'
+      variants: '变体',
+      ortho: '正字法写法',
+      script: '文字写法',
+      pron: '发音',
+      extra: '自由行（列名当标签）'
     }
   },
   importPreview: {
     title: '导入样例',
-    hint: '按现在的设置导入后是这个样子；改了设置这里马上跟着变，变了的地方会闪一下。',
     count: '共 {total} 条，这里是前 {n} 条',
     countAll: '共 {total} 条',
     lines: '共 {total} 行',
@@ -490,6 +490,10 @@ export default {
     skipExisting: '会跳过：已经有了',
     skipRepeat: '会跳过：跟前面重复',
     glyphExists: '已有这个字形，会跳过'
+  },
+  projectCsv: {
+    opened: '已从 CSV 读回项目；它还没存成项目文件，保存时会问存到哪。',
+    exported: '已把整个项目导出为一个 CSV。'
   },
   syntax: {
     title: '规则语法',
@@ -604,7 +608,7 @@ export default {
   },
   lexicon: {
     stemEmpty: '（没填就用词头）',
-    hint: '发音列由「音系」页正字法规则自动生成，文字列由「文字」页映射规则生成，槽位面板来自绑定了词类的「构形」；语料页悬停词可跳回这里。',
+    hint: '发音、文字列按音系页和文字页的规则自动生成；词类绑了构形才有槽位面板。',
     title: '词库',
     entries: '词条',
     taxonomy: '词类与维度',
@@ -761,7 +765,7 @@ export default {
     paradigm: '绑定构形',
     noParadigm: '（无，M4 提供）',
     categories: '语法维度',
-    categoriesHint: '格、数、人称、时、体、焦点、名词类别……任何你需要的维度。',
+    categoriesHint: '格、数、人称、时、体……任何需要的维度。',
     addCategory: '新增维度',
     categoryName: '维度名',
     values: '取值',
@@ -802,27 +806,39 @@ export default {
       feature: '语法特征',
       register: '语域',
       senseTags: '义项标签',
-      gloss: 'gloss 缩写（语素）',
-      morphemeType: '语素类型（语素）'
+      gloss: 'gloss 缩写',
+      morphemeType: '语素类型',
+      language: '语言',
+      dialects: '方言',
+      etymologyType: '词源类别',
+      etymologyStage: '词源中间态',
+      relation: '关系',
+      scriptForm: '文字写法',
+      paradigm: '构形',
+      paradigmVariant: '构形变体',
+      form2: '第二形式',
+      allomorphs: '异体形'
     },
     lang: '语言',
     stemName: '词干名',
     slotName: '槽位名',
     categoryName: '维度名',
+    sourceLanguage: '来源语言',
+    stageLabel: '说明（比如时期）',
+    notesLabel: '前缀（可以空着）',
+    relationKind: '关系种类',
+    primaryOrthography: '主正字法',
+    firstScript: '第一套文字',
     options: '选项',
     tagSeparator: '标签分隔符',
     skipEmpty: '词头为空的行跳过',
     splitArrow: '词头含「A > B」时，B 作词头、A 作原始形',
-    sensePrefixMap: '义项前缀映射（每行 编码=标签）',
-    sensePrefixMapPlaceholder: '0=零价\n1=一价\n2=二价',
-    sensePrefixMapHint:
-      '释义开头出现这些编码时从释义里拿掉，变成义项标签，比如动词价态「1离开；2前往」→ 标签「一价」「二价」。编码可以连写（01 = 0 + 1），标签留空就用编码本身。',
     splitSenses: '释义按分号（; ；）拆成多个义项',
     formatGuide: '格式说明',
     formatGuideHint: '在网站上打开 CSV 的列名、写法与示例',
     markers: '单词、释义、备注里的标记',
     markersHint:
-      '表里出现了【专】【神】这类方括号标记（序号 1、 2. 后面紧跟的第一组括号也算，圆括号也一样），逐个选怎么处理——一般映射成语域。释义里的标记管到下一个标记或分号为止，前后拆成不同义项；备注里以标记开头的一段变成新的义项；单词前的标记管整个词条。',
+      '【专】【古】这类方括号标记，序号后面紧跟的括号也算。一般设为语域；释义里的标记管到下一个标记或分号。',
     marker: '标记',
     markerCount: '次数 · 所在列',
     markerAction: '处理',
@@ -835,7 +851,7 @@ export default {
     },
     posMarkers: '词类标记',
     posMarkersHint:
-      '义项开头像 n. v. adj. v因. 这样「拉丁字母 + 几个字 + 点」的写法都列在这里（序号、方括号标记后面的也算，n./v. 这样隔开的算两个），逐个选怎么处理——一般设为词类。常见缩写已经对好（n. 名词、v. 动词……），都可以改：写已有词类的名字或缩写就用那个词类，用斜杠连着写（名词/动词）是复合词类，没有的会新建。一个词类标记管到同一格里下一个词类标记为止；一个词条的义项分属几个词类时，词条设成它们组成的复合词类，义项各自记自己的。',
+      '义项开头 n. v. adj. 这类缩写。一般设为词类：写已有词类的名字就用它，写「名词/动词」是复合词类，没有的会新建。一个标记管到同一格里的下一个标记。',
     posValue: '词类 / 标签',
     posActions: {
       pos: '设为词类',
@@ -845,6 +861,16 @@ export default {
     },
     posExisting: '已有',
     posNew: '新建',
+    codes: '释义开头的编码',
+    codesHint:
+      '释义开头紧挨着文字的数字，比如动词价态「1离开；2前往」。设成标签后编码从释义里拿掉；连写的 01 算 0 和 1。',
+    code: '编码',
+    codeValue: '标签',
+    codeActions: {
+      tag: '设为义项标签',
+      drop: '只去掉编码',
+      keep: '原样保留'
+    },
     morphemeType: '默认语素类型',
     preset: '预设',
     savePreset: '存为预设',
@@ -862,6 +888,7 @@ export default {
     reportMarked: '按标记设了语域或标签的义项：{n} 个',
     reportPosMarked: '按词类标记设了词类的义项：{n} 个',
     reportNewCategories: '新建维度：{list}',
+    reportNewDialects: '新建方言：{list}',
     needLemma: '至少要有一列映射为「词头 / 形式」。',
     preview: '预览（前 {n} 行）',
     paste: '或直接粘贴表格内容（从 Excel / Google 表格复制即可）',
@@ -872,7 +899,7 @@ export default {
     search: '搜索字形：字符、名称、转写值',
     packing: {
       title: '音节拼合（CV / VC 音节文字）',
-      hint: '开启后不走规则链，而是按字形读音把转写拼成音节：读音里一辅一元的当拼格，更长的读音优先整块取用。',
+      hint: '不走规则，按字形读音把转写拼成音节。',
       enabled: '按音节拼合渲染',
       killer: '消音符的读音',
       dummyVowel: '借用的元音',
@@ -884,7 +911,7 @@ export default {
       baseVowels: '长元音的基础元音，如 á=a'
     },
     title: '文字',
-    hint: '在这里定义语言的书写系统：导入字体或粘贴字符表，填上每个字形的转写值，「映射规则」就会自动把词库、语料里的转写变成文字。字体可内嵌进项目文件，换机器也能显示。',
+    hint: '导入字体或粘贴字符表，填好转写，词库和语料就会自动转成文字。',
     empty: '这门语言还没有文字。新建一套，或先用拉丁转写。',
     add: '新建文字',
     newName: '新文字',
@@ -908,8 +935,7 @@ export default {
       include: '去掉括号，内容并进词里',
       omit: '括号连内容都不写'
     },
-    parensHint:
-      '「kala（mira kala）」这类括号：默认括号照留、括号里的另行转写；「tal(a)n」这种可省的字母，想拼进词里就选第二项，想省掉就选第三项。',
+    parensHint: '原文里的括号：照留、拼进词里，或者省掉。',
     vertical: '竖排显示',
     verticalHint:
       '勾上后语料、短语、词库里的这种文字都竖着排；列从右往左，书写方向选「从左到右」则列从左往右。',
@@ -918,10 +944,10 @@ export default {
     fontEmbedded: '已内嵌：{name}',
     importFont: '导入字体文件',
     clearFont: '移除内嵌字体',
-    fontHint: 'TTF / OTF 会同时读出字符表；WOFF 仅用于显示。',
+    fontHint: 'TTF / OTF 会顺便读出字符表。',
     importFromFont: '从字体读字形',
     importText: '粘贴字符表',
-    importTextHint: '每行一个字形：字符、转写、名称，用 Tab 或空格分隔。例：ᚠ f fehu',
+    importTextHint: '每行一个：字符 转写 名称，用 Tab 或空格隔开。例：ᚠ f fehu',
     importTextRun: '导入',
     imported: '导入了 {n} 个字形',
     noGlyphsInFont: '字体里没有可映射的字符',
@@ -954,8 +980,7 @@ export default {
     bulkCategory: '批量改分类',
     bulkCategoryPrompt: '把选中的字形归到哪个分类？（留空表示清除）',
     bulkDeleted: '已删除 {n} 个字形',
-    rulesHint:
-      '规则语言与音变页相同。`@glyphs` 那一行会展开成字形表自动生成的映射（转写值长的优先）；在它前面写的规则先执行，后面的规则后执行。',
+    rulesHint: '写法同音变规则；@glyphs 那行展开成字形表的映射，写在它前面的规则先跑。',
     autoRules: '自动映射（由字形表生成，{n} 条）',
     typeHints: {
       alphabet: '一字母对一音，通常只需 @glyphs；多合字母给单独字形填更长的转写值即可。',
@@ -982,7 +1007,7 @@ export default {
   phrasebook: {
     title: '短语',
     phrase: '短语',
-    hint: '常用语句按分类收在这里，与语料页的例句分开：例句用于 gloss 分析，短语用于对话、教程、旅行手册式的整理。发音按音系页的正字法规则自动生成，可手改。',
+    hint: '按分类整理常用语句；发音按正字法规则自动生成，可以手改。',
     add: '新增短语',
     search: '搜索短语：原文或译文',
     allCategories: '全部',
@@ -1000,7 +1025,7 @@ export default {
     search: '搜索文档：标题或正文',
     title: '文档',
     page: '文档页',
-    hint: '项目内的 Markdown 文档：语法说明、文化背景、翻译笔记都放这里。写 [[词头]] 可链接到词库词条，预览里点它跳转。可按语言归类，导出 Markdown 或 PDF。',
+    hint: '写 [[单词]] 链到词库词条。',
     add: '新建页面',
     untitled: '未命名页面',
     empty: '还没有文档页。',
@@ -1026,7 +1051,7 @@ export default {
   },
   evolve: {
     title: '整库演化',
-    hint: '把源语言的全部词条按本规则集推到目标语言，新词自动带词源链接（继承）。先预览再写入；已派生过的词只更新词头。',
+    hint: '把源语言的词条按这套规则推到目标语言，新词自动带词源链接；先预览再写入。',
     source: '源语言',
     sourceCount: '{n} 条词条',
     target: '目标语言',
@@ -1053,7 +1078,6 @@ export default {
   dict: {
     menu: '导出词典 / 模板…',
     title: '导出词典',
-    hint: 'HTML 带打印样式，PDF 由它生成；Markdown 适合放进 wiki；模板导出可对接任何下游格式。',
     options: '选项',
     docTitle: '标题',
     includeForms: '词干与屈折形',
@@ -1064,7 +1088,7 @@ export default {
     senseLangs: '义项语言',
     template: '逐条模板',
     templateHint:
-      '变量：{{lemma}} {{ipa}} {{pos}} {{script}} {{definition}} {{etymology}} {{notes}} {{tags}} {{language}}；块：{{#senses}}{{n}} {{text}} {{lang}}{{/senses}}、{{#forms}}{{label}} {{text}}{{/forms}}。',
+      '变量：{{lemma}} {{ipa}} {{pos}} {{script}} {{definition}} {{etymology}} {{notes}} {{tags}} {{language}}；块：{{#senses}}{{n}} {{pos}} {{text}} {{lang}}{{/senses}}、{{#forms}}{{label}} {{text}}{{/forms}}。',
     exportTemplate: '导出文本',
     exported: '已导出'
   },
@@ -1083,15 +1107,14 @@ export default {
     group: { consonant: '辅音', vowel: '元音', other: '其他' },
     chartPulmonic: 'IPA 肺部辅音',
     chartVowels: 'IPA 元音',
-    chartHint: '点击加入或移出音位表。加入时会自动填上默认特征，可在右侧修改。',
+    chartHint: '点一格加入或移出音位表。',
     removedPhoneme: '已移除音位 {s}',
     symbol: '符号',
     features: '特征',
     newDimension: '新维度名',
     inferFeatures: '按 IPA 表重推特征',
     graphemes: '各正字法写法',
-    classesHint:
-      '音类供规则语言引用：单字母或长名都可以。可以直接写成员，也可以按特征自动生成（音位表变化后点刷新）。',
+    classesHint: '规则里可以引用；成员可以直接写，也可以按特征自动生成。',
     quickClasses: '一键生成 C / V',
     addClass: '新增音类',
     noClasses: '还没有音类。',
@@ -1108,8 +1131,8 @@ export default {
     rederived: '已更新 {n} 个词条的发音（不规则的未动）',
     toIpa: '正字法 → IPA',
     fromIpa: 'IPA → 正字法',
-    orthoRulesHint: '规则语言与音变页相同；语言的音类和多合字母在这里可直接引用。',
-    hint: '这里的音位与音类可在「音变」「正字法」规则里引用；正字法转写规则决定词库的发音列与语料的 IPA；配列表驱动造词与检查。',
+    orthoRulesHint: '写法同音变规则，可以直接用本语言的音类和多合字母。',
+    hint: '音位和音类可以在规则里引用；正字法规则决定词库和语料里的发音。',
     font: '字体',
     direction: '书写方向',
     dir: { ltr: '从左到右', rtl: '从右到左', ttb: '从上到下' },
@@ -1119,8 +1142,7 @@ export default {
     strategyMax: '最大起首原则',
     strategyTemplate: '按模板限制起首 / 尾音长度',
     template: '音节模板',
-    syllableHint:
-      '音节核取自元音音位（特征 syllabic=yes 或 type=vowel）、名为 V 的音类或配列表的核列表。「配列与造词」里的合法起首表若非空，也会限制划分。',
+    syllableHint: '音节核取元音音位、名为 V 的音类或配列里的核。',
     prosody: '韵律',
     prosodyType: '类型',
     prosodyTypes: { none: '无', stress: '重音', pitch: '音高重音', tone: '声调' },
@@ -1149,8 +1171,7 @@ export default {
     weights: '造词权重（成员=权重）',
     minSyl: '最少音节',
     maxSyl: '最多音节',
-    phonotacticsHint:
-      '用 IPA 写，空格分隔；起首、尾音可写辅音丛。留空表示不限制。检查与造词都在 IPA 上进行；造出的词会按基准正字法的「IPA → 正字法」规则转回写法。',
+    phonotacticsHint: '用 IPA 写，空格分隔，留空不限制；造词和检查都按它来。',
     check: '配列检查',
     runCheck: '检查词库',
     noViolations: '词库全部符合配列。',
@@ -1177,13 +1198,12 @@ export default {
     untitled: '未命名构形',
     empty: '还没有构形。新建一个，选维度、给每个槽位配生成器，再绑定到词类。',
     dimensions: '维度',
-    dimensionsHint:
-      '维度就是词会跟着变的分类，比如数、格、时态。先在「词库 → 词类与维度」里定义，再按顺序挑到这里。',
+    dimensionsHint: '词跟着变的分类（数、格、时态……），先在词库「词类与维度」里定义。',
     variants: '变体',
     variantBase: '通用',
     addVariant: '新建变体',
     variantName: '变体名称（如 A 式、文言体）',
-    variantHint: '变体只覆盖你在它下面改过的槽位，其余照通用那套走；词条上可以选用哪个变体。',
+    variantHint: '变体只改你改过的槽位，其余沿用通用那套；词条上可以选用哪个变体。',
     slotsExplain:
       '每个维度各取一个值凑成一个槽位（{dims}），去掉禁用的还剩 {n} 个；一个槽位就是一个要生成的形式。',
     infixPresets: {
@@ -1265,9 +1285,9 @@ export default {
     backToSlots: '返回槽位',
     reportHint: '拿全部绑定了这个构形的词跑一遍，看推导结果和已录入的形式是否对得上',
     deleted: '已删除构形「{name}」',
-    hint: '构形绑定词类后，词库录入模式里该词类的词条会出现槽位面板，推导值写入后词条卡与语料 gloss 都会用到；生成器可引用「语素」页的词缀与「音变」页的规则集。',
+    hint: '构形绑到词类后，词库里这类词条会出现槽位面板。',
     affixHint:
-      '词缀直接写字面；以 @ 开头引用语素（按形式或 gloss），按异体形环境自动挑选，如 @-lAr。词干填 lemma 或词干名（留空为词头），首尾连字符自动去掉。写进去的空格与中点会原样保留，例如前缀写「ė 」推出「ė derg」、写「an·」推出「an·derg」。',
+      '词缀直接写；@ 开头引用语素，按异体形环境自动挑，如 @-lAr。词干留空是词头，写进去的空格和中点原样保留。',
     adjust: '微调',
     adjustPre: '跑音变前…',
     adjustStem: '对词干…',
@@ -1279,8 +1299,7 @@ export default {
     pickCandidate: '这个词有 {n} 个候选，意思分不出来——挑一个固定下来',
     pickThis: '就是这个',
     notFound: '没有找到「{w}」',
-    notFoundHint:
-      '搜一个词条或语素指定给它（按写法、释义或 gloss 搜）；整个词都认出来后记为已确认。',
+    notFoundHint: '搜一个词条或语素指定给它。',
     assignSearch: '搜索词条或语素…',
     assignNone: '没有对得上的词条或语素，换个写法或释义试试',
     partMissing: '这一段没有找到，点开手动指定',
@@ -1336,7 +1355,7 @@ export default {
     deleted: '已删除例句',
     openInLexicon: '在词库中查看',
     openInMorphemes: '在语素中查看',
-    hint: '词库、语素、构形里的改动都会影响这里的自动分析；确认过的分析会成为其他句子里同一个词的首选。悬停任一词可查看词条，点击可跳到词库。',
+    hint: '词库、语素、构形改了，这里的自动分析跟着变；悬停词看词条，点击跳到词库。',
     stats: {
       frequency: '词频',
       unresolved: '未识别的词',
@@ -1344,7 +1363,6 @@ export default {
     },
     abbr: {
       title: '缩写表',
-      hint: 'gloss 里的缩写及其含义；悬停 gloss 时显示。可一键填入莱比锡标准缩写，再按需增删。',
       abbr: '缩写',
       name: '含义',
       add: '新增',
@@ -1376,7 +1394,7 @@ export default {
   skin: {
     search: '搜索字体：名称、说明、标签',
     title: '皮肤',
-    hint: '皮肤是应用级设置，不进项目文件。颜色按浅色 / 深色分别保存；字体可指定到语料的原文、译文、gloss 和自定义文字。',
+    hint: '皮肤只存在本机，不进项目文件。',
     presets: '预设',
     saveAsPreset: '存为我的预设',
     presetName: '预设名称',
@@ -1384,7 +1402,7 @@ export default {
     presetDeleted: '已删除预设「{name}」',
     renamePreset: '重命名',
     deletePreset: '删除预设',
-    presetHint: '调好颜色与字体后可存成自己的预设，重名会覆盖；悬停自定义预设卡片可重命名或删除。',
+    presetHint: '调好颜色和字体后可以存成自己的预设。',
     colors: '颜色',
     colorsFor: '当前编辑：{theme}',
     fonts: '字体',
@@ -1397,13 +1415,11 @@ export default {
       gloss: 'gloss 行',
       script: '自定义文字（无内嵌字体时）'
     },
-    scriptFontsHint:
-      '下面按当前项目里的每套自定义文字单独指定字体（覆盖文字自带或内嵌的字体）：导入了字体文件后在这里选它，字形表、检视器、语料里都会换过来。',
+    scriptFontsHint: '给项目里每套文字单独指定字体：',
     scriptFontFor: '{name}（{lang}）',
     fontPlaceholder: '留空用默认；可写多个，逗号分隔',
     library: '字体库',
-    libraryHint:
-      '以下字体均为 OFL 许可，可免费商用。下载后存到应用数据目录，重启也在。也可从本地文件添加。',
+    libraryHint: '都是可免费商用的 OFL 字体，下载后一直在；也能添加本地字体。',
     installed: '已安装',
     installBuiltin: '安装',
     download: '下载',
@@ -1419,8 +1435,6 @@ export default {
     resetDone: '已恢复默认皮肤',
     custom: '自定义',
     preview: '预览',
-    previewHint:
-      '每个颜色与字体项在这里都有对应的样例；左边改哪一项，右边哪一处就会闪一下；悬停左边某项时右边描边提示。',
     previewText: '示例原文',
     vars: {
       bg: '页面背景',
@@ -1478,6 +1492,8 @@ export default {
     defaultLanguage: '默认语言',
     exportFolder: '导出为文件夹格式',
     exportFolderDesc: '每个集合一个 JSON、规则一份纯文本，便于版本控制。',
+    exportCsv: '导出为一个 CSV',
+    exportCsvDesc: '整个项目放进一个表格文件，改完从「打开项目」选它就能读回来。',
     about: '关于',
     version: '版本',
     userData: '数据目录',
@@ -1495,6 +1511,7 @@ export default {
     invalidJson: '文件不是合法的 JSON。',
     notAProject: '文件不是千语集项目。',
     newerSchema: '此文件由更新版本的千语集创建，请升级软件。',
+    invalidCsv: '项目 CSV 读不出来：{msg}',
     saveFailed: '保存失败：{msg}',
     openFailed: '打开失败：{msg}'
   },

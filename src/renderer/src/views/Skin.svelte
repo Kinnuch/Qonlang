@@ -6,6 +6,7 @@
   import { projectState } from '$lib/state/project.svelte'
   import { fontLibrary } from '$lib/state/fonts.svelte'
   import { i18n, t } from '$lib/i18n/index.svelte'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
   import {
     SKIN_PRESETS,
     SKIN_VARS,
@@ -259,7 +260,7 @@
 
   <div class="scroll">
     <section>
-      <h3>{t('skin.presets')}</h3>
+      <h3>{t('skin.presets')} <HelpDot tip={t('skin.presetHint')} /></h3>
       <div class="presets" use:flashOn={presetFlash}>
         {#each SKIN_PRESETS as p (p.id)}
           <button
@@ -306,7 +307,6 @@
         </button>
         {#if skin.preset === 'custom'}<span class="badge accent self">{t('skin.custom')}</span>{/if}
       </div>
-      <p class="small muted">{t('skin.presetHint')}</p>
     </section>
 
     <section>
@@ -393,8 +393,7 @@
     </section>
 
     <section>
-      <h3>{t('skin.library')}</h3>
-      <p class="small muted">{t('skin.libraryHint')}</p>
+      <h3>{t('skin.library')} <HelpDot tip={t('skin.libraryHint')} /></h3>
       <div class="row wrap">
         <button class="btn sm" onclick={importLocal}
           ><FolderPlus size={14} />{t('skin.importLocal')}</button
@@ -464,7 +463,6 @@
 </div>
 
 <Portal>
-  <p class="small muted pv-hint">{t('skin.previewHint')}</p>
   <div class="pv-board" use:pvMark={pvp('--bg')} title={varLabel('--bg')}>
     <div class="pv card" use:pvMark={pvp('--bg-elev')} title={varLabel('--bg-elev')}>
       <div class="pv-ui" use:pvMark={pvp('font:ui')} title={t('skin.fontSlots.ui')}>
@@ -811,9 +809,6 @@ a > e / _i</span
   .pv-scr {
     font-family: var(--font-script);
     font-size: 20px;
-  }
-  .pv-hint {
-    margin: 0 0 8px;
   }
   .pv-board {
     padding: 10px;

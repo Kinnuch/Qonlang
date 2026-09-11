@@ -884,7 +884,7 @@
       {#key importNonce}
         <TableImportDialog
           title={t('io.importSentences')}
-          fields={sentenceFields(glossLangs)}
+          fields={sentenceFields(glossLangs, language)}
           guide={guideUrl('corpus', 'table-format')}
           exists={(text) => existingTexts.has(normalizeSentence(text))}
           json={{
@@ -993,7 +993,7 @@
   {:else if mode === 'abbr'}
     <div class="scroll">
       <div class="row">
-        <p class="small muted grow">{t('corpus.abbr.hint')}</p>
+        <span class="grow"></span>
         <button class="btn sm" onclick={fillLeipzig}
           ><Sparkles size={14} />{t('corpus.abbr.fillLeipzig')}</button
         >

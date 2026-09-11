@@ -89,7 +89,7 @@ const en: Dict = {
     definitionLang: 'Language of the definition text',
     examples: 'Example projects',
     examplesHint:
-      'Two fictional projects shipped with the app, between them touching every module. Open one and edit freely — the bundled files are never overwritten (saving asks where to put it).',
+      'Two fictional sample projects. Change anything; the originals are never overwritten.',
     openExample: 'Open',
     exampleOpened: 'Opened the example project “{name}”',
     exampleDesc: {
@@ -134,16 +134,15 @@ const en: Dict = {
     dialects: 'Dialects',
     addDialect: 'Add dialect',
     alphabet: 'Alphabet order',
-    alphabetHint:
-      'Space-separated graphemes, multi-character allowed (e.g. th); used to sort the lexicon. Empty = Unicode order.',
+    alphabetHint: 'Space-separated, multi-letter units allowed (th); the lexicon sorts by it.',
     matchIgnore: 'Characters ignored in fuzzy matching',
     matchIgnoreHint:
-      'Stripped before comparing when the relation graph looks words up across languages or when searching etymology sources — e.g. enter digits so H1 / H2 / H3 all count as H, or . for syllable dots in roots. Diacritics such as macrons and syllabic marks, and letter case, are always ignored.',
+      'Removed before comparing forms across languages, e.g. laryngeal numbers or syllable dots.',
     lineage: 'Lineage'
   },
   soundChanges: {
     search: 'Search rules, classes, stages',
-    hint: 'Rule sets can use the classes and digraphs defined on the Phonology page; once a stage snapshot is bound to a language, paradigm “affix + sound change” generators and whole-lexicon evolution can reference it.',
+    hint: 'Rules can use the classes from Phonology; bind stages to languages to use them in paradigms and lexicon evolution.',
     title: 'Sound changes',
     newSet: 'New rule set',
     untitledSet: 'Untitled rule set',
@@ -236,7 +235,7 @@ const en: Dict = {
     editRule: 'Edit',
     input: 'Input',
     chainHint:
-      'Each column is a stage snapshot; nodes are segments or classes, edges are rules (target → replacement). Hover for the environment, click to select the rule and preview it in the test bench.',
+      'Each column is a stage and each edge a rule. Hover to see the environment; click to select the rule in the test bench.',
     chainEmpty: 'No rules to draw yet.'
   },
   chars: {
@@ -264,8 +263,7 @@ const en: Dict = {
     rounded: 'rounded',
     others: 'Others',
     composeBase: 'Base',
-    composeHint:
-      'Type or pick a base character, then click diacritics to stack them; you can also type here directly.',
+    composeHint: 'Pick a base, then click diacritics to stack them.',
     composePreview: 'Preview',
     normalize: 'Compose into precomposed characters (NFC)',
     insert: 'Insert',
@@ -281,7 +279,7 @@ const en: Dict = {
     codepoints: 'Code points'
   },
   morphemes: {
-    hint: 'Morphemes are referenced by paradigm generators as @morpheme (allomorph chosen by environment) and take part in corpus auto-segmentation; lexeme etymologies can point at roots here.',
+    hint: 'Paradigms reference these with @morpheme, and the corpus uses them to segment words.',
     title: 'Morphemes',
     sortType: 'By type',
     empty: 'This language has no morphemes yet.',
@@ -407,7 +405,7 @@ const en: Dict = {
     title: 'Project consistency',
     count: '{n} issues',
     clean: 'No issues found',
-    hint: 'Broken references, missing fields, duplicates and unconnected configuration; click an item to jump to it. Only the current language is checked (parts of speech, dimensions and paradigms are project-wide).',
+    hint: 'Broken references, missing fields and duplicates; click one to jump to it.',
     more: '{n} more…',
     less: 'Show less',
     kinds: {
@@ -486,12 +484,15 @@ const en: Dict = {
       tags: 'Tags',
       notes: 'Notes',
       category: 'Category',
-      variants: 'Variants'
+      variants: 'Variants',
+      ortho: 'Other orthography',
+      script: 'Script spelling',
+      pron: 'Pronunciation',
+      extra: 'Free line (column name as label)'
     }
   },
   importPreview: {
     title: 'Import preview',
-    hint: 'This is what the import will look like with the current settings. It updates as soon as you change something, and the parts that changed flash briefly.',
     count: '{total} in total, showing the first {n}',
     countAll: '{total} in total',
     lines: '{total} lines',
@@ -502,6 +503,11 @@ const en: Dict = {
     skipExisting: 'Skipped: already present',
     skipRepeat: 'Skipped: repeats an earlier row',
     glyphExists: 'Already in the glyph table — skipped'
+  },
+  projectCsv: {
+    opened:
+      'Project read back from CSV. It is not saved as a project file yet; saving asks where to put it.',
+    exported: 'Exported the whole project as one CSV.'
   },
   syntax: {
     title: 'Rule syntax',
@@ -624,7 +630,7 @@ const en: Dict = {
   },
   lexicon: {
     stemEmpty: '(empty uses the headword)',
-    hint: 'The pronunciation column comes from Phonology orthography rules, the script column from Script mapping rules, and slot panels from Paradigms bound to a part of speech; hovering a word in Corpus jumps back here.',
+    hint: 'Pronunciation and script columns come from the Phonology and Script rules; the slot panel appears once the part of speech has a paradigm.',
     title: 'Lexicon',
     entries: 'Entries',
     taxonomy: 'Parts of speech & dimensions',
@@ -784,7 +790,7 @@ const en: Dict = {
     paradigm: 'Bound paradigm',
     noParadigm: '(none, M4)',
     categories: 'Grammatical dimensions',
-    categoriesHint: 'Case, number, person, tense, aspect, focus, noun class… whatever you need.',
+    categoriesHint: 'Case, number, person, tense, aspect… any dimension you need.',
     addCategory: 'Add dimension',
     categoryName: 'Dimension name',
     values: 'Values',
@@ -825,27 +831,39 @@ const en: Dict = {
       feature: 'Grammatical feature',
       register: 'Register',
       senseTags: 'Sense tags',
-      gloss: 'Gloss abbreviation (morphemes)',
-      morphemeType: 'Morpheme type (morphemes)'
+      gloss: 'Gloss abbreviation',
+      morphemeType: 'Morpheme type',
+      language: 'Language',
+      dialects: 'Dialects',
+      etymologyType: 'Etymology type',
+      etymologyStage: 'Etymology stage',
+      relation: 'Relation',
+      scriptForm: 'Script spelling',
+      paradigm: 'Paradigm',
+      paradigmVariant: 'Paradigm variant',
+      form2: 'Second form',
+      allomorphs: 'Allomorphs'
     },
     lang: 'Language',
     stemName: 'Stem name',
     slotName: 'Slot name',
     categoryName: 'Dimension name',
+    sourceLanguage: 'Source language',
+    stageLabel: 'Note (e.g. period)',
+    notesLabel: 'Prefix (optional)',
+    relationKind: 'Relation kind',
+    primaryOrthography: 'Primary orthography',
+    firstScript: 'First script',
     options: 'Options',
     tagSeparator: 'Tag separator',
     skipEmpty: 'Skip rows with an empty lemma',
     splitArrow: 'When the lemma contains “A > B”, use B as lemma and A as proto-form',
-    sensePrefixMap: 'Sense prefix map (one code=tag per line)',
-    sensePrefixMapPlaceholder: '0=avalent\n1=monovalent\n2=divalent',
-    sensePrefixMapHint:
-      'Codes found at the start of a definition are removed and become sense tags — e.g. verb valency “1 leave; 2 go to” → tags “monovalent”, “divalent”. Codes may be run together (01 = 0 + 1); an empty tag uses the code itself.',
     splitSenses: 'Split definitions into senses on semicolons (; ；)',
     formatGuide: 'Format guide',
     formatGuideHint: 'Open the CSV column names, conventions and examples on the website',
     markers: 'Markers in words, definitions and notes',
     markersHint:
-      'The table uses bracketed markers such as 【PN】 or [arch.] (the first bracket right after a sense number like “1.” counts too, parentheses included). Choose how to handle each one — usually as a register. In definitions a marker covers the text up to the next marker or semicolon, which becomes its own sense; in notes, a part starting with a marker becomes a new sense; a marker before the word applies to the whole entry.',
+      'Bracketed markers like 【PN】 or [arch.], including the first bracket after a sense number. Usually set as a register; in definitions a marker covers the text up to the next marker or semicolon.',
     marker: 'Marker',
     markerCount: 'Count · columns',
     markerAction: 'Handling',
@@ -858,7 +876,7 @@ const en: Dict = {
     },
     posMarkers: 'Part-of-speech labels',
     posMarkersHint:
-      'Labels like n. v. adj. at the start of a sense — a Latin letter, a few characters and a dot — are listed here (also after a sense number or a bracketed marker; n./v. counts as two). Choose how to handle each one, usually as a part of speech. Common abbreviations are matched already (n. noun, v. verb…) and can all be changed: type the name or abbreviation of an existing part of speech to use it, join several with a slash (noun/verb) for a compound one; anything else is created. A label covers the senses up to the next label in the same cell; when an entry’s senses belong to several parts of speech, the entry gets their compound and each sense keeps its own.',
+      'Abbreviations like n. v. adj. at the start of a sense. Usually set as a part of speech: type an existing name to use it, or “noun/verb” for a compound; new ones are created. A label covers the senses up to the next label in the same cell.',
     posValue: 'Part of speech / tag',
     posActions: {
       pos: 'Set as part of speech',
@@ -868,6 +886,16 @@ const en: Dict = {
     },
     posExisting: 'existing',
     posNew: 'new',
+    codes: 'Codes at the start of definitions',
+    codesHint:
+      'Digits written right before a definition, such as verb valency “1leave; 2go to”. Set as a tag and the code is taken out of the definition; 01 counts as 0 and 1.',
+    code: 'Code',
+    codeValue: 'Tag',
+    codeActions: {
+      tag: 'Add as sense tag',
+      drop: 'Just remove the code',
+      keep: 'Leave as is'
+    },
     morphemeType: 'Default morpheme type',
     preset: 'Preset',
     savePreset: 'Save as preset',
@@ -885,6 +913,7 @@ const en: Dict = {
     reportMarked: 'Senses given a register or tag from markers: {n}',
     reportPosMarked: 'Senses given a part of speech from labels: {n}',
     reportNewCategories: 'New dimensions: {list}',
+    reportNewDialects: 'New dialects: {list}',
     needLemma: 'Map at least one column to “Lemma / form”.',
     preview: 'Preview (first {n} rows)',
     paste: 'Or paste spreadsheet content (copied from Excel / Google Sheets)',
@@ -895,7 +924,7 @@ const en: Dict = {
     search: 'Search glyphs: character, name, value',
     packing: {
       title: 'Syllable packing (CV / VC syllabaries)',
-      hint: 'Skips the rule chain and packs the transcription into syllables using the glyph readings: two-segment consonant+vowel readings become the cells, longer readings are taken whole first.',
+      hint: 'Skips the rules and packs the transliteration into syllables by glyph readings.',
       enabled: 'Render by syllable packing',
       killer: 'Killer (vowel-cancelling) reading',
       dummyVowel: 'Borrowed vowel',
@@ -907,7 +936,7 @@ const en: Dict = {
       baseVowels: 'Base vowel of a long vowel, e.g. á=a'
     },
     title: 'Script',
-    hint: 'Define the writing system here: import a font or paste a glyph list, give each glyph a transliteration value, and the mapping rules will turn transliterations in the lexicon and corpus into script automatically. Fonts can be embedded in the project file.',
+    hint: 'Import a font or paste a glyph list and fill in transliterations; the lexicon and corpus are then written in the script automatically.',
     empty: 'This language has no script yet. Create one, or keep using romanization.',
     add: 'New script',
     newName: 'New script',
@@ -932,7 +961,7 @@ const en: Dict = {
       omit: 'Drop them together with their content'
     },
     parensHint:
-      'For “kala (mira kala)”, the default keeps the brackets and transliterates what’s inside on its own; for optional letters like “tal(a)n”, choose the second option to spell them into the word or the third to leave them out.',
+      'What to do with parentheses: keep them, merge the letters into the word, or leave them out.',
     vertical: 'Vertical layout',
     verticalHint:
       'When on, this script is laid out vertically in the corpus, phrasebook and lexicon; columns run right-to-left, or left-to-right if the direction is set to LTR.',
@@ -941,11 +970,11 @@ const en: Dict = {
     fontEmbedded: 'Embedded: {name}',
     importFont: 'Import font file',
     clearFont: 'Remove embedded font',
-    fontHint: 'TTF / OTF also yield the glyph list; WOFF is display-only.',
+    fontHint: 'TTF / OTF also provide the glyph list.',
     importFromFont: 'Read glyphs from font',
     importText: 'Paste glyph list',
     importTextHint:
-      'One glyph per line: character, transliteration, name — separated by Tab or spaces. E.g. ᚠ f fehu',
+      'One per line: character, transliteration, name, separated by tabs or spaces. Example: ᚠ f fehu',
     importTextRun: 'Import',
     imported: 'Imported {n} glyphs',
     noGlyphsInFont: 'No mappable characters in the font',
@@ -979,7 +1008,7 @@ const en: Dict = {
     bulkCategoryPrompt: 'Category for the selected glyphs? (empty clears it)',
     bulkDeleted: 'Deleted {n} glyphs',
     rulesHint:
-      'Same rule language as sound changes. The `@glyphs` line expands to the mapping generated from the glyph table (longest transliteration first); rules before it run first, rules after it run last.',
+      'Same syntax as sound changes; the @glyphs line expands to the glyph table mapping, and rules above it run first.',
     autoRules: 'Automatic mapping (from the glyph table, {n} rules)',
     typeHints: {
       alphabet:
@@ -1009,7 +1038,7 @@ const en: Dict = {
   phrasebook: {
     title: 'Phrasebook',
     phrase: 'Phrase',
-    hint: 'Everyday expressions grouped by category, separate from corpus sentences: sentences are for glossing, phrases for dialogues, tutorials and travel-guide style lists. Pronunciations are derived from the orthography rules and can be edited.',
+    hint: 'Common phrases by category; pronunciations follow the orthography rules and can be edited.',
     add: 'New phrase',
     search: 'Search phrases: text or translation',
     allCategories: 'All',
@@ -1028,7 +1057,7 @@ const en: Dict = {
     search: 'Search docs: title or body',
     title: 'Documents',
     page: 'Page',
-    hint: 'Markdown pages inside the project: grammar notes, culture, translation notes. Write [[lemma]] to link a lexicon entry and click it in the preview. Pages can belong to a language; export as Markdown or PDF.',
+    hint: 'Write [[word]] to link to a lexicon entry.',
     add: 'New page',
     untitled: 'Untitled page',
     empty: 'No pages yet.',
@@ -1055,7 +1084,7 @@ const en: Dict = {
   },
   evolve: {
     title: 'Evolve lexicon',
-    hint: 'Run every entry of the source language through this rule set into the target language; new words get an etymology link (inherited). Preview first, then write; already derived words only get their lemma updated.',
+    hint: 'Runs the source language’s entries through these rules into the target language, with etymology links. Preview before writing.',
     source: 'Source language',
     sourceCount: '{n} entries',
     target: 'Target language',
@@ -1082,7 +1111,6 @@ const en: Dict = {
   dict: {
     menu: 'Export dictionary / template…',
     title: 'Export dictionary',
-    hint: 'HTML carries print styles and is what the PDF is made from; Markdown suits wikis; template export feeds any downstream format.',
     options: 'Options',
     docTitle: 'Title',
     includeForms: 'Stems and inflected forms',
@@ -1093,7 +1121,7 @@ const en: Dict = {
     senseLangs: 'Sense languages',
     template: 'Per-entry template',
     templateHint:
-      'Variables: {{lemma}} {{ipa}} {{pos}} {{script}} {{definition}} {{etymology}} {{notes}} {{tags}} {{language}}; blocks: {{#senses}}{{n}} {{text}} {{lang}}{{/senses}}, {{#forms}}{{label}} {{text}}{{/forms}}.',
+      'Variables: {{lemma}} {{ipa}} {{pos}} {{script}} {{definition}} {{etymology}} {{notes}} {{tags}} {{language}}; blocks: {{#senses}}{{n}} {{pos}} {{text}} {{lang}}{{/senses}}, {{#forms}}{{label}} {{text}}{{/forms}}.',
     exportTemplate: 'Export text',
     exported: 'Exported'
   },
@@ -1112,16 +1140,14 @@ const en: Dict = {
     group: { consonant: 'Consonants', vowel: 'Vowels', other: 'Other' },
     chartPulmonic: 'IPA pulmonic consonants',
     chartVowels: 'IPA vowels',
-    chartHint:
-      'Click to add to or remove from the inventory. Default features are filled in and can be edited on the right.',
+    chartHint: 'Click a cell to add or remove the phoneme.',
     removedPhoneme: 'Removed phoneme {s}',
     symbol: 'Symbol',
     features: 'Features',
     newDimension: 'New dimension',
     inferFeatures: 'Re-infer from IPA charts',
     graphemes: 'Spelling per orthography',
-    classesHint:
-      'Classes are referenced by the rule language: single letters or long names. Type members directly, or generate them from features (refresh after the inventory changes).',
+    classesHint: 'Usable in rules; list members directly or generate them from features.',
     quickClasses: 'Create C / V',
     addClass: 'Add class',
     noClasses: 'No classes yet.',
@@ -1139,8 +1165,8 @@ const en: Dict = {
     toIpa: 'Orthography → IPA',
     fromIpa: 'IPA → orthography',
     orthoRulesHint:
-      'Same rule language as the sound-change page; the language’s classes and digraphs are available here.',
-    hint: 'Phonemes and classes defined here can be referenced in sound-change and orthography rules; orthography rules drive the lexicon’s pronunciation column and the corpus IPA; phonotactics drive the generator and checks.',
+      'Same syntax as sound changes; this language’s classes and digraphs are available.',
+    hint: 'Phonemes and classes can be used in rules; orthography rules produce the pronunciations in the lexicon and corpus.',
     font: 'Font',
     direction: 'Writing direction',
     dir: { ltr: 'Left to right', rtl: 'Right to left', ttb: 'Top to bottom' },
@@ -1150,8 +1176,7 @@ const en: Dict = {
     strategyMax: 'Maximal onset',
     strategyTemplate: 'Limit onset / coda length by template',
     template: 'Syllable template',
-    syllableHint:
-      'Nuclei come from vowel phonemes (feature syllabic=yes or type=vowel), a class named V, or the nucleus list in phonotactics. A non-empty allowed-onset list also constrains the split.',
+    syllableHint: 'Nuclei come from vowel phonemes, a class named V, or the phonotactic nuclei.',
     prosody: 'Prosody',
     prosodyType: 'Type',
     prosodyTypes: { none: 'None', stress: 'Stress', pitch: 'Pitch accent', tone: 'Tone' },
@@ -1181,7 +1206,7 @@ const en: Dict = {
     minSyl: 'Min syllables',
     maxSyl: 'Max syllables',
     phonotacticsHint:
-      'Write in IPA, space-separated; onsets and codas may be clusters. Empty = unconstrained. Checking and generation run on IPA; generated words are spelt back via the primary orthography’s IPA → orthography rules.',
+      'Written in IPA, space-separated; empty means no limit. Word generation and checks follow it.',
     check: 'Phonotactic check',
     runCheck: 'Check lexicon',
     noViolations: 'Every entry conforms.',
@@ -1210,13 +1235,13 @@ const en: Dict = {
       'No paradigms yet. Create one, pick dimensions, give each slot a generator, then bind it to parts of speech.',
     dimensions: 'Dimensions',
     dimensionsHint:
-      'Dimensions are the categories a word varies by, such as number, case or tense. Define them under Lexicon → Parts of speech & dimensions, then pick them here in order.',
+      'The categories a word inflects for (number, case, tense…), defined under Lexicon → Parts of speech & dimensions.',
     variants: 'Variants',
     variantBase: 'Base',
     addVariant: 'New variant',
     variantName: 'Variant name (e.g. A-form, literary)',
     variantHint:
-      'A variant only overrides the slots you edit under it; the rest fall back to the base. Entries pick which variant to use.',
+      'A variant only overrides the slots you change; entries can pick which variant to use.',
     slotsExplain:
       'One value from each dimension makes a slot ({dims}); {n} remain once disabled ones are dropped. Each slot is one form to generate.',
     infixPresets: {
@@ -1299,9 +1324,9 @@ const en: Dict = {
     reportHint:
       'Run every word bound to this paradigm and compare derived forms with what is stored',
     deleted: 'Deleted paradigm “{name}”',
-    hint: 'Once a paradigm is bound to a part of speech, entries of that class get a slot panel in the lexicon edit mode; derived forms feed the entry card and corpus glosses. Generators can reference affixes from Morphemes and rule sets from Sound changes.',
+    hint: 'Bind a paradigm to a part of speech and its entries get a slot panel in the lexicon.',
     affixHint:
-      'Affixes are literal; start with @ to reference a morpheme (by form or gloss) whose allomorph is chosen by environment, e.g. @-lAr. Stem: lemma or a stem name (empty = lemma); leading/trailing hyphens are stripped. Spaces and middle dots you type are kept, so a prefix of “ė ” yields “ė derg” and “an·” yields “an·derg”.',
+      'Write affixes literally; start with @ to reference a morpheme, picked by allomorph environment (@-lAr). An empty stem is the lemma; spaces and middle dots are kept.',
     adjust: 'Adjustments',
     adjustPre: 'before sound changes…',
     adjustStem: 'on the stem…',
@@ -1313,8 +1338,7 @@ const en: Dict = {
     pickCandidate: 'This word has {n} candidates that can’t be told apart — pick one to lock it in',
     pickThis: 'This one',
     notFound: 'Nothing found for “{w}”',
-    notFoundHint:
-      'Search for a lexeme or morpheme to assign (by spelling, definition or gloss); the word is marked confirmed once every part is known.',
+    notFoundHint: 'Search for an entry or morpheme to assign.',
     assignSearch: 'Search lexemes or morphemes…',
     assignNone: 'No matching lexeme or morpheme — try another spelling or meaning',
     partMissing: 'This part was not found — click to assign it',
@@ -1371,7 +1395,7 @@ const en: Dict = {
     deleted: 'Deleted sentence',
     openInLexicon: 'Open in lexicon',
     openInMorphemes: 'Open in Morphemes',
-    hint: 'Changes in the lexicon, morphemes and paradigms feed the automatic analysis here; a confirmed analysis becomes the first choice for the same word in other sentences. Hover a word to see its entry, click to jump to the lexicon.',
+    hint: 'Automatic analysis follows the lexicon, morphemes and paradigms. Hover a word to see its entry; click to open it.',
     stats: {
       frequency: 'Word frequency',
       unresolved: 'Unrecognized words',
@@ -1379,7 +1403,6 @@ const en: Dict = {
     },
     abbr: {
       title: 'Abbreviations',
-      hint: 'Gloss abbreviations and their meanings, shown when hovering a gloss. Fill in the Leipzig standard set, then add or remove as needed.',
       abbr: 'Abbreviation',
       name: 'Meaning',
       add: 'Add',
@@ -1413,7 +1436,7 @@ const en: Dict = {
   skin: {
     search: 'Search fonts: name, description, tag',
     title: 'Skin',
-    hint: 'Skins are app-level settings and never enter the project file. Colours are stored separately for light and dark; fonts can be set for corpus text, translation, gloss and custom scripts.',
+    hint: 'The skin is stored on this computer, not in the project file.',
     presets: 'Presets',
     saveAsPreset: 'Save as my preset',
     presetName: 'Preset name',
@@ -1421,8 +1444,7 @@ const en: Dict = {
     presetDeleted: 'Deleted preset “{name}”',
     renamePreset: 'Rename',
     deletePreset: 'Delete preset',
-    presetHint:
-      'After adjusting colours and fonts, save them as your own preset; a duplicate name overwrites. Hover a custom preset card to rename or delete it.',
+    presetHint: 'Save your colours and fonts as a preset.',
     colors: 'Colours',
     colorsFor: 'Editing: {theme}',
     fonts: 'Fonts',
@@ -1435,13 +1457,12 @@ const en: Dict = {
       gloss: 'Gloss line',
       script: 'Custom script (when no embedded font)'
     },
-    scriptFontsHint:
-      'Pick a font per custom script of the current project (overrides the script’s own or embedded font): after importing a font file, choose it here and the glyph table, inspector and corpus all switch to it.',
+    scriptFontsHint: 'Pick a font for each script in this project:',
     scriptFontFor: '{name} ({lang})',
     fontPlaceholder: 'Empty = default; several names separated by commas',
     library: 'Font library',
     libraryHint:
-      'All fonts below are OFL-licensed and free for commercial use. Downloads are stored in the app data folder. You can also add local font files.',
+      'All OFL fonts, free for commercial use and kept after download; local fonts can be added too.',
     installed: 'Installed',
     installBuiltin: 'Install',
     download: 'Download',
@@ -1458,8 +1479,6 @@ const en: Dict = {
     resetDone: 'Skin reset',
     custom: 'Custom',
     preview: 'Preview',
-    previewHint:
-      'Every colour and font option has a sample here; changing one on the left flashes the matching spot on the right, and hovering an option outlines it.',
     previewText: 'Sample text',
     vars: {
       bg: 'Page background',
@@ -1526,6 +1545,9 @@ const en: Dict = {
     defaultLanguage: 'Default language',
     exportFolder: 'Export as folder',
     exportFolderDesc: 'One JSON per collection plus a plain-text rules file, for version control.',
+    exportCsv: 'Export as one CSV',
+    exportCsvDesc:
+      'The whole project in one spreadsheet file; pick it in “Open project” to read it back.',
     about: 'About',
     version: 'Version',
     userData: 'Data directory',
@@ -1543,6 +1565,7 @@ const en: Dict = {
     invalidJson: 'The file is not valid JSON.',
     notAProject: 'The file is not a Qonlang project.',
     newerSchema: 'This file was created by a newer Qonlang; please update.',
+    invalidCsv: 'Could not read the project CSV: {msg}',
     saveFailed: 'Save failed: {msg}',
     openFailed: 'Open failed: {msg}'
   },

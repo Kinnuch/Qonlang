@@ -88,6 +88,8 @@ export interface CsvPreset {
   senseMarkers?: Record<string, unknown>
   /** 词类标记 → 处理方式（{ action, value }），读入时清洗 */
   posMarkers?: Record<string, unknown>
+  /** 释义开头的数字编码 → 处理方式（{ action, value }），读入时清洗 */
+  senseCodes?: Record<string, unknown>
 }
 
 export const DEFAULT_PREFS: Prefs = {

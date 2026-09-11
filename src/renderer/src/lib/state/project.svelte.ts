@@ -7,6 +7,7 @@ import {
   projectToFolder,
   serializeProject
 } from '$lib/core/serialize'
+import { isProjectCsv, projectFromCsv, projectToCsv } from '$lib/core/projectCsv'
 import { platform, type RecentEntry, type SaveTarget } from '$lib/platform'
 import { t } from '$lib/i18n/index.svelte'
 import { ui } from './ui.svelte'
@@ -151,9 +152,10 @@ class ProjectState {
       const key = {
         'invalid-json': 'invalidJson',
         'not-a-project': 'notAProject',
-        'newer-schema': 'newerSchema'
+        'newer-schema': 'newerSchema',
+        'invalid-csv': 'invalidCsv'
       }[e.code]
-      ui.error(t(`errors.${key}`))
+      ui.error(t(`errors.${key}`, { msg: e.message }))
     } else {
       ui.error(t('errors.openFailed', { msg: (e as Error).message }))
     }
@@ -163,6 +165,14 @@ class ProjectState {
     try {
       const r = await platform.openProject()
       if (!r) return false
+      // 整个项目导出的 CSV：读回来当成还没存盘的项目，保存时再问存到哪
+      if (isProjectCsv(r.content)) {
+        this.load(projectFromCsv(r.content), null)
+        this.dirty = true
+        platform.setDirty(true)
+        ui.toast(t('projectCsv.opened'))
+        return true
+      }
       const p = parseProject(r.content)
       this.load(p, r.target)
       await this.remember()
@@ -248,6 +258,17 @@ class ProjectState {
     if (!this.project) return
     const files = projectToFolder($state.snapshot(this.project) as Project)
     await platform.exportFolder(files, this.project.meta.name || 'qianyuji')
+  }
+
+  /** 整个项目导出成一个 CSV（改完从「打开项目」选它就能读回来） */
+  async exportCsv(): Promise<void> {
+    if (!this.project) return
+    const csv = projectToCsv($state.snapshot(this.project) as Project)
+    const ok = await platform.saveTextFile(
+      `${this.project.meta.name || 'qonlang'}.csv`,
+      '\ufeff' + csv
+    )
+    if (ok) ui.toast(t('projectCsv.exported'))
   }
 
   close(): void {

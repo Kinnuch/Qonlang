@@ -512,8 +512,8 @@
           <span class="badge" class:accent={issueTotal === 0}
             >{issueTotal ? t('consistency.count', { n: issueTotal }) : t('consistency.clean')}</span
           >
+          <HelpDot tip={t('consistency.hint')} />
         </h3>
-        <p class="small muted">{t('consistency.hint')}</p>
         {#each issues as g (g.kind)}
           {@const open = openKinds.has(g.kind)}
           {@const shown = open ? g.issues : g.issues.slice(0, 8)}
@@ -568,8 +568,7 @@
   {:else}
     <div class="scroll">
       <section class="block">
-        <h3>{t('paradigms.dimensions')}</h3>
-        <p class="small muted">{t('paradigms.dimensionsHint')}</p>
+        <h3>{t('paradigms.dimensions')} <HelpDot tip={t('paradigms.dimensionsHint')} /></h3>
         <p class="small muted">
           {t('paradigms.slotsExplain', { n: slots.length, dims: dimSizes })}
         </p>
@@ -600,7 +599,10 @@
       </section>
 
       <section class="block">
-        <h3>{t('paradigms.slots')} <span class="badge">{slots.length}</span></h3>
+        <h3>
+          {t('paradigms.slots')} <span class="badge">{slots.length}</span>
+          <HelpDot tip={t('paradigms.affixHint')} />
+        </h3>
         <div class="row wrap vbar">
           <span class="small muted">{t('paradigms.variants')}</span>
           <div class="seg">
@@ -621,7 +623,7 @@
             <button class="btn ghost sm danger" onclick={removeVariant}>{t('common.delete')}</button
             >
           {/if}
-          <span class="small muted">{t('paradigms.variantHint')}</span>
+          <HelpDot tip={t('paradigms.variantHint')} />
         </div>
         {#if slots.length === 0}
           <p class="small muted">{t('paradigms.noSlots')}</p>
@@ -687,8 +689,6 @@
             ><option value="lemma"></option>{#each stemNames as s (s)}<option value={s}
               ></option>{/each}</datalist
           >
-          <p class="small muted">{t('paradigms.affixHint')}</p>
-          <p class="small muted">{t('paradigms.adjustHint')}</p>
         {/if}
       </section>
     </div>

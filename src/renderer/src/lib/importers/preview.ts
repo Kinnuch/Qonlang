@@ -16,7 +16,8 @@ export function scratchProject(p: Project): Project {
     ...p,
     meta: { ...p.meta },
     settings: { ...p.settings },
-    languages: [...p.languages],
+    // 方言列会往语言里加方言：每门语言浅拷一份，方言另拷
+    languages: p.languages.map((l) => ({ ...l, dialects: [...l.dialects] })),
     posList: clone(p.posList),
     categories: clone(p.categories),
     lexemes: [],

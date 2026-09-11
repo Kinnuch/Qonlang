@@ -221,7 +221,10 @@
 
   <section>
     <div class="row head">
-      <h3 class="grow">{t('taxonomy.categories')}</h3>
+      <h3 class="grow">
+        {t('taxonomy.categories')}
+        <HelpDot tip={t('taxonomy.categoriesHint')} />
+      </h3>
       <button
         class="btn ghost sm"
         onclick={() => sortBy(project.categories, (c) => pickText(c.name, glossLangs))}
@@ -231,7 +234,6 @@
         ><Plus size={14} />{t('taxonomy.addCategory')}</button
       >
     </div>
-    <p class="small muted">{t('taxonomy.categoriesHint')}</p>
     {#each project.categories as c (c.id)}
       <div class="card cat">
         <div class="row">

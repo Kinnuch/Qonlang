@@ -6,6 +6,7 @@
    * 单击选中（联动测试台预览），双击或铅笔进入编辑。
    */
   import { t } from '$lib/i18n/index.svelte'
+  import HelpDot from './HelpDot.svelte'
   import {
     formatRule,
     formatMarker,
@@ -386,13 +387,13 @@
         {/each}
       </div>
     {/if}
-    <p class="small muted">{t('soundChanges.formHint')}</p>
     <div class="row">
       <button class="btn primary sm" onclick={saveRule}
         ><Check size={14} />{t('soundChanges.done')}</button
       >
       <button class="btn ghost sm" onclick={() => (editingLine = null)}>{t('common.cancel')}</button
       >
+      <HelpDot tip={t('soundChanges.formHint')} />
       <span class="grow"></span>
       <button class="btn ghost sm danger" onclick={() => removeRule(line)}
         ><Trash2 size={14} />{t('soundChanges.deleteRule')}</button
