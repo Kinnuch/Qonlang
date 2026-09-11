@@ -47,8 +47,8 @@
 </script>
 
 {#if preview.length}
-  <div class="field">
-    <span class="small muted">{t('lexicon.examples')}</span>
+  <!-- 例句跟上面的词条卡用一条分割线隔开，不另写标题 -->
+  <div class="examples">
     {#each preview.slice(0, perEntry) as h, i (h.kind + h.id + i)}
       <button class="ex" onclick={() => jump(h)}>
         <span class="badge">{t(`lexicon.exampleKinds.${h.kind}`)}</span>
@@ -94,6 +94,17 @@
 {/if}
 
 <style>
+  .examples {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+  }
+  .examples > .btn {
+    align-self: flex-start;
+  }
   .ex {
     display: flex;
     flex-direction: column;

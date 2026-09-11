@@ -1,5 +1,4 @@
 <script lang="ts">
-  import SyntaxLink from '$lib/ui/SyntaxLink.svelte'
   import { navScroll } from '$lib/ui/navScroll'
   import type { PageView } from '$lib/state/ui.svelte'
   import { projectState } from '$lib/state/project.svelte'
@@ -43,7 +42,14 @@
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
   const project = $derived(projectState.project!)
-  let activeId = $state<string | null>(null)
+  /** 回到这一页时接着用上次的规则集、视图、选中的行与测试词 */
+  const memo = ui.memo<{
+    activeId: string | null
+    view: 'list' | 'chain' | 'source'
+    selectedLine: number | null
+    selectedWord: string | null
+  }>('soundChanges')
+  let activeId = $state<string | null>(memo.activeId ?? null)
   const active = $derived(
     project.ruleSets.find((r) => r.id === activeId) ?? project.ruleSets[0] ?? null
   )
@@ -96,7 +102,7 @@
   })
 
   // 测试台（测试词随规则集保存）
-  let selectedWord = $state<string | null>(null)
+  let selectedWord = $state<string | null>(memo.selectedWord ?? null)
   const words = $derived(
     (active?.testWords ?? '')
       .split(/[\s,，、]+/)
@@ -127,8 +133,12 @@
   )
 
   let editor = $state<RuleEditor | null>(null)
-  let view = $state<'list' | 'chain' | 'source'>('list')
-  let selectedLine = $state<number | null>(null)
+  let view = $state<'list' | 'chain' | 'source'>(memo.view ?? 'list')
+  let selectedLine = $state<number | null>(memo.selectedLine ?? null)
+  $effect(() => {
+    Object.assign(memo, { activeId, view, selectedLine, selectedWord })
+  })
+  if (!ui.restoring('soundChanges')) ui.restoreScroll('soundChanges', ui.lastScroll('soundChanges'))
   const ordinals = $derived(program ? ruleOrdinals(program) : new Map<number, number>())
   const selectedOrdinal = $derived(
     selectedLine != null ? (ordinals.get(selectedLine) ?? null) : null
@@ -266,7 +276,7 @@
 <div class="page">
   <div class="page-head row tabbed">
     <h1>{t('soundChanges.title')}</h1>
-    <GuideLink section="soundChanges" /><SyntaxLink anchor="rule" />
+    <GuideLink section="soundChanges" />
     <div class="booktabs grow">
       {#each project.ruleSets as rs (rs.id)}
         <button class="tab" class:active={active?.id === rs.id} onclick={() => (activeId = rs.id)}

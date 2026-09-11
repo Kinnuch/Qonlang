@@ -19,9 +19,17 @@
 
   const project = $derived(projectState.project!)
   const langId = $derived(projectState.currentLanguageId)
-  let selectedId = $state<Id | null>(null)
+  /** 回到这一页时接着看上次那篇文档、上次的视图 */
+  const memo = ui.memo<{
+    lang: Id | null
+    selectedId: Id | null
+    view: 'edit' | 'split' | 'preview'
+  }>('docs')
+  let selectedId = $state<Id | null>(
+    memo.lang === projectState.currentLanguageId ? (memo.selectedId ?? null) : null
+  )
   // 打开文档页默认看预览；新建文档时自动切到编辑
-  let view = $state<'edit' | 'split' | 'preview'>('preview')
+  let view = $state<'edit' | 'split' | 'preview'>(memo.view ?? 'preview')
 
   const list = $derived.by(() => {
     const pq = parseQuery(ui.search, SEARCH_FIELDS.docs)
@@ -65,6 +73,9 @@
     const v: PageView = r.view ?? {}
     selectedId = v.id ?? null
     if (v.docView === 'edit' || v.docView === 'split' || v.docView === 'preview') view = v.docView
+  })
+  $effect(() => {
+    Object.assign(memo, { lang: projectState.currentLanguageId, selectedId, view })
   })
 
   function touch(d?: DocPage): void {

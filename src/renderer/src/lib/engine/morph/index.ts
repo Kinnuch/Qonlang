@@ -15,6 +15,7 @@ import type {
 } from '$lib/core/model'
 import { parseRuleText, runRules, type RuleProgram } from '../sca'
 import { languageParseOptions, nucleusSet, segment } from '../phon'
+import { transcribe } from '$lib/core/pronounce'
 
 export interface SlotDef {
   key: string
@@ -118,6 +119,10 @@ export interface MorphContext {
   program: (ruleSetId: Id) => RuleProgram | null
   /** 微调行、异体形环境这些零碎规则的解析缓存（一次推导里同一行只解析一次） */
   rules?: Map<string, RuleProgram>
+  /** 词头 → 词条（@引用在语素表里找不到时找同名词条），按词条数失效 */
+  lemmas?: { size: number; map: Map<string, Lexeme> }
+  /** 词干 → 按主正字法转出来的读音（异体形环境用），正字法规则改了就作废 */
+  spoken?: { rules: string; map: Map<string, string | null> }
   /** 语言的解析选项缓存 */
   parseOptions?: ReturnType<typeof languageParseOptions>
 }
@@ -173,11 +178,31 @@ function resolveAffix(
   if (!text.trim()) return { form: '', note: '' }
   const r = parseAffixRef(text, ctx.project.morphemes, ctx.language.id)
   if (!r) return { form: trimHyphens(text), note: '' }
-  if (!r.morpheme)
-    return { form: trimHyphens(r.lead + r.ref + r.tail), note: `未找到语素 ${r.ref}` }
+  if (!r.morpheme) {
+    // 语素表里没有就找同名词条（@mo 引用词库里的 mo）；都没有照字面拼，前后的空格、中点照样留着
+    const lex = r.ref ? lemmaOf(ctx, r.ref) : undefined
+    return {
+      form: trimHyphens(r.lead + (lex ? trimHyphens(lex.lemma) : r.ref) + r.tail),
+      note: lex ? `引用词条 ${lex.lemma}` : `未找到语素 ${r.ref}`
+    }
+  }
   const allo = selectAllomorph(ctx, r.morpheme, stem, side)
   // 引用前后写的空格、中点照样拼上（@定指· + derg → sa·derg）
   return { form: trimHyphens(r.lead + trimHyphens(allo.form) + r.tail), note: allo.note }
+}
+
+/** 这门语言里词头是 name 的词条（去掉两头连字符比） */
+function lemmaOf(ctx: MorphContext, name: string): Lexeme | undefined {
+  const all = ctx.project.lexemes
+  if (!ctx.lemmas || ctx.lemmas.size !== all.length) {
+    const map = new Map<string, Lexeme>()
+    for (const l of all) {
+      const k = trimHyphens(l.lemma)
+      if (l.languageId === ctx.language.id && k && !map.has(k)) map.set(k, l)
+    }
+    ctx.lemmas = { size: all.length, map }
+  }
+  return ctx.lemmas.map.get(trimHyphens(name))
 }
 
 /** 只由分隔符组成（没有字母、数字、附加符） */
@@ -244,7 +269,27 @@ export function parseAffixRef(
     }
   }
   if (best) return { lead, ref: best.name, morpheme: best.m, tail: rest.slice(best.cut) }
-  return { lead, ref: rest.trim(), morpheme: null, tail: '' }
+  // 没对上：名字后面写的空格、中点这些照样留在 tail 里（@mo + 空格 → 「mo 」）
+  const split = /^(.*?)([^\p{L}\p{N}\p{M}]*)$/su.exec(rest)
+  return { lead, ref: (split?.[1] ?? rest).trim(), morpheme: null, tail: split?.[2] ?? '' }
+}
+
+/**
+ * 词干按主正字法转出来的读音（去掉重音、音节点这些记号）。音类常按 IPA 写（C 里是 k，拼写却是 c），
+ * 异体形环境拿拼写和读音各比一次。没写正字法规则、或转出来跟拼写一样时为 null。
+ */
+function spokenForm(ctx: MorphContext, stem: string): string | null {
+  const lang = ctx.language
+  const ortho = lang.orthographies.find((o) => o.isPrimary) ?? lang.orthographies[0]
+  if (!ortho?.rulesToIpa.trim()) return null
+  if (ctx.spoken?.rules !== ortho.rulesToIpa)
+    ctx.spoken = { rules: ortho.rulesToIpa, map: new Map() }
+  const cache = ctx.spoken.map
+  if (!cache.has(stem)) {
+    const ipa = transcribe(lang, ortho, stem)?.replace(/[ˈˌ.‿|‖]/g, '') ?? null
+    cache.set(stem, ipa && ipa !== stem ? ipa : null)
+  }
+  return cache.get(stem) ?? null
 }
 
 export function selectAllomorph(
@@ -253,6 +298,7 @@ export function selectAllomorph(
   stem: string,
   side: 'prefix' | 'suffix'
 ): { form: string; note: string } {
+  const spoken = spokenForm(ctx, stem)
   for (const a of m.allomorphs) {
     const env = a.environment.trim()
     if (!env) continue
@@ -262,9 +308,12 @@ export function selectAllomorph(
     // 后缀看词干末尾（左环境），前缀看词干开头（右环境）
     const rule = side === 'suffix' ? `> ¤ / ${left}_#` : `> ¤ / #_${right}`
     const prog = ruleOf(ctx, rule)
-    const out = runRules(prog, stem, { trace: false }).output
-    const hit = side === 'suffix' ? out.endsWith('¤') : out.startsWith('¤')
-    if (hit) return { form: a.form, note: `${m.form} → ${a.form} (${env})` }
+    const hits = (form: string): boolean => {
+      const out = runRules(prog, form, { trace: false }).output
+      return side === 'suffix' ? out.endsWith('¤') : out.startsWith('¤')
+    }
+    if (hits(stem) || (spoken !== null && hits(spoken)))
+      return { form: a.form, note: `${m.form} → ${a.form} (${env})` }
   }
   const fallback = m.allomorphs.find((a) => !a.environment.trim())?.form ?? m.form
   return { form: fallback, note: `${m.form} → ${fallback}` }

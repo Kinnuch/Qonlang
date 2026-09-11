@@ -7,6 +7,7 @@
   import { ui } from '$lib/state/ui.svelte'
   import { lexemeScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
+  import { registerShort } from '$lib/core/register'
 
   let {
     lexeme,
@@ -64,6 +65,9 @@
       text: `${s.language ? s.language + ' ' : ''}${s.form}${s.meaning ? ` ‘${s.meaning}’` : ''}`
     }
   }
+  /** 语域方框里写什么：设置里选单字就取简写，选全称就整个写 */
+  const regLabel = (r: string): string =>
+    ui.prefs.registerDisplay === 'full' ? r.trim() : registerShort(r)
   function lemmaOf(id: Id): string {
     return project.lexemes.find((x) => x.id === id)?.lemma ?? '?'
   }
@@ -116,12 +120,20 @@
 
   <ol class="senses">
     {#each l.senses as s (s.id)}
+      {@const firstLang = glossLangs.find((g) => s.definition[g])}
       <li>
         {#each glossLangs as g (g)}
-          {#if s.definition[g]}<p class="def" lang={g}>{s.definition[g]}</p>{/if}
+          {#if s.definition[g]}<p class="def" lang={g}>
+              {#if s.register.trim() && g === firstLang}<span class="reg" title={s.register}
+                  >{regLabel(s.register)}</span
+                >{/if}{s.definition[g]}
+            </p>{/if}
         {/each}
-        {#if s.register || s.tags.length}
-          <p class="tiny muted">{[s.register, ...s.tags].filter(Boolean).join(' · ')}</p>
+        {#if !firstLang && s.register.trim()}
+          <p class="def"><span class="reg" title={s.register}>{regLabel(s.register)}</span></p>
+        {/if}
+        {#if s.tags.length}
+          <p class="tiny muted tags">{s.tags.join(' · ')}</p>
         {/if}
       </li>
     {/each}
@@ -218,7 +230,7 @@
   .entry {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
     position: relative;
   }
   .hero {
@@ -251,7 +263,7 @@
   header {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
   .scr {
     font-size: 24px;
@@ -303,7 +315,7 @@
     padding-left: 22px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
   .senses li::marker {
     color: var(--text-3);
@@ -311,6 +323,25 @@
   }
   .def {
     font-size: 15px;
+    line-height: 1.6;
+  }
+  /* 语域：方框里一个字（或全称），像纸质词典的标签 */
+  .reg {
+    display: inline-block;
+    min-width: 1.4em;
+    padding: 0 3px;
+    margin-right: 6px;
+    border: 1px solid var(--text-3);
+    border-radius: 3px;
+    color: var(--text-2);
+    font-size: 0.78em;
+    line-height: 1.35;
+    text-align: center;
+    vertical-align: 0.1em;
+    white-space: nowrap;
+  }
+  .tags {
+    margin: 2px 0 0;
   }
   .def[lang='en'] {
     color: var(--text-2);

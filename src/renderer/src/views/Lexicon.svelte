@@ -80,7 +80,21 @@
   const language = $derived(projectState.currentLanguage)
   const glossLangs = $derived(project.settings.glossLanguages)
 
-  let mode = $state<'entries' | 'taxonomy' | 'csv' | 'export' | 'stats'>('entries')
+  /** 回到这一页时接着用上次的筛选、排序、子页与选中项；换了语言就不恢复选中与滚动 */
+  const memo = ui.memo<{
+    lang: Id | null
+    mode: 'entries' | 'taxonomy' | 'stats'
+    editMode: boolean
+    mainView: 'list' | 'graph'
+    selectedId: Id | null
+    sortKey: string | null
+    sortDir: 'asc' | 'desc'
+    customOrder: boolean
+    colFilters: Record<string, Set<string>>
+    limit: number
+  }>('lexicon')
+  const sameLang = memo.lang === projectState.currentLanguageId
+  let mode = $state<'entries' | 'taxonomy' | 'csv' | 'export' | 'stats'>(memo.mode ?? 'entries')
   const lexStats = $derived(mode === 'stats' && langId ? lexiconStats(project, langId) : null)
   const pctOf = (n: number, total: number): string =>
     total ? `${Math.round((n / total) * 100)}%` : '—'
@@ -89,16 +103,16 @@
     setFilter(key, new Set([value]))
     mode = 'entries'
   }
-  let editMode = $state(false)
-  let mainView = $state<'list' | 'graph'>('list')
-  let selectedId = $state<Id | null>(null)
+  let editMode = $state(sameLang && (memo.editMode ?? false))
+  let mainView = $state<'list' | 'graph'>(sameLang ? (memo.mainView ?? 'list') : 'list')
+  let selectedId = $state<Id | null>(sameLang ? (memo.selectedId ?? null) : null)
   const query = $derived(ui.search)
   /** 表头排序：哪一列、什么方向；null = 按字母表；'custom' = 项目里的数组顺序 */
-  let sortKey = $state<string | null>(null)
-  let sortDir = $state<'asc' | 'desc'>('desc')
-  let customOrder = $state(false)
+  let sortKey = $state<string | null>(memo.sortKey ?? null)
+  let sortDir = $state<'asc' | 'desc'>(memo.sortDir ?? 'desc')
+  let customOrder = $state(memo.customOrder ?? false)
   /** 表头筛选：列 key → 选中的取值；不在里面的列不筛 */
-  let colFilters = $state<Record<string, Set<string>>>({})
+  let colFilters = $state<Record<string, Set<string>>>(memo.colFilters ?? {})
   const sort = $derived(customOrder ? 'custom' : 'alphabet')
   function cycleSort(key: string): void {
     if (customOrder) customOrder = false
@@ -158,7 +172,7 @@
     key === 'tags' ||
     key === 'language' ||
     key.startsWith('feat:')
-  let limit = $state(300)
+  let limit = $state(sameLang ? (memo.limit ?? 300) : 300)
   /** Ctrl / Shift 多选出来的词条 */
   let multiIds = $state<Id[]>([])
   let lastIndex = $state(-1)
@@ -206,6 +220,22 @@
     if (i >= limit) limit = i + 50
     ui.restoreScroll('lexicon', r.scroll)
   })
+  $effect(() => {
+    Object.assign(memo, {
+      lang: projectState.currentLanguageId,
+      mode: mode === 'taxonomy' || mode === 'stats' ? mode : 'entries',
+      editMode,
+      mainView,
+      selectedId,
+      sortKey,
+      sortDir,
+      customOrder,
+      colFilters: { ...colFilters },
+      limit
+    })
+  })
+  // 不是「返回」进来的：列表滚回上次离开时的位置
+  if (sameLang && !ui.restoring('lexicon')) ui.restoreScroll('lexicon', ui.lastScroll('lexicon'))
 
   const inLang = $derived(project.lexemes.filter((l) => !langId || l.languageId === langId))
   const lemmaCounts = $derived.by(() => {

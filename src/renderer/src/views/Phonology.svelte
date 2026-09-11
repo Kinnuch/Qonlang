@@ -1,5 +1,4 @@
 <script lang="ts">
-  import SyntaxLink from '$lib/ui/SyntaxLink.svelte'
   import { navScroll } from '$lib/ui/navScroll'
   import type { PageView } from '$lib/state/ui.svelte'
   import { matchQuery, parseQuery } from '$lib/core/query'
@@ -52,7 +51,24 @@
 
   type Tab = 'phonemes' | 'classes' | 'orthography' | 'syllable' | 'phonotactics'
   const TABS: Tab[] = ['phonemes', 'classes', 'orthography', 'syllable', 'phonotactics']
-  let tab = $state<Tab>('phonemes')
+  /** 回到这一页时接着用上次的子页、选中项和各处的测试输入；换了语言就不恢复选中与滚动 */
+  const memo = ui.memo<{
+    lang: Id | null
+    tab: Tab
+    selectedPhoneme: Id | null
+    selectedOrtho: Id | null
+    orthoDir: 'toIpa' | 'fromIpa'
+    orthoView: 'list' | 'source'
+    orthoTest: string
+    syllTest: string
+    queryDim: string
+    queryVal: string
+    genCount: number
+    genMin: number
+    genMax: number
+  }>('phonology')
+  const sameLang = memo.lang === projectState.currentLanguageId
+  let tab = $state<Tab>(memo.tab ?? 'phonemes')
   // 「返回」用：报上当前位置，返回时原样恢复
   $effect(() => {
     ui.reportView('phonology', {
@@ -72,8 +88,8 @@
     selectedOrtho = v.ortho ?? null
     ui.restoreScroll('phonology', r.scroll)
   })
-  let selectedPhoneme = $state<Id | null>(null)
-  let selectedOrtho = $state<Id | null>(null)
+  let selectedPhoneme = $state<Id | null>(sameLang ? (memo.selectedPhoneme ?? null) : null)
+  let selectedOrtho = $state<Id | null>(sameLang ? (memo.selectedOrtho ?? null) : null)
   let manualSymbol = $state('')
   let newDimension = $state('')
 
@@ -184,8 +200,8 @@
   ]
 
   // ───── 音类 ─────
-  let queryDim = $state('')
-  let queryVal = $state('')
+  let queryDim = $state(memo.queryDim ?? '')
+  let queryVal = $state(memo.queryVal ?? '')
   function classMembersText(c: PhonemeClass): string {
     return c.members.some((m) => Array.from(m).length > 1)
       ? c.members.join(' ')
@@ -231,9 +247,9 @@
   }
 
   // ───── 正字法 ─────
-  let orthoDir = $state<'toIpa' | 'fromIpa'>('toIpa')
-  let orthoView = $state<'list' | 'source'>('list')
-  let orthoTest = $state('')
+  let orthoDir = $state<'toIpa' | 'fromIpa'>(memo.orthoDir ?? 'toIpa')
+  let orthoView = $state<'list' | 'source'>(memo.orthoView ?? 'list')
+  let orthoTest = $state(memo.orthoTest ?? '')
   let orthoProgram = $state<RuleProgram | null>(null)
   $effect(() => {
     if (!lang || !ortho) {
@@ -281,7 +297,7 @@
   }
 
   // ───── 音节与韵律 ─────
-  let syllTest = $state('')
+  let syllTest = $state(memo.syllTest ?? '')
   const syllResults = $derived.by(() => {
     if (!lang) return []
     return syllTest
@@ -367,9 +383,28 @@
     }
     violations = out
   }
-  let genCount = $state(20)
-  let genMin = $state(1)
-  let genMax = $state(3)
+  let genCount = $state(memo.genCount ?? 20)
+  let genMin = $state(memo.genMin ?? 1)
+  let genMax = $state(memo.genMax ?? 3)
+  $effect(() => {
+    Object.assign(memo, {
+      lang: projectState.currentLanguageId,
+      tab,
+      selectedPhoneme,
+      selectedOrtho,
+      orthoDir,
+      orthoView,
+      orthoTest,
+      syllTest,
+      queryDim,
+      queryVal,
+      genCount,
+      genMin,
+      genMax
+    })
+  })
+  if (sameLang && !ui.restoring('phonology'))
+    ui.restoreScroll('phonology', ui.lastScroll('phonology'))
   let generated = $state<{ ipa: string; spelt: string | null }[]>([])
   function generate(): void {
     if (!lang) return
@@ -428,7 +463,7 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('nav.phonology')}</h1>
-    <GuideLink section="phonology" /><SyntaxLink anchor="places" />
+    <GuideLink section="phonology" />
     {#if lang}<span class="badge" style:background={lang.color} style:color="#fff">{lang.name}</span
       >{/if}
     <div class="seg">

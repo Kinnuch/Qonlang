@@ -1,5 +1,4 @@
 <script lang="ts">
-  import SyntaxLink from '$lib/ui/SyntaxLink.svelte'
   import type { PageView } from '$lib/state/ui.svelte'
   import { matchQuery, parseQuery } from '$lib/core/query'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
@@ -58,7 +57,18 @@
       null
   )
 
-  let activeId = $state<Id | null>(null)
+  /** 回到这一页时接着用上次的构形、视图、一致性检查结果与测试台 */
+  const memo = ui.memo<{
+    activeId: Id | null
+    view: 'slots' | 'report'
+    report: SlotReport[] | null
+    issues: IssueGroup[] | null
+    openKinds: Set<string>
+    testLemma: string
+    testLexemeId: Id | null
+    editVariantId: Id | null
+  }>('paradigms')
+  let activeId = $state<Id | null>(memo.activeId ?? null)
   const active = $derived(
     project.paradigms.find((p) => p.id === activeId) ?? project.paradigms[0] ?? null
   )
@@ -86,11 +96,11 @@
   $effect(() => {
     if (active && activeId !== active.id) activeId = active.id
   })
-  let view = $state<'slots' | 'report'>('slots')
-  let report = $state<SlotReport[] | null>(null)
+  let view = $state<'slots' | 'report'>(memo.view === 'report' && memo.report ? 'report' : 'slots')
+  let report = $state<SlotReport[] | null>(memo.report ?? null)
   /** 项目级问题清单（跟槽位比对一起跑） */
-  let issues = $state<IssueGroup[] | null>(null)
-  let openKinds = $state<Set<string>>(new Set())
+  let issues = $state<IssueGroup[] | null>(memo.issues ?? null)
+  let openKinds = $state<Set<string>>(memo.openKinds ?? new Set())
   function toggleKind(k: string): void {
     const next = new Set(openKinds)
     if (next.has(k)) next.delete(k)
@@ -108,7 +118,7 @@
     } else if (i.target === 'script') ui.jump('script', 'script', i.targetId)
   }
   const issueTotal = $derived(issues ? issues.reduce((a, g) => a + g.issues.length, 0) : 0)
-  let testLemma = $state('')
+  let testLemma = $state(memo.testLemma ?? '')
 
   const allSlots = $derived(
     active ? paradigmSlots(active, project.categories, glossLangs, true) : []
@@ -165,7 +175,7 @@
     ctxCache.clear()
   })
   /** 测试台选中的词；没选就拿第一个绑定本构形的词 */
-  let testLexemeId = $state<Id | null>(null)
+  let testLexemeId = $state<Id | null>(memo.testLexemeId ?? null)
   const testLexeme = $derived(
     project.lexemes.find((l) => l.id === testLexemeId) ??
       boundLexemes.find((l) => l.lemma === testLemma) ??
@@ -238,7 +248,19 @@
     projectState.touch()
   }
   /** 正在编辑哪个变体；null 表示通用那一套 */
-  let editVariantId = $state<Id | null>(null)
+  let editVariantId = $state<Id | null>(memo.editVariantId ?? null)
+  $effect(() => {
+    Object.assign(memo, {
+      activeId,
+      view,
+      report,
+      issues,
+      openKinds,
+      testLemma,
+      testLexemeId,
+      editVariantId
+    })
+  })
   const variants = $derived(active?.variants ?? [])
   /** 「2 × 6」这样的维度规模，用在槽位说明里 */
   const dimSizes = $derived(
@@ -423,7 +445,7 @@
 <div class="page">
   <div class="page-head row tabbed">
     <h1>{t('paradigms.title')}</h1>
-    <GuideLink section="paradigms" /><SyntaxLink anchor="adjust" />
+    <GuideLink section="paradigms" />
     <div class="booktabs grow">
       {#each project.paradigms as p (p.id)}
         <button

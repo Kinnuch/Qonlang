@@ -11,7 +11,7 @@
   import LexemeCard from './LexemeCard.svelte'
   import { etymologyText } from '$lib/core/etymology'
   import type { Id } from '$lib/core/model'
-  import { BookOpen, Blocks, X, TriangleAlert } from '@lucide/svelte'
+  import { BookOpen, Blocks, X, TriangleAlert, SearchX } from '@lucide/svelte'
 
   const project = $derived(projectState.project)
   const lexeme = $derived(
@@ -29,6 +29,7 @@
     gloss?: string
     lexemeId?: Id | null
     morphemeId?: Id | null
+    missing?: boolean
   }
   /** 组成部分：语料里已确认的切分优先，其次才是词源里的来源 */
   const parts = $derived.by((): Part[] => {
@@ -58,6 +59,63 @@
       : []
   )
   const posAbbr = (id: Id | null): string => project?.posList.find((p) => p.id === id)?.abbr ?? ''
+
+  /** 「没有找到」时的搜索框：换了要指定的词就重新填上那个词本身（去掉两头的连字符、撇号） */
+  let assignQuery = $derived((wordHover.missing?.label ?? '').replace(/^[-=·'’]+|[-=·'’]+$/g, ''))
+  const fold = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+  interface AssignHit {
+    key: string
+    label: string
+    kind: string
+    gloss: string
+    choice: { lexemeId?: Id; morphemeId?: Id }
+    score: number
+  }
+  /** 这门语言里写法或释义对得上的词条与语素：写法完全一样的排前面，最多八个 */
+  const assignHits = $derived.by((): AssignHit[] => {
+    const ctx = wordHover.assign
+    const q = assignQuery.trim()
+    if (!project || !wordHover.missing || !ctx || !q) return []
+    const fq = fold(q)
+    const lq = q.toLowerCase()
+    const rank = (form: string, text: string): number => {
+      const f = fold(form)
+      if (f === fq) return 0
+      if (f.startsWith(fq)) return 1
+      if (f.includes(fq)) return 2
+      return text.toLowerCase().includes(lq) ? 3 : -1
+    }
+    const hits: AssignHit[] = []
+    for (const l of project.lexemes) {
+      if (l.languageId !== ctx.languageId) continue
+      const defs = l.senses.map((se) => pickText(se.definition, glossLangs)).filter(Boolean)
+      const score = rank(l.lemma, defs.join('；'))
+      if (score >= 0)
+        hits.push({
+          key: `l${l.id}`,
+          label: l.lemma,
+          kind: posAbbr(l.posId),
+          gloss: defs.slice(0, 2).join('；'),
+          choice: { lexemeId: l.id },
+          score
+        })
+    }
+    for (const m of project.morphemes) {
+      if (m.languageId !== ctx.languageId) continue
+      const meaning = pickText(m.meaning, glossLangs)
+      const score = rank(m.form.replace(/^[-=·]+|[-=·]+$/g, ''), `${m.gloss} ${meaning}`)
+      if (score >= 0)
+        hits.push({
+          key: `m${m.id}`,
+          label: m.form,
+          kind: t(`morphemes.types.${m.type}`),
+          gloss: [m.gloss, meaning].filter(Boolean).join(' '),
+          choice: { morphemeId: m.id },
+          score
+        })
+    }
+    return hits.sort((a, b) => a.score - b.score || a.label.length - b.label.length).slice(0, 8)
+  })
 
   const style = $derived.by(() => {
     const r = wordHover.rect
@@ -141,9 +199,10 @@
       {/each}
     </div>
   </div>
-{:else if (lexeme || morpheme) && wordHover.rect}
+{:else if (lexeme || morpheme || wordHover.missing) && wordHover.rect}
   <div
     class="pop card"
+    class:miss={!!wordHover.missing}
     bind:this={popEl}
     {style}
     role="dialog"
@@ -162,17 +221,50 @@
         {#each parts as p, i (p.label + i)}
           <button
             class="chip"
-            class:plain={!p.lexemeId && !p.morphemeId}
-            title={p.gloss ?? ''}
+            class:plain={!p.lexemeId && !p.morphemeId && !p.missing}
+            class:missing={p.missing}
+            class:on={wordHover.missing?.index === i}
+            title={p.missing ? t('corpus.partMissing') : (p.gloss ?? '')}
             onmouseenter={() => (p.lexemeId || p.morphemeId) && wordHover.swap(p)}
-            onclick={() => (p.lexemeId || p.morphemeId) && wordHover.swap(p)}
-            >{p.label}{#if p.gloss}<span class="pgloss">{p.gloss}</span>{/if}</button
+            onclick={() =>
+              p.missing
+                ? wordHover.openMissing(i)
+                : (p.lexemeId || p.morphemeId) && wordHover.swap(p)}
+            >{p.label}{#if p.gloss && p.gloss !== '?'}<span class="pgloss">{p.gloss}</span
+              >{:else if p.missing}<span class="pgloss">?</span>{/if}</button
           >
         {/each}
       </div>
     {/if}
     <div class="body">
-      {#if lexeme}
+      {#if wordHover.missing}
+        {@const miss = wordHover.missing}
+        <div class="missing">
+          <div class="miss-head">
+            <SearchX size={15} />{t('corpus.notFound', { w: miss.label })}
+          </div>
+          {#if wordHover.assign}
+            <p class="small muted">{t('corpus.notFoundHint')}</p>
+            <input
+              class="input"
+              placeholder={t('corpus.assignSearch')}
+              bind:value={assignQuery}
+              onfocus={() => (wordHover.pinned = true)}
+            />
+            <div class="assign-list">
+              {#each assignHits as h (h.key)}
+                <button class="assign-item" onclick={() => wordHover.choose(h.choice)}>
+                  <strong class="data">{h.label}</strong>
+                  {#if h.kind}<span class="badge">{h.kind}</span>{/if}
+                  <span class="small muted ellipsis">{h.gloss}</span>
+                </button>
+              {:else}
+                <p class="small muted">{t('corpus.assignNone')}</p>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {:else if lexeme}
         <LexemeCard {lexeme} project={project!} />
       {:else if morpheme}
         <div class="mor">
@@ -191,13 +283,15 @@
         </div>
       {/if}
     </div>
-    <div class="foot">
-      <button class="btn sm" onclick={openInLexicon}
-        ><BookOpen size={14} />{morpheme
-          ? t('corpus.openInMorphemes')
-          : t('corpus.openInLexicon')}</button
-      >
-    </div>
+    {#if !wordHover.missing}
+      <div class="foot">
+        <button class="btn sm" onclick={openInLexicon}
+          ><BookOpen size={14} />{morpheme
+            ? t('corpus.openInMorphemes')
+            : t('corpus.openInLexicon')}</button
+        >
+      </div>
+    {/if}
   </div>
 {/if}
 
@@ -319,6 +413,62 @@
     top: 6px;
     right: 6px;
     z-index: 2;
+  }
+  .pop.miss {
+    border-color: var(--warn);
+  }
+  .parts .chip.missing {
+    border-style: dashed;
+    border-color: var(--warn);
+    color: var(--warn);
+  }
+  .parts .chip.on {
+    background: var(--warn-soft);
+  }
+  .missing {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .miss-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--warn);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .missing p {
+    margin: 0;
+  }
+  .assign-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 190px;
+    overflow: auto;
+  }
+  .assign-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .assign-item:hover {
+    border-color: var(--accent);
+  }
+  .ellipsis {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .foot {
     padding: 8px 12px;

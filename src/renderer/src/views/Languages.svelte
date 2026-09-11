@@ -21,7 +21,9 @@
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
-  let selectedId = $state<Id | null>(null)
+  /** 回到这一页时还选着上次那门语言 */
+  const memo = ui.memo<{ selectedId: Id | null }>('languages')
+  let selectedId = $state<Id | null>(memo.selectedId ?? null)
 
   const project = $derived(projectState.project!)
   const children = $derived(languageChildren(project.languages))
@@ -77,6 +79,9 @@
   $effect(() => {
     const r = ui.takeRestore('languages')
     if (r?.view?.id) selectedId = r.view.id
+  })
+  $effect(() => {
+    memo.selectedId = selectedId
   })
 
   function counts(l: Language): string {

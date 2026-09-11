@@ -579,7 +579,8 @@ export interface Token {
 export interface Analysis {
   lexemeId: Id | null
   slot: string | null
-  morphs: { form: string; gloss: string; morphemeId: Id | null }[]
+  /** lexemeId：手动指定给这一段的词条（悬浮卡里「没有找到」时挑的） */
+  morphs: { form: string; gloss: string; morphemeId: Id | null; lexemeId?: Id | null }[]
   /** 猜出来的（去掉附加符才对上、拆成了两个词）：没确认之前不算认出 */
   guess?: 'fold' | 'split'
 }

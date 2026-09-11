@@ -1,5 +1,4 @@
 <script lang="ts">
-  import SyntaxLink from '$lib/ui/SyntaxLink.svelte'
   import { navScroll } from '$lib/ui/navScroll'
   import type { PageView } from '$lib/state/ui.svelte'
   import { matchQuery, parseQuery } from '$lib/core/query'
@@ -79,9 +78,20 @@
     'space',
     'other'
   ]
-  let tab = $state<Tab>('glyphs')
-  let selectedScript = $state<string | null>(null)
-  let selectedGlyph = $state<string | null>(null)
+  /** 回到这一页时接着用上次的文字、子页、选中的字形、筛选与预览文本；换了语言就不恢复选中与滚动 */
+  const memo = ui.memo<{
+    lang: string | null
+    tab: Tab
+    selectedScript: string | null
+    selectedGlyph: string | null
+    catFilter: string
+    rulesView: 'list' | 'source'
+    testText: string
+  }>('script')
+  const sameLang = memo.lang === projectState.currentLanguageId
+  let tab = $state<Tab>(memo.tab ?? 'glyphs')
+  let selectedScript = $state<string | null>(sameLang ? (memo.selectedScript ?? null) : null)
+  let selectedGlyph = $state<string | null>(sameLang ? (memo.selectedGlyph ?? null) : null)
   // 从一致性检查跳过来：选中那套文字
   $effect(() => {
     const id = ui.takePending('script')
@@ -113,12 +123,24 @@
   /** Ctrl / Shift 多选出来的字形 */
   let multiGlyphs = $state<string[]>([])
   let lastGlyphIndex = $state(-1)
-  let catFilter = $state<string>('')
-  let rulesView = $state<'list' | 'source'>('list')
+  let catFilter = $state<string>(sameLang ? (memo.catFilter ?? '') : '')
+  let rulesView = $state<'list' | 'source'>(memo.rulesView ?? 'list')
   let pasteOpen = $state(false)
   let pasteText = $state('')
-  let testText = $state('')
+  let testText = $state(memo.testText ?? '')
   let importedFlash = $state(0)
+  $effect(() => {
+    Object.assign(memo, {
+      lang: projectState.currentLanguageId,
+      tab,
+      selectedScript,
+      selectedGlyph,
+      catFilter,
+      rulesView,
+      testText
+    })
+  })
+  if (sameLang && !ui.restoring('script')) ui.restoreScroll('script', ui.lastScroll('script'))
 
   const script = $derived(
     lang?.scripts.find((s) => s.id === selectedScript) ?? lang?.scripts[0] ?? null
@@ -399,7 +421,7 @@
 <div class="page">
   <div class="page-head row tabbed">
     <h1>{t('script.title')}</h1>
-    <GuideLink section="script" /><SyntaxLink anchor="places" />
+    <GuideLink section="script" />
     {#if lang}<span class="badge" style:background={lang.color} style:color="#fff">{lang.name}</span
       >{/if}
     {#if script}

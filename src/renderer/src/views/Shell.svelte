@@ -10,6 +10,7 @@
     GitBranch,
     Puzzle,
     BookOpen,
+    BookOpenText,
     Table2,
     MessageSquareQuote,
     FileText,
@@ -37,7 +38,6 @@
   import GuideTour from '$lib/ui/GuideTour.svelte'
   import SearchBar from '$lib/ui/SearchBar.svelte'
   import RuleSyntax from '$lib/ui/RuleSyntax.svelte'
-  import HelpDot from '$lib/ui/HelpDot.svelte'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
   import SentenceMergeDialog from '$lib/ui/SentenceMergeDialog.svelte'
   import { ensureScriptFont } from '$lib/script/fonts'
@@ -168,6 +168,18 @@
       .join(zh ? '、' : ', ')
     return fields ? `${t('search.help')}\n${t('search.fields', { fields })}` : t('search.help')
   })
+  /** 顶栏「规则语法」：在各模块打开时直接滚到跟这一页相关的那一节 */
+  const SYNTAX_ANCHORS: Partial<Record<Section, string>> = {
+    morphemes: 'allomorph',
+    paradigms: 'adjust',
+    phonology: 'places',
+    script: 'places',
+    soundChanges: 'rule'
+  }
+  function toggleSyntax(): void {
+    if (ui.syntaxOpen) ui.syntaxOpen = false
+    else ui.openSyntax(SYNTAX_ANCHORS[ui.section] ?? '')
+  }
 </script>
 
 <div
@@ -184,9 +196,7 @@
       <button
         class="nav-btn"
         class:active={ui.section === s}
-        title={ui.section === s && ui.previousSection
-          ? t('nav.backTo', { name: t(`nav.${ui.previousSection}`) })
-          : t(`nav.${s}`)}
+        title={t(`nav.${s}`)}
         onclick={() => ui.go(s)}
       >
         <Icon size={20} />
@@ -260,8 +270,12 @@
         <span class="badge">{t('common.saved')}</span>
       {/if}
       {#if searchPlaceholder}
-        <SearchBar bind:value={ui.search} placeholder={searchPlaceholder} compact />
-        <HelpDot tip={searchHelp} />
+        <SearchBar
+          bind:value={ui.search}
+          placeholder={searchPlaceholder}
+          compact
+          help={searchHelp}
+        />
       {/if}
     </div>
     <label class="row small muted">
@@ -290,6 +304,14 @@
       onclick={() => (ui.inspectorOpen = !ui.inspectorOpen)}
     >
       <PanelRight size={16} />
+    </button>
+    <button
+      class="btn ghost icon"
+      title={t('syntax.hint')}
+      class:active={ui.syntaxOpen}
+      onclick={toggleSyntax}
+    >
+      <BookOpenText size={16} />
     </button>
     <button class="btn ghost icon" title={t('dialog.closeProject')} onclick={closeProject}
       ><X size={16} /></button

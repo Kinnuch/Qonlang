@@ -68,6 +68,8 @@ export interface Prefs {
   guideTourAlways: boolean
   /** 已经讲过图文引导的模块 */
   seenTours: string[]
+  /** 词条卡里语域标签：short 方框里一个字（英文缩写），full 整个名字 */
+  registerDisplay: 'short' | 'full'
 }
 
 export interface CsvPreset {
@@ -112,7 +114,8 @@ export const DEFAULT_PREFS: Prefs = {
   checkUpdates: true,
   skippedVersion: '',
   guideTourAlways: false,
-  seenTours: []
+  seenTours: [],
+  registerDisplay: 'short'
 }
 
 export interface UpdateInfo {

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import SyntaxLink from '$lib/ui/SyntaxLink.svelte'
   import { navScroll } from '$lib/ui/navScroll'
   import type { PageView } from '$lib/state/ui.svelte'
   import { platform } from '$lib/platform'
@@ -43,8 +42,21 @@
 
   const project = $derived(projectState.project!)
   const langId = $derived(projectState.currentLanguageId)
-  let selectedId = $state<Id | null>(null)
-  let mode = $state<'entries' | 'stats' | 'csv'>('entries')
+  /** 回到这一页时接着用上次的筛选、排序、子页与选中项；换了语言就不恢复选中与滚动 */
+  const memo = ui.memo<{
+    lang: Id | null
+    selectedId: Id | null
+    mode: 'entries' | 'stats'
+    typeFilter: MorphemeType | ''
+    sortKey: string | null
+    sortDir: 'asc' | 'desc'
+    customOrder: boolean
+    colFilters: Record<string, Set<string>>
+    editMode: boolean
+  }>('morphemes')
+  const sameLang = memo.lang === projectState.currentLanguageId
+  let selectedId = $state<Id | null>(sameLang ? (memo.selectedId ?? null) : null)
+  let mode = $state<'entries' | 'stats' | 'csv'>(memo.mode ?? 'entries')
   const mStats = $derived(mode === 'stats' ? morphemeStats(project, langId) : null)
   const pctOf = (n: number, total: number): string =>
     total ? `${Math.round((n / total) * 100)}%` : '—'
@@ -52,12 +64,12 @@
     setFilter(key, new Set([value]))
     mode = 'entries'
   }
-  let typeFilter = $state<MorphemeType | ''>('')
+  let typeFilter = $state<MorphemeType | ''>(memo.typeFilter ?? '')
   const query = $derived(ui.search)
-  let sortKey = $state<string | null>(null)
-  let sortDir = $state<'asc' | 'desc'>('desc')
-  let customOrder = $state(false)
-  let colFilters = $state<Record<string, Set<string>>>({})
+  let sortKey = $state<string | null>(memo.sortKey ?? null)
+  let sortDir = $state<'asc' | 'desc'>(memo.sortDir ?? 'desc')
+  let customOrder = $state(memo.customOrder ?? false)
+  let colFilters = $state<Record<string, Set<string>>>(memo.colFilters ?? {})
   const sort = $derived(customOrder ? 'custom' : 'alphabet')
   function cycleSort(key: string): void {
     if (customOrder) customOrder = false
@@ -104,7 +116,7 @@
   }
   const filterable = (key: string): boolean =>
     key === 'form' || key === 'type' || key === 'tags' || key === 'language'
-  let editMode = $state(false)
+  let editMode = $state(sameLang && (memo.editMode ?? false))
   const collator = $derived(makeCollator(projectState.currentLanguage?.alphabet ?? []))
 
   const filtered = $derived.by(() => {
@@ -212,6 +224,21 @@
     editMode = v.edit === '1'
     ui.restoreScroll('morphemes', r.scroll)
   })
+  $effect(() => {
+    Object.assign(memo, {
+      lang: projectState.currentLanguageId,
+      selectedId,
+      mode: mode === 'stats' ? 'stats' : 'entries',
+      typeFilter,
+      sortKey,
+      sortDir,
+      customOrder,
+      colFilters: { ...colFilters },
+      editMode
+    })
+  })
+  if (sameLang && !ui.restoring('morphemes'))
+    ui.restoreScroll('morphemes', ui.lastScroll('morphemes'))
   /** 从别处跳过来：清掉筛选、选中、滚到那一行并短暂高亮 */
   let flashId = $state<Id | null>(null)
   function reveal(id: Id): void {
@@ -279,7 +306,7 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('morphemes.title')}</h1>
-    <GuideLink section="morphemes" /><SyntaxLink anchor="allomorph" />
+    <GuideLink section="morphemes" />
     <span class="badge">{t('morphemes.count', { n: list.length })}</span>
     <div class="seg">
       <button class:active={mode === 'entries'} onclick={() => (mode = 'entries')}

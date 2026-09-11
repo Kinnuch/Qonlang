@@ -129,6 +129,12 @@ export function guessMapping(header: string[], mapping: CsvMapping): CsvMapping 
     if (/^(释义|意思|意义|定义|中文|汉语|meaning|definition|gloss_zh|definition_zh)$/.test(k))
       return { kind: 'definition', lang: 'zh' }
     if (/^(english|definition_en|gloss_en|英文)$/.test(k)) return { kind: 'definition', lang: 'en' }
+    // 带语言代码的释义列：导出的 definition_ja、语素导出的 meaning_zh 都认得
+    const langCol =
+      /^(?:definition|meaning|gloss|释义|意义)[_:\s(（-]+([a-z]{2,3}(?:-[a-z]{2,4})?)[)）]?$/.exec(
+        k
+      )
+    if (langCol) return { kind: 'definition', lang: langCol[1] }
     if (/^(标签|tags?)$/.test(k)) return { kind: 'tags' }
     if (/^(备注|注|注释|notes?|comment)$/.test(k)) return { kind: 'notes' }
     if (/^(原始形|祖语|原始.*语|proto|etymon|source)$/.test(k)) return { kind: 'protoForm' }
@@ -722,7 +728,14 @@ export function applyCsvImport(
   return report
 }
 
-/** 从已有词位反推一个 CSV（导出） */
+/** 义项之间用分号：有汉字就用全角分号，再导入时照样拆成几个义项 */
+const joinSenses = (parts: string[]): string =>
+  parts.join(parts.some((p) => /[\u3400-\u9fff]/.test(p)) ? '；' : '; ')
+
+/**
+ * 从已有词位反推一个 CSV（导出）。每种释义语言一列，义项用分号隔开，
+ * 义项的语域写在前面成【语域】，再导入时向导把它认成标记、设回语域。
+ */
 export function lexemesToRows(
   project: Project,
   lexemes: Lexeme[],
@@ -744,10 +757,11 @@ export function lexemesToRows(
     l.lemma,
     posName(l.posId),
     ...glossLanguages.map((g) =>
-      l.senses
-        .map((s) => s.definition[g] ?? '')
-        .filter(Boolean)
-        .join(' | ')
+      joinSenses(
+        l.senses
+          .filter((s) => s.definition[g])
+          .map((s) => (s.register.trim() ? `【${s.register.trim()}】` : '') + s.definition[g])
+      )
     ),
     l.tags.join(','),
     etymologyOrigin(project, l.etymology),

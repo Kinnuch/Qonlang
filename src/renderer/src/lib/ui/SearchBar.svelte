@@ -1,12 +1,14 @@
 <script lang="ts">
-  /** 各模块统一的搜索条：放在标题上面，占位文字带模块名 */
+  /** 各模块统一的搜索条：放在标题上面，占位文字带模块名；help 是紧贴在输入框后面的「?」说明 */
   import { Search, X } from '@lucide/svelte'
+  import HelpDot from './HelpDot.svelte'
 
   let {
     value = $bindable(''),
     placeholder = '',
-    compact = false
-  }: { value: string; placeholder?: string; compact?: boolean } = $props()
+    compact = false,
+    help = ''
+  }: { value: string; placeholder?: string; compact?: boolean; help?: string } = $props()
 </script>
 
 <div class="bar" class:compact>
@@ -15,6 +17,7 @@
   {#if value}
     <button class="btn ghost icon sm" onclick={() => (value = '')}><X size={13} /></button>
   {/if}
+  {#if help}<HelpDot tip={help} />{/if}
 </div>
 
 <style>

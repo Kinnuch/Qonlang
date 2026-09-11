@@ -143,6 +143,18 @@
         {t('settings.guideTourAlways')}
       </label>
       <div class="field">
+        <label for="s-register">{t('settings.registerDisplay')}</label>
+        <select
+          id="s-register"
+          class="select"
+          bind:value={ui.prefs.registerDisplay}
+          onchange={() => ui.savePrefs()}
+        >
+          <option value="short">{t('settings.registerDisplayShort')}</option>
+          <option value="full">{t('settings.registerDisplayFull')}</option>
+        </select>
+      </div>
+      <div class="field">
         <label for="s-examples">{t('settings.examplesPerEntry')}</label>
         <input
           id="s-examples"

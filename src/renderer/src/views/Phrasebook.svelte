@@ -4,6 +4,7 @@
   import { platform } from '$lib/platform'
   import Menu from '$lib/ui/Menu.svelte'
   import TableImportDialog from '$lib/ui/TableImportDialog.svelte'
+  import { guideUrl } from '$lib/core/guide'
   import { toCsv } from '$lib/core/csv'
   import {
     importPhraseRecords,
@@ -45,8 +46,11 @@
   )
   const language = $derived(project.languages.find((l) => l.id === langId) ?? null)
 
-  let selectedId = $state<Id | null>(null)
-  let category = $state<string>('')
+  /** 回到这一页时接着用上次的分类与选中的短语；换了语言就不恢复 */
+  const memo = ui.memo<{ lang: Id | null; selectedId: Id | null; category: string }>('phrasebook')
+  const sameLang = memo.lang === projectState.currentLanguageId
+  let selectedId = $state<Id | null>(sameLang ? (memo.selectedId ?? null) : null)
+  let category = $state<string>(sameLang ? (memo.category ?? '') : '')
   /** 表格导入对话框 */
   let importOpen = $state(false)
   const query = $derived(ui.search)
@@ -137,6 +141,11 @@
     category = v.category ?? ''
     ui.restoreScroll('phrasebook', r.scroll)
   })
+  $effect(() => {
+    Object.assign(memo, { lang: projectState.currentLanguageId, selectedId, category })
+  })
+  if (sameLang && !ui.restoring('phrasebook'))
+    ui.restoreScroll('phrasebook', ui.lastScroll('phrasebook'))
   /** 从别处跳过来：清掉筛选、选中、滚过去闪一下 */
   let flashId = $state<Id | null>(null)
   function reveal(id: Id): void {
@@ -254,6 +263,7 @@
     <TableImportDialog
       title={t('io.importPhrases')}
       fields={phraseFields(glossLangs)}
+      guide={guideUrl('phrasebook', 'table-format')}
       onimport={importPhraseTable}
       onclose={() => (importOpen = false)}
     />

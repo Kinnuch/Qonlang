@@ -811,6 +811,8 @@ const en: Dict = {
     sensePrefixMapHint:
       'Codes found at the start of a definition are removed and become sense tags — e.g. verb valency “1 leave; 2 go to” → tags “monovalent”, “divalent”. Codes may be run together (01 = 0 + 1); an empty tag uses the code itself.',
     splitSenses: 'Split definitions into senses on semicolons (; ；)',
+    formatGuide: 'Format guide',
+    formatGuideHint: 'Open the CSV column names, conventions and examples on the website',
     markers: 'Markers in words, definitions and notes',
     markersHint:
       'The table uses bracketed markers such as 【PN】 or [arch.] (the first bracket right after a sense number like “1.” counts too, parentheses included). Choose how to handle each one — usually as a register. In definitions a marker covers the text up to the next marker or semicolon, which becomes its own sense; in notes, a part starting with a marker becomes a new sense; a marker before the word applies to the whole entry.',
@@ -1264,6 +1266,12 @@ const en: Dict = {
   corpus: {
     pickCandidate: 'This word has {n} candidates that can’t be told apart — pick one to lock it in',
     pickThis: 'This one',
+    notFound: 'Nothing found for “{w}”',
+    notFoundHint:
+      'Search for a lexeme or morpheme to assign (by spelling, definition or gloss); the word is marked confirmed once every part is known.',
+    assignSearch: 'Search lexemes or morphemes…',
+    assignNone: 'No matching lexeme or morpheme — try another spelling or meaning',
+    partMissing: 'This part was not found — click to assign it',
     title: 'Corpus',
     sentence: 'Sentence',
     add: 'Add sentence',
@@ -1446,6 +1454,10 @@ const en: Dict = {
       'Show the guided tour every time “Guide” is clicked (otherwise once per module)',
     showDerivedMark: 'Mark paradigm-derived forms with a gear ⚙ on the entry card',
     examplesPerEntry: 'Examples shown under an entry',
+    registerDisplay: 'Register labels on entry cards',
+    registerDisplayShort:
+      'Boxed short form (first character for CJK, abbreviations such as lit. otherwise)',
+    registerDisplayFull: 'Boxed full name',
     projectName: 'Project name',
     author: 'Author',
     description: 'Description',

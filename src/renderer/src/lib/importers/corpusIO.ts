@@ -302,7 +302,13 @@ function cleanTokens(v: unknown): Token[] {
       const morphs: Analysis['morphs'] = []
       for (const m of a.morphs) {
         if (!isObj(m)) return []
-        morphs.push({ form: str(m.form), gloss: str(m.gloss), morphemeId: strOrNull(m.morphemeId) })
+        const lexemeId = strOrNull(m.lexemeId)
+        morphs.push({
+          form: str(m.form),
+          gloss: str(m.gloss),
+          morphemeId: strOrNull(m.morphemeId),
+          ...(lexemeId ? { lexemeId } : {})
+        })
       }
       analyses.push({ lexemeId: strOrNull(a.lexemeId), slot: strOrNull(a.slot), morphs })
     }

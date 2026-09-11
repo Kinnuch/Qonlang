@@ -9,16 +9,19 @@
   import { detectDelimiter, parseCsv, type Delimiter } from '$lib/core/csv'
   import { guessColumns, rowsToRecords, type ImportField } from '$lib/importers/corpusIO'
   import { ioFieldLabel } from '$lib/ui/ioLabels'
-  import { FileUp, X } from '@lucide/svelte'
+  import { FileUp, X, BookOpenText } from '@lucide/svelte'
 
   let {
     title,
     fields,
+    guide = '',
     onimport,
     onclose
   }: {
     title: string
     fields: ImportField[]
+    /** 格式说明的网址（使用指南里讲表格列名的那一节） */
+    guide?: string
     onimport: (records: Record<string, string>[]) => void
     onclose: () => void
   } = $props()
@@ -91,6 +94,14 @@
 <div class="dlg card" role="dialog" aria-modal="true" aria-label={title}>
   <div class="row">
     <strong class="grow">{title}</strong>
+    {#if guide}
+      <button
+        class="btn ghost sm"
+        title={t('csv.formatGuideHint')}
+        onclick={() => platform.openExternal(guide)}
+        ><BookOpenText size={14} />{t('csv.formatGuide')}</button
+      >
+    {/if}
     <button class="btn ghost icon sm" onclick={onclose}><X size={16} /></button>
   </div>
   <div class="row">

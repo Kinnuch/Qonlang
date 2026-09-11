@@ -19,7 +19,8 @@
     type ImportReport,
     type MarkerRule
   } from '$lib/importers/csvImport'
-  import { FileUp, Check, X, Save, Trash2 } from '@lucide/svelte'
+  import { guideUrl } from '$lib/core/guide'
+  import { FileUp, Check, X, Save, Trash2, BookOpenText } from '@lucide/svelte'
 
   let {
     onclose,
@@ -164,6 +165,12 @@
 <div class="wizard">
   <div class="row head">
     <h2 class="grow">{t('csv.title')}</h2>
+    <button
+      class="btn ghost sm"
+      title={t('csv.formatGuideHint')}
+      onclick={() => platform.openExternal(guideUrl('lexicon', 'csv-format'))}
+      ><BookOpenText size={14} />{t('csv.formatGuide')}</button
+    >
     <button class="btn ghost icon" onclick={onclose}><X size={16} /></button>
   </div>
 

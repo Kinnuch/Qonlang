@@ -5,6 +5,7 @@
   import { platform } from '$lib/platform'
   import Menu from '$lib/ui/Menu.svelte'
   import TableImportDialog from '$lib/ui/TableImportDialog.svelte'
+  import { guideUrl } from '$lib/core/guide'
   import { toCsv } from '$lib/core/csv'
   import {
     importSentenceRecords,
@@ -49,7 +50,12 @@
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import { flashOn } from '$lib/ui/flash'
-  import { wordHover, type HoverPart } from '$lib/state/wordHover.svelte'
+  import {
+    wordHover,
+    type HoverAssign,
+    type HoverChoice,
+    type HoverPart
+  } from '$lib/state/wordHover.svelte'
   import { paradigmAffixes, reverseDerive } from '$lib/engine/morph/reverse'
   import { lexemeMatchesGloss } from '$lib/core/glossMatch'
   import { renderScript, sentenceScript } from '$lib/script/render'
@@ -86,18 +92,30 @@
   )
   const language = $derived(project.languages.find((l) => l.id === langId) ?? null)
 
-  let mode = $state<'entries' | 'stats' | 'abbr'>('entries')
-  let selectedId = $state<Id | null>(null)
+  /** 回到这一页时接着用上次的子页、选中的句子、导出格式；换了语言就不恢复选中与滚动 */
+  const memo = ui.memo<{
+    lang: Id | null
+    mode: 'entries' | 'stats' | 'abbr'
+    selectedId: Id | null
+    collapsedId: Id | null
+    exportFormat: 'leipzig' | 'markdown' | 'html' | 'latex' | 'template'
+    templateId: string
+  }>('corpus')
+  const sameLang = memo.lang === projectState.currentLanguageId
+  let mode = $state<'entries' | 'stats' | 'abbr'>(memo.mode ?? 'entries')
+  let selectedId = $state<Id | null>(sameLang ? (memo.selectedId ?? null) : null)
   const query = $derived(ui.search)
-  let exportFormat = $state<'leipzig' | 'markdown' | 'html' | 'latex' | 'template'>('leipzig')
-  let templateId = $state<string>('')
+  let exportFormat = $state<'leipzig' | 'markdown' | 'html' | 'latex' | 'template'>(
+    memo.exportFormat ?? 'leipzig'
+  )
+  let templateId = $state<string>(memo.templateId ?? '')
   let templateDraft = $state({ name: '', template: '' })
   /** 全部确认后编辑器渐隐中 */
   let fading = $state(false)
   /** 刚确认完、需要闪一下的句子 */
   let justConfirmed = $state<Id | null>(null)
   /** 全部确认后收起了编辑器的那句：检视器仍停在这句上，再点一下卡片才展开 */
-  let collapsedId = $state<Id | null>(null)
+  let collapsedId = $state<Id | null>(sameLang ? (memo.collapsedId ?? null) : null)
   /** 表格导入对话框 */
   let importOpen = $state(false)
 
@@ -183,6 +201,17 @@
     mode = v.mode === 'stats' || v.mode === 'abbr' ? v.mode : 'entries'
     ui.restoreScroll('corpus', r.scroll)
   })
+  $effect(() => {
+    Object.assign(memo, {
+      lang: projectState.currentLanguageId,
+      mode,
+      selectedId,
+      collapsedId,
+      exportFormat,
+      templateId
+    })
+  })
+  if (sameLang && !ui.restoring('corpus')) ui.restoreScroll('corpus', ui.lastScroll('corpus'))
   /** 从别处跳过来：清掉过滤、选中、滚到它并闪一下 */
   let flashId = $state<Id | null>(null)
   function reveal(id: Id): void {
@@ -427,13 +456,21 @@
     if (!a || a.morphs.length < 2) return []
     return a.morphs.map((m) => {
       if (m.morphemeId) return { label: m.form, gloss: m.gloss, morphemeId: m.morphemeId }
+      if (m.lexemeId) return { label: m.form, gloss: m.gloss, lexemeId: m.lexemeId }
       const key = m.form
         .normalize('NFC')
         .toLowerCase()
         .replace(/^[-=·']+|[-=·']+$/g, '')
       const mo = idx?.morphemes.get(key)?.[0]
       if (mo) return { label: m.form, gloss: m.gloss, morphemeId: mo.id }
-      return { label: m.form, gloss: m.gloss, lexemeId: lookupByForm(key, m.gloss) }
+      const lexemeId = lookupByForm(key, m.gloss)
+      // 这一段没有 gloss、也对不上词条和语素：悬浮时显示「没有找到」
+      return {
+        label: m.form,
+        gloss: m.gloss,
+        lexemeId,
+        missing: !lexemeId && (!m.gloss || m.gloss === '?')
+      }
     })
   }
   /** 便宜的可点判断：重的反推留到真正悬浮时再做 */
@@ -520,9 +557,57 @@
     tk.confirmed = true
     touch()
   }
+  /**
+   * 悬浮卡里手动指定：整个词（index 为 null）写一条新分析并选中；切分里的一段只改那一段。
+   * 按句子与位置重新找这个词——悬浮之后例句可能已经重新分析过。都认出来了就记为已确认。
+   */
+  function assignWord(
+    sid: Id,
+    at: number,
+    surface: string,
+    index: number | null,
+    c: HoverChoice
+  ): void {
+    const tk = project.sentences.find((x) => x.id === sid)?.tokens[at]
+    if (!tk || tk.surface !== surface) return
+    const l = c.lexemeId ? project.lexemes.find((x) => x.id === c.lexemeId) : undefined
+    const m = c.morphemeId ? project.morphemes.find((x) => x.id === c.morphemeId) : undefined
+    if (!l && !m) return
+    const gloss = l
+      ? lexemeGloss(l, glossLangs)
+      : m!.gloss || Object.values(m!.meaning).find(Boolean) || m!.form
+    const cur = tk.analyses[tk.chosen]
+    if (index === null || !cur?.morphs[index]) {
+      tk.analyses.push({
+        lexemeId: l?.id ?? null,
+        slot: null,
+        morphs: [{ form: tk.surface, gloss, morphemeId: m?.id ?? null, lexemeId: l?.id ?? null }]
+      })
+      tk.chosen = tk.analyses.length - 1
+    } else {
+      const next: Analysis = {
+        lexemeId: cur.lexemeId ?? l?.id ?? null,
+        slot: cur.slot,
+        morphs: cur.morphs.map((x, i) =>
+          i === index ? { ...x, gloss, morphemeId: m?.id ?? null, lexemeId: l?.id ?? null } : x
+        )
+      }
+      tk.analyses[tk.chosen] = next
+    }
+    if (!tk.analyses[tk.chosen].morphs.some((x) => !x.gloss || x.gloss === '?')) tk.confirmed = true
+    touch()
+  }
+  function assignOf(tk: Token, s: Sentence): HoverAssign {
+    const sid = s.id
+    const at = s.tokens.indexOf(tk)
+    const surface = tk.surface
+    return {
+      languageId: s.languageId,
+      onAssign: (index, c) => assignWord(sid, at, surface, index, c)
+    }
+  }
   function hoverWord(e: MouseEvent, tk: Token, s: Sentence): void {
     const cands = candidatesOf(tk, s)
-    if (!cands.length) return
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     if (cands.length > 1) {
       const at = s.tokens.indexOf(tk)
@@ -531,10 +616,15 @@
       wordHover.showCandidates(cands, rect, (c) => pickCandidate(sid, at, surface, c))
       return
     }
-    const target = cands[0]
     const parts = hoverParts(tk)
-    if (target.lexemeId) wordHover.show(target.lexemeId, rect, parts)
-    else if (target.morphemeId) wordHover.showMorpheme(target.morphemeId, rect, parts)
+    const assign = assignOf(tk, s)
+    // 拆出来的某一段没找到：直接打开那一段的「没有找到」；整个词都没找到也一样
+    const miss = parts.findIndex((p) => p.missing)
+    if (miss >= 0) return wordHover.showMissing(parts[miss].label, miss, rect, parts, assign)
+    const target = cands[0]
+    if (!target) return wordHover.showMissing(tk.surface, null, rect, parts, assign)
+    if (target.lexemeId) wordHover.show(target.lexemeId, rect, parts, assign)
+    else if (target.morphemeId) wordHover.showMorpheme(target.morphemeId, rect, parts, assign)
   }
   function clickWord(e: MouseEvent, tk: Token, s: Sentence): void {
     const cands = candidatesOf(tk, s)
@@ -735,6 +825,7 @@
     <TableImportDialog
       title={t('io.importSentences')}
       fields={sentenceFields(glossLangs)}
+      guide={guideUrl('corpus', 'table-format')}
       onimport={importSentenceTable}
       onclose={() => (importOpen = false)}
     />

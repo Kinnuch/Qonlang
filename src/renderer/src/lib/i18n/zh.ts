@@ -788,6 +788,8 @@ export default {
     sensePrefixMapHint:
       '释义开头出现这些编码时从释义里拿掉，变成义项标签，比如动词价态「1离开；2前往」→ 标签「一价」「二价」。编码可以连写（01 = 0 + 1），标签留空就用编码本身。',
     splitSenses: '释义按分号（; ；）拆成多个义项',
+    formatGuide: '格式说明',
+    formatGuideHint: '在网站上打开 CSV 的列名、写法与示例',
     markers: '单词、释义、备注里的标记',
     markersHint:
       '表里出现了【专】【神】这类方括号标记（序号 1、 2. 后面紧跟的第一组括号也算，圆括号也一样），逐个选怎么处理——一般映射成语域。释义里的标记管到下一个标记或分号为止，前后拆成不同义项；备注里以标记开头的一段变成新的义项；单词前的标记管整个词条。',
@@ -1230,6 +1232,12 @@ export default {
   corpus: {
     pickCandidate: '这个词有 {n} 个候选，意思分不出来——挑一个固定下来',
     pickThis: '就是这个',
+    notFound: '没有找到「{w}」',
+    notFoundHint:
+      '搜一个词条或语素指定给它（按写法、释义或 gloss 搜）；整个词都认出来后记为已确认。',
+    assignSearch: '搜索词条或语素…',
+    assignNone: '没有对得上的词条或语素，换个写法或释义试试',
+    partMissing: '这一段没有找到，点开手动指定',
     title: '语料',
     sentence: '例句',
     add: '新增例句',
@@ -1405,6 +1413,9 @@ export default {
     guideTourAlways: '点「使用指南」时每次都先看图文引导（关着时每个模块只自动讲一次）',
     showDerivedMark: '词条卡里给构形推导出来的形式标齿轮 ⚙',
     examplesPerEntry: '词条下方默认显示的例句条数',
+    registerDisplay: '词条卡里语域的显示',
+    registerDisplayShort: '方框里一个字（英文显示缩写，如 lit.）',
+    registerDisplayFull: '方框里写全称',
     projectName: '项目名称',
     author: '作者',
     description: '简介',

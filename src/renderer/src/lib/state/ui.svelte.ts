@@ -33,6 +33,9 @@ export const SECTIONS: Section[] = [
   'settings'
 ]
 
+/** 再点一次导航按钮会回到上一个页面的：临时去一下就回来的页面；其他模块再点一次停在原地 */
+export const TOGGLE_BACK_SECTIONS: ReadonlySet<Section> = new Set<Section>(['skin', 'settings'])
+
 export interface Toast {
   id: number
   message: string
@@ -90,12 +93,29 @@ class UiState {
   } | null = null
   /** 「返回」时交给页面恢复的位置 */
   restoreReq = $state<{ section: Section; view: PageView | null; scroll: number } | null>(null)
+  /**
+   * 页面状态记忆：离开页面时的筛选、排序、子页、选中项、测试台输入……回到这一页接着用。
+   * 只在内存里，关项目清空；「返回」时 takeRestore 给的位置再盖上去。
+   */
+  private memory: Partial<Record<Section, Record<string, unknown>>> = {}
+  memo<T extends object>(section: Section): Partial<T> {
+    return (this.memory[section] ??= {}) as Partial<T>
+  }
+  /** 这一页上次离开时主列表滚到哪 */
+  lastScroll(section: Section): number {
+    return this.scrolls[section] ?? 0
+  }
+  /** 这次进页面是「返回」带来的：滚动交给 takeRestore，页面自己不另外恢复 */
+  restoring(section: Section): boolean {
+    return this.restoreReq?.section === section
+  }
 
   resetHistory(): void {
     this.navHistory = []
     this.previousSection = null
     this.views = {}
     this.scrolls = {}
+    this.memory = {}
   }
   private quiet(): void {
     this.quietUntil = performance.now() + 700
@@ -172,8 +192,8 @@ class UiState {
   }
   go(s: Section): void {
     if (s === this.section) {
-      // 再点一次当前页的导航按钮：回到上一个页面
-      if (this.previousSection && this.previousSection !== s) {
+      // 再点一次当前页的导航按钮：皮肤、设置回到上一个页面；语言、词库这些模块停在原地不动
+      if (TOGGLE_BACK_SECTIONS.has(s) && this.previousSection && this.previousSection !== s) {
         this.push(this.snapshot())
         this.quiet()
         const back = this.previousSection
@@ -263,6 +283,7 @@ class UiState {
     this.prefs.showHelpDots ??= true
     this.prefs.examplesPerEntry ??= 3
     this.prefs.showDerivedMark ??= true
+    if (this.prefs.registerDisplay !== 'full') this.prefs.registerDisplay = 'short'
     this.prefs.checkUpdates ??= true
     this.prefs.skippedVersion ??= ''
     this.prefs.guideTourAlways ??= false
