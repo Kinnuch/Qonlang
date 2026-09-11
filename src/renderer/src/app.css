@@ -368,3 +368,62 @@ kbd {
   background: var(--accent-soft);
   color: var(--accent-text);
 }
+
+/* ── 书签式页签：用户自己建的多个页签（构形、规则集、文字）──
+   选中的那一页像书签一样，两侧用内凹的弧线落到下面那条色带上，把下方的页面包住 */
+.page-head.tabbed {
+  border-bottom: 3px solid var(--accent-soft);
+  padding-bottom: 0;
+}
+.booktabs {
+  display: flex;
+  align-items: flex-end;
+  align-self: stretch;
+  gap: 2px;
+  padding: 0 12px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  /* 往下压 3px，正好盖住色带，选中页签和色带连成一片 */
+  position: relative;
+  top: 3px;
+}
+.booktabs .tab {
+  position: relative;
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  padding: 6px 14px 9px;
+  border-radius: 10px 10px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  font: inherit;
+}
+.booktabs .tab:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.booktabs .tab.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.booktabs .tab.active::before,
+.booktabs .tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+}
+.booktabs .tab.active::before {
+  left: -10px;
+  background: radial-gradient(circle at 0 0, transparent 9.5px, var(--accent-soft) 10px);
+}
+.booktabs .tab.active::after {
+  right: -10px;
+  background: radial-gradient(circle at 100% 0, transparent 9.5px, var(--accent-soft) 10px);
+}

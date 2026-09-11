@@ -23,6 +23,8 @@ export interface Context {
 export interface CompiledContext {
   main: RegExp
   exclude: RegExp | null
+  /** 左环境里编号音类占掉的捕获组个数（目标的捕获组要往后数这么多） */
+  offset: number
 }
 
 export interface ParsedRule {
@@ -44,7 +46,11 @@ export interface ParsedRule {
   replacementParts: ReplacementPart[]
 }
 
-export type ReplacementPart = { kind: 'text'; text: string } | { kind: 'class'; ref: ClassRef }
+export type ReplacementPart =
+  | { kind: 'text'; text: string }
+  | { kind: 'class'; ref: ClassRef }
+  /** 编号音类 C1：输出目标或环境里同编号匹配到的那个音 */
+  | { kind: 'ref'; name: string }
 
 export interface MarkerLine {
   kind: 'marker'
@@ -210,7 +216,15 @@ interface ExpandResult {
 function expand(
   s: string,
   classes: Map<string, string[]>,
-  opts: { boundary: '^' | '$' | null; captureFirst: boolean; warn: (m: string) => void }
+  opts: {
+    boundary: '^' | '$' | null
+    captureFirst: boolean
+    warn: (m: string) => void
+    /** 编号音类第 k 次出现时是定义捕获组还是回指（见 planNumbered） */
+    numbered?: (name: string, k: number) => 'def' | 'ref'
+    /** 编号音类已经出现过几次（嵌套的括号里接着数） */
+    seen?: Map<string, number>
+  }
 ): ExpandResult {
   let out = ''
   let firstClass: ClassRef | null = null
@@ -218,6 +232,7 @@ function expand(
   let capturing = 0
   let i = 0
   const chars = Array.from(s)
+  const seen = opts.seen ?? new Map<string, number>()
   const pushClass = (ref: ClassRef, raw: string | null): void => {
     const body = raw ?? classRegex(ref.members)
     if (opts.captureFirst && !firstClass) {
@@ -238,6 +253,7 @@ function expand(
       while (j < chars.length && chars[j] !== ')') j++
       const inner = expand(chars.slice(i + 1, j).join(''), classes, {
         ...opts,
+        seen,
         captureFirst: false
       })
       out += '(?:' + inner.re + ')?'
@@ -272,7 +288,19 @@ function expand(
       pushClass({ name: '[' + inner + ']', members: Array.from(inner) }, '[' + inner + ']')
       i = j
     } else if (c >= 'A' && c <= 'Z' && classes.has(c)) {
-      pushClass({ name: c, members: classes.get(c)! }, null)
+      let j = i + 1
+      while (j < chars.length && chars[j] >= '0' && chars[j] <= '9') j++
+      if (j > i + 1 && opts.numbered) {
+        // C1、V2：编号相同的是同一个音——第一次定义捕获组，之后回指
+        const name = c + chars.slice(i + 1, j).join('')
+        const k = seen.get(name) ?? 0
+        seen.set(name, k + 1)
+        out +=
+          opts.numbered(name, k) === 'def'
+            ? `(?<n${name}>${classRegex(classes.get(c)!)})`
+            : `\\k<n${name}>`
+        i = j - 1
+      } else pushClass({ name: c, members: classes.get(c)! }, null)
     } else {
       if (c >= 'A' && c <= 'Z') opts.warn(`未定义的音类 ${c}，按字面字符处理`)
       out += c
@@ -299,10 +327,28 @@ function parseReplacement(s: string, classes: Map<string, string[]>): Replacemen
         parts.push({ kind: 'class', ref: { name, members } })
       } else text += '{' + name + '}'
       i = j
+    } else if (c === '[') {
+      // 临时音类：与目标里的音类按位置对应（[ptk] > [bdg]）
+      let j = i + 1
+      while (j < chars.length && chars[j] !== ']') j++
+      if (j >= chars.length) {
+        text += c
+        continue
+      }
+      if (text) parts.push({ kind: 'text', text })
+      text = ''
+      const inner = chars.slice(i + 1, j).join('')
+      parts.push({ kind: 'class', ref: { name: '[' + inner + ']', members: Array.from(inner) } })
+      i = j
     } else if (c >= 'A' && c <= 'Z' && classes.has(c)) {
       if (text) parts.push({ kind: 'text', text })
       text = ''
-      parts.push({ kind: 'class', ref: { name: c, members: classes.get(c)! } })
+      let j = i + 1
+      while (j < chars.length && chars[j] >= '0' && chars[j] <= '9') j++
+      if (j > i + 1) {
+        parts.push({ kind: 'ref', name: c + chars.slice(i + 1, j).join('') })
+        i = j - 1
+      } else parts.push({ kind: 'class', ref: { name: c, members: classes.get(c)! } })
     } else if (c === '@') {
       let j = i + 1
       while (j < chars.length && /[\p{L}\p{N}_\-.]/u.test(chars[j])) j++
@@ -318,6 +364,51 @@ function parseReplacement(s: string, classes: Map<string, string[]>): Replacemen
   }
   if (text) parts.push({ kind: 'text', text })
   return parts
+}
+
+/** 一段文本里编号音类（C1、V2…）按出现顺序的名字；{长名}、[临时音类]、@语素 里的不算 */
+function numberedNames(s: string, classes: Map<string, string[]>): string[] {
+  const clean = s
+    .replace(/\{[^}]*\}/g, ' ')
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/@[\p{L}\p{N}_\-.]+/gu, ' ')
+  const out: string[] = []
+  for (const m of clean.matchAll(/([A-Z])(\d+)/g)) if (classes.has(m[1])) out.push(m[1] + m[2])
+  return out
+}
+
+type NumberedPlan = Record<'left' | 'target' | 'right', (name: string, k: number) => 'def' | 'ref'>
+
+/**
+ * 编号音类在哪一次出现时定义捕获组：正则按「左环境 → 目标 → 右环境」的顺序匹配，
+ * 先匹配到的那次定义，后面的回指；左环境是往回匹配的，所以左边取最右的那一次。
+ */
+function planNumbered(
+  left: string,
+  target: string,
+  right: string,
+  classes: Map<string, string[]>
+): NumberedPlan {
+  const defined = new Set<string>()
+  const decide = (names: string[], fromEnd: boolean): Map<string, number> => {
+    const counts = new Map<string, number>()
+    for (const n of names) counts.set(n, (counts.get(n) ?? 0) + 1)
+    const defAt = new Map<string, number>()
+    for (const [n, total] of counts) {
+      if (defined.has(n)) continue
+      defAt.set(n, fromEnd ? total - 1 : 0)
+      defined.add(n)
+    }
+    return defAt
+  }
+  const l = decide(numberedNames(left, classes), true)
+  const t = decide(numberedNames(target, classes), false)
+  const r = decide(numberedNames(right, classes), false)
+  const by =
+    (m: Map<string, number>) =>
+    (name: string, k: number): 'def' | 'ref' =>
+      m.get(name) === k ? 'def' : 'ref'
+  return { left: by(l), target: by(t), right: by(r) }
 }
 
 function compile(left: string, target: string, right: string): RegExp {
@@ -458,27 +549,56 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     }
 
     const t = expand(target, classes, { boundary: null, captureFirst: true, warn })
+    const quiet = (): void => {}
+    // 左环境里定义了几个编号捕获组：目标的捕获组要往后数这么多
+    const groupsIn = (re: string): number => (re.match(/\(\?<n[A-Z]\d+>/g) ?? []).length
     const compiled: CompiledContext[] = []
     try {
       for (const ctx of contexts) {
-        const l = expand(ctx.left, classes, { boundary: '^', captureFirst: false, warn }).re
-        const r = expand(ctx.right, classes, { boundary: '$', captureFirst: false, warn }).re
-        const main = compile(l, t.re, r)
+        const plan = planNumbered(ctx.left, target, ctx.right, classes)
+        const l = expand(ctx.left, classes, {
+          boundary: '^',
+          captureFirst: false,
+          warn,
+          numbered: plan.left
+        }).re
+        const tt = expand(target, classes, {
+          boundary: null,
+          captureFirst: true,
+          warn: quiet,
+          numbered: plan.target
+        }).re
+        const r = expand(ctx.right, classes, {
+          boundary: '$',
+          captureFirst: false,
+          warn,
+          numbered: plan.right
+        }).re
+        const main = compile(l, tt, r)
         let exclude: RegExp | null = null
         if (exception) {
+          const ep = planNumbered(exception.left, target, exception.right, classes)
           const el = expand(exception.left, classes, {
             boundary: '^',
             captureFirst: false,
-            warn
+            warn,
+            numbered: ep.left
+          }).re
+          const et = expand(target, classes, {
+            boundary: null,
+            captureFirst: true,
+            warn: quiet,
+            numbered: ep.target
           }).re
           const er = expand(exception.right, classes, {
             boundary: '$',
             captureFirst: false,
-            warn
+            warn,
+            numbered: ep.right
           }).re
-          exclude = compile(el, t.re, er)
+          exclude = compile(el, et, er)
         }
-        compiled.push({ main, exclude })
+        compiled.push({ main, exclude, offset: groupsIn(l) })
       }
     } catch (e) {
       return fail(`正则无法编译：${(e as Error).message}`)

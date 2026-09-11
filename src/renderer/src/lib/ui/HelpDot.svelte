@@ -74,7 +74,7 @@
     font-size: 12px;
     line-height: 1.6;
     text-align: left;
-    white-space: normal;
+    white-space: pre-line;
     pointer-events: none;
     z-index: 90;
   }

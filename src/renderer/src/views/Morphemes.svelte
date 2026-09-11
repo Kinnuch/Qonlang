@@ -1,4 +1,14 @@
 <script lang="ts">
+  import SyntaxLink from '$lib/ui/SyntaxLink.svelte'
+  import { navScroll } from '$lib/ui/navScroll'
+  import type { PageView } from '$lib/state/ui.svelte'
+  import { platform } from '$lib/platform'
+  import Menu from '$lib/ui/Menu.svelte'
+  import CsvImportWizard from '$lib/ui/CsvImportWizard.svelte'
+  import { toCsv } from '$lib/core/csv'
+  import { morphemesToRows } from '$lib/importers/csvImport'
+  import { matchQuery, parseQuery } from '$lib/core/query'
+  import { SEARCH_FIELDS } from '$lib/core/searchFields'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
@@ -9,7 +19,18 @@
   import { makeCollator } from '$lib/core/collate'
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
-  import { Plus, Trash2, X, ChevronUp, ChevronDown, Eye, Pencil, ListOrdered } from '@lucide/svelte'
+  import {
+    Plus,
+    Trash2,
+    X,
+    ChevronUp,
+    ChevronDown,
+    Eye,
+    Pencil,
+    ListOrdered,
+    Upload,
+    Download
+  } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import EtymologyEditor from '$lib/ui/EtymologyEditor.svelte'
@@ -23,7 +44,7 @@
   const project = $derived(projectState.project!)
   const langId = $derived(projectState.currentLanguageId)
   let selectedId = $state<Id | null>(null)
-  let mode = $state<'entries' | 'stats'>('entries')
+  let mode = $state<'entries' | 'stats' | 'csv'>('entries')
   const mStats = $derived(mode === 'stats' ? morphemeStats(project, langId) : null)
   const pctOf = (n: number, total: number): string =>
     total ? `${Math.round((n / total) * 100)}%` : '—'
@@ -87,24 +108,38 @@
   const collator = $derived(makeCollator(projectState.currentLanguage?.alphabet ?? []))
 
   const filtered = $derived.by(() => {
-    const q = query.trim().toLowerCase()
+    const pq = parseQuery(query, SEARCH_FIELDS.morphemes)
     return project.morphemes.filter((m) => {
       if (langId && m.languageId !== langId) return false
       if (typeFilter && m.type !== typeFilter) return false
       for (const [key, sel] of Object.entries(colFilters))
         if (!filterValues(m, key).some((v) => sel.has(v))) return false
-      if (
-        q &&
-        !(
-          m.form.toLowerCase().includes(q) ||
-          m.gloss.toLowerCase().includes(q) ||
-          Object.values(m.meaning).some((v) => v.toLowerCase().includes(q))
-        )
-      )
-        return false
+      if (pq.terms.length && !matchQuery(pq, (f) => morphemeFieldValues(m, f))) return false
       return true
     })
   })
+  /** 搜索用：语素在某个字段里的文字 */
+  function morphemeFieldValues(m: Morpheme, field: string | null): string[] {
+    const meaning = Object.values(m.meaning)
+    switch (field) {
+      case 'form':
+        return [m.form]
+      case 'gloss':
+        return [m.gloss]
+      case 'meaning':
+        return meaning
+      case 'type':
+        return [m.type, t(`morphemes.types.${m.type}`)]
+      case 'allo':
+        return m.allomorphs.map((a) => a.form)
+      case 'tag':
+        return m.tags
+      case 'note':
+        return [m.notes]
+      default:
+        return [m.form, m.gloss, ...meaning]
+    }
+  }
   const list = $derived.by(() => {
     const arr = [...filtered]
     const byForm = (a: Morpheme, b: Morpheme): number =>
@@ -158,6 +193,25 @@
     const id = ui.takePending('morpheme')
     if (id) reveal(id)
   })
+  // 「返回」用：报上当前位置，返回时原样恢复
+  $effect(() => {
+    ui.reportView('morphemes', {
+      kind: 'morpheme',
+      lang: projectState.currentLanguageId,
+      id: selectedId,
+      mode,
+      edit: editMode ? '1' : ''
+    })
+  })
+  $effect(() => {
+    const r = ui.takeRestore('morphemes')
+    if (!r) return
+    const v: PageView = r.view ?? {}
+    selectedId = v.id ?? null
+    mode = v.mode === 'stats' ? 'stats' : 'entries'
+    editMode = v.edit === '1'
+    ui.restoreScroll('morphemes', r.scroll)
+  })
   /** 从别处跳过来：清掉筛选、选中、滚到那一行并短暂高亮 */
   let flashId = $state<Id | null>(null)
   function reveal(id: Id): void {
@@ -180,6 +234,14 @@
     )
   }
 
+  async function exportCsv(): Promise<void> {
+    const rows = morphemesToRows(
+      project.morphemes.filter((m) => !langId || m.languageId === langId),
+      project.settings.glossLanguages
+    )
+    const name = projectState.currentLanguage?.name ?? project.meta.name
+    await platform.saveTextFile(`${name}-morphemes.csv`, '\ufeff' + toCsv(rows))
+  }
   function langName(id: Id): string {
     return project.languages.find((l) => l.id === id)?.name ?? ''
   }
@@ -217,7 +279,7 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('morphemes.title')}</h1>
-    <GuideLink section="morphemes" />
+    <GuideLink section="morphemes" /><SyntaxLink anchor="allomorph" />
     <span class="badge">{t('morphemes.count', { n: list.length })}</span>
     <div class="seg">
       <button class:active={mode === 'entries'} onclick={() => (mode = 'entries')}
@@ -240,11 +302,21 @@
       >
     </div>
     <span class="grow"></span>
+    <Menu label={t('lexicon.import')} icon={Upload}>
+      <button onclick={() => (mode = 'csv')}>{t('lexicon.importCsv')}</button>
+    </Menu>
+    <Menu label={t('common.export')} icon={Download}>
+      <button onclick={exportCsv}>{t('lexicon.exportMorphemesCsv')}</button>
+    </Menu>
     <button class="btn primary" onclick={add}><Plus size={16} />{t('morphemes.add')}</button>
   </div>
   <Hint id="morphemes" text={t('morphemes.hint')} />
 
-  {#if mode === 'stats' && mStats}
+  {#if mode === 'csv'}
+    <div class="scroll">
+      <CsvImportWizard initialTarget="morphemes" onclose={() => (mode = 'entries')} />
+    </div>
+  {:else if mode === 'stats' && mStats}
     {@const st = mStats}
     <div class="scroll">
       <StatsPanel
@@ -317,7 +389,7 @@
   {:else if !project.morphemes.some((m) => !langId || m.languageId === langId)}
     <p class="muted">{t('morphemes.empty')}</p>
   {:else}
-    <div class="table-wrap">
+    <div class="table-wrap" use:navScroll={'morphemes'}>
       <table class="tbl">
         <thead>
           <tr>
@@ -497,7 +569,9 @@
       />
     </div>
     <div class="field">
-      <span class="small muted">{t('morphemes.allomorphs')}</span>
+      <span class="small muted">{t('morphemes.allomorphs')}</span><HelpDot
+        tip={t('morphemes.environmentHint')}
+      />
       {#each m.allomorphs as a, i (i)}
         <div class="row allo">
           <input

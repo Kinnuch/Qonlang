@@ -12,6 +12,8 @@ export interface Skin {
   fonts: Record<FontSlot, string>
   /** 下载字体时加在 URL 前面的镜像前缀（国内加速用），空为直连 */
   mirror: string
+  /** 给某套自定义文字单独指定的字体：文字 id → 字体名（覆盖文字自带的字体） */
+  scriptFonts?: Record<string, string>
 }
 
 export const EMPTY_FONTS: Record<FontSlot, string> = {
@@ -29,7 +31,8 @@ export const DEFAULT_SKIN: Skin = {
   light: {},
   dark: {},
   fonts: { ...EMPTY_FONTS },
-  mirror: ''
+  mirror: '',
+  scriptFonts: {}
 }
 
 /** 可编辑的颜色变量（顺序即界面顺序） */

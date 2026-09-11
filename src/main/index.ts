@@ -40,6 +40,8 @@ interface Prefs {
   examplesPerEntry: number
   panelSizes: Record<string, number>
   showDerivedMark: boolean
+  guideTourAlways: boolean
+  seenTours: string[]
   checkUpdates: boolean
   skippedVersion: string
 }
@@ -69,7 +71,9 @@ const DEFAULT_PREFS: Prefs = {
   panelSizes: {},
   showDerivedMark: true,
   checkUpdates: true,
-  skippedVersion: ''
+  skippedVersion: '',
+  guideTourAlways: false,
+  seenTours: []
 }
 
 interface RecentEntry {

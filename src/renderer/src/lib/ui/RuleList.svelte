@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { matchText, parseQuery } from '$lib/core/query'
   /**
    * 规则列表视图：把规则文本投影成可逐条编辑的卡片。
    * 文本仍是唯一真值；这里的每个改动都换算成对某一行的替换 / 插入 / 删除。
@@ -95,8 +96,9 @@
     items: ParsedLine[]
     endLine: number
   }
-  const needle = $derived(query.trim().toLowerCase())
-  const lineHit = (raw: string): boolean => !needle || raw.toLowerCase().includes(needle)
+  const pq = $derived(parseQuery(query))
+  const needle = $derived(pq.terms.length > 0)
+  const lineHit = (raw: string): boolean => matchText(pq, [raw])
   const sections = $derived.by((): Section[] => {
     if (!program) return []
     const out: Section[] = []

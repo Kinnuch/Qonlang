@@ -74,6 +74,31 @@ export function splitSourceForm(project: Project, form: string): string[] {
     .filter(Boolean)
 }
 
+/** 上下标数字换成普通数字（h₁ → h1）；kʷ、tʰ 这类修饰字母不动，它们是不同的音 */
+const plainDigits = (s: string): string =>
+  s
+    .replace(/[₀-₉]/g, (d) => String(d.charCodeAt(0) - 0x2080))
+    .replace(/[⁰¹²³⁴-⁹]/g, (d) => String('⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(d)))
+
+/**
+ * 模糊匹配用的键：上下标数字换成普通数字、去掉所有变音符、转小写，
+ * 再去掉这门语言设置里要忽略的字符。
+ */
+export function looseKey(s: string, ignore = ''): string {
+  let x = plainDigits(s).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+  if (ignore) {
+    const drop = new Set(
+      Array.from(plainDigits(ignore).normalize('NFD').toLowerCase()).filter(
+        (c) => !/\s/.test(c) && !/\p{M}/u.test(c)
+      )
+    )
+    x = Array.from(x)
+      .filter((c) => !drop.has(c))
+      .join('')
+  }
+  return x.trim()
+}
+
 function fold(s: string): string {
   return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim()
 }
@@ -111,16 +136,32 @@ export function resolveFormInLanguage(
   const strip = (s: string): string => s.replace(/^[-=*·]+|[-=·]+$/g, '')
   const lexemes = inLang(project.lexemes)
   const morphemes = inLang(project.morphemes)
-  const tryMatch = (eq: (a: string, b: string) => boolean): ResolvedForm => {
-    const l = lexemes.find((x) => eq(strip(x.lemma), clean))
+  const tryMatch = (eq: (a: string, b: string, languageId: string) => boolean): ResolvedForm => {
+    const l = lexemes.find((x) => eq(strip(x.lemma), clean, x.languageId))
     if (l) return { kind: 'lexeme', id: l.id }
-    const m = morphemes.find((x) => eq(strip(x.form), clean))
+    const m = morphemes.find((x) => eq(strip(x.form), clean, x.languageId))
     if (m) return { kind: 'morpheme', id: m.id }
     return null
+  }
+  // 最宽松的一档按候选自己那门语言的忽略字符比（没指定语言时各算各的）；查询这边的键按语言缓存
+  const ignoreOf = new Map(project.languages.map((l) => [l.id, l.matchIgnore ?? '']))
+  const queryKeys = new Map<string, string>()
+  const queryKey = (languageId: string): string => {
+    let k = queryKeys.get(languageId)
+    if (k === undefined) {
+      k = looseKey(clean, ignoreOf.get(languageId) ?? '')
+      queryKeys.set(languageId, k)
+    }
+    return k
   }
   return (
     tryMatch((a, b) => a === b) ??
     tryMatch((a, b) => a.toLowerCase() === b.toLowerCase()) ??
-    tryMatch((a, b) => fold(a) === fold(b))
+    tryMatch((a, b) => fold(a) === fold(b)) ??
+    // 最宽松：按语言设置去掉 H1 / H2 的数字、词根里的点这类符号再比
+    tryMatch((a, _b, languageId) => {
+      const kb = queryKey(languageId)
+      return kb.length > 0 && looseKey(a, ignoreOf.get(languageId) ?? '') === kb
+    })
   )
 }

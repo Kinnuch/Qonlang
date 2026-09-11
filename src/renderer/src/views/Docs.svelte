@@ -1,4 +1,7 @@
 <script lang="ts">
+  import type { PageView } from '$lib/state/ui.svelte'
+  import { matchQuery, parseQuery } from '$lib/core/query'
+  import { SEARCH_FIELDS } from '$lib/core/searchFields'
   /** 文档页：项目内 Markdown 页面，编辑 / 分栏 / 预览，[[词头]] 链到词库。 */
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
@@ -21,11 +24,13 @@
   let view = $state<'edit' | 'split' | 'preview'>('preview')
 
   const list = $derived.by(() => {
-    const q = ui.search.trim().toLowerCase()
+    const pq = parseQuery(ui.search, SEARCH_FIELDS.docs)
     return project.docs.filter(
       (d) =>
         (!langId || d.languageId === langId || d.languageId === null) &&
-        (!q || d.title.toLowerCase().includes(q) || d.markdown.toLowerCase().includes(q))
+        matchQuery(pq, (f) =>
+          f === 'title' ? [d.title] : f === 'body' ? [d.markdown] : [d.title, d.markdown]
+        )
     )
   })
   const selected = $derived(project.docs.find((d) => d.id === selectedId) ?? null)
@@ -44,6 +49,22 @@
   $effect(() => {
     const id = ui.takePending('doc')
     if (id) selectedId = id
+  })
+  // 「返回」用：报上当前位置，返回时原样恢复
+  $effect(() => {
+    ui.reportView('docs', {
+      kind: 'doc',
+      lang: projectState.currentLanguageId,
+      id: selectedId,
+      docView: view
+    })
+  })
+  $effect(() => {
+    const r = ui.takeRestore('docs')
+    if (!r) return
+    const v: PageView = r.view ?? {}
+    selectedId = v.id ?? null
+    if (v.docView === 'edit' || v.docView === 'split' || v.docView === 'preview') view = v.docView
   })
 
   function touch(d?: DocPage): void {
@@ -89,8 +110,7 @@
     e.preventDefault()
     const id = a.dataset.lexeme!
     const lx = project.lexemes.find((l) => l.id === id)
-    if (lx) projectState.currentLanguageId = lx.languageId
-    ui.jump('lexicon', 'lexeme', id)
+    ui.jump('lexicon', 'lexeme', id, lx?.languageId)
   }
   function insertAtCursor(text: string): void {
     const ta = document.getElementById('doc-md') as HTMLTextAreaElement | null

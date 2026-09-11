@@ -4,7 +4,7 @@
    * 链条读作「来源 > 中间态… > 本身」，选定类别后来源框会给出对应的选择器。
    */
   import { t, pickText } from '$lib/i18n/index.svelte'
-  import { morphemeLabel } from '$lib/core/etymology'
+  import { morphemeLabel, looseKey } from '$lib/core/etymology'
   import { newId } from '$lib/core/factory'
   import {
     ETYMOLOGY_TYPES,
@@ -51,12 +51,25 @@
     const src = etymology.sources[picking]
     if (!src || src.kind === 'external') return []
     const q = query.trim().toLowerCase()
+    const ignores = new Map(project.languages.map((l) => [l.id, l.matchIgnore ?? '']))
+    const queryKeys = new Map<string, string>()
+    /** 忽略大小写、附加符和那门语言设置的忽略字符再比；查询全是被忽略的字符时不算命中 */
+    const looseHit = (text: string, languageId: string): boolean => {
+      let k = queryKeys.get(languageId)
+      if (k === undefined) {
+        k = looseKey(q, ignores.get(languageId) ?? '')
+        queryKeys.set(languageId, k)
+      }
+      return k.length > 0 && looseKey(text, ignores.get(languageId) ?? '').includes(k)
+    }
     if (src.kind === 'morpheme') {
       const all = project.morphemes.filter((m) => m.id !== ownerId)
       const hit = q
         ? all.filter(
             (m) =>
               morphemeLabel(m).toLowerCase().includes(q) ||
+              // 模糊：H1ANG 用 hang 也能搜到，长音符、成音节符号不用打
+              looseHit(morphemeLabel(m), m.languageId) ||
               m.form2.toLowerCase().includes(q) ||
               m.gloss.toLowerCase().includes(q) ||
               // 也能按「环缀」「后缀」这类类型名搜
@@ -77,6 +90,7 @@
       ? all.filter(
           (l) =>
             l.lemma.toLowerCase().includes(q) ||
+            looseHit(l.lemma, l.languageId) ||
             l.senses.some((se) =>
               Object.values(se.definition).some((d) => d.toLowerCase().includes(q))
             )

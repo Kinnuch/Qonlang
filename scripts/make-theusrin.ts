@@ -28,21 +28,33 @@ import {
   createSense
 } from '$lib/core/factory'
 import { serializeProject } from '$lib/core/serialize'
+import { deriveForms, makeContext } from '$lib/engine/morph'
+import {
+  applyMarkers,
+  extractSensePrefix,
+  parsePrefixMap,
+  splitByMarkers,
+  stripNumbering,
+  type MarkedSegment,
+  type MarkerRule
+} from '$lib/importers/csvImport'
 import { findDuplicateSentences, mergeSentences } from '$lib/core/sentenceDedup'
 import { parseCsv } from '$lib/core/csv'
 import { fromYinbianji } from '$lib/engine/sca'
 import { inferFeatures } from '$lib/ipa/features'
 import type {
-  GrammaticalCategory,
+  Etymology,
   Glyph,
+  GrammaticalCategory,
   Id,
   Language,
   Lexeme,
+  MorphStep,
   Paradigm,
   PartOfSpeech,
   Project,
-  SlotGenerator,
-  Etymology
+  Sense,
+  SlotGenerator
 } from '$lib/core/model'
 
 const root = join(__dirname, '..')
@@ -213,6 +225,8 @@ const Tsr = lang(
   '标准语＝北边境森林的羽归木方言（埃泽尔方言）。'
 )
 p.settings.defaultLanguageId = Tsr.id
+// 喉音 H1 / H2 / H3 都算 H，词根里分音节的点不算：关系图跨语言找词根时按这个模糊匹配
+PSkr.matchIgnore = '. 1 2 3'
 Tsr.dialects = [
   { id: newId(), name: '羽归木方言（埃泽尔）', abbr: 'Aed' },
   { id: newId(), name: '南林地方言（多瑞安）', abbr: 'Dor' },
@@ -449,6 +463,8 @@ const grammar = grammarPath()
 const md = grammar ? read(grammar) : ''
 
 const kessar = createScript('科飒尔文')
+// 短语里「iélian（Toron' iélian）」这类括号：括号照留，里外分开转写
+kessar.parens = 'keep'
 kessar.type = 'mixed'
 kessar.direction = 'ltr'
 kessar.font.family = 'Kessar'
@@ -662,6 +678,14 @@ const PRO = pos('代词', 'pronoun', 'R.')
 const NUM = pos('数词', 'numeral', 'N.')
 const PART = pos('小品词', 'particle', 'P.')
 pos('惯用语', 'idiom', 'T.')
+const VH = pos('动词头', 'verb head', 'VH.')
+// 词干槽：名词变格从真词干出发（语法书《名词》一节），在「词类与维度」里能看到它们是什么
+N.stemSlots = [
+  { name: '强形', notes: '真词干的强形（原始瑟乌丝林语），及物格、不及物格由它加格缀推出' },
+  { name: '中形', notes: '真词干的中形，只有部分名词有；词表里写在括号里' },
+  { name: '弱形', notes: '真词干的弱形，欠格由它推出' }
+]
+V.stemSlots = [{ name: '词干元音', notes: '决定否定元音：按对位天体取（语法书《否定》一节）' }]
 
 function category(zh: string, en: string, values: [string, string][]): GrammaticalCategory {
   const c: GrammaticalCategory = {
@@ -787,6 +811,123 @@ for (const f of catFocus.values) verbParadigm.generators[f.id] = { kind: 'table'
 p.paradigms.push(verbParadigm)
 V.paradigmId = verbParadigm.id
 
+// 动词头：式 × 体 × 时三个插槽（语法书《动词头》一节）。每个插槽是一个原子语素（辅音 + 标记元音，
+// 前面紧挨元音时辅音取弱化形，由语素的异体形环境挑）；多个插槽时最后一个的标记元音脱落。
+// 感音、否定、前缀点叠在最前面，不进这张表。
+const catMood = category('式', 'mood', [
+  ['直陈式', 'IND'],
+  ['预言式', 'PROPH'],
+  ['希求式', 'OPT'],
+  ['命令式', 'IMP'],
+  ['条件式', 'COND']
+])
+const catAspect = category('体', 'aspect', [
+  ['一般体貌', 'GNR'],
+  ['惯常体', 'HAB'],
+  ['恒真体', 'GNOM'],
+  ['临终体', 'TERM'],
+  ['未完成体', 'IPFV'],
+  ['完成体', 'PFV']
+])
+const catTense = category('时', 'tense', [
+  ['现在时', 'PRS'],
+  ['过去时', 'PST'],
+  ['远过去时', 'REM']
+])
+const headParadigm: Paradigm = {
+  id: newId(),
+  name: { zh: '动词头', en: 'verb head' },
+  dimensionIds: [catMood.id, catAspect.id, catTense.id],
+  variants: [],
+  disabledSlots: [],
+  generators: {},
+  inheritsFrom: null
+}
+for (const mo of catMood.values)
+  for (const as of catAspect.values)
+    for (const te of catTense.values) {
+      const key = `${mo.id}|${as.id}|${te.id}`
+      const parts: { name: string; vowel: string }[] = []
+      if (mo.abbr !== 'IND') parts.push({ name: mo.name.zh, vowel: 'e' })
+      if (as.abbr !== 'GNR') parts.push({ name: as.name.zh, vowel: 'o' })
+      if (te.abbr !== 'PRS') parts.push({ name: te.name.zh, vowel: 'ó' })
+      if (!parts.length) {
+        // 三个插槽都空：就是不带动词头（现在时、一般体貌、直陈式）
+        headParadigm.disabledSlots.push(key)
+        headParadigm.generators[key] = { kind: 'none' }
+        continue
+      }
+      const steps: MorphStep[] = [{ id: newId(), kind: 'adjust', text: '-·' }]
+      parts.forEach((pt, i) => {
+        const last = i === parts.length - 1
+        if (pt.name === '临终体')
+          // 临终体：在中间作 ll，在末尾（多插槽、元音脱落时）作 lt
+          steps.push({
+            id: newId(),
+            kind: 'suffix',
+            text: last ? (parts.length > 1 ? 'lt' : 'lo') : 'llo'
+          })
+        else steps.push({ id: newId(), kind: 'suffix', text: '@' + pt.name })
+      })
+      const lastPart = parts[parts.length - 1]
+      if (parts.length > 1 && lastPart.name !== '临终体')
+        steps.push({ id: newId(), kind: 'adjust', text: '-' + lastPart.vowel })
+      steps.push({ id: newId(), kind: 'adjust', text: '+·' })
+      headParadigm.generators[key] = { kind: 'pipeline', stem: '', steps }
+    }
+p.paradigms.push(headParadigm)
+VH.paradigmId = headParadigm.id
+
+// 词首音变（语法书《人称中缀》《介词》两节）：介词、人称中缀、否定前缀之后，后一个词的首辅音按五种音变之一变化。
+// 做成「作用于所有词」的构形：不往词条里写形式，语料分词时反推（na-wener → mener）。
+// 对照只写语法书例句里见得到的；其余几种等作者补全，先不推导。
+const catMutation = category('词首音变', 'initial mutation', [
+  ['软音变', 'LEN'],
+  ['鼻音音变', 'NAS'],
+  ['闭锁音变', 'OCC'],
+  ['流音音变', 'LIQ'],
+  ['混合音变', 'MIX']
+])
+const MUTATION_RULES: Record<string, string[]> = {
+  // na-wener、ewenallan、la-hethí、úhafad、ules、audes、úchár / euchaur、ithaur（th 不变）。
+  // h 先变 ch，免得 s → h 之后又被改；th 先换成占位符护住，t → d 不碰它
+  LEN: [
+    'h > ch / #_',
+    's > h / #_',
+    'm > w / #_',
+    'lh > l / #_',
+    'th > ¤ / #_',
+    't > d / #_',
+    '¤ > th / #_'
+  ],
+  // ar-dhath、soch（·goch）
+  LIQ: ['th > ¤ / #_', 't > dh / #_', '¤ > th / #_', 'g > / #_']
+}
+const mutationParadigm: Paradigm = {
+  id: newId(),
+  name: { zh: '词首音变', en: 'initial mutation' },
+  dimensionIds: [catMutation.id],
+  variants: [],
+  disabledSlots: [],
+  generators: {},
+  inheritsFrom: null,
+  appliesToAll: true,
+  appliesToLanguageId: Tsr.id
+}
+for (const v of catMutation.values) {
+  const rules = MUTATION_RULES[v.abbr]
+  mutationParadigm.generators[v.id] = rules
+    ? {
+        kind: 'pipeline',
+        stem: '',
+        steps: [{ id: newId(), kind: 'adjust', text: rules.join('\n') }]
+      }
+    : { kind: 'none' }
+  if (!p.abbreviations.some((a) => a.abbr === v.abbr))
+    p.abbreviations.push({ abbr: v.abbr, name: { zh: v.name.zh } })
+}
+p.paradigms.push(mutationParadigm)
+
 const adjParadigm: Paradigm = {
   id: newId(),
   name: { zh: '形容词', en: 'adjective' },
@@ -823,15 +964,81 @@ function splitDefinition(x: string): { def: string; etym: string } {
   if (i < 0) return { def: x, etym: '' }
   return { def: x.slice(i + 3).trim(), etym: x.slice(0, i).trim() }
 }
-/** 释义按中英文分号拆成多个义项，去掉原有编号 */
+/**
+ * 词表释义、备注里的【人】【专】……标记 → 语域（序号后紧跟的第一组括号也算）。标记管到下一个标记或分号为止，
+ * 用的是 CSV 导入向导「单词、释义、备注里的标记」同一套函数。
+ */
+const REGISTER_MARKERS: Record<string, MarkerRule> = Object.fromEntries(
+  Object.entries({
+    人: '人名',
+    专: '专有名词',
+    地: '地名',
+    星: '星名',
+    神: '神祇',
+    文: '文学',
+    引: '引申',
+    古: '古语'
+  }).map(([k, value]): [string, MarkerRule] => [k, { action: 'register', value }])
+)
+/** 备注里拆出来的义项（多是人名）：给例句挂词时不拿它们比释义，免得名字里的字撞上 gloss */
+const noteSenses = new WeakSet<Sense>()
+function markedSense(seg: MarkedSegment, base: Sense = createSense()): Sense {
+  base.definition = { zh: stripNumbering(seg.text) }
+  applyMarkers(base, seg.markers, REGISTER_MARKERS)
+  return base
+}
+/** 释义按中英文分号拆成多个义项，去掉原有编号；标记再切开并设成语域 */
 function setSenses(l: Lexeme, text: string): void {
-  const parts = (text ?? '')
+  const segs = (text ?? '')
     .split(/[;；]/)
-    .map((x) => x.trim().replace(/^\d+\s*[、.．)）]\s*/, ''))
+    .map((x) => x.trim())
     .filter(Boolean)
-  if (!parts.length) return
-  l.senses[0].definition = { zh: parts[0] }
-  for (const d of parts.slice(1)) l.senses.push({ ...createSense(), definition: { zh: d } })
+    .flatMap((x) => splitByMarkers(x, REGISTER_MARKERS))
+    .filter((seg) => stripNumbering(seg.text))
+  if (!segs.length) return
+  l.senses = segs.map((seg, i) => markedSense(seg, i === 0 ? l.senses[0] : undefined))
+}
+/** 备注：以标记开头的一段（【人】某某）另起一个义项，返回剩下的说明 */
+function splitNotes(l: Lexeme, text: string): string {
+  const rest: string[] = []
+  let moved = false
+  for (const part of (text ?? '').split(/[;；]/))
+    for (const seg of splitByMarkers(part.trim(), REGISTER_MARKERS)) {
+      if (!seg.text) continue
+      if (!seg.markers.length) {
+        rest.push(seg.text)
+        continue
+      }
+      moved = true
+      const empty = l.senses.length === 1 && !l.senses[0].definition['zh']
+      const se = markedSense(seg, empty ? l.senses[0] : undefined)
+      noteSenses.add(se)
+      if (!empty) l.senses.push(se)
+    }
+  return moved ? rest.join('；') : (text ?? '')
+}
+/**
+ * 动词释义：「1离开，离去；2前往/01繁荣」开头的数字是这个义项的价态（可以连写，01 = 零价 + 一价），
+ * 斜线分开的是同形异源的两个动词。价态拆成义项标签，释义本身干干净净。
+ * 用的是 CSV 导入「义项前缀映射」同一套函数。
+ */
+const VALENCY_PREFIX = parsePrefixMap('0=零价\n1=一价\n2=二价\n3=三价')
+function setVerbSenses(l: Lexeme, text: string): void {
+  const senses = (text ?? '')
+    .split(/[;；/]/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .flatMap((part) => {
+      const { text: def, tags } = extractSensePrefix(part, VALENCY_PREFIX)
+      return splitByMarkers(def, REGISTER_MARKERS, tags.length > 0)
+        .filter((seg) => seg.text)
+        .map((seg) => {
+          const se = markedSense(seg)
+          se.tags = [...tags, ...se.tags]
+          return se
+        })
+    })
+  if (senses.length) l.senses = senses
 }
 /** 原始希克林语那一列：`A > B > C` 拆成来源 A 与中间态 B、C */
 function protoEtymology(form: string): Pick<Etymology, 'sources' | 'stages'> {
@@ -899,10 +1106,11 @@ const label = (numAbbr: string, caseAbbr: string) => {
     l.posId = N.id
     const { def, etym } = splitDefinition(r['释义'] ?? '')
     setSenses(l, def || r['释义'] || '')
+    const note = splitNotes(l, r['备注'] ?? '')
     l.etymology = {
       type: r['备注']?.includes('借词') ? 'borrowing' : 'inherited',
       ...protoEtymology(r['原始希克林语'] ?? ''),
-      notes: [etym && `构词：${etym}`, r['备注']].filter(Boolean).join('；')
+      notes: [etym && `构词：${etym}`, note].filter(Boolean).join('；')
     }
     if (r['名词类别']) {
       const v = valByName(catGender, r['名词类别'])
@@ -952,7 +1160,7 @@ const label = (numAbbr: string, caseAbbr: string) => {
     if (!lemma) continue
     const l = createLexeme(Tsr.id, lemma)
     l.posId = V.id
-    setSenses(l, r['释义'] ?? '')
+    setVerbSenses(l, r['释义'] ?? '')
     l.etymology = {
       type: 'inherited',
       ...protoEtymology(r['原始希克林语'] ?? ''),
@@ -993,10 +1201,11 @@ const label = (numAbbr: string, caseAbbr: string) => {
     l.posId = A.id
     const { def, etym } = splitDefinition(r['释义'] ?? '')
     setSenses(l, def || r['释义'] || '')
+    const note = splitNotes(l, r['备注'] ?? '')
     l.etymology = {
       type: 'derivation',
       ...protoEtymology(r['原始希克林语'] ?? ''),
-      notes: [etym && `构词：${etym}`, r['备注']].filter(Boolean).join('；')
+      notes: [etym && `构词：${etym}`, note].filter(Boolean).join('；')
     }
     if (r['来源类型']) {
       const v = valByName(catAdjSource, r['来源类型'])
@@ -1091,6 +1300,99 @@ const label = (numAbbr: string, caseAbbr: string) => {
       .join('；')
     p.morphemes.push(m)
   }
+}
+// ─── 动词头：一个插槽一个语素 ───
+const V_BEFORE = '[aeiouáéíóúâêîôû]_'
+interface HeadAtom {
+  name: string
+  strong: string
+  weak: string
+  vowel: string
+  id: Id
+}
+const headAtoms: HeadAtom[] = []
+function headAtom(
+  slot: string,
+  name: string,
+  strong: string,
+  weak: string,
+  vowel: string,
+  note = ''
+): void {
+  const m = createMorpheme(Tsr.id, 'prefix')
+  m.form = strong + vowel + '-'
+  m.gloss = name
+  m.meaning = { zh: name }
+  m.tags = ['动词头', slot]
+  if (weak !== strong) m.allomorphs = [{ form: weak + vowel + '-', environment: V_BEFORE }]
+  m.notes = [
+    `动词头的${slot}插槽：辅音 ${strong || '∅'}` +
+      (weak !== strong ? `（前面紧挨元音时作 ${weak || '∅'}）` : '') +
+      ` + 标记元音 ${vowel}；多个插槽时最后一个的标记元音脱落`,
+    note
+  ]
+    .filter(Boolean)
+    .join('；')
+  p.morphemes.push(m)
+  headAtoms.push({ name, strong, weak, vowel, id: m.id })
+}
+for (const [name, strong, weak, note] of [
+  ['喜悦', 'p', 'f', ''],
+  ['惊讶', 'b', 'b', ''],
+  ['恐惧', 'mb', 'm', ''],
+  ['兴奋', 'm', 'w', ''],
+  ['羡慕', 't', 's', '弱化也作 th'],
+  ['期待', 'd', 'd', ''],
+  ['愤怒', 'nd', 'ns', '弱化也作 nth'],
+  ['宁静', 'n', 'n', ''],
+  ['信任', 'c', 'ch', '与式插槽的 c 同为 /k/，词首写作 c'],
+  ['失望', 'g', 'g', ''],
+  ['惆怅', 'ng', 'ng', ''],
+  ['厌恶', 'l', 'l', ''],
+  ['冷漠', 's', '', ''],
+  ['自豪', 'w', 'u', ''],
+  ['悲伤', 'y', 'i', ''],
+  ['焦虑', 'r', 'r', '']
+] as const)
+  headAtom('感音', name + '感音', strong, weak, 'á', note)
+headAtom('式', '预言式', 'pn', 'nn', 'e')
+headAtom('式', '希求式', 'b', 'f', 'e', '也表目的式')
+headAtom('式', '命令式', 'c', 'ch', 'e', '一定搭配强失焦形')
+headAtom('式', '条件式', 'mb', 'm', 'e')
+headAtom('体', '惯常体', 'z', 'r', 'o')
+headAtom('体', '恒真体', 't', 'th', 'o')
+headAtom('体', '临终体', 'l', 'l', 'o', '在中间作 ll，在末尾作 lt')
+headAtom('体', '未完成体', 'fs', 's', 'o')
+headAtom('体', '完成体', 'd', 'dh', 'o')
+headAtom('时', '远过去时', 'm', 'm', 'ó')
+headAtom('时', '过去时', 'n', 'n', 'ó')
+{
+  const m = createMorpheme(Tsr.id, 'prefix')
+  m.form = 'i-'
+  m.gloss = '否定'
+  m.meaning = { zh: '否定' }
+  m.tags = ['动词头', '否定']
+  m.allomorphs = ['u', 'eu', 'a', 'e', 'o', 'ei'].map((v) => ({ form: v + '-', environment: '' }))
+  m.notes =
+    '否定元音放在动词头最前面，由动词词干元音对位的天体决定：e→i、eu→u、u→eu、o→a、i→e、a→o、ei→ei（语法书《否定》一节）'
+  p.morphemes.push(m)
+}
+/** 前缀点：派生缀抽离到词头，放在动词头之前（语法书《前缀点》一节） */
+const prefixDots: { name: string; forms: string[]; id: Id }[] = []
+for (const [name, forms, note] of [
+  ['去名词化', ['au', 'a'], '派生缀 ✶-eh 抽离到词头；Adhom· = a + dh=o + m'],
+  ['致使', ['tha'], '派生缀 ✶-teh 抽离到词头'],
+  ['变得', ['ia'], '派生缀 ✶-ya 抽离到词头；Ian· = ia + n']
+] as const) {
+  const m = createMorpheme(Tsr.id, 'prefix')
+  m.form = forms[forms.length - 1] + '·'
+  m.gloss = name
+  m.meaning = { zh: name }
+  m.tags = ['前缀点']
+  m.allomorphs = forms.slice(0, -1).map((f) => ({ form: f + '·', environment: '' }))
+  m.notes = note
+  p.morphemes.push(m)
+  prefixDots.push({ name, forms: [...forms], id: m.id })
 }
 // PSkr 词根
 {
@@ -1241,6 +1543,7 @@ function addCand(raw: string, cand: LexCand): void {
 for (const l of p.lexemes) {
   if (l.languageId !== Tsr.id) continue
   const def = l.senses
+    .filter((se) => !noteSenses.has(se))
     .map((se) => se.definition['zh'] ?? '')
     .filter(Boolean)
     .join('；')
@@ -1415,20 +1718,207 @@ function splitFlow(
   }
 }
 
-/** 动词头（时体式感音那一截）按语法书的 gloss 建成语素，语料里就能认出来 */
-const headMorphemes = new Map<string, Id>()
-function headMorpheme(form: string, gloss: string): Id {
-  const key = form.toLowerCase()
-  const hit = headMorphemes.get(key)
+/** 拆动词头时认不出来的并入成分（媒介 ar、倚靠 ig、低 of…）各建一个原子语素 */
+const extraAtoms = new Map<string, Id>()
+function extraAtom(form: string, gloss: string, whole: boolean): Id {
+  const key = gloss + '|' + form.toLowerCase()
+  const hit = extraAtoms.get(key)
   if (hit) return hit
-  const m = createMorpheme(Tsr.id, 'prefix')
-  m.form = form + '·'
-  m.gloss = gloss.replace(/[=]/g, '').replace(/-/g, '-')
+  const bare = form.toLowerCase()
+  const existing = p.morphemes.find(
+    (x) =>
+      x.languageId === Tsr.id &&
+      (x.gloss === gloss || x.meaning.zh === gloss) &&
+      x.form.replace(/[-=·]/g, '').toLowerCase() === bare
+  )
+  if (existing) {
+    extraAtoms.set(key, existing.id)
+    return existing.id
+  }
+  const det = gloss.includes('限定')
+  const m = createMorpheme(Tsr.id, whole || det ? 'particle' : 'prefix')
+  m.form = form + (whole || det ? '·' : '-')
+  m.gloss = gloss
   m.meaning = { zh: gloss }
-  m.notes = '动词头：语法书《动词结构》一节'
+  m.tags = [det ? '限定词' : '并入成分']
+  m.notes = det
+    ? '语料里出现在名词前的古限定形式'
+    : '语料里出现在动词头位置的并入成分（语法书的 gloss 里单列一段）'
   p.morphemes.push(m)
-  headMorphemes.set(key, m.id)
+  extraAtoms.set(key, m.id)
   return m.id
+}
+/** gloss 里的同义写法 → 语法书表格里的名字 */
+const HEAD_ALIASES: Record<string, string> = {
+  讶异感音: '惊讶感音',
+  讶异: '惊讶',
+  目的式: '希求式',
+  目的: '希求'
+}
+function findHeadAtom(seg: string): HeadAtom | null {
+  const raw = seg.replace(/[=\s]/g, '')
+  const s0 = HEAD_ALIASES[raw] ?? raw
+  return (
+    headAtoms.find((a) => a.name === s0) ??
+    headAtoms.find((a) => ['式', '体', '时', '感音'].some((suf) => a.name === s0 + suf)) ??
+    null
+  )
+}
+const NEG_VOWELS = ['ei', 'eu', 'i', 'u', 'a', 'e', 'o']
+type Spell = { form: string; id: Id | null; gloss: string }
+const byLen = (x: Spell, y: Spell): number => y.form.length - x.form.length
+/** 插槽语素在词头里的几种拼写：强形或弱化形，标记元音可以脱落 */
+function atomSpells(atom: HeadAtom): Spell[] {
+  const forms = [atom.strong + atom.vowel, atom.weak + atom.vowel, atom.strong, atom.weak]
+  if (atom.name === '临终体') forms.push('llo', 'lt', 'll')
+  return [...new Set(forms.filter(Boolean))].map((f) => ({
+    form: f,
+    id: atom.id,
+    gloss: atom.name
+  }))
+}
+function negSpells(): Spell[] {
+  const neg = p.morphemes.find((m) => m.languageId === Tsr.id && m.gloss === '否定')
+  return NEG_VOWELS.map((f) => ({ form: f, id: neg?.id ?? null, gloss: '否定' }))
+}
+/** 一段 gloss 在词头里可能的拼写（长的在前） */
+function spellingsOf(seg: string): Spell[] {
+  const gl = seg.replace(/=/g, '')
+  if (gl === '否定') return negSpells()
+  const atom = findHeadAtom(seg)
+  if (atom) return atomSpells(atom).sort(byLen)
+  const dot = prefixDots.find((d) => d.name === gl)
+  if (dot) return dot.forms.map((f) => ({ form: f, id: dot.id, gloss: gl })).sort(byLen)
+  // 语素表里已有同 gloss 的：回指 mae、单数限定 é、之前拆出来的并入成分
+  const out: Spell[] = []
+  for (const m of p.morphemes) {
+    if (m.languageId !== Tsr.id || (m.gloss !== gl && m.meaning.zh !== gl)) continue
+    for (const f of [m.form, ...m.allomorphs.map((x) => x.form)]) {
+      const bare = f.replace(/[-=·]/g, '').toLowerCase()
+      if (bare) out.push({ form: bare, id: m.id, gloss: gl })
+    }
+  }
+  return out.sort(byLen)
+}
+const headStats = { split: 0, fallback: 0 }
+type HeadPiece = { form: string; gloss: string; morphemeId: Id | null; whole?: boolean }
+/**
+ * 语法书的 gloss「宁静=感音-完成=体-过去」一段对应一个成分，按顺序在词头里找它的拼写（回溯）：
+ * 认得的插槽、前缀点、语素表里已有 gloss 的成分只按它们的拼写走；
+ * 认不出来的成分在最后就拿剩下的整截，在中间就试每个切点。
+ * 整条拆通了才把认不出来的那几截建成并入成分语素。
+ */
+function decomposeHead(
+  head: string,
+  headGloss: string
+): { form: string; gloss: string; morphemeId: Id | null }[] | null {
+  const segs = headGloss
+    .split('-')
+    .map((x) => x.trim())
+    .filter(Boolean)
+  if (!segs.length) return null
+  const low = head.toLowerCase()
+  const go = (i: number, at: number): HeadPiece[] | null => {
+    if (i === segs.length) return at === low.length ? [] : null
+    const seg = segs[i]
+    const gl = seg.replace(/=/g, '')
+    const last = i === segs.length - 1
+    const rest = low.slice(at)
+    const spells = spellingsOf(seg)
+    for (const sp of spells) {
+      if (!rest.startsWith(sp.form)) continue
+      const tail = go(i + 1, at + sp.form.length)
+      if (tail)
+        return [
+          { form: head.slice(at, at + sp.form.length), gloss: gl, morphemeId: sp.id },
+          ...tail
+        ]
+    }
+    // 插槽、否定、前缀点这些规则成分拼不上：不硬拆（语素表里只是同 gloss 的旧写法不算，照样往下试）
+    if (gl === '否定' || findHeadAtom(seg) || prefixDots.some((d) => d.name === gl)) return null
+    // 「动词化过去时」：没用连字符隔开，末尾是个插槽名——前半算并入成分
+    const tailAtom = headAtoms.find((x) => gl.length > x.name.length && gl.endsWith(x.name))
+    if (tailAtom) {
+      const pre = gl.slice(0, gl.length - tailAtom.name.length)
+      const tailSp = atomSpells(tailAtom).sort(byLen)
+      for (let k = 1; k < rest.length; k++)
+        for (const tf of tailSp) {
+          if (!rest.startsWith(tf.form, k)) continue
+          const t2 = go(i + 1, at + k + tf.form.length)
+          if (t2)
+            return [
+              { form: head.slice(at, at + k), gloss: pre, morphemeId: null },
+              {
+                form: head.slice(at + k, at + k + tf.form.length),
+                gloss: tailAtom.name,
+                morphemeId: tailAtom.id
+              },
+              ...t2
+            ]
+        }
+      return null
+    }
+    if (last)
+      return rest ? [{ form: head.slice(at), gloss: gl, morphemeId: null, whole: at === 0 }] : null
+    for (let k = 1; k < rest.length; k++) {
+      const t2 = go(i + 1, at + k)
+      if (t2) return [{ form: head.slice(at, at + k), gloss: gl, morphemeId: null }, ...t2]
+    }
+    return null
+  }
+  const pieces = go(0, 0)
+  if (!pieces) return null
+  return pieces.map((x) => ({
+    form: x.form,
+    gloss: x.gloss,
+    morphemeId: x.morphemeId ?? extraAtom(x.form, x.gloss, !!x.whole)
+  }))
+}
+/**
+ * gloss 里没写动词头的意思时：整截是已有语素（词头、限定词）就挂上；
+ * 否则按 否定 → 感音 → 式 → 体 → 时 的顺序试拼，取语素最少的那种，最少的拼法不唯一就算了。
+ */
+function parseHeadWithoutGloss(
+  head: string
+): { form: string; gloss: string; morphemeId: Id | null }[] | null {
+  const low = head.toLowerCase()
+  const whole = p.morphemes.filter(
+    (m) =>
+      m.languageId === Tsr.id &&
+      [m.form, ...m.allomorphs.map((x) => x.form)].some(
+        (f) => f.replace(/[-=·]/g, '').toLowerCase() === low
+      )
+  )
+  const pickWhole =
+    whole.find((m) => m.tags.includes('词头')) ?? (whole.length === 1 ? whole[0] : null)
+  if (pickWhole) return [{ form: head, gloss: pickWhole.gloss, morphemeId: pickWhole.id }]
+  const groups: Spell[][] = [
+    negSpells(),
+    headAtoms.filter((x) => x.name.endsWith('感音')).flatMap(atomSpells),
+    headAtoms.filter((x) => x.name.endsWith('式')).flatMap(atomSpells),
+    headAtoms.filter((x) => x.name.endsWith('体')).flatMap(atomSpells),
+    headAtoms.filter((x) => x.name.endsWith('时')).flatMap(atomSpells)
+  ]
+  let best: Spell[][] = []
+  const walk = (gi: number, at: number, acc: Spell[]): void => {
+    if (at === low.length) {
+      if (!best.length || acc.length < best[0].length) best = [acc]
+      else if (acc.length === best[0].length) best.push(acc)
+      return
+    }
+    if (gi >= groups.length) return
+    walk(gi + 1, at, acc)
+    for (const sp of groups[gi])
+      if (low.startsWith(sp.form, at)) walk(gi + 1, at + sp.form.length, [...acc, sp])
+  }
+  walk(0, 0, [])
+  if (best.length !== 1 || !best[0].length) return null
+  let at = 0
+  return best[0].map((sp) => {
+    const form = head.slice(at, at + sp.form.length)
+    at += sp.form.length
+    return { form, gloss: sp.gloss, morphemeId: sp.id }
+  })
 }
 function splitHead(
   surface: string,
@@ -1439,24 +1929,19 @@ function splitHead(
   const rest = surface.slice(si + 1)
   if (!head || !rest) return [{ form: surface, gloss, morphemeId: null }]
   const gi = gloss.indexOf('·')
-  if (gi > 0) {
-    // 语法书的 gloss 也带中点：两边一一对应
-    return [
-      {
-        form: head + '·',
-        gloss: gloss.slice(0, gi),
-        morphemeId: headMorpheme(head, gloss.slice(0, gi))
-      },
-      { form: rest, gloss: gloss.slice(gi + 1), morphemeId: null }
-    ]
+  const headGloss = gi > 0 ? gloss.slice(0, gi) : ''
+  const restGloss = gi > 0 ? gloss.slice(gi + 1) : gloss
+  const atoms = headGloss ? decomposeHead(head, headGloss) : parseHeadWithoutGloss(head)
+  if (atoms) {
+    headStats.split++
+    atoms[atoms.length - 1].form += '·'
+    return [...atoms, { form: rest, gloss: restGloss, morphemeId: null }]
   }
-  // gloss 压成一整条：照样按中点拆开，认得出来的词头挂上语素，
-  // 认不出来的也拆——至少词干那一段能查到词条
-  const known = headMorphemes.get(head.toLowerCase())
-  const m = known ? p.morphemes.find((x) => x.id === known) : null
+  // 拆不开也不建复合语素：动词头整截留在分析里，不挂语素
+  headStats.fallback++
   return [
-    { form: head + '·', gloss: m?.gloss ?? '', morphemeId: known ?? null },
-    { form: rest, gloss, morphemeId: null }
+    { form: head + '·', gloss: headGloss, morphemeId: null },
+    { form: rest, gloss: restGloss, morphemeId: null }
   ]
 }
 
@@ -1539,19 +2024,6 @@ if (md) {
     for (const h of heads) if (h.pos < i) t = h.title
     return t
   }
-  // 先扫一遍：把 gloss 里标了「头·干」的动词头都登记成语素，
-  // 免得同一个头在前面的句子里因为 gloss 压成一个词而漏掉
-  for (const m of md.matchAll(glossRe)) {
-    for (const w of [...m[0].matchAll(wordRe)]) {
-      const lat = plain(w[2] ?? '')
-        .replace(/^[（(]/, '')
-        .replace(/[.,!?；。，！？）)]+$/g, '')
-      const gl = plain(w[4] ?? '')
-      const si = lat.indexOf('·')
-      const gi = gl.indexOf('·')
-      if (si > 0 && gi > 0) headMorpheme(lat.slice(0, si), gl.slice(0, gi))
-    }
-  }
   for (const m of md.matchAll(glossRe)) {
     const block = m[0]
     const words = [...block.matchAll(wordRe)].map((w) => ({
@@ -1628,9 +2100,15 @@ if (md) {
     const ph = createPhrase(Tsr.id, '词表 · 惯用')
     ph.text = text
     const { def, etym } = splitDefinition(r['释义'] ?? '')
-    ph.translation = { zh: def || r['释义'] || '' }
+    // 短语没有语域：只有开头一个标记时拿掉它，标记在中间时原文照留；语域都记成标签
+    const tr = def || r['释义'] || ''
+    const segs = splitByMarkers(tr, REGISTER_MARKERS)
+    const registers = segs.flatMap((seg) =>
+      seg.markers.map((mk) => REGISTER_MARKERS[mk]?.value ?? mk)
+    )
+    ph.translation = { zh: segs.length === 1 && segs[0].markers.length ? segs[0].text : tr }
     if (etym) ph.variants.push({ text: '', note: `直译：${etym}` })
-    ph.tags = [r['备注'] ?? ''].filter(Boolean)
+    ph.tags = [...new Set([r['备注'] ?? '', ...registers])].filter(Boolean)
     p.phrasebook.push(ph)
   }
 }
@@ -1762,6 +2240,43 @@ if (md) {
     '需要装字体才能显示 —— 字体已经内嵌在项目文件里，打开即可。'
   ].join('\n')
   p.docs.push(intro)
+}
+
+// ───────────────────────── 动词头：推导并对账 ─────────────────────────
+{
+  const headLex = createLexeme(Tsr.id, '·')
+  headLex.posId = VH.id
+  headLex.senses[0].definition = {
+    zh: '动词头：式 × 体 × 时三个插槽的组合（感音、否定、前缀点叠在最前面，不在这张表里）'
+  }
+  headLex.notes = '由构形「动词头」推导，每个插槽引用一个原子语素；语法书《动词头》一节'
+  headLex.tags = ['动词头']
+  p.lexemes.push(headLex)
+  const n = deriveForms(makeContext(p, Tsr), headLex, headParadigm)
+  const attested: Record<string, string> = {
+    '预言式.一般体貌.现在时': 'pne·',
+    '命令式.一般体貌.现在时': 'ce·',
+    '直陈式.完成体.现在时': 'do·',
+    '直陈式.完成体.过去时': 'don·',
+    '直陈式.未完成体.现在时': 'fso·',
+    '直陈式.未完成体.远过去时': 'fsom·',
+    '直陈式.惯常体.现在时': 'zo·',
+    '直陈式.一般体貌.过去时': 'nó·',
+    '直陈式.一般体貌.远过去时': 'mó·'
+  }
+  const bad = Object.entries(attested).filter(
+    ([slot, want]) => headLex.forms[slot]?.surface.toLowerCase() !== want
+  )
+  console.log(
+    `  动词头：推导 ${n} 个组合；语法书拆解表 ${Object.keys(attested).length} 个对上 ${Object.keys(attested).length - bad.length} 个` +
+      (bad.length
+        ? '，对不上：' +
+          bad.map(([k, w]) => `${k} 应为 ${w} 得 ${headLex.forms[k]?.surface ?? '—'}`).join('；')
+        : '')
+  )
+  console.log(
+    `  语料里的动词头：拆成原子语素 ${headStats.split} 处，拆不开 ${headStats.fallback} 处`
+  )
 }
 
 // ───────────────────────── 语料查重 ─────────────────────────

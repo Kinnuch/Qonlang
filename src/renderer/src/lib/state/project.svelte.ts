@@ -269,3 +269,36 @@ class ProjectState {
 }
 
 export const projectState = new ProjectState()
+// 「返回」要记下与恢复当前语言，还要知道记下的对象还在不在
+ui.navAccess = {
+  getLanguage: () => projectState.currentLanguageId,
+  setLanguage: (id) => {
+    projectState.currentLanguageId = id
+  },
+  exists: (kind, id) => {
+    const p = projectState.project
+    if (!p) return false
+    switch (kind) {
+      case 'language':
+        return p.languages.some((x) => x.id === id)
+      case 'lexeme':
+        return p.lexemes.some((x) => x.id === id)
+      case 'morpheme':
+        return p.morphemes.some((x) => x.id === id)
+      case 'sentence':
+        return p.sentences.some((x) => x.id === id)
+      case 'phrase':
+        return p.phrasebook.some((x) => x.id === id)
+      case 'doc':
+        return p.docs.some((x) => x.id === id)
+      case 'paradigm':
+        return p.paradigms.some((x) => x.id === id)
+      case 'ruleSet':
+        return p.ruleSets.some((x) => x.id === id)
+      case 'script':
+        return p.languages.some((l) => l.scripts.some((sc) => sc.id === id))
+      default:
+        return true
+    }
+  }
+}

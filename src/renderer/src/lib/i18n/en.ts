@@ -102,6 +102,14 @@ const en: Dict = {
     changelog: 'Changelog',
     developer: 'Developer',
     friends: 'Friends',
+    syntax: 'Rule syntax',
+    credits: 'Credits',
+    creditRoles: {
+      pixelArt: 'Pixel art',
+      sponsors: 'Sponsors',
+      testing: 'Testing & feedback',
+      other: 'Other support'
+    },
     scanWechat: 'Scan with WeChat. Thank you!',
     projectName: 'Project name',
     protoName: 'Proto-language name',
@@ -128,6 +136,9 @@ const en: Dict = {
     alphabet: 'Alphabet order',
     alphabetHint:
       'Space-separated graphemes, multi-character allowed (e.g. th); used to sort the lexicon. Empty = Unicode order.',
+    matchIgnore: 'Characters ignored in fuzzy matching',
+    matchIgnoreHint:
+      'Stripped before comparing when the relation graph looks words up across languages or when searching etymology sources — e.g. enter digits so H1 / H2 / H3 all count as H, or . for syllable dots in roots. Diacritics such as macrons and syllabic marks, and letter case, are always ignored.',
     lineage: 'Lineage'
   },
   soundChanges: {
@@ -289,7 +300,9 @@ const en: Dict = {
       'Second half of a circumfix; insertion point of an infix; C₁aC₂aC₃-style for patterns.',
     allomorphs: 'Allomorphs',
     addAllomorph: 'Add allomorph',
-    environment: 'Environment',
+    environmentHint:
+      'Environments use rule syntax and _ is the morpheme itself: suffixes look before it (V_ after a vowel), prefixes look after it (_CC before any two consonants, _C1C1 before a doubled consonant). The first matching row wins; an empty environment is the default.',
+    environment: 'Environment, e.g. V_ or _CC',
     gloss: 'Gloss abbreviation',
     meaning: 'Meaning',
     usedBy: 'Lexemes using it',
@@ -434,6 +447,130 @@ const en: Dict = {
       script_duplicateGlyph: 'Duplicate glyphs'
     }
   },
+  io: {
+    importTable: 'From a table (CSV / TSV / one per line)',
+    importJson: 'From JSON (exported by Qonlang)',
+    importSentences: 'Import sentences',
+    importPhrases: 'Import phrases',
+    pickFile: 'Choose file',
+    orPaste: 'or paste below',
+    pastePlaceholder: 'One per line; separate columns with commas, tabs, semicolons or bars',
+    split: 'Columns',
+    splits: {
+      auto: 'Auto',
+      line: 'No columns (one per line)',
+      comma: 'Comma',
+      tab: 'Tab',
+      semicolon: 'Semicolon',
+      pipe: 'Bar'
+    },
+    hasHeader: 'First row is a header',
+    ignore: '(skip)',
+    rowsReady: '{n} rows ready',
+    import: 'Import',
+    imported: 'Imported {n}, skipped {skipped} (empty or already present)',
+    badJson: 'This is not a JSON file exported by Qonlang',
+    exportCsv: 'Export CSV',
+    exportJson: 'Export JSON (with analyses, re-importable)',
+    exportJsonPlain: 'Export JSON (re-importable)',
+    exportRuleSet: 'Export current rule set (.txt)',
+    exportAllRuleSets: 'Export all rule sets (one .txt each)',
+    fields: {
+      text: 'Text',
+      tr: 'Translation ({lang})',
+      source: 'Source',
+      tags: 'Tags',
+      notes: 'Notes',
+      category: 'Category',
+      variants: 'Variants'
+    }
+  },
+  syntax: {
+    title: 'Rule syntax',
+    open: 'Syntax',
+    hint: 'Open the rule syntax on the right: sound changes, orthographies, script mappings, adjustments and allomorph environments all share it'
+  },
+  search: {
+    help: 'Search syntax: plain text searches this page’s usual fields; field=text searches one field (e.g. gloss=PL, word=kam); field==text must match exactly; /regex/ searches with a regular expression; separate conditions with spaces (all must match); put text containing spaces in quotes.',
+    fields: 'Fields on this page: {fields}'
+  },
+  tour: {
+    title: 'Guided tour',
+    next: 'Next',
+    prev: 'Back',
+    skip: 'Skip',
+    done: 'Done',
+    endTitle: 'Want the full tutorial?',
+    endBody:
+      'That covered only the basics. The user guide on the website goes module by module with examples and every option explained.',
+    openSite: 'Open website',
+    always: 'Show this guided tour every time I click “Guide”',
+    steps: {
+      languages: [
+        'The Languages page lists every language in the project as a family tree.',
+        'Each card is a language; daughters are indented under their parent. Click a card to edit its name, alphabet and dialects in the inspector.',
+        'Create a language; to add a daughter language, use the “+” on a card.',
+        'The “current language” in the top bar decides whose data other modules show; pick “All languages” for the whole project.'
+      ],
+      phonology: [
+        'Phonology is split into phonemes, classes, orthography, syllables and phonotactics — switch here.',
+        'The inventory is grouped into consonants and vowels; click a phoneme to edit its features and spellings in the inspector.',
+        'The inspector on the right holds the detailed settings of whatever is selected; drag to resize it.'
+      ],
+      script: [
+        'Each script of this language has its own bookmark tab.',
+        'Create a new script.',
+        'Glyphs, mapping rules and preview: enter glyphs first, then rules from transcription to script, then check the result.',
+        'Click a glyph to edit its character and value; after importing a font file, assign it to this script under Skin so the boxes turn into glyphs.'
+      ],
+      soundChanges: [
+        'Each sound-change rule set gets a bookmark tab — e.g. the whole chain from a proto-language to a daughter.',
+        'The rule list: one change per line, lines starting with -* mark stages; you can also switch to the chain graph or source.',
+        'List / chain / source views and the lexicon evolution entry live on this bar.',
+        'Type test words in the inspector to see every step as you edit the rules.'
+      ],
+      morphemes: [
+        'Search from the top bar by form, gloss or meaning.',
+        'Click a column name to sort (descending → ascending → off), use the funnel to filter; the leftmost button toggles custom order.',
+        'View and edit modes: browse in view mode, switch to edit to change data.'
+      ],
+      lexicon: [
+        'Search from the top bar by word, definition, inflected form or pronunciation.',
+        'Sort and filter from the header; “Columns” chooses which columns show, and widths can be dragged.',
+        'Entries / parts of speech & dimensions / statistics: parts of speech, grammatical dimensions and stem slots are defined in the second tab.',
+        'Select an entry to view or edit its senses, etymology and inflected forms in the inspector.'
+      ],
+      paradigms: [
+        'Each paradigm has a bookmark tab; once bound to a part of speech, its entries derive inflected forms with it.',
+        'Dimensions such as number, case or tense — pick them in order; their combinations are the slots.',
+        'Each slot is a pipeline: start from the stem and add prefixes, suffixes, sound changes and adjustments step by step.',
+        'Consistency check: compare derived forms with entered ones, plus a project-wide health report.'
+      ],
+      corpus: [
+        'Add an example sentence.',
+        'Sentence cards: hover a word to see its entry; words with several indistinguishable candidates are marked in the warning colour — pick one on hover to lock it in.',
+        'Sentences / statistics / abbreviations.'
+      ],
+      phrasebook: [
+        'Add a phrase.',
+        'Phrases are grouped by category; bracketed placeholders like [noun] stay as they are when rendered in a script.'
+      ],
+      docs: [
+        'Create a document page.',
+        'The page list on the left: project-wide pages and pages of the current language.',
+        'Edit / split / preview; write [[headword]] to link to a lexicon entry.'
+      ],
+      skin: [
+        'Skin presets switch a whole set of colours and fonts at once.',
+        'Adjust colours one by one; the matching spot in the preview flashes.',
+        'Fonts for each area; after importing font files you can also assign a font to each custom script here.'
+      ],
+      settings: [
+        'App settings: interface language, theme, autosave, update checks, whether to repeat this guided tour…',
+        'With this many settings, just search from the top bar.'
+      ]
+    }
+  },
   table: {
     sortHint: 'Click to sort by this column: descending → ascending → off',
     filterHint: 'Filter this column',
@@ -468,6 +605,7 @@ const en: Dict = {
     dialects: 'Dialects only affect tagging and filtering; they do not create a separate language.'
   },
   lexicon: {
+    stemEmpty: '(empty uses the headword)',
     hint: 'The pronunciation column comes from Phonology orthography rules, the script column from Script mapping rules, and slot panels from Paradigms bound to a part of speech; hovering a word in Corpus jumps back here.',
     title: 'Lexicon',
     entries: 'Entries',
@@ -601,6 +739,12 @@ const en: Dict = {
     noParadigm: 'This part of speech has no paradigm; bind one on the Paradigms page.'
   },
   taxonomy: {
+    stemSlots: 'Stem slots',
+    stemSlotsHint:
+      'Which stems entries of this part of speech have (e.g. strong / middle / weak). A paradigm pipeline’s “stem” picks from these; fill them per entry in edit mode — empty ones fall back to the headword.',
+    stemName: 'Name',
+    stemNotes: 'Notes (origin, usage)',
+    addStemSlot: 'Stem slot',
     title: 'Parts of speech & dimensions',
     pos: 'Parts of speech',
     addPos: 'Add part of speech',
@@ -662,7 +806,24 @@ const en: Dict = {
     tagSeparator: 'Tag separator',
     skipEmpty: 'Skip rows with an empty lemma',
     splitArrow: 'When the lemma contains “A > B”, use B as lemma and A as proto-form',
+    sensePrefixMap: 'Sense prefix map (one code=tag per line)',
+    sensePrefixMapPlaceholder: '0=avalent\n1=monovalent\n2=divalent',
+    sensePrefixMapHint:
+      'Codes found at the start of a definition are removed and become sense tags — e.g. verb valency “1 leave; 2 go to” → tags “monovalent”, “divalent”. Codes may be run together (01 = 0 + 1); an empty tag uses the code itself.',
     splitSenses: 'Split definitions into senses on semicolons (; ；)',
+    markers: 'Markers in words, definitions and notes',
+    markersHint:
+      'The table uses bracketed markers such as 【PN】 or [arch.] (the first bracket right after a sense number like “1.” counts too, parentheses included). Choose how to handle each one — usually as a register. In definitions a marker covers the text up to the next marker or semicolon, which becomes its own sense; in notes, a part starting with a marker becomes a new sense; a marker before the word applies to the whole entry.',
+    marker: 'Marker',
+    markerCount: 'Count · columns',
+    markerAction: 'Handling',
+    markerValue: 'Register / tag',
+    markerActions: {
+      register: 'Set as register',
+      tag: 'Add as sense tag',
+      drop: 'Just remove the marker',
+      keep: 'Leave as is'
+    },
     morphemeType: 'Default morpheme type',
     preset: 'Preset',
     savePreset: 'Save as preset',
@@ -677,6 +838,7 @@ const en: Dict = {
     reportSkipped: '{n} rows skipped (empty lemma)',
     reportDuplicates: 'Duplicate lemmas: {list}',
     reportNewPos: 'New parts of speech: {list}',
+    reportMarked: 'Senses given a register or tag from markers: {n}',
     reportNewCategories: 'New dimensions: {list}',
     needLemma: 'Map at least one column to “Lemma / form”.',
     preview: 'Preview (first {n} rows)',
@@ -718,6 +880,14 @@ const en: Dict = {
     },
     type: 'Type',
     direction: 'Direction',
+    parens: 'Parentheses',
+    parensModes: {
+      keep: 'Keep them, transliterate inside and outside separately',
+      include: 'Drop them, merge the content into the word',
+      omit: 'Drop them together with their content'
+    },
+    parensHint:
+      'For “kala (mira kala)”, the default keeps the brackets and transliterates what’s inside on its own; for optional letters like “tal(a)n”, choose the second option to spell them into the word or the third to leave them out.',
     vertical: 'Vertical layout',
     verticalHint:
       'When on, this script is laid out vertically in the corpus, phrasebook and lexicon; columns run right-to-left, or left-to-right if the direction is set to LTR.',
@@ -982,6 +1152,8 @@ const en: Dict = {
     addedWord: 'Added {w} to the lexicon'
   },
   paradigms: {
+    stemHint:
+      'Where stems come from: define stem slots per part of speech in Lexicon → Parts of speech (e.g. strong / weak), then fill them per entry in edit mode; lemma or empty uses the headword.',
     search: 'Search slots: label or gloss abbreviation',
     title: 'Paradigms',
     newParadigm: 'New paradigm',
@@ -1022,7 +1194,7 @@ const en: Dict = {
       reduplication: 'reduplication',
       adjust: 'tweak'
     },
-    adjustPlaceholder: '-at / +u / ^-e / a > e / _#',
+    adjustPlaceholder: 'at > / _#   or shorthand -at, +u, ^-e, ^+a',
     noSlots: 'Pick at least one dimension first.',
     slot: 'Slot',
     gloss: 'gloss',
@@ -1054,6 +1226,10 @@ const en: Dict = {
     length: 'Segments',
     inherited: 'inherited',
     bindPos: 'Bound parts of speech',
+    appliesToLanguage: 'Language it applies to',
+    appliesToAll: 'Applies to all words (initial mutation, sandhi…)',
+    appliesToAllHint:
+      'No part of speech to bind and no inflected forms are written to entries; the corpus tokenizer reverses it instead: if a soft mutation turns initial m into w, wenallan in a sentence is recognised as menallan, with this slot’s abbreviation added to the gloss. The test bench lists every word of the current language.',
     inheritsFrom: 'Inherits from',
     noInherit: '(none)',
     testBench: 'Test bench',
@@ -1086,6 +1262,8 @@ const en: Dict = {
       'One adjustment per line, applied in order: -at strips final at; +u appends u; ^-e strips initial e; ^+a prepends a; lines containing > run as rules (e.g. at > / _#, V > / _C#). The upper box runs after affixation and before sound changes (or on the stem); the lower box on the final form.'
   },
   corpus: {
+    pickCandidate: 'This word has {n} candidates that can’t be told apart — pick one to lock it in',
+    pickThis: 'This one',
     title: 'Corpus',
     sentence: 'Sentence',
     add: 'Add sentence',
@@ -1203,6 +1381,9 @@ const en: Dict = {
       gloss: 'Gloss line',
       script: 'Custom script (when no embedded font)'
     },
+    scriptFontsHint:
+      'Pick a font per custom script of the current project (overrides the script’s own or embedded font): after importing a font file, choose it here and the glyph table, inspector and corpus all switch to it.',
+    scriptFontFor: '{name} ({lang})',
     fontPlaceholder: 'Empty = default; several names separated by commas',
     library: 'Font library',
     libraryHint:
@@ -1261,6 +1442,8 @@ const en: Dict = {
       'Check for updates at startup (a notice; nothing downloads or installs until you click “Download & install”)',
     highlightDuplicates: 'Highlight duplicate entries (off leaves only the warning icon)',
     showHelpDots: 'Show the “?” usage hints next to panels',
+    guideTourAlways:
+      'Show the guided tour every time “Guide” is clicked (otherwise once per module)',
     showDerivedMark: 'Mark paradigm-derived forms with a gear ⚙ on the entry card',
     examplesPerEntry: 'Examples shown under an entry',
     projectName: 'Project name',

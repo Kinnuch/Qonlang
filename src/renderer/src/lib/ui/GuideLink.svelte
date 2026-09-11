@@ -1,7 +1,9 @@
 <script lang="ts">
-  /** 标题旁的「使用指南」按钮：在浏览器打开个人网站上对应模块的指南 */
-  import { guideUrl } from '$lib/core/guide'
-  import { platform } from '$lib/platform'
+  /**
+   * 标题旁的「使用指南」按钮：先在界面上一步步指着讲（每个模块默认讲一次），
+   * 讲完问要不要去个人网站看完整教程。
+   */
+  import { tour } from '$lib/state/tour.svelte'
   import { t } from '$lib/i18n/index.svelte'
   import { BookOpen } from '@lucide/svelte'
 
@@ -11,7 +13,7 @@
 <button
   class="guide"
   title={t('common.guideTitle', { name: t(`nav.${section}`) })}
-  onclick={() => void platform.openExternal(guideUrl(section, anchor))}
+  onclick={() => tour.request(section, anchor)}
 >
   <BookOpen size={14} />
   <span>{t('common.guide')}</span>

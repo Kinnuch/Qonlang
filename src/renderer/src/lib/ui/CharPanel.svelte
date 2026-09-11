@@ -29,7 +29,7 @@
     type Sym
   } from '$lib/ipa/data'
   import { X, Search, GripHorizontal, Star, Copy, CornerDownLeft, Trash2 } from '@lucide/svelte'
-  import { fontCss } from '$lib/script/fonts'
+  import { fontFamilyCss } from '$lib/script/fonts'
 
   type Tab =
     | 'pulmonic'
@@ -436,10 +436,11 @@
             {/if}
             {#each projectScripts as sc (sc.id)}
               <p class="small muted">{t('chars.projectScript')} · {sc.name}</p>
-              <div class="grid" style={fontCss(sc)}>
+              <div class="grid">
                 {#each sc.glyphs as g (g.id)}
                   <button
                     class="sym"
+                    style={fontFamilyCss(sc)}
                     title={[g.value, g.name].filter(Boolean).join(' · ')}
                     onmousedown={keepFocus}
                     onclick={() => insert(g.char)}

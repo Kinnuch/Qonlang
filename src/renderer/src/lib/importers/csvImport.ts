@@ -9,7 +9,8 @@ import type {
   Morpheme,
   MorphemeType,
   PartOfSpeech,
-  Project
+  Project,
+  Sense
 } from '$lib/core/model'
 import { createLexeme, createMorpheme, createSense, newId, now } from '$lib/core/factory'
 import { etymologyOrigin } from '$lib/core/etymology'
@@ -52,6 +53,16 @@ export const FIELD_KINDS: FieldSpec['kind'][] = [
   'morphemeType'
 ]
 
+/** 方括号标记（【专】〔古〕[arch.]）的处理方式 */
+export const MARKER_ACTIONS = ['register', 'tag', 'drop', 'keep'] as const
+
+export interface MarkerRule {
+  /** register 设成义项的语域；tag 加成义项标签；drop 只去掉标记；keep 原样留在文字里 */
+  action: (typeof MARKER_ACTIONS)[number]
+  /** 语域名或标签名，留空就用括号里的字 */
+  value: string
+}
+
 export interface CsvMapping {
   target: 'lexemes' | 'morphemes'
   languageId: Id
@@ -67,6 +78,17 @@ export interface CsvMapping {
   splitProtoArrow: boolean
   /** 释义列里的中英文分号拆成多个义项 */
   splitSenses: boolean
+  /**
+   * 义项前缀映射，每行「编码=标签」：释义开头出现这些编码（可连写，如 01 = 0 + 1）时
+   * 从释义里拿掉，变成这个义项的标签。空表示不处理。
+   */
+  sensePrefixMap: string
+  /**
+   * 方括号标记 → 处理方式，键是括号里的字（【专】的「专」）。序号（1、 2. 3)）后面紧跟的第一组括号也算，圆括号也一样。
+   * 释义里的标记管到下一个标记或分号为止，前后拆成不同义项；备注里以标记开头的一段变成新义项；
+   * 单词前的标记管整个词条。没列出的标记原样留着。
+   */
+  senseMarkers?: Record<string, MarkerRule>
 }
 
 export interface ImportReport {
@@ -76,6 +98,8 @@ export interface ImportReport {
   newPos: string[]
   newCategories: string[]
   warnings: string[]
+  /** 按标记设了语域或标签的义项数 */
+  marked?: number
 }
 
 export function defaultMapping(languageId: Id, columnCount: number): CsvMapping {
@@ -88,7 +112,9 @@ export function defaultMapping(languageId: Id, columnCount: number): CsvMapping 
     skipEmptyKey: true,
     defaultMorphemeType: 'root',
     splitProtoArrow: false,
-    splitSenses: true
+    splitSenses: true,
+    sensePrefixMap: '',
+    senseMarkers: {}
   }
 }
 
@@ -160,12 +186,266 @@ function guessLang(s: string): string {
   return /[㐀-鿿]/.test(s) ? 'zh' : 'en'
 }
 
-/** 释义按中英文分号拆成多条，顺带去掉原有的「1、」编号 */
-export function splitSenseText(s: string): string[] {
+/** 去掉「1、」「2.」这类编号 */
+export const stripNumbering = (s: string): string => s.replace(/^\d+\s*[、.．)）]\s*/, '')
+
+/**
+ * 释义按中英文分号拆成多条，顺带去掉原有的「1、」编号。
+ * keepNumbering：设了义项前缀映射时先留着，等认过编码再去（「1、离开」的 1 可能就是价态编码）。
+ */
+export function splitSenseText(s: string, keepNumbering = false): string[] {
   return s
     .split(/[;；]/)
-    .map((x) => x.trim().replace(/^\d+\s*[、.．)）]\s*/, ''))
+    .map((x) => (keepNumbering ? x.trim() : stripNumbering(x.trim())))
     .filter(Boolean)
+}
+
+/** 「编码=标签」一行一条 → 表；标签留空就用编码本身 */
+export function parsePrefixMap(text: string): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const line of (text ?? '').split(/\r?\n/)) {
+    const i = line.search(/[=＝]/)
+    const code = (i >= 0 ? line.slice(0, i) : line).trim()
+    const label = (i >= 0 ? line.slice(i + 1) : '').trim()
+    if (code) out.set(code, label || code)
+  }
+  return out
+}
+
+/**
+ * 把义项开头的编码拆成标签：按最长的编码贪心匹配，可以连写多个（01 → 0、1），
+ * 编码后面可以跟「、. ) :」之类的分隔符。整条都是编码时不动它。
+ */
+export function extractSensePrefix(
+  text: string,
+  map: Map<string, string>
+): { text: string; tags: string[] } {
+  if (!map.size) return { text, tags: [] }
+  const codes = [...map.keys()].sort((a, b) => b.length - a.length)
+  let rest = text.trimStart()
+  const tags: string[] = []
+  // 编码后面得换一类字符（数字接汉字、字母接标点）或者紧跟下一个编码（01 = 0 + 1），
+  // 免得 n=名词 把 night 吃成 ight、1=一价 把 12 吃成 2
+  const fits = (c: string): boolean => {
+    if (rest.slice(0, c.length).toLowerCase() !== c.toLowerCase()) return false
+    const last = c[c.length - 1]
+    const next = rest[c.length]
+    if (next === undefined) return true
+    const after = rest.slice(c.length)
+    if (/\d/.test(last))
+      return !/\d/.test(next) || codes.some((x) => /^\d/.test(x) && after.startsWith(x))
+    if (/[A-Za-z]/.test(last)) return !/[A-Za-z]/.test(next)
+    return true
+  }
+  for (;;) {
+    const hit = codes.find(fits)
+    if (!hit) break
+    tags.push(map.get(hit)!)
+    rest = rest.slice(hit.length)
+  }
+  rest = rest.replace(/^[\s、.．)）:：,，]+/, '')
+  if (!tags.length || !rest) return { text, tags: [] }
+  return { text: rest, tags: [...new Set(tags)] }
+}
+
+const BRACKET_PAIRS = ['【】', '〔〕', '〖〗', '［］', '[]', '〈〉']
+const ROUND_PAIRS = ['（）', '()']
+const esc = (c: string): string => (/[()[\]]/.test(c) ? `\\${c}` : c)
+/** 一组括号，括号里 1–12 个字、不能有空白与分隔符；每种括号一个捕获组 */
+const bracketGroups = (pairs: string[]): string =>
+  pairs.map(([o, c]) => `${esc(o)}([^${esc(o)}${esc(c)}\\s;；,，]{1,12})${esc(c)}`).join('|')
+/** 能当标记的括号：【专】〔古〕〖神〗［文］[arch.]〈口〉 */
+const MARKER_RE = new RegExp(bracketGroups(BRACKET_PAIRS), 'gu')
+/** 序号（1、 2. 3)）后面紧跟的第一组括号，圆括号也算；序号前面不能紧挨字母或数字（第2、 不算） */
+const NUMBERED_RE = new RegExp(
+  `(?<![\\p{L}\\p{N}])\\d{1,3}\\s*[、.．)）]\\s*(?:${bracketGroups([...ROUND_PAIRS, ...BRACKET_PAIRS])})`,
+  'gu'
+)
+/** 开头的数字编码已经拿掉时（1、（古）离开 → （古）离开），开头这组括号也算序号后的 */
+const LEADING_RE = new RegExp(`^\\s*(?:${bracketGroups([...ROUND_PAIRS, ...BRACKET_PAIRS])})`, 'u')
+const EDGE_SEPARATORS = /^[\s，,、:：]+|[\s，,、:：]+$/g
+
+export interface MarkedSegment {
+  text: string
+  /** 管这一段的标记（括号里的字），按出现顺序 */
+  markers: string[]
+}
+
+interface MarkerHit {
+  /** 前一段到这里为止：序号后的括号从序号开头算，序号留给新的一段 */
+  cut: number
+  /** 括号本身的起止 */
+  at: number
+  end: number
+  label: string
+}
+
+/**
+ * 文字里算得上标记的括号：后面还得有文字（行尾的 [kat] 多半是音标），纯数字（脚注 [1]）不算，
+ * 方括号 [] 前面不能紧挨拉丁字母或数字（colo[u]r 不算）。给了 rules 时只要其中处理方式不是 keep 的。
+ * leadingIsNumbered：开头原本是个数字编码（已经拿掉了），开头那组括号按序号后的算。
+ */
+function scanMarkers(
+  text: string,
+  rules?: Record<string, MarkerRule>,
+  leadingIsNumbered = false
+): MarkerHit[] {
+  const hits: MarkerHit[] = []
+  const labelOf = (m: RegExpMatchArray): string => m.slice(1).find((x) => x !== undefined) ?? ''
+  const accept = (label: string, end: number): boolean => {
+    if (/^\d+$/.test(label) || !/[^\s，,、:：]/.test(text.slice(end))) return false
+    const rule = rules?.[label]
+    return !rules || (!!rule && rule.action !== 'keep')
+  }
+  const push = (cut: number, end: number, label: string): void => {
+    // 括号都是单个字符：括号里的字前后各一个
+    const at = end - label.length - 2
+    if (!hits.some((h) => h.at === at) && accept(label, end)) hits.push({ cut, at, end, label })
+  }
+  if (leadingIsNumbered) {
+    const m = text.match(LEADING_RE)
+    if (m) push(0, m[0].length, labelOf(m))
+  }
+  for (const m of text.matchAll(NUMBERED_RE)) {
+    const cut = m.index ?? 0
+    push(cut, cut + m[0].length, labelOf(m))
+  }
+  for (const m of text.matchAll(MARKER_RE)) {
+    const at = m.index ?? 0
+    if (m[0][0] === '[' && at > 0 && /[A-Za-z0-9]/.test(text[at - 1])) continue
+    push(at, at + m[0].length, labelOf(m))
+  }
+  return hits.sort((a, b) => a.at - b.at)
+}
+
+/** 一段文字里的标记（括号里的字），分号两边各算各的 */
+export function markerLabels(text: string): string[] {
+  return text.split(/[;；]/).flatMap((part) => scanMarkers(part).map((m) => m.label))
+}
+
+/**
+ * 按标记切开一段（不含分号的）文字：标记管到下一个标记为止，标记前面的文字自成一段，连着的几个标记管同一段。
+ * 序号后的括号拿掉、序号留在新的一段开头（之后照常去编号）。不在 rules 里、或者处理方式是 keep 的标记原样留着。
+ */
+export function splitByMarkers(
+  text: string,
+  rules: Record<string, MarkerRule>,
+  leadingIsNumbered = false
+): MarkedSegment[] {
+  const out: MarkedSegment[] = []
+  let markers: string[] = []
+  let buf = ''
+  let last = 0
+  for (const m of scanMarkers(text, rules, leadingIsNumbered)) {
+    const cut = Math.max(last, m.cut)
+    buf += text.slice(last, cut)
+    const before = buf.replace(EDGE_SEPARATORS, '')
+    if (before) {
+      out.push({ text: before, markers })
+      markers = []
+    }
+    buf = text.slice(cut, Math.max(cut, m.at))
+    markers.push(m.label)
+    last = m.end
+  }
+  const rest = (buf + text.slice(last)).replace(EDGE_SEPARATORS, '')
+  if (rest || markers.length) out.push({ text: rest, markers })
+  return out
+}
+
+/** 不拆开，只把标记（括号本身）从文字里拿掉 */
+export function removeMarkers(
+  text: string,
+  rules: Record<string, MarkerRule>,
+  leadingIsNumbered = false
+): MarkedSegment {
+  let out = ''
+  let last = 0
+  const markers: string[] = []
+  for (const m of scanMarkers(text, rules, leadingIsNumbered)) {
+    out += text.slice(last, Math.max(last, m.at))
+    markers.push(m.label)
+    last = m.end
+  }
+  return { text: (out + text.slice(last)).trim(), markers }
+}
+
+const mapsToSense = (r: MarkerRule | undefined): boolean =>
+  r?.action === 'register' || r?.action === 'tag'
+
+/**
+ * 把标记落到义项上：设语域的第一个生效（义项已经有别的语域时记成标签），设标签的加标签。返回用上了没有。
+ */
+export function applyMarkers(
+  sense: Sense,
+  labels: readonly string[],
+  rules: Record<string, MarkerRule>
+): boolean {
+  let used = false
+  for (const label of labels) {
+    const rule = rules[label]
+    if (!rule || (rule.action !== 'register' && rule.action !== 'tag')) continue
+    const value = rule.value.trim() || label
+    if (rule.action === 'register' && !sense.register) sense.register = value
+    else if (sense.register !== value && !sense.tags.includes(value)) sense.tags.push(value)
+    used = true
+  }
+  return used
+}
+
+export interface MarkerStat {
+  /** 括号里的字 */
+  label: string
+  /** 第一次见到时的写法（带括号） */
+  raw: string
+  count: number
+  /** 在哪几列见到（列序号） */
+  columns: number[]
+  /** 第一次见到时所在的那一段 */
+  sample: string
+}
+
+/** 表里单词、释义、备注列出现的标记，按次数从多到少 */
+export function findMarkers(rows: string[][], mapping: CsvMapping): MarkerStat[] {
+  const cols = mapping.columns.flatMap((c, i) =>
+    c.kind === 'lemma' || c.kind === 'definition' || c.kind === 'notes' ? [i] : []
+  )
+  if (!cols.length) return []
+  const stats = new Map<string, MarkerStat>()
+  for (const row of mapping.hasHeader ? rows.slice(1) : rows)
+    for (const ci of cols)
+      for (const part of (row[ci] ?? '').split(/[;；]/))
+        for (const m of scanMarkers(part)) {
+          const st = stats.get(m.label)
+          if (!st) {
+            stats.set(m.label, {
+              label: m.label,
+              raw: part.slice(m.at, m.end),
+              count: 1,
+              columns: [ci],
+              sample: part.trim()
+            })
+            continue
+          }
+          st.count++
+          if (!st.columns.includes(ci)) st.columns.push(ci)
+        }
+  return [...stats.values()].sort((a, b) => b.count - a.count)
+}
+
+/** 预设里读来的标记表：只留认得的处理方式 */
+export function cleanMarkerRules(raw: unknown): Record<string, MarkerRule> {
+  const out: Record<string, MarkerRule> = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [label, r] of Object.entries(raw as Record<string, unknown>)) {
+    const { action, value } = (r ?? {}) as { action?: unknown; value?: unknown }
+    if (label && (MARKER_ACTIONS as readonly unknown[]).includes(action))
+      out[label] = {
+        action: action as MarkerRule['action'],
+        value: typeof value === 'string' ? value : ''
+      }
+  }
+  return out
 }
 
 function splitTags(s: string, sep: string): string[] {
@@ -214,6 +494,14 @@ export function applyCsvImport(
     report.warnings.push('没有指定词头列')
     return report
   }
+  const markerRules = mapping.senseMarkers ?? {}
+  const hasMarkers = Object.values(markerRules).some((r) => r.action !== 'keep')
+  const defSpec = mapping.columns.find(
+    (c): c is Extract<FieldSpec, { kind: 'definition' }> => c.kind === 'definition'
+  )
+  /** 备注里拆出来的义项写进哪种释义语言 */
+  const noteLang = defSpec?.lang ?? project.settings.glossLanguages[0] ?? 'en'
+  let marked = 0
   const existingLemmas = new Set(
     mapping.target === 'lexemes'
       ? project.lexemes.filter((l) => l.languageId === mapping.languageId).map((l) => l.lemma)
@@ -228,6 +516,13 @@ export function applyCsvImport(
       protoFromArrow = key.slice(0, idx).trim()
       key = key.slice(idx + 1).trim()
     }
+    // 单词前的标记管整个词条（语素照旧）
+    let entryMarkers: string[] = []
+    if (mapping.target === 'lexemes' && hasMarkers) {
+      const r = removeMarkers(key, markerRules)
+      key = r.text
+      entryMarkers = r.markers
+    }
     if (!key) {
       if (mapping.skipEmptyKey) {
         report.skipped++
@@ -241,6 +536,12 @@ export function applyCsvImport(
       const lx = createLexeme(mapping.languageId, key)
       const sense = lx.senses[0]
       const defs: Record<string, string[]> = {}
+      /** 按义项序号记下从前缀里拆出来的标签 */
+      const senseTags: string[][] = []
+      /** 按义项序号记下管它的标记；备注里以标记开头的段落另起义项 */
+      const senseMarks: string[][] = []
+      const noteSenses: MarkedSegment[] = []
+      const prefixMap = parsePrefixMap(mapping.sensePrefixMap ?? '')
       if (protoFromArrow)
         lx.etymology.sources.push({
           kind: 'external',
@@ -256,8 +557,30 @@ export function applyCsvImport(
             lx.posId = ensurePos(project, raw, report).id
             break
           case 'definition': {
-            const parts = mapping.splitSenses ? splitSenseText(raw) : [raw]
-            defs[spec.lang] = [...(defs[spec.lang] ?? []), ...parts]
+            // 有标记要处理时先留着编号：序号后面紧跟的括号也是标记
+            const parts = mapping.splitSenses
+              ? splitSenseText(raw, prefixMap.size > 0 || hasMarkers)
+              : [raw]
+            const base = (defs[spec.lang] ?? []).length
+            const cleaned: string[] = []
+            for (const d of parts) {
+              const r = extractSensePrefix(d, prefixMap)
+              const numbered = r.tags.length > 0
+              // 标记再把一段切成几个义项；不拆义项时只把标记拿掉，都算这一个义项的
+              const segs: MarkedSegment[] = !hasMarkers
+                ? [{ text: r.text, markers: [] }]
+                : mapping.splitSenses
+                  ? splitByMarkers(r.text, markerRules, numbered)
+                  : [removeMarkers(r.text, markerRules, numbered)]
+              segs.forEach((seg, k) => {
+                const at = base + cleaned.length
+                if (numbered) senseTags[at] = [...new Set([...(senseTags[at] ?? []), ...r.tags])]
+                if (seg.markers.length) senseMarks[at] = [...(senseMarks[at] ?? []), ...seg.markers]
+                const keepNumber = !mapping.splitSenses || (numbered && k === 0)
+                cleaned.push(keepNumber ? seg.text : stripNumbering(seg.text))
+              })
+            }
+            defs[spec.lang] = [...(defs[spec.lang] ?? []), ...cleaned]
             break
           }
           case 'tags':
@@ -266,9 +589,25 @@ export function applyCsvImport(
           case 'senseTags':
             sense.tags.push(...splitTags(raw, mapping.tagSeparator))
             break
-          case 'notes':
-            lx.notes = lx.notes ? `${lx.notes}\n${raw}` : raw
+          case 'notes': {
+            // 备注里以标记开头的一段（【人】某某、1、（古）某某）是另一个义项，其余照旧进备注
+            let kept = raw
+            if (hasMarkers) {
+              const rest: string[] = []
+              let touched = false
+              for (const part of raw.split(/[;；]/))
+                for (const seg of splitByMarkers(part.trim(), markerRules)) {
+                  if (seg.markers.length) touched = true
+                  if (!seg.text) continue
+                  if (seg.markers.some((mk) => mapsToSense(markerRules[mk])))
+                    noteSenses.push({ ...seg, text: stripNumbering(seg.text) })
+                  else rest.push(seg.text)
+                }
+              if (touched) kept = rest.join(raw.includes('；') ? '；' : '; ')
+            }
+            if (kept) lx.notes = lx.notes ? `${lx.notes}\n${kept}` : kept
             break
+          }
           case 'protoForm':
             lx.etymology.sources.push({ kind: 'external', language: '', form: raw, meaning: '' })
             if (lx.etymology.type === 'unknown') lx.etymology.type = 'inherited'
@@ -312,8 +651,26 @@ export function applyCsvImport(
           const d = defs[g]?.[i]
           if (d) s.definition[g] = d
         }
+        if (senseTags[i]?.length) s.tags = [...new Set([...s.tags, ...senseTags[i]])]
+        if (senseMarks[i]?.length && applyMarkers(s, senseMarks[i], markerRules)) marked++
         if (i > 0) lx.senses.push(s)
       }
+      // 备注里拆出来的义项接在后面；词条原本没有释义时顶替空着的第一条
+      for (const seg of noteSenses) {
+        const empty = lx.senses.length === 1 && !Object.values(sense.definition).some(Boolean)
+        const s = empty ? sense : createSense()
+        s.definition[noteLang] = seg.text
+        if (applyMarkers(s, seg.markers, markerRules)) marked++
+        if (!empty) lx.senses.push(s)
+      }
+      // 单词前的标记：语域落到每个义项上，标签记在词条上
+      for (const label of entryMarkers) {
+        const rule = markerRules[label]
+        if (rule?.action === 'tag') lx.tags.push(rule.value.trim() || label)
+      }
+      const entryRegisters = entryMarkers.filter((mk) => markerRules[mk]?.action === 'register')
+      if (entryRegisters.length)
+        for (const s of lx.senses) if (applyMarkers(s, entryRegisters, markerRules)) marked++
       lx.tags = [...new Set(lx.tags)]
       project.lexemes.push(lx)
     } else {
@@ -360,6 +717,7 @@ export function applyCsvImport(
     }
     report.created++
   }
+  if (marked) report.marked = marked
   project.meta.updatedAt = now()
   return report
 }

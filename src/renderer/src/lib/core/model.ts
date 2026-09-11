@@ -108,6 +108,11 @@ export interface Language {
   phonotactics: Phonotactics
   /** 自定义字母表顺序，用于排序；空则按 Unicode */
   alphabet: string[]
+  /**
+   * 模糊匹配时忽略的字符（关系图跨语言找词、词源来源搜索用）：
+   * 比如喉音 H1 / H2 / H3 里的数字、词根里分音节的点。变音符与大小写总是忽略。
+   */
+  matchIgnore?: string
   /** 方言 / 语域标签（用户自定义） */
   dialects: Dialect[]
   /** 自定义文字（书写系统），可多套 */
@@ -150,6 +155,11 @@ export interface Script {
   packing?: ScriptPacking
   /** 竖排显示（默认关）：语料、短语、词库里的文字都竖着写；列的走向跟书写方向 */
   vertical?: boolean
+  /**
+   * 括号怎么转写：keep 括号照留、里外分开转写（默认）；
+   * include 去掉括号、内容并进词里（可省音）；omit 连括号带内容都不写。
+   */
+  parens?: ParenMode
 }
 
 /**
@@ -201,6 +211,7 @@ export interface Digraph {
 }
 
 export type TextDirection = 'ltr' | 'rtl' | 'ttb'
+export type ParenMode = 'keep' | 'include' | 'omit'
 
 export interface Orthography {
   id: Id
@@ -303,6 +314,17 @@ export interface PartOfSpeech {
   abbr: string
   /** 绑定的范式；孤立语词类可为 null */
   paradigmId: Id | null
+  /**
+   * 这个词类的词干槽（比如强形 / 中形 / 弱形）：构形流水线的「词干」从这里挑，
+   * 词条录入时逐个填；没填的词条回落到词头。
+   */
+  stemSlots?: StemSlot[]
+}
+
+export interface StemSlot {
+  name: string
+  /** 说明：这个词干是什么、从哪来 */
+  notes: string
 }
 
 // ───────────────────────── 语素 ─────────────────────────
@@ -463,6 +485,13 @@ export interface Paradigm {
   generators: Record<string, SlotGenerator>
   /** 继承自哪个范式，只覆盖差异槽位 */
   inheritsFrom: Id | null
+  /**
+   * 作用于所有词（词首音变、连读变化这类）：不绑定词类、不往词条里写屈折形，
+   * 语料分词时拿它反推（见 engine/morph/mutation.ts）。
+   */
+  appliesToAll?: boolean
+  /** 作用于所有词时只管这门语言；空表示项目里所有语言 */
+  appliesToLanguageId?: Id | null
 }
 
 /**
@@ -551,6 +580,8 @@ export interface Analysis {
   lexemeId: Id | null
   slot: string | null
   morphs: { form: string; gloss: string; morphemeId: Id | null }[]
+  /** 猜出来的（去掉附加符才对上、拆成了两个词）：没确认之前不算认出 */
+  guess?: 'fold' | 'split'
 }
 
 // ───────────────────────── 其他 ─────────────────────────

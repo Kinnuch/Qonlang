@@ -1,9 +1,34 @@
 <script lang="ts">
+  import { navScroll } from '$lib/ui/navScroll'
+  import type { PageView } from '$lib/state/ui.svelte'
+  import { untrack } from 'svelte'
+  import { platform } from '$lib/platform'
+  import Menu from '$lib/ui/Menu.svelte'
+  import TableImportDialog from '$lib/ui/TableImportDialog.svelte'
+  import { toCsv } from '$lib/core/csv'
+  import {
+    importSentenceRecords,
+    importSentencesJson,
+    sentenceFields,
+    sentencesToJson,
+    sentencesToRows,
+    sentencesToText
+  } from '$lib/importers/corpusIO'
+  import { matchQuery, parseQuery } from '$lib/core/query'
+  import { SEARCH_FIELDS } from '$lib/core/searchFields'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { i18n, t, pickText } from '$lib/i18n/index.svelte'
   import { createSentence, createLexeme, newId } from '$lib/core/factory'
   import type { Analysis, Id, Sentence, Token, Lexeme } from '$lib/core/model'
+  import {
+    collectEvidence,
+    homographIds,
+    piecesOf,
+    rankHomographs,
+    surfaceKey,
+    type SurfaceEvidence
+  } from '$lib/engine/gloss/candidates'
   import {
     analyzeSentence,
     analyzeToken,
@@ -16,7 +41,8 @@
     toLatex,
     renderTemplate,
     coverage,
-    LEIPZIG
+    LEIPZIG,
+    lexemeGloss
   } from '$lib/engine/gloss'
   import Portal from '$lib/ui/Portal.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
@@ -30,7 +56,7 @@
   import { dedupeSentences } from '$lib/state/dedupe'
   import StatsPanel from '$lib/ui/StatsPanel.svelte'
   import { corpusStatsFull } from '$lib/engine/stats'
-  import { fontCss } from '$lib/script/fonts'
+  import { fontCss, mixedFontCss } from '$lib/script/fonts'
   import {
     Plus,
     Trash2,
@@ -41,7 +67,9 @@
     CheckCheck,
     Check,
     Sparkles,
-    Merge
+    Merge,
+    Upload,
+    Download
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
@@ -68,17 +96,46 @@
   let fading = $state(false)
   /** 刚确认完、需要闪一下的句子 */
   let justConfirmed = $state<Id | null>(null)
+  /** 全部确认后收起了编辑器的那句：检视器仍停在这句上，再点一下卡片才展开 */
+  let collapsedId = $state<Id | null>(null)
+  /** 表格导入对话框 */
+  let importOpen = $state(false)
 
   const list = $derived.by(() => {
-    const q = query.trim().toLowerCase()
+    const pq = parseQuery(query, SEARCH_FIELDS.corpus)
     return project.sentences.filter(
       (s) =>
         (!langId || s.languageId === langId) &&
-        (!q ||
-          s.text.toLowerCase().includes(q) ||
-          Object.values(s.translation).some((v) => v.toLowerCase().includes(q)))
+        (!pq.terms.length || matchQuery(pq, (f) => sentenceFieldValues(s, f)))
     )
   })
+  /** 搜索用：例句在某个字段里的文字；gloss 与切分既按语素给，也按整词连起来给 */
+  function sentenceFieldValues(s: Sentence, field: string | null): string[] {
+    const tr = Object.values(s.translation)
+    const morphs = (pick: (m: { form: string; gloss: string }) => string): string[] =>
+      s.tokens.flatMap((tk) => {
+        const ms = tk.analyses[tk.chosen]?.morphs ?? []
+        return ms.length ? [...ms.map(pick), ms.map(pick).join('-')] : []
+      })
+    switch (field) {
+      case 'text':
+        return [s.text, ...s.tokens.map((tk) => tk.surface)]
+      case 'gloss':
+        return morphs((m) => m.gloss)
+      case 'morph':
+        return morphs((m) => m.form)
+      case 'tr':
+        return tr
+      case 'source':
+        return [s.source]
+      case 'tag':
+        return s.tags
+      case 'note':
+        return [s.notes, ...s.extraLines.map((x) => x.text)]
+      default:
+        return [s.text, ...tr]
+    }
+  }
   const selected = $derived(project.sentences.find((s) => s.id === selectedId) ?? null)
   const allTags = $derived([...new Set(project.sentences.flatMap((s) => s.tags))].sort())
   const abbrMap = $derived(
@@ -107,6 +164,25 @@
     const id = ui.takePending('sentence')
     if (id) reveal(id)
   })
+  // 「返回」用：报上当前位置，返回时原样恢复
+  $effect(() => {
+    ui.reportView('corpus', {
+      kind: 'sentence',
+      lang: projectState.currentLanguageId,
+      id: selectedId,
+      mode,
+      collapsed: collapsedId && collapsedId === selectedId ? '1' : ''
+    })
+  })
+  $effect(() => {
+    const r = ui.takeRestore('corpus')
+    if (!r) return
+    const v: PageView = r.view ?? {}
+    selectedId = v.id ?? null
+    collapsedId = v.collapsed === '1' ? selectedId : null
+    mode = v.mode === 'stats' || v.mode === 'abbr' ? v.mode : 'entries'
+    ui.restoreScroll('corpus', r.scroll)
+  })
   /** 从别处跳过来：清掉过滤、选中、滚到它并闪一下 */
   let flashId = $state<Id | null>(null)
   function reveal(id: Id): void {
@@ -115,6 +191,7 @@
     if (langId && s.languageId !== langId) projectState.currentLanguageId = s.languageId
     ui.search = ''
     mode = 'entries'
+    collapsedId = null
     selectedId = id
     flashId = id
     setTimeout(() => {
@@ -143,6 +220,7 @@
     if (!langId) return
     const s = createSentence(langId)
     project.sentences.unshift(s)
+    collapsedId = null
     selectedId = s.id
     mode = 'entries'
     touch()
@@ -186,10 +264,63 @@
     // 列表卡片长出第三行 gloss 并闪一下；检视器留在这句上，方便接着调整
     fading = true
     setTimeout(() => {
+      collapsedId = id
       fading = false
       justConfirmed = id
       setTimeout(() => (justConfirmed = null), 1200)
     }, 420)
+  }
+  /** 点例句卡片：选中它；已经选中但编辑器收起了，就重新展开 */
+  function pick(id: Id): void {
+    collapsedId = null
+    selectedId = id
+  }
+  /** 导出当前列表里的例句（跟着当前语言与搜索走） */
+  async function exportSentences(
+    kind: 'csv' | 'json' | 'leipzig' | 'markdown' | 'html' | 'latex'
+  ): Promise<void> {
+    const base = `${language?.name ?? project.meta.name}-corpus`
+    if (kind === 'csv')
+      await platform.saveTextFile(
+        `${base}.csv`,
+        '\ufeff' + toCsv(sentencesToRows(project, list, glossLangs))
+      )
+    else if (kind === 'json') await platform.saveTextFile(`${base}.json`, sentencesToJson(list))
+    else {
+      const ext = { leipzig: 'txt', markdown: 'md', html: 'html', latex: 'tex' }[kind]
+      await platform.saveTextFile(
+        `${base}.${ext}`,
+        sentencesToText(project, list, kind, i18n.locale)
+      )
+    }
+  }
+  async function importSentencesFromJson(): Promise<void> {
+    if (!langId) return
+    const lid = langId
+    try {
+      const [f] = await platform.readTextFiles({ multiple: false, extensions: ['json'] })
+      if (!f) return
+      const r = importSentencesJson(project, lid, f.content)
+      if (!r) {
+        ui.error(t('io.badJson'))
+        return
+      }
+      afterImport(lid, r)
+    } catch (e) {
+      ui.error((e as Error).message)
+    }
+  }
+  function importSentenceTable(records: Record<string, string>[]): void {
+    if (!langId) return
+    importOpen = false
+    afterImport(langId, importSentenceRecords(project, langId, records))
+  }
+  /** 导入完：提示条数，再在新导入的句子里查一遍相近的（只差出处的直接合并，其余问一下） */
+  function afterImport(lid: Id, r: { created: number; skipped: number; ids: Id[] }): void {
+    touch()
+    ui.toast(t('io.imported', { n: r.created, skipped: r.skipped }))
+    if (r.ids.length)
+      void dedupeSentences(project, { languageId: lid, among: new Set(r.ids), silent: true })
   }
   function fullyConfirmed(s: Sentence): boolean {
     const c = coverage(s)
@@ -313,30 +444,119 @@
       !!tk.analyses[tk.chosen]?.morphs.some((m) => m.morphemeId)
     )
   }
-  function hoverWord(e: MouseEvent, tk: Token): void {
-    const target = resolveWord(tk)
-    if (!target) return
+  const lexemeById = $derived(new Map(project.lexemes.map((l) => [l.id, l])))
+  /** 当前语言里每个词形的旁证：出现在哪些例句、在哪确认成了哪个词条；例句一改就重算 */
+  /** 例句改动后稍等一下再重算旁证：打字时每敲一个键就重排全部候选太慢 */
+  let evidenceTick = $state(0)
+  $effect(() => {
+    for (const s of project.sentences) {
+      void s.languageId
+      for (const v of Object.values(s.translation)) void v
+      for (const tk of s.tokens) void (tk.surface + tk.chosen + tk.confirmed)
+    }
+    const timer = setTimeout(() => evidenceTick++, 300)
+    return () => clearTimeout(timer)
+  })
+  const surfaceEvidence = $derived.by(() => {
+    void evidenceTick
+    const lid = langId
+    return untrack(() =>
+      lid ? collectEvidence(project.sentences, lid) : new Map<string, SurfaceEvidence>()
+    )
+  })
+  function definitionPieces(id: Id): string[] {
+    const l = lexemeById.get(id)
+    return l ? piecesOf(l.senses.flatMap((se) => Object.values(se.definition)).join('；')) : []
+  }
+  function rankOf(tk: Token, s: Sentence, ids: Id[]): Id[] {
+    return rankHomographs(ids, s, surfaceEvidence.get(surfaceKey(tk.surface)), definitionPieces)
+  }
+  /** 这个词可能是哪个词条：确认过的就是它；几个同形词条时按意思线索挑，挑不出来就都给 */
+  function candidatesOf(tk: Token, s: Sentence): { lexemeId?: Id; morphemeId?: Id }[] {
+    const a = tk.analyses[tk.chosen]
+    if (tk.confirmed) {
+      if (a?.lexemeId) return [{ lexemeId: a.lexemeId }]
+      const one = resolveWord(tk)
+      return one ? [one] : []
+    }
+    const ids = homographIds(tk)
+    if (ids.length > 1) return rankOf(tk, s, ids).map((id) => ({ lexemeId: id }))
+    const one = resolveWord(tk)
+    return one ? [one] : ids.map((id) => ({ lexemeId: id }))
+  }
+  /** 几个候选分不出来：这个词在列表里用警告色标出来（与悬浮时并排给候选是同一个判断） */
+  function ambiguous(tk: Token, s: Sentence): boolean {
+    if (tk.confirmed) return false
+    const ids = homographIds(tk)
+    return ids.length > 1 && rankOf(tk, s, ids).length > 1
+  }
+  /** 用户挑中一个候选：写进这个词的分析并确认，以后就固定是它 */
+  /**
+   * 用户挑中一个候选：写进这个词的分析并确认，以后就固定是它。
+   * 按句子与位置重新找这个词——悬浮之后例句可能已经重新分析过，手里拿着的旧对象已经不在句子里了。
+   */
+  function pickCandidate(
+    sid: Id,
+    at: number,
+    surface: string,
+    c: { lexemeId?: Id | null; morphemeId?: Id | null }
+  ): void {
+    if (!c.lexemeId) return
+    const tk = project.sentences.find((x) => x.id === sid)?.tokens[at]
+    if (!tk || tk.surface !== surface) return
+    let i = tk.analyses.findIndex((x) => x.lexemeId === c.lexemeId)
+    if (i < 0) {
+      const l = project.lexemes.find((x) => x.id === c.lexemeId)
+      tk.analyses.push({
+        lexemeId: c.lexemeId,
+        slot: null,
+        morphs: [
+          { form: tk.surface, gloss: l ? lexemeGloss(l, glossLangs) : '?', morphemeId: null }
+        ]
+      })
+      i = tk.analyses.length - 1
+    }
+    tk.chosen = i
+    tk.confirmed = true
+    touch()
+  }
+  function hoverWord(e: MouseEvent, tk: Token, s: Sentence): void {
+    const cands = candidatesOf(tk, s)
+    if (!cands.length) return
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    if (cands.length > 1) {
+      const at = s.tokens.indexOf(tk)
+      const sid = s.id
+      const surface = tk.surface
+      wordHover.showCandidates(cands, rect, (c) => pickCandidate(sid, at, surface, c))
+      return
+    }
+    const target = cands[0]
     const parts = hoverParts(tk)
     if (target.lexemeId) wordHover.show(target.lexemeId, rect, parts)
     else if (target.morphemeId) wordHover.showMorpheme(target.morphemeId, rect, parts)
   }
-  function clickWord(e: MouseEvent, tk: Token): void {
-    const target = resolveWord(tk)
+  function clickWord(e: MouseEvent, tk: Token, s: Sentence): void {
+    const cands = candidatesOf(tk, s)
+    // 几个候选分不出来：点一下也先挑，不直接跳到其中一个
+    if (cands.length > 1) {
+      e.stopPropagation()
+      hoverWord(e, tk, s)
+      return
+    }
+    const target = cands[0] ?? resolveWord(tk)
     if (target?.morphemeId) {
       e.stopPropagation()
       wordHover.hide(true)
-      ui.jump('morphemes', 'morpheme', target.morphemeId)
+      const m = project.morphemes.find((x) => x.id === target.morphemeId)
+      ui.jump('morphemes', 'morpheme', target.morphemeId, m?.languageId)
       return
     }
     const id = target?.lexemeId
     if (!id) return
     e.stopPropagation()
-    const lx = project.lexemes.find((l) => l.id === id)
-    ui.pendingLexemeId = id
-    if (lx) projectState.currentLanguageId = lx.languageId
     wordHover.hide(true)
-    ui.go('lexicon')
+    ui.jump('lexicon', 'lexeme', id, project.lexemes.find((l) => l.id === id)?.languageId)
   }
   function analysisLabel(a: Analysis): string {
     return a.morphs.map((m) => m.form).join('-') + ' → ' + a.morphs.map((m) => m.gloss).join('-')
@@ -372,7 +592,8 @@
   }
   function unresolved(tk: Token): boolean {
     const a = tk.analyses[tk.chosen]
-    return !a || a.morphs.some((m) => m.gloss === '?' || !m.gloss)
+    // 猜出来的（去掉附加符才对上、拆成两个词）确认之前也标出来
+    return !a || (!!a.guess && !tk.confirmed) || a.morphs.some((m) => m.gloss === '?' || !m.gloss)
   }
   function glossTitle(g: string): string {
     return g
@@ -488,6 +709,20 @@
       >
     </div>
     <span class="grow"></span>
+    {#if mode === 'entries' && language}
+      <Menu label={t('lexicon.import')} icon={Upload}>
+        <button onclick={() => (importOpen = true)}>{t('io.importTable')}</button>
+        <button onclick={importSentencesFromJson}>{t('io.importJson')}</button>
+      </Menu>
+      <Menu label={t('common.export')} icon={Download}>
+        <button onclick={() => exportSentences('csv')}>{t('io.exportCsv')}</button>
+        <button onclick={() => exportSentences('json')}>{t('io.exportJson')}</button>
+        <button onclick={() => exportSentences('leipzig')}>{t('corpus.formats.leipzig')}</button>
+        <button onclick={() => exportSentences('markdown')}>{t('corpus.formats.markdown')}</button>
+        <button onclick={() => exportSentences('html')}>{t('corpus.formats.html')}</button>
+        <button onclick={() => exportSentences('latex')}>{t('corpus.formats.latex')}</button>
+      </Menu>
+    {/if}
     {#if mode === 'entries'}
       <button class="btn ghost" title={t('corpus.dedup.hintBtn')} onclick={runDedup}
         ><Merge size={16} />{t('corpus.dedup.button')}</button
@@ -495,6 +730,15 @@
       <button class="btn primary" onclick={add}><Plus size={16} />{t('corpus.add')}</button>
     {/if}
   </div>
+
+  {#if importOpen}
+    <TableImportDialog
+      title={t('io.importSentences')}
+      fields={sentenceFields(glossLangs)}
+      onimport={importSentenceTable}
+      onclose={() => (importOpen = false)}
+    />
+  {/if}
 
   {#if !language}
     <p class="muted">{t('lexicon.noLanguage')}</p>
@@ -634,7 +878,7 @@
       </table>
     </div>
   {:else}
-    <div class="scroll">
+    <div class="scroll" use:navScroll={'corpus'}>
       <Hint id="corpus" text={t('corpus.hint')} />
       {#snippet editorPanel(s: Sentence)}
         <div class="card editor" class:fading>
@@ -675,11 +919,12 @@
                   <div
                     class="surface data"
                     class:link={linkable(tk)}
+                    class:ambiguous={ambiguous(tk, s)}
                     role="link"
                     tabindex="-1"
-                    onmouseenter={(e) => hoverWord(e, tk)}
+                    onmouseenter={(e) => hoverWord(e, tk, s)}
                     onmouseleave={() => wordHover.hide()}
-                    onclick={(e) => clickWord(e, tk)}
+                    onclick={(e) => clickWord(e, tk, s)}
                     onkeydown={() => {}}
                   >
                     {tk.surface}
@@ -741,7 +986,7 @@
         </div>
       {/snippet}
 
-      {#if selected && !list.some((x) => x.id === selected.id)}
+      {#if selected && collapsedId !== selected.id && !list.some((x) => x.id === selected.id)}
         {@render editorPanel(selected)}
       {/if}
 
@@ -750,7 +995,7 @@
       {:else}
         <div class="list">
           {#each list as s (s.id)}
-            {#if selectedId === s.id}{@render editorPanel(s)}{/if}
+            {#if selectedId === s.id && collapsedId !== s.id}{@render editorPanel(s)}{/if}
             {@const c = coverage(s)}
             {@const done = fullyConfirmed(s)}
             <div
@@ -761,8 +1006,8 @@
               use:flashOn={justConfirmed === s.id}
               role="button"
               tabindex="0"
-              onclick={() => (selectedId = s.id)}
-              onkeydown={(e) => e.key === 'Enter' && (selectedId = s.id)}
+              onclick={() => pick(s.id)}
+              onkeydown={(e) => e.key === 'Enter' && pick(s.id)}
             >
               {#each language.scripts as sc (sc.id)}
                 {@const st = sentenceScript(language, sc, s)}
@@ -781,11 +1026,12 @@
                     {#each s.tokens as tk, i (i)}<span
                         class="w"
                         class:link={linkable(tk)}
+                        class:ambiguous={ambiguous(tk, s)}
                         role="link"
                         tabindex="-1"
-                        onmouseenter={(e) => hoverWord(e, tk)}
+                        onmouseenter={(e) => hoverWord(e, tk, s)}
                         onmouseleave={() => wordHover.hide()}
-                        onclick={(e) => clickWord(e, tk)}
+                        onclick={(e) => clickWord(e, tk, s)}
                         onkeydown={() => {}}>{tk.surface}</span
                       >{/each}
                   </span>
@@ -966,7 +1212,7 @@
           ><Check size={14} />{t('corpus.saveTemplate')}</button
         >
       {/if}
-      <pre class="out">{exportText}</pre>
+      <pre class="out" style={mixedFontCss(language?.scripts ?? [])}>{exportText}</pre>
     </div>
     <button class="btn sm danger" onclick={() => remove(s)}
       ><Trash2 size={14} />{t('common.delete')}</button
@@ -1035,6 +1281,11 @@
   }
   .tok.ok {
     border-color: var(--accent);
+  }
+  /* 有几个候选分不出来：警告色的波浪下划线，悬浮时会让你挑 */
+  .ambiguous {
+    text-decoration: underline wavy var(--warn);
+    text-underline-offset: 3px;
   }
   .surface {
     font-size: 19px;

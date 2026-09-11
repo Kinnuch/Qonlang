@@ -198,10 +198,10 @@
             : it.kind === 'phrase'
               ? project?.phrasebook.find((x) => x.id === it.id)?.languageId
               : project?.morphemes.find((x) => x.id === it.id)?.languageId
-      if (lang) projectState.currentLanguageId = lang
+      ui.jump(it.section, it.kind, it.id, lang ?? undefined)
+      return
     }
-    if (it.kind === 'language') projectState.currentLanguageId = it.id
-    ui.jump(it.section, it.kind, it.id)
+    ui.jump(it.section, it.kind, it.id, it.kind === 'language' ? it.id : undefined)
   }
   function onKey(e: KeyboardEvent): void {
     if (e.key === 'Escape') {

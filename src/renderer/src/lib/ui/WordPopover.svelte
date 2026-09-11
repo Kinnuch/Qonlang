@@ -11,7 +11,7 @@
   import LexemeCard from './LexemeCard.svelte'
   import { etymologyText } from '$lib/core/etymology'
   import type { Id } from '$lib/core/model'
-  import { BookOpen, Blocks, X } from '@lucide/svelte'
+  import { BookOpen, Blocks, X, TriangleAlert } from '@lucide/svelte'
 
   const project = $derived(projectState.project)
   const lexeme = $derived(
@@ -48,10 +48,22 @@
     return out
   })
 
+  const cands = $derived(
+    project
+      ? wordHover.candidates.map((c) => ({
+          c,
+          lexeme: c.lexemeId ? project.lexemes.find((l) => l.id === c.lexemeId) : null,
+          morpheme: c.morphemeId ? project.morphemes.find((m) => m.id === c.morphemeId) : null
+        }))
+      : []
+  )
+  const posAbbr = (id: Id | null): string => project?.posList.find((p) => p.id === id)?.abbr ?? ''
+
   const style = $derived.by(() => {
     const r = wordHover.rect
     if (!r) return ''
-    const W = 380
+    // 并排候选时按个数放宽，最多三列
+    const W = cands.length > 1 ? Math.min(3, cands.length) * 250 + 24 : 380
     const H = 360
     let left = r.left
     if (left + W > window.innerWidth - 12) left = Math.max(12, window.innerWidth - W - 12)
@@ -82,19 +94,54 @@
       const id = lexeme.id
       const langId = lexeme.languageId
       wordHover.hide(true)
-      projectState.currentLanguageId = langId
-      ui.jump('lexicon', 'lexeme', id)
+      ui.jump('lexicon', 'lexeme', id, langId)
     } else if (morpheme) {
       const id = morpheme.id
       const langId = morpheme.languageId
       wordHover.hide(true)
-      projectState.currentLanguageId = langId
-      ui.jump('morphemes', 'morpheme', id)
+      ui.jump('morphemes', 'morpheme', id, langId)
     }
   }
 </script>
 
-{#if (lexeme || morpheme) && wordHover.rect}
+{#if cands.length > 1 && wordHover.rect}
+  <div
+    class="pop card multi"
+    bind:this={popEl}
+    {style}
+    role="dialog"
+    tabindex="-1"
+    onmouseenter={() => wordHover.keep()}
+    onmouseleave={() => wordHover.hide()}
+  >
+    <div class="cands-head">
+      <TriangleAlert size={14} />{t('corpus.pickCandidate', { n: cands.length })}
+    </div>
+    <div class="cands">
+      {#each cands as x, i (i)}
+        <div class="cand">
+          {#if x.lexeme}
+            <div class="row">
+              <strong class="data cand-lemma">{x.lexeme.lemma}</strong>
+              {#if posAbbr(x.lexeme.posId)}<span class="badge">{posAbbr(x.lexeme.posId)}</span>{/if}
+            </div>
+            <ol class="cand-senses">
+              {#each x.lexeme.senses.slice(0, 4) as se (se.id)}
+                <li>{pickText(se.definition, glossLangs)}</li>
+              {/each}
+            </ol>
+          {:else if x.morpheme}
+            <strong class="data cand-lemma">{x.morpheme.form}</strong>
+            <p class="small">{x.morpheme.gloss} {pickText(x.morpheme.meaning, glossLangs)}</p>
+          {/if}
+          <button class="btn sm pick" onclick={() => wordHover.pick(x.c)}
+            >{t('corpus.pickThis')}</button
+          >
+        </div>
+      {/each}
+    </div>
+  </div>
+{:else if (lexeme || morpheme) && wordHover.rect}
   <div
     class="pop card"
     bind:this={popEl}
@@ -155,6 +202,52 @@
 {/if}
 
 <style>
+  .pop.multi {
+    border-color: var(--warn);
+    min-height: 0;
+  }
+  .cands-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--warn-soft);
+    color: var(--warn);
+    font-size: 13px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--warn);
+  }
+  .cands {
+    display: flex;
+    gap: 10px;
+    padding: 10px 12px 12px;
+    overflow: auto;
+  }
+  .cand {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px;
+    border: 1px dashed var(--warn);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+  }
+  .cand-lemma {
+    font-size: 18px;
+  }
+  .cand-senses {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 13px;
+    flex: 1;
+  }
+  .cand .pick {
+    align-self: flex-start;
+    border-color: var(--warn);
+    color: var(--warn);
+  }
   .pop {
     position: fixed;
     z-index: 70;

@@ -98,14 +98,15 @@ export function resolveGenerator(
 }
 
 export function paradigmFor(project: Project, lexeme: Lexeme): Paradigm | null {
-  // 词条上指名了就用指名的
+  // 词条上指名了就用指名的；作用于所有词的构形（词首音变这类）不往词条里写形式
   if (lexeme.paradigmId) {
     const p = project.paradigms.find((x) => x.id === lexeme.paradigmId)
-    if (p) return p
+    if (p && !p.appliesToAll) return p
   }
   const pos = project.posList.find((p) => p.id === lexeme.posId)
   if (!pos?.paradigmId) return null
-  return project.paradigms.find((p) => p.id === pos.paradigmId) ?? null
+  const p = project.paradigms.find((x) => x.id === pos.paradigmId)
+  return p && !p.appliesToAll ? p : null
 }
 
 // ───────────────────────── 生成 ─────────────────────────
@@ -115,6 +116,20 @@ export interface MorphContext {
   language: Language
   /** 规则集程序缓存 */
   program: (ruleSetId: Id) => RuleProgram | null
+  /** 微调行、异体形环境这些零碎规则的解析缓存（一次推导里同一行只解析一次） */
+  rules?: Map<string, RuleProgram>
+  /** 语言的解析选项缓存 */
+  parseOptions?: ReturnType<typeof languageParseOptions>
+}
+
+/** 解析一行零碎规则：有缓存就用缓存 */
+function ruleOf(ctx: MorphContext, text: string): RuleProgram {
+  const hit = ctx.rules?.get(text)
+  if (hit) return hit
+  ctx.parseOptions ??= languageParseOptions(ctx.language, ctx.project)
+  const prog = parseRuleText(text, ctx.parseOptions)
+  ctx.rules?.set(text, prog)
+  return prog
 }
 
 export function makeContext(project: Project, language: Language): MorphContext {
@@ -122,6 +137,7 @@ export function makeContext(project: Project, language: Language): MorphContext 
   return {
     project,
     language,
+    rules: new Map(),
     program: (id) => {
       if (!cache.has(id)) {
         const rs = project.ruleSets.find((r) => r.id === id)
@@ -155,17 +171,80 @@ function resolveAffix(
 ): { form: string; note: string } {
   // 只有全是空白才算没写；写进去的空格、中点这些要原样留着（`ė ` + derg → ė derg）
   if (!text.trim()) return { form: '', note: '' }
-  const raw = text.trim().startsWith('@') ? text.trim() : text
-  if (!raw.startsWith('@')) return { form: trimHyphens(raw), note: '' }
-  const ref = raw.slice(1).trim()
-  const m = ctx.project.morphemes.find(
-    (x) =>
-      x.languageId === ctx.language.id &&
-      (x.form === ref || x.gloss === ref || trimHyphens(x.form) === trimHyphens(ref))
-  )
-  if (!m) return { form: trimHyphens(ref), note: `未找到语素 ${ref}` }
-  const allo = selectAllomorph(ctx, m, stem, side)
-  return { form: trimHyphens(allo.form), note: allo.note }
+  const r = parseAffixRef(text, ctx.project.morphemes, ctx.language.id)
+  if (!r) return { form: trimHyphens(text), note: '' }
+  if (!r.morpheme)
+    return { form: trimHyphens(r.lead + r.ref + r.tail), note: `未找到语素 ${r.ref}` }
+  const allo = selectAllomorph(ctx, r.morpheme, stem, side)
+  // 引用前后写的空格、中点照样拼上（@定指· + derg → sa·derg）
+  return { form: trimHyphens(r.lead + trimHyphens(allo.form) + r.tail), note: allo.note }
+}
+
+/** 只由分隔符组成（没有字母、数字、附加符） */
+const ONLY_SEPARATORS = /^[^\p{L}\p{N}\p{M}]*$/u
+
+/** 生成器里写词缀的那些文本（前缀、后缀、中缀、环缀两截） */
+export function affixTexts(g: SlotGenerator): string[] {
+  if (g.kind === 'pipeline')
+    return g.steps.flatMap((st) =>
+      st.kind === 'prefix' || st.kind === 'suffix' || st.kind === 'infix'
+        ? [st.text]
+        : st.kind === 'circumfix'
+          ? [st.text, st.text2]
+          : []
+    )
+  if (g.kind === 'affix') return [g.prefix, g.suffix, g.infix]
+  if (g.kind === 'affix-sca') return [g.prefix, g.suffix]
+  return []
+}
+
+export interface AffixRef {
+  /** @ 前面写的分隔符（空格、中点……） */
+  lead: string
+  /** 对上的引用名（形式或 gloss） */
+  ref: string
+  morpheme: Morpheme | null
+  /** 引用名后面多写的部分，原样拼上 */
+  tail: string
+}
+
+/**
+ * 词缀文本里的 @语素 引用：`@定指`、`@定指·`、`@定指 `、`·@定指`。
+ * 引用名取语素表里能对上的最长一段（形式、gloss 或去掉连字符的形式），
+ * 余下的空格、中点这些原样留在前后。@ 前面写了字母的不算引用，返回 null 按字面处理。
+ */
+export function parseAffixRef(
+  text: string,
+  morphemes: Morpheme[],
+  languageId: Id
+): AffixRef | null {
+  const at = text.indexOf('@')
+  if (at < 0) return null
+  const lead = text.slice(0, at)
+  // @ 前后多写的只能是分隔符（空格、中点、连字符……），写了字母、数字就不是这种用法
+  if (!ONLY_SEPARATORS.test(lead)) return null
+  const rest = text.slice(at + 1)
+  // 引用名的候选：rest 的每个前缀（开头的空白不算，结尾不能是空白）→ 切在哪
+  const names = new Map<string, number>()
+  for (let cut = rest.length; cut > 0; cut--) {
+    const name = rest.slice(0, cut).trimStart()
+    if (!name || /\s$/u.test(name)) continue
+    if (!names.has(name)) names.set(name, cut)
+    const bare = trimHyphens(name)
+    if (bare && !names.has(bare)) names.set(bare, cut)
+  }
+  let best: { m: Morpheme; name: string; cut: number } | null = null
+  for (const m of morphemes) {
+    if (m.languageId !== languageId) continue
+    for (const k of [m.form, m.gloss, trimHyphens(m.form)]) {
+      const cut = k ? names.get(k) : undefined
+      // 剩下的得全是分隔符：@PL2、@3SG 这种写错或没有的引用不能悄悄对上 PL、3
+      if (cut === undefined || !ONLY_SEPARATORS.test(rest.slice(cut))) continue
+      if (!best || cut > best.cut) best = { m, name: k, cut }
+    }
+  }
+  if (best) return { lead, ref: best.name, morpheme: best.m, tail: rest.slice(best.cut) }
+  return { lead, ref: rest.trim(), morpheme: null, tail: '' }
 }
 
 export function selectAllomorph(
@@ -174,7 +253,6 @@ export function selectAllomorph(
   stem: string,
   side: 'prefix' | 'suffix'
 ): { form: string; note: string } {
-  const opts = languageParseOptions(ctx.language, ctx.project)
   for (const a of m.allomorphs) {
     const env = a.environment.trim()
     if (!env) continue
@@ -183,7 +261,7 @@ export function selectAllomorph(
     const right = idx >= 0 ? env.slice(idx + 1) : ''
     // 后缀看词干末尾（左环境），前缀看词干开头（右环境）
     const rule = side === 'suffix' ? `> ¤ / ${left}_#` : `> ¤ / #_${right}`
-    const prog = parseRuleText(rule, opts)
+    const prog = ruleOf(ctx, rule)
     const out = runRules(prog, stem, { trace: false }).output
     const hit = side === 'suffix' ? out.endsWith('¤') : out.startsWith('¤')
     if (hit) return { form: a.form, note: `${m.form} → ${a.form} (${env})` }
@@ -282,13 +360,12 @@ export function applyAdjust(
 ): string {
   if (!text || !text.trim()) return surface
   let s = surface
-  const opts = languageParseOptions(ctx.language, ctx.project)
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim()
     if (!line || line.startsWith(';')) continue
     const before = s
     if (line.includes('>')) {
-      const prog = parseRuleText(line, opts)
+      const prog = ruleOf(ctx, line)
       const err = prog.diagnostics.find((d) => d.severity === 'error')
       if (err) {
         trace.push(`${label} ✗ ${line}: ${err.message}`)

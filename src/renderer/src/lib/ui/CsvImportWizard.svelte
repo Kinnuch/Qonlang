@@ -8,12 +8,16 @@
   import { MORPHEME_TYPES } from '$lib/core/factory'
   import {
     applyCsvImport,
+    cleanMarkerRules,
     defaultMapping,
+    findMarkers,
     guessMapping,
     FIELD_KINDS,
+    MARKER_ACTIONS,
     type CsvMapping,
     type FieldSpec,
-    type ImportReport
+    type ImportReport,
+    type MarkerRule
   } from '$lib/importers/csvImport'
   import { FileUp, Check, X, Save, Trash2 } from '@lucide/svelte'
 
@@ -80,13 +84,37 @@
 
   const lemmaMapped = $derived(!!mapping?.columns.some((c) => c.kind === 'lemma'))
 
+  /** 单词、释义、备注里出现的方括号标记（只对词条） */
+  const markerStats = $derived(
+    mapping && mapping.target === 'lexemes' ? findMarkers(rows, mapping) : []
+  )
+  /** 语域候选：内置常用项 + 项目里已经用过的 */
+  const registerOptions = $derived([
+    ...new Set([
+      ...t('lexicon.registerPresets').split(','),
+      ...project.lexemes.flatMap((l) => l.senses.map((s) => s.register)).filter(Boolean)
+    ])
+  ])
+  /** 没动过的标记默认映射成同名语域 */
+  function ruleOf(label: string): MarkerRule {
+    return mapping?.senseMarkers?.[label] ?? { action: 'register', value: label }
+  }
+  function setRule(label: string, patch: Partial<MarkerRule>): void {
+    if (!mapping) return
+    mapping.senseMarkers = { ...mapping.senseMarkers, [label]: { ...ruleOf(label), ...patch } }
+  }
+  /** 这份表里见到的标记都带上处理方式（没动过的也写进去），导入与存预设都用它 */
+  function effectiveMarkers(): Record<string, MarkerRule> {
+    const out = cleanMarkerRules($state.snapshot(mapping?.senseMarkers))
+    for (const st of markerStats) out[st.label] = { ...ruleOf(st.label) }
+    return out
+  }
+
   function run(): void {
     if (!mapping || !lemmaMapped) return
-    report = applyCsvImport(
-      project,
-      $state.snapshot(rows) as string[][],
-      $state.snapshot(mapping) as CsvMapping
-    )
+    const m = $state.snapshot(mapping) as CsvMapping
+    m.senseMarkers = effectiveMarkers()
+    report = applyCsvImport(project, $state.snapshot(rows) as string[][], m)
     projectState.touch()
   }
 
@@ -105,7 +133,9 @@
       columns,
       tagSeparator: mapping.tagSeparator,
       splitProtoArrow: mapping.splitProtoArrow,
-      splitSenses: mapping.splitSenses
+      splitSenses: mapping.splitSenses,
+      sensePrefixMap: mapping.sensePrefixMap,
+      senseMarkers: effectiveMarkers()
     }
     ui.prefs.csvPresets = [...ui.prefs.csvPresets.filter((p) => p.name !== preset.name), preset]
     void ui.savePrefs()
@@ -118,6 +148,8 @@
     mapping.tagSeparator = p.tagSeparator
     mapping.splitProtoArrow = p.splitProtoArrow
     if (p.splitSenses !== undefined) mapping.splitSenses = p.splitSenses
+    mapping.sensePrefixMap = p.sensePrefixMap ?? ''
+    mapping.senseMarkers = cleanMarkerRules(p.senseMarkers)
     mapping.columns = mapping.columns.map(
       (_, i) => (p.columns[keyFor(i)] as FieldSpec | undefined) ?? { kind: 'ignore' }
     )
@@ -316,7 +348,77 @@
       <label class="row check"
         ><input type="checkbox" bind:checked={mapping.splitSenses} />{t('csv.splitSenses')}</label
       >
+      {#if mapping.target === 'lexemes'}
+        <label class="field wide"
+          ><span>{t('csv.sensePrefixMap')}</span>
+          <textarea
+            class="textarea data"
+            rows="3"
+            placeholder={t('csv.sensePrefixMapPlaceholder')}
+            bind:value={mapping.sensePrefixMap}
+          ></textarea>
+          <span class="small muted">{t('csv.sensePrefixMapHint')}</span></label
+        >
+      {/if}
     </div>
+
+    {#if markerStats.length}
+      <h3>{t('csv.markers')}</h3>
+      <p class="small muted">{t('csv.markersHint')}</p>
+      <div class="table-wrap">
+        <table class="map">
+          <thead
+            ><tr
+              ><th>{t('csv.marker')}</th><th>{t('csv.markerCount')}</th><th>{t('csv.sample')}</th
+              ><th>{t('csv.markerAction')}</th><th>{t('csv.markerValue')}</th></tr
+            ></thead
+          >
+          <tbody>
+            {#each markerStats as st (st.label)}
+              {@const rule = ruleOf(st.label)}
+              <tr class:mapped={rule.action !== 'keep'}>
+                <td class="hdr data">{st.raw}</td>
+                <td class="muted nowrap"
+                  >{st.count} · {st.columns
+                    .map((ci) => (mapping?.hasHeader && header[ci]) || String(ci + 1))
+                    .join('、')}</td
+                >
+                <td class="sample data" title={st.sample}>{st.sample}</td>
+                <td>
+                  <select
+                    class="select"
+                    value={rule.action}
+                    onchange={(e) =>
+                      setRule(st.label, {
+                        action: (e.currentTarget as HTMLSelectElement).value as MarkerRule['action']
+                      })}
+                  >
+                    {#each MARKER_ACTIONS as a (a)}<option value={a}
+                        >{t(`csv.markerActions.${a}`)}</option
+                      >{/each}
+                  </select>
+                </td>
+                <td>
+                  {#if rule.action === 'register' || rule.action === 'tag'}
+                    <input
+                      class="input extra"
+                      list={rule.action === 'register' ? 'csv-registers' : undefined}
+                      value={rule.value}
+                      placeholder={st.label}
+                      oninput={(e) =>
+                        setRule(st.label, { value: (e.currentTarget as HTMLInputElement).value })}
+                    />
+                  {/if}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+        <datalist id="csv-registers"
+          >{#each registerOptions as r (r)}<option value={r}></option>{/each}</datalist
+        >
+      </div>
+    {/if}
 
     {#if !lemmaMapped}<p class="small warn">{t('csv.needLemma')}</p>{/if}
 
@@ -338,6 +440,7 @@
         {#if report.newCategories.length}<div>
             {t('csv.reportNewCategories', { list: report.newCategories.join(', ') })}
           </div>{/if}
+        {#if report.marked}<div>{t('csv.reportMarked', { n: report.marked })}</div>{/if}
         {#each report.warnings as w (w)}<div class="warn">{w}</div>{/each}
       </div>
     {/if}
@@ -356,6 +459,9 @@
 </div>
 
 <style>
+  .field.wide {
+    grid-column: 1 / -1;
+  }
   .wizard {
     display: flex;
     flex-direction: column;
@@ -432,6 +538,9 @@
   }
   .warn {
     color: var(--warn);
+  }
+  .nowrap {
+    white-space: nowrap;
   }
   .paste {
     max-width: 640px;

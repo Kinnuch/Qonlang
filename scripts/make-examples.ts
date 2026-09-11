@@ -785,7 +785,7 @@ function makeAelith(): void {
     category: 'aeiouöü'.includes(v) ? 'vowel' : 'consonant',
     notes: ''
   }))
-  runes.rules = ['; 双写辅音只刻一次', 'C2 > C', '@glyphs'].join('\n')
+  runes.rules = ['; 双写辅音只刻一次（C1C1：同一个辅音写两遍）', 'C1C1 > C1', '@glyphs'].join('\n')
   runes.notes = '拉丁转写 → 卢恩区字符：规则先合并双辅音，再套字形表。'
   L.scripts.push(runes)
   kaso.scriptForms[runes.id] = 'ᚲᚨᛊᛟ'

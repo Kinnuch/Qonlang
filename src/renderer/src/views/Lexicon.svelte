@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { navScroll } from '$lib/ui/navScroll'
+  import type { PageView } from '$lib/state/ui.svelte'
+  import { matchQuery, parseQuery } from '$lib/core/query'
+  import { SEARCH_FIELDS } from '$lib/core/searchFields'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { platform } from '$lib/platform'
@@ -178,6 +182,30 @@
       reveal(id)
     }
   })
+  // 「返回」用：报上当前位置，返回时原样恢复
+  $effect(() => {
+    ui.reportView('lexicon', {
+      kind: 'lexeme',
+      lang: projectState.currentLanguageId,
+      id: selectedId,
+      mode,
+      main: mainView,
+      edit: editMode ? '1' : ''
+    })
+  })
+  $effect(() => {
+    const r = ui.takeRestore('lexicon')
+    if (!r) return
+    const v: PageView = r.view ?? {}
+    selectedId = v.id ?? null
+    if (v.mode === 'entries' || v.mode === 'taxonomy' || v.mode === 'stats') mode = v.mode
+    mainView = v.main === 'graph' ? 'graph' : 'list'
+    editMode = v.edit === '1'
+    // 选中的那行在分批渲染的范围外时先把范围放大
+    const i = selectedId ? list.findIndex((x) => x.id === selectedId) : -1
+    if (i >= limit) limit = i + 50
+    ui.restoreScroll('lexicon', r.scroll)
+  })
 
   const inLang = $derived(project.lexemes.filter((l) => !langId || l.languageId === langId))
   const lemmaCounts = $derived.by(() => {
@@ -188,11 +216,11 @@
   })
   const collator = $derived(makeCollator(language?.alphabet ?? []))
   const list = $derived.by(() => {
-    const q = query.trim().toLowerCase()
+    const pq = parseQuery(query, SEARCH_FIELDS.lexicon)
     const arr = inLang.filter((l) => {
       for (const [key, sel] of Object.entries(colFilters))
         if (!filterValues(l, key).some((v) => sel.has(v))) return false
-      if (q && !matchesQuery(l, q)) return false
+      if (pq.terms.length && !matchQuery(pq, (f) => lexemeFieldValues(l, f))) return false
       return true
     })
     if (customOrder) return arr
@@ -211,26 +239,60 @@
     // custom：保持项目里的数组顺序
     return arr
   })
-  /** 搜索覆盖词条的所有文本：词头、义项、词干、屈折形、发音、文字、标签、词源、备注 */
-  function matchesQuery(l: Lexeme, q: string): boolean {
-    const hit = (v: string | undefined): boolean => !!v && v.toLowerCase().includes(q)
-    if (hit(l.lemma) || hit(l.notes)) return true
-    if (l.tags.some(hit)) return true
-    if (l.senses.some((se) => Object.values(se.definition).some(hit) || hit(se.register)))
-      return true
-    if (Object.values(l.stems).some(hit)) return true
-    if (Object.values(l.forms).some((f) => hit(f.surface))) return true
-    if (Object.values(l.pronunciations).some((pr) => hit(pr.ipa))) return true
-    if (Object.values(l.scriptForms ?? {}).some(hit)) return true
-    if (hit(l.etymology.notes)) return true
-    if (l.etymology.stages.some((st) => hit(st.form))) return true
-    if (
-      l.etymology.sources.some((src) =>
-        src.kind === 'external' ? hit(src.form) || hit(src.meaning) : false
+  /** 搜索用：词条在某个字段里的文字（field 为 null 时是默认那一组）；只读要找的那个字段 */
+  function lexemeFieldValues(l: Lexeme, field: string | null): string[] {
+    const defs = (): string[] =>
+      l.senses.flatMap((se) => [...Object.values(se.definition), se.register])
+    const forms = (): string[] => Object.values(l.forms).map((f) => f.surface)
+    const ipa = (): string[] => Object.values(l.pronunciations).map((pr) => pr.ipa)
+    const etym = (): string[] => [
+      l.etymology.notes,
+      ...l.etymology.stages.map((st) => st.form),
+      ...l.etymology.sources.flatMap((src) =>
+        src.kind === 'external' ? [src.form, src.meaning] : []
       )
-    )
-      return true
-    return false
+    ]
+    switch (field) {
+      case 'word':
+        return [l.lemma]
+      case 'gloss':
+        return defs()
+      case 'form':
+        return forms()
+      case 'stem':
+        return Object.values(l.stems)
+      case 'ipa':
+        return ipa()
+      case 'pos': {
+        const p = project.posList.find((x) => x.id === l.posId)
+        return p ? [...Object.values(p.name), p.abbr] : []
+      }
+      case 'tag':
+        return l.tags
+      case 'register':
+        return l.senses.map((se) => se.register).filter(Boolean)
+      case 'etym':
+        return etym()
+      case 'note':
+        return [l.notes]
+      case 'script': {
+        // 文字列显示的是按规则转写出来的（没手填时），搜的也是它
+        const lg = project.languages.find((x) => x.id === l.languageId)
+        return lg ? lg.scripts.map((sc) => lexemeScript(lg, sc, l)) : []
+      }
+      default:
+        return [
+          l.lemma,
+          l.notes,
+          ...l.tags,
+          ...defs(),
+          ...Object.values(l.stems),
+          ...forms(),
+          ...ipa(),
+          ...Object.values(l.scriptForms ?? {}),
+          ...etym()
+        ]
+    }
   }
   const selected = $derived(project.lexemes.find((l) => l.id === selectedId) ?? null)
   const allTags = $derived([...new Set(project.lexemes.flatMap((l) => l.tags))].sort())
@@ -643,6 +705,19 @@
       '﻿' + toCsv(rows)
     )
   }
+  /** 这个词条所属词类定义的词干槽：去掉空名字、首尾空格，重名的只留第一个 */
+  function posStemSlots(l: Lexeme): { name: string; notes: string }[] {
+    const p = project.posList.find((x) => x.id === l.posId)
+    const seen = new Set<string>()
+    const out: { name: string; notes: string }[] = []
+    for (const st of p?.stemSlots ?? []) {
+      const name = st.name.trim()
+      if (!name || seen.has(name)) continue
+      seen.add(name)
+      out.push({ name, notes: st.notes })
+    }
+    return out
+  }
   function selectFromCard(id: Id): void {
     reveal(id)
   }
@@ -912,7 +987,7 @@
         >
       </div>
     {/if}
-    <div class="scroll">
+    <div class="scroll" use:navScroll={'lexicon'}>
       <table class="tbl" class:fixed={hasWidths} style={hasWidths ? `width:${tableWidth}px` : ''}>
         <colgroup>
           <col style={sort === 'custom' ? 'width:56px' : 'width:34px'} />
@@ -1302,11 +1377,30 @@
           }}><Plus size={14} />{t('lexicon.addStem')}</button
         >
       </div>
-      {#each Object.keys(l.stems) as k (k)}
+      <!-- 词类定义的词干槽固定排前面：填了字也还在原地，不会换到下面一组丢了焦点 -->
+      {#each posStemSlots(l) as st (st.name)}
+        <div class="row kv">
+          <input class="input" value={st.name} disabled title={st.notes} />
+          <input
+            class="input data"
+            placeholder={st.notes || t('lexicon.stemEmpty')}
+            value={l.stems[st.name] ?? ''}
+            oninput={(e) => {
+              const v = (e.currentTarget as HTMLInputElement).value
+              if (v) l.stems[st.name] = v
+              else delete l.stems[st.name]
+              touch(l)
+            }}
+          />
+          <span class="kv-spacer"></span>
+        </div>
+      {/each}
+      {#each Object.keys(l.stems).filter((k) => !posStemSlots(l).some((st) => st.name === k)) as k (k)}
         <div class="row kv">
           <input
             class="input"
             value={k}
+            title={posStemSlots(l).find((st) => st.name === k)?.notes ?? ''}
             placeholder={t('lexicon.stemName')}
             onchange={(e) => {
               renameKey(l.stems, k, (e.currentTarget as HTMLInputElement).value.trim())
@@ -1403,8 +1497,8 @@
           }}
         >
           <option value="">{t('lexicon.paradigmByPos')}</option>
-          {#each project.paradigms as pa (pa.id)}<option value={pa.id}
-              >{pickText(pa.name, glossLangs) || t('paradigms.untitled')}</option
+          {#each project.paradigms.filter((pa) => !pa.appliesToAll) as pa (pa.id)}<option
+              value={pa.id}>{pickText(pa.name, glossLangs) || t('paradigms.untitled')}</option
             >{/each}
         </select>
         {#if (paradigmOf(l)?.variants.length ?? 0) > 0}
@@ -1578,6 +1672,10 @@
 {/if}
 
 <style>
+  .kv-spacer {
+    width: 28px;
+    flex: none;
+  }
   th.order {
     width: 34px;
     text-align: center;

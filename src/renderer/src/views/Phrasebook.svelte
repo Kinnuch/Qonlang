@@ -1,4 +1,19 @@
 <script lang="ts">
+  import { navScroll } from '$lib/ui/navScroll'
+  import type { PageView } from '$lib/state/ui.svelte'
+  import { platform } from '$lib/platform'
+  import Menu from '$lib/ui/Menu.svelte'
+  import TableImportDialog from '$lib/ui/TableImportDialog.svelte'
+  import { toCsv } from '$lib/core/csv'
+  import {
+    importPhraseRecords,
+    importPhrasesJson,
+    phraseFields,
+    phrasesToJson,
+    phrasesToRows
+  } from '$lib/importers/corpusIO'
+  import { matchQuery, parseQuery } from '$lib/core/query'
+  import { SEARCH_FIELDS } from '$lib/core/searchFields'
   /** 短语簿：分类 → 短语；检视器编辑原文、译文、发音、变体、标签。 */
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
@@ -14,7 +29,7 @@
   import Hint from '$lib/ui/Hint.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
-  import { Plus, Trash2, X, Wand2 } from '@lucide/svelte'
+  import { Plus, Trash2, X, Wand2, Upload, Download } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
 
@@ -32,31 +47,59 @@
 
   let selectedId = $state<Id | null>(null)
   let category = $state<string>('')
+  /** 表格导入对话框 */
+  let importOpen = $state(false)
   const query = $derived(ui.search)
 
   const inLang = $derived(project.phrasebook.filter((p) => !langId || p.languageId === langId))
   const categories = $derived([...new Set(inLang.map((p) => p.category).filter(Boolean))].sort())
   const list = $derived.by(() => {
-    const q = query.trim().toLowerCase()
+    const pq = parseQuery(query, SEARCH_FIELDS.phrasebook)
     return inLang.filter(
       (p) =>
         (!category || p.category === category) &&
-        (!q ||
-          p.text.toLowerCase().includes(q) ||
-          Object.values(p.translation).some((v) => v.toLowerCase().includes(q)))
+        (!pq.terms.length || matchQuery(pq, (f) => phraseFieldValues(p, f)))
     )
   })
+  /** 搜索用：短语在某个字段里的文字 */
+  function phraseFieldValues(p: Phrase, field: string | null): string[] {
+    const tr = Object.values(p.translation)
+    switch (field) {
+      case 'text':
+        return [p.text, ...p.variants.map((v) => v.text)]
+      case 'tr':
+        return tr
+      case 'category':
+        return [p.category]
+      case 'tag':
+        return p.tags
+      case 'ipa':
+        return Object.values(p.pronunciations).map((x) => x.ipa)
+      default:
+        return [p.text, ...tr]
+    }
+  }
   const selected = $derived(project.phrasebook.find((p) => p.id === selectedId) ?? null)
   const allTags = $derived([...new Set(project.phrasebook.flatMap((p) => p.tags))].sort())
   const gidx = $derived(language ? buildIndex(project, language.id) : null)
+  /** 每份索引一张表：同一个词只分析一次（列表里每个词都要判断能不能点） */
+  const lexemeMemo = new WeakMap<object, Map<string, Id | null>>()
   function lexemeFor(word: string): Id | null {
     if (!gidx) return null
+    let memo = lexemeMemo.get(gidx)
+    if (!memo) {
+      memo = new Map()
+      lexemeMemo.set(gidx, memo)
+    }
+    const hit = memo.get(word)
+    if (hit !== undefined) return hit
     const w = tokenize(word)[0]
-    if (!w) return null
-    return (
-      analyzeToken(gidx, w, project.settings.morphemeBoundaries).find((a) => a.lexemeId)
-        ?.lexemeId ?? null
-    )
+    const id = w
+      ? (analyzeToken(gidx, w, project.settings.morphemeBoundaries).find((a) => a.lexemeId)
+          ?.lexemeId ?? null)
+      : null
+    memo.set(word, id)
+    return id
   }
   function hoverWord(e: MouseEvent, word: string): void {
     const id = lexemeFor(word)
@@ -67,7 +110,7 @@
     if (!id) return
     e.stopPropagation()
     wordHover.hide(true)
-    ui.jump('lexicon', 'lexeme', id)
+    ui.jump('lexicon', 'lexeme', id, project.lexemes.find((l) => l.id === id)?.languageId)
   }
 
   $effect(() => {
@@ -76,6 +119,23 @@
   $effect(() => {
     const id = ui.takePending('phrase')
     if (id) reveal(id)
+  })
+  // 「返回」用：报上当前位置，返回时原样恢复
+  $effect(() => {
+    ui.reportView('phrasebook', {
+      kind: 'phrase',
+      lang: projectState.currentLanguageId,
+      id: selectedId,
+      category
+    })
+  })
+  $effect(() => {
+    const r = ui.takeRestore('phrasebook')
+    if (!r) return
+    const v: PageView = r.view ?? {}
+    selectedId = v.id ?? null
+    category = v.category ?? ''
+    ui.restoreScroll('phrasebook', r.scroll)
   })
   /** 从别处跳过来：清掉筛选、选中、滚过去闪一下 */
   let flashId = $state<Id | null>(null)
@@ -136,6 +196,32 @@
     }
     touch()
   }
+  /** 导出当前列表里的短语（跟着当前语言、分类与搜索走） */
+  async function exportPhrases(kind: 'csv' | 'json'): Promise<void> {
+    const base = `${language?.name ?? project.meta.name}-phrasebook`
+    if (kind === 'csv')
+      await platform.saveTextFile(`${base}.csv`, '\ufeff' + toCsv(phrasesToRows(list, glossLangs)))
+    else await platform.saveTextFile(`${base}.json`, phrasesToJson(list))
+  }
+  async function importPhrasesFromJson(): Promise<void> {
+    if (!langId) return
+    const [f] = await platform.readTextFiles({ multiple: false, extensions: ['json'] })
+    if (!f) return
+    const r = importPhrasesJson(project, langId, f.content)
+    if (!r) {
+      ui.error(t('io.badJson'))
+      return
+    }
+    touch()
+    ui.toast(t('io.imported', { n: r.created, skipped: r.skipped }))
+  }
+  function importPhraseTable(records: Record<string, string>[]): void {
+    if (!langId) return
+    const r = importPhraseRecords(project, langId, records)
+    importOpen = false
+    touch()
+    ui.toast(t('io.imported', { n: r.created, skipped: r.skipped }))
+  }
   async function renameCategory(): Promise<void> {
     if (!category) return
     const name = (await ui.prompt(t('phrasebook.category'), category))?.trim()
@@ -151,9 +237,27 @@
     <h1>{t('phrasebook.title')}</h1>
     <GuideLink section="phrasebook" />
     <span class="grow"></span>
+    {#if language}
+      <Menu label={t('lexicon.import')} icon={Upload}>
+        <button onclick={() => (importOpen = true)}>{t('io.importTable')}</button>
+        <button onclick={importPhrasesFromJson}>{t('io.importJson')}</button>
+      </Menu>
+      <Menu label={t('common.export')} icon={Download}>
+        <button onclick={() => exportPhrases('csv')}>{t('io.exportCsv')}</button>
+        <button onclick={() => exportPhrases('json')}>{t('io.exportJsonPlain')}</button>
+      </Menu>
+    {/if}
     <button class="btn primary" onclick={add}><Plus size={16} />{t('phrasebook.add')}</button>
   </div>
   <Hint id="phrasebook" text={t('phrasebook.hint')} />
+  {#if importOpen}
+    <TableImportDialog
+      title={t('io.importPhrases')}
+      fields={phraseFields(glossLangs)}
+      onimport={importPhraseTable}
+      onclose={() => (importOpen = false)}
+    />
+  {/if}
 
   {#if !language}
     <p class="muted">{t('lexicon.noLanguage')}</p>
@@ -174,7 +278,7 @@
         {/each}
         {#if categories.length === 0}<p class="tiny muted">{t('phrasebook.noCategories')}</p>{/if}
       </aside>
-      <div class="scroll">
+      <div class="scroll" use:navScroll={'phrasebook'}>
         {#if list.length === 0}
           <p class="muted">{t('phrasebook.empty')}</p>
         {:else}

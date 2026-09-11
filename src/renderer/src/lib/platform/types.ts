@@ -64,6 +64,10 @@ export interface Prefs {
   skippedVersion: string
   /** 词条卡里给构形推导出来的形式标一个齿轮 */
   showDerivedMark: boolean
+  /** 点「使用指南」时每次都先看图文引导（关着时每个模块只自动讲一次） */
+  guideTourAlways: boolean
+  /** 已经讲过图文引导的模块 */
+  seenTours: string[]
 }
 
 export interface CsvPreset {
@@ -74,6 +78,10 @@ export interface CsvPreset {
   tagSeparator: string
   splitProtoArrow: boolean
   splitSenses?: boolean
+  /** 义项前缀映射（每行 编码=标签） */
+  sensePrefixMap?: string
+  /** 方括号标记 → 处理方式（{ action, value }），读入时清洗 */
+  senseMarkers?: Record<string, unknown>
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -102,7 +110,9 @@ export const DEFAULT_PREFS: Prefs = {
   panelSizes: {},
   showDerivedMark: true,
   checkUpdates: true,
-  skippedVersion: ''
+  skippedVersion: '',
+  guideTourAlways: false,
+  seenTours: []
 }
 
 export interface UpdateInfo {

@@ -1,4 +1,9 @@
 <script lang="ts">
+  import SyntaxLink from '$lib/ui/SyntaxLink.svelte'
+  import { navScroll } from '$lib/ui/navScroll'
+  import type { PageView } from '$lib/state/ui.svelte'
+  import { matchQuery, parseQuery } from '$lib/core/query'
+  import { SEARCH_FIELDS } from '$lib/core/searchFields'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { i18n, t } from '$lib/i18n/index.svelte'
@@ -48,6 +53,25 @@
   type Tab = 'phonemes' | 'classes' | 'orthography' | 'syllable' | 'phonotactics'
   const TABS: Tab[] = ['phonemes', 'classes', 'orthography', 'syllable', 'phonotactics']
   let tab = $state<Tab>('phonemes')
+  // 「返回」用：报上当前位置，返回时原样恢复
+  $effect(() => {
+    ui.reportView('phonology', {
+      kind: 'phonology',
+      lang: projectState.currentLanguageId,
+      tab,
+      phoneme: selectedPhoneme,
+      ortho: selectedOrtho
+    })
+  })
+  $effect(() => {
+    const r = ui.takeRestore('phonology')
+    if (!r) return
+    const v: PageView = r.view ?? {}
+    if (v.tab) tab = v.tab as Tab
+    selectedPhoneme = v.phoneme ?? null
+    selectedOrtho = v.ortho ?? null
+    ui.restoreScroll('phonology', r.scroll)
+  })
   let selectedPhoneme = $state<Id | null>(null)
   let selectedOrtho = $state<Id | null>(null)
   let manualSymbol = $state('')
@@ -62,14 +86,20 @@
   )
   const inventory = $derived(new Set(lang?.phonemes.map((p) => p.symbol) ?? []))
   /** 顶栏搜索：音位按符号 / 特征 / 备注，音类按名称与成员 */
-  const q = $derived(ui.search.trim().toLowerCase())
+  const pq = $derived(parseQuery(ui.search, SEARCH_FIELDS.phonology))
   const phonemeHit = (p: (typeof lang.phonemes)[number]): boolean =>
-    !q ||
-    p.symbol.toLowerCase().includes(q) ||
-    p.notes.toLowerCase().includes(q) ||
-    Object.values(p.features).some((v) => (v ?? '').toLowerCase().includes(q))
+    matchQuery(pq, (f) => {
+      const feats = Object.values(p.features).map((v) => v ?? '')
+      if (f === 'symbol') return [p.symbol]
+      if (f === 'feature') return feats
+      if (f === 'note') return [p.notes]
+      if (f === 'class') return []
+      return [p.symbol, p.notes, ...feats]
+    })
   const classHit = (c: { name: string; members: string[] }): boolean =>
-    !q || c.name.toLowerCase().includes(q) || c.members.some((m) => m.toLowerCase().includes(q))
+    matchQuery(pq, (f) =>
+      f === 'symbol' ? c.members : f === 'class' || f === null ? [c.name, ...c.members] : []
+    )
   const dimensions = $derived([
     ...new Set(lang?.phonemes.flatMap((p) => Object.keys(p.features)) ?? [])
   ])
@@ -398,7 +428,7 @@
 <div class="page">
   <div class="page-head row">
     <h1>{t('nav.phonology')}</h1>
-    <GuideLink section="phonology" />
+    <GuideLink section="phonology" /><SyntaxLink anchor="places" />
     {#if lang}<span class="badge" style:background={lang.color} style:color="#fff">{lang.name}</span
       >{/if}
     <div class="seg">
@@ -414,7 +444,7 @@
   {#if !lang}
     <p class="muted">{t('lexicon.noLanguage')}</p>
   {:else if tab === 'phonemes'}
-    <div class="scroll">
+    <div class="scroll" use:navScroll={'phonology'}>
       <section class="block">
         <div class="row">
           <h3 class="grow">

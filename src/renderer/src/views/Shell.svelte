@@ -2,7 +2,7 @@
   import type { Component } from 'svelte'
   import { ui, SECTIONS, type Section } from '$lib/state/ui.svelte'
   import { projectState } from '$lib/state/project.svelte'
-  import { t } from '$lib/i18n/index.svelte'
+  import { i18n, t } from '$lib/i18n/index.svelte'
   import {
     Globe,
     AudioLines,
@@ -34,7 +34,11 @@
   import Docs from './Docs.svelte'
   import CommandPalette from '$lib/ui/CommandPalette.svelte'
   import PromptDialog from '$lib/ui/PromptDialog.svelte'
+  import GuideTour from '$lib/ui/GuideTour.svelte'
   import SearchBar from '$lib/ui/SearchBar.svelte'
+  import RuleSyntax from '$lib/ui/RuleSyntax.svelte'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
+  import { SEARCH_FIELDS } from '$lib/core/searchFields'
   import SentenceMergeDialog from '$lib/ui/SentenceMergeDialog.svelte'
   import { ensureScriptFont } from '$lib/script/fonts'
   import Languages from './Languages.svelte'
@@ -63,6 +67,11 @@
   }
 
   let inspectorTitle = $state('')
+  /** 检视器标题的额外样式（文字页显示字形时要换成那套文字的字体） */
+  let inspectorTitleStyle = $state('')
+  $effect(() => {
+    if (ui.section !== 'script') inspectorTitleStyle = ''
+  })
   /** 只横向溢出的区域（表格、链图）普通滚轮直接横向滚；既能竖滚又能横滚的区域，竖向到头后再横向滚 */
   function hwheel(node: HTMLElement): { destroy(): void } {
     const onWheel = (e: WheelEvent): void => {
@@ -148,6 +157,17 @@
     settings: 'settings.search'
   }
   const searchPlaceholder = $derived(SEARCHABLE[ui.section] ? t(SEARCHABLE[ui.section]!) : '')
+  /** 搜索框旁的「?」：通用写法 + 本页认得的字段名 */
+  const searchHelp = $derived.by(() => {
+    const zh = i18n.locale.startsWith('zh')
+    const fields = (SEARCH_FIELDS[ui.section] ?? [])
+      .map((f) => {
+        const name = zh ? f.aliases.find((a) => /[\u4e00-\u9fff]/.test(a)) : ''
+        return name ? `${f.key}（${name}）` : f.key
+      })
+      .join(zh ? '、' : ', ')
+    return fields ? `${t('search.help')}\n${t('search.fields', { fields })}` : t('search.help')
+  })
 </script>
 
 <div
@@ -241,6 +261,7 @@
       {/if}
       {#if searchPlaceholder}
         <SearchBar bind:value={ui.search} placeholder={searchPlaceholder} compact />
+        <HelpDot tip={searchHelp} />
       {/if}
     </div>
     <label class="row small muted">
@@ -299,7 +320,7 @@
       {:else if ui.section === 'soundChanges'}
         <SoundChanges bind:inspectorTitle />
       {:else if ui.section === 'script'}
-        <ScriptView bind:inspectorTitle />
+        <ScriptView bind:inspectorTitle bind:inspectorTitleStyle />
       {:else if ui.section === 'phonology'}
         <Phonology bind:inspectorTitle />
       {:else if ui.section === 'paradigms'}
@@ -331,14 +352,30 @@
       aria-orientation="vertical"
       onpointerdown={startDrag}
     ></div>
-    <div class="inspector-head">
-      <h3>{inspectorTitle || t('nav.inspector')}</h3>
+    <div class="inspector-head row">
+      {#if ui.syntaxOpen}
+        <h3 class="grow">{t('syntax.title')}</h3>
+        <button
+          class="btn ghost icon sm"
+          title={t('common.close')}
+          onclick={() => (ui.syntaxOpen = false)}><X size={14} /></button
+        >
+      {:else}
+        <h3 style={inspectorTitleStyle}>{inspectorTitle || t('nav.inspector')}</h3>
+      {/if}
     </div>
-    <div class="inspector-body" id="inspector-slot"></div>
+    <!-- 规则语法盖在检视器上面；原来的内容只是藏起来，关掉就回来 -->
+    <div class="inspector-body" id="inspector-slot" hidden={ui.syntaxOpen}></div>
+    {#if ui.syntaxOpen}
+      <div class="inspector-body">
+        <RuleSyntax anchor={ui.syntaxAnchor} />
+      </div>
+    {/if}
   </aside>
 </div>
 <CharPanel />
 <WordPopover />
+<GuideTour />
 <CommandPalette />
 <PromptDialog />
 <SentenceMergeDialog />

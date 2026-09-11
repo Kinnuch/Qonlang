@@ -12,13 +12,11 @@
     stem = $bindable(),
     steps = $bindable(),
     ruleSets,
-    stemNames = [],
     onchange
   }: {
     stem: string
     steps: MorphStep[]
     ruleSets: RuleSet[]
-    stemNames?: string[]
     onchange: () => void
   } = $props()
 
@@ -80,7 +78,7 @@
 </script>
 
 <div class="pipe">
-  <label class="step stem">
+  <label class="step stem" title={t('paradigms.stemHint')}>
     <span class="tag">{t('paradigms.stem')}</span>
     <input
       class="input data"
@@ -218,11 +216,6 @@
       </div>
     {/if}
   </div>
-  {#if stemNames.length}
-    <datalist id="dl-stems"
-      >{#each stemNames as n (n)}<option value={n}></option>{/each}</datalist
-    >
-  {/if}
 </div>
 
 <style>

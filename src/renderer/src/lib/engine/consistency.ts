@@ -172,7 +172,9 @@ export function checkConsistency(project: Project, languageId: Id | null): Issue
   }
   for (const p of project.paradigms) {
     const name = pick(p.name, langs) || '—'
+    // 作用于所有词的构形（词首音变这类）本来就不绑定词类
     if (
+      !p.appliesToAll &&
       !project.posList.some((x) => x.paradigmId === p.id) &&
       !project.lexemes.some((l) => l.paradigmId === p.id)
     )

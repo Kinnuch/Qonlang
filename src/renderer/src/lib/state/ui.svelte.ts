@@ -44,6 +44,20 @@ export interface Toast {
 
 let toastSeq = 0
 
+/** 页面报上来的当前位置：选中的对象（kind + id）、当前语言（lang），以及子页、视图、窗口这些，都是短字符串 */
+export type PageView = Record<string, string | null>
+
+/** 「返回」要回到的地方：页面、那一页的位置、列表滚到哪、搜索框里写着什么 */
+export interface NavEntry {
+  section: Section
+  view: PageView | null
+  scroll: number
+  search: string
+}
+
+const sameView = (a: PageView | null | undefined, b: PageView | null | undefined): boolean =>
+  JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+
 class UiState {
   section = $state<Section>('languages')
   /** 顶栏统一搜索框的内容；换页面时清空，各页面按自己的字段过滤 */
@@ -51,34 +65,128 @@ class UiState {
   /** 上一个页面（再次点击当前页的导航按钮时回到它） */
   previousSection = $state<Section | null>(null)
   inspectorOpen = $state(true)
+  /** 右侧检视器里正开着规则语法说明；syntaxAnchor 是要滚到的那一节 */
+  syntaxOpen = $state(false)
+  syntaxAnchor = $state('')
+  openSyntax(anchor = ''): void {
+    this.syntaxAnchor = anchor
+    this.syntaxOpen = true
+    this.inspectorOpen = true
+  }
 
-  /** 去过的页面（最多 50 条），供「返回」 */
-  navHistory = $state<Section[]>([])
+  /** 走过的位置（最多 100 步），供「返回」 */
+  navHistory = $state<NavEntry[]>([])
   canBack = $derived(this.navHistory.length > 0)
+  /** 各页面最近报上来的位置与滚动（不需要响应式） */
+  private views: Partial<Record<Section, PageView>> = {}
+  private scrolls: Partial<Record<Section, number>> = {}
+  /** 跳转、返回之后这一小会儿里，页面自己调整位置（选中目标、切语言）不另记一步 */
+  private quietUntil = 0
+  /** 由项目状态注册进来：读写当前语言、判断记下的对象还在不在（ui 不直接 import 项目状态） */
+  navAccess: {
+    getLanguage: () => string | null
+    setLanguage: (id: string | null) => void
+    exists: (kind: string, id: string) => boolean
+  } | null = null
+  /** 「返回」时交给页面恢复的位置 */
+  restoreReq = $state<{ section: Section; view: PageView | null; scroll: number } | null>(null)
+
   resetHistory(): void {
     this.navHistory = []
     this.previousSection = null
+    this.views = {}
+    this.scrolls = {}
+  }
+  private quiet(): void {
+    this.quietUntil = performance.now() + 700
+  }
+  private snapshot(): NavEntry {
+    return {
+      section: this.section,
+      view: this.views[this.section] ?? null,
+      scroll: this.scrolls[this.section] ?? 0,
+      search: this.search
+    }
+  }
+  private push(entry: NavEntry): void {
+    const last = this.navHistory[this.navHistory.length - 1]
+    if (last && last.section === entry.section && sameView(last.view, entry.view)) return
+    this.navHistory = [...this.navHistory.slice(-99), entry]
+  }
+  /**
+   * 页面报位置：选中了别的对象、切了子页、打开了关系图、换了语言……跟上一次不一样，就把上一次记成一步。
+   * 跳转、返回之后页面自己调整的那一下不记。
+   */
+  reportView(section: Section, view: PageView): void {
+    const prev = this.views[section]
+    this.views[section] = view
+    if (section !== this.section || !prev || sameView(prev, view)) return
+    if (performance.now() < this.quietUntil) return
+    this.push({ section, view: prev, scroll: this.scrolls[section] ?? 0, search: this.search })
+  }
+  /** 主列表滚到哪（navScroll 动作报上来） */
+  noteScroll(section: Section, top: number): void {
+    this.scrolls[section] = top
   }
   back(): void {
-    const prev = this.navHistory.pop()
-    if (!prev) return
-    this.search = ''
-    this.navHistory = [...this.navHistory]
-    this.previousSection = this.section
-    this.section = prev
+    while (this.navHistory.length) {
+      const prev = this.navHistory[this.navHistory.length - 1]
+      this.navHistory = this.navHistory.slice(0, -1)
+      const v = prev.view
+      // 指向已经删掉的东西的那一步直接跳过
+      if (v?.kind && v.id && this.navAccess && !this.navAccess.exists(v.kind, v.id)) continue
+      this.quiet()
+      // 先换回当时的语言（那门语言删了就不换）：别的语言的列表里找不到原来那条
+      const lang = v && 'lang' in v ? v.lang : undefined
+      if (
+        this.navAccess &&
+        lang !== undefined &&
+        lang !== this.navAccess.getLanguage() &&
+        (lang === null || this.navAccess.exists('language', lang))
+      )
+        this.navAccess.setLanguage(lang)
+      this.search = prev.search
+      this.restoreReq = { section: prev.section, view: v, scroll: prev.scroll }
+      if (prev.section !== this.section) {
+        this.previousSection = this.section
+        this.section = prev.section
+      }
+      return
+    }
+  }
+  takeRestore(section: Section): { view: PageView | null; scroll: number } | null {
+    const r = this.restoreReq
+    if (!r || r.section !== section) return null
+    this.restoreReq = null
+    return r
+  }
+  /** 恢复主列表的滚动：列表可能还在渲染，多试几帧 */
+  restoreScroll(section: Section, top: number): void {
+    let tries = 12
+    const apply = (): void => {
+      const el = document.querySelector<HTMLElement>(`[data-nav-scroll="${section}"]`)
+      if (el) el.scrollTop = top
+      if ((!el || Math.abs(el.scrollTop - top) > 2) && tries-- > 0) requestAnimationFrame(apply)
+    }
+    requestAnimationFrame(apply)
   }
   go(s: Section): void {
-    if (s !== this.section) this.search = ''
     if (s === this.section) {
+      // 再点一次当前页的导航按钮：回到上一个页面
       if (this.previousSection && this.previousSection !== s) {
+        this.push(this.snapshot())
+        this.quiet()
         const back = this.previousSection
         this.previousSection = s
+        this.search = ''
         this.section = back
       }
       return
     }
+    this.push(this.snapshot())
+    this.quiet()
+    this.search = ''
     this.previousSection = this.section
-    this.navHistory = [...this.navHistory.slice(-49), this.section]
     this.section = s
   }
   /** 新建项目后要自动打开的导入向导 */
@@ -107,11 +215,22 @@ class UiState {
       this.mergeReq = { pairs, resolve }
     })
   }
-  /** 跳到某页并选中某对象 */
-  jump(section: Section, kind: string, id: string): void {
+  /**
+   * 跳到某页并选中某对象。languageId：目标在哪门语言——先记下原来的位置再切语言，
+   * 「返回」才回得到原来那门语言。
+   */
+  jump(section: Section, kind: string, id: string, languageId?: string | null): void {
+    this.push(this.snapshot())
+    this.quiet()
+    if (languageId !== undefined && this.navAccess && languageId !== this.navAccess.getLanguage())
+      this.navAccess.setLanguage(languageId)
     if (kind === 'lexeme') this.pendingLexemeId = id
     else this.pendingSelect = { kind, id }
-    if (this.section !== section) this.go(section)
+    if (this.section !== section) {
+      this.search = ''
+      this.previousSection = this.section
+      this.section = section
+    }
   }
   takePending(kind: string): string | null {
     if (this.pendingSelect?.kind !== kind) return null
@@ -146,6 +265,8 @@ class UiState {
     this.prefs.showDerivedMark ??= true
     this.prefs.checkUpdates ??= true
     this.prefs.skippedVersion ??= ''
+    this.prefs.guideTourAlways ??= false
+    if (!Array.isArray(this.prefs.seenTours)) this.prefs.seenTours = []
     i18n.locale = this.prefs.locale as LocaleCode
     this.prefsLoaded = true
     this.applyTheme()

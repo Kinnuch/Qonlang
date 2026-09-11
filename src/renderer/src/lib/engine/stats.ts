@@ -2,6 +2,7 @@
  * 统计面板的纯函数：词库 / 语素 / 语料各一份。
  * 只算数，不管怎么画；标签文字由界面按 key 翻译。
  */
+import { affixTexts, parseAffixRef } from './morph'
 import type { Id, Lexeme, Morpheme, Project, Sentence } from '$lib/core/model'
 import { ETYMOLOGY_TYPES } from '$lib/core/model'
 
@@ -214,19 +215,18 @@ export function morphemeStats(project: Project, languageId: Id | null): Morpheme
   const inEty = new Set<Id>()
   for (const l of [...project.lexemes, ...project.morphemes])
     for (const s of l.etymology.sources) if (s.kind === 'morpheme') inEty.add(s.id)
-  // 构形生成器里以 @形式 / @gloss 引用的语素
+  // 构形生成器里以 @形式 / @gloss 引用的语素：与推导用同一个解析（前后可以带中点、空格）
   const inPara = new Set<Id>()
-  const refs = new Set<string>()
+  const langs = languageId ? [languageId] : project.languages.map((l) => l.id)
   for (const p of project.paradigms)
-    for (const g of Object.values(p.generators)) {
-      const text = JSON.stringify(g)
-      for (const m of text.matchAll(/@([^\s"',)}\]]+)/g))
-        refs.add(m[1].replace(/^[-=]+|[-=]+$/g, '').toLowerCase())
-    }
-  for (const m of morphemes) {
-    const f = m.form.replace(/^[-=]+|[-=]+$/g, '').toLowerCase()
-    if (refs.has(f) || (m.gloss && refs.has(m.gloss.toLowerCase()))) inPara.add(m.id)
-  }
+    for (const g of Object.values(p.generators))
+      for (const text of affixTexts(g)) {
+        if (!text?.includes('@')) continue
+        for (const lid of langs) {
+          const r = parseAffixRef(text, project.morphemes, lid)
+          if (r?.morpheme) inPara.add(r.morpheme.id)
+        }
+      }
   const formCount = new Map<string, number>()
   for (const m of morphemes) {
     const k = `${m.type}:${m.form.trim().toLowerCase()}`

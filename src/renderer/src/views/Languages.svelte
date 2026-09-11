@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { matchQuery, parseQuery } from '$lib/core/query'
+  import { SEARCH_FIELDS } from '$lib/core/searchFields'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t } from '$lib/i18n/index.svelte'
@@ -25,11 +27,19 @@
   const children = $derived(languageChildren(project.languages))
   /** 顶栏搜索：命中的语言与它们的祖先；没搜索时为 null（全显示） */
   const visible = $derived.by((): Set<Id> | null => {
-    const q = ui.search.trim().toLowerCase()
-    if (!q) return null
+    const pq = parseQuery(ui.search, SEARCH_FIELDS.languages)
+    if (!pq.terms.length) return null
     const byId = new Map(project.languages.map((l) => [l.id, l]))
     const hit = (l: (typeof project.languages)[number]): boolean =>
-      [l.name, l.abbr, l.notes].some((x) => (x ?? '').toLowerCase().includes(q))
+      matchQuery(pq, (f) =>
+        f === 'name'
+          ? [l.name]
+          : f === 'abbr'
+            ? [l.abbr]
+            : f === 'note'
+              ? [l.notes ?? '']
+              : [l.name, l.abbr, l.notes ?? '']
+      )
     const out = new Set<Id>()
     for (const l of project.languages) {
       if (!hit(l)) continue
@@ -55,6 +65,18 @@
   $effect(() => {
     const id = ui.takePending('language')
     if (id) selectedId = id
+  })
+  // 「返回」用：报上当前位置，返回时原样恢复
+  $effect(() => {
+    ui.reportView('languages', {
+      kind: 'language',
+      lang: projectState.currentLanguageId,
+      id: selectedId
+    })
+  })
+  $effect(() => {
+    const r = ui.takeRestore('languages')
+    if (r?.view?.id) selectedId = r.view.id
   })
 
   function counts(l: Language): string {
@@ -215,6 +237,17 @@
         }}
       />
       <span class="hint">{t('languages.alphabetHint')}</span>
+    </div>
+    <div class="field">
+      <label for="lang-ignore">{t('languages.matchIgnore')}</label>
+      <input
+        id="lang-ignore"
+        class="input data"
+        placeholder=". 1 2 3"
+        bind:value={lang.matchIgnore}
+        oninput={() => projectState.touch()}
+      />
+      <span class="hint">{t('languages.matchIgnoreHint')}</span>
     </div>
     <div class="field">
       <div class="row">

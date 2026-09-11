@@ -36,19 +36,26 @@ function reverseText(s: string): string {
   return Array.from(s).reverse().join('')
 }
 
-function substitute(rule: ParsedRule, match: string, groups: string[]): string {
+function substitute(
+  rule: ParsedRule,
+  match: string,
+  groups: string[],
+  named: Record<string, string> | undefined,
+  offset: number
+): string {
   if (rule.replacement === '\\') return reverseText(match)
   if (rule.replacement === '2') return match + match
   if (rule.replacement === '') return ''
   let pos = 0
   if (rule.targetClass) {
-    const captured = groups[rule.targetGroup - 1] ?? ''
+    const captured = groups[offset + rule.targetGroup - 1] ?? ''
     pos = rule.targetClass.members.indexOf(captured)
     if (pos < 0) pos = 9999
   }
   let out = ''
   for (const part of rule.replacementParts) {
     if (part.kind === 'text') out += part.text
+    else if (part.kind === 'ref') out += named?.['n' + part.name] ?? ''
     else out += part.ref.members[pos] ?? ''
   }
   return out
@@ -56,7 +63,7 @@ function substitute(rule: ParsedRule, match: string, groups: string[]): string {
 
 function applyRule(rule: ParsedRule, input: string): string {
   let current = input
-  for (const { main, exclude } of rule.compiled) {
+  for (const { main, exclude, offset: groupOffset } of rule.compiled) {
     let ranges: [number, number][] = []
     if (exclude) {
       exclude.lastIndex = 0
@@ -73,11 +80,15 @@ function applyRule(rule: ParsedRule, input: string): string {
       if (typeof args[args.length - 1] === 'object') offsetIdx = args.length - 3
       const offset = args[offsetIdx] as number
       const groups = args.slice(1, offsetIdx) as string[]
+      const named =
+        typeof args[args.length - 1] === 'object'
+          ? (args[args.length - 1] as Record<string, string>)
+          : undefined
       if (ranges.length) {
         const end = offset + match.length
         for (const [s, e] of ranges) if (offset >= s && end <= e) return match
       }
-      return substitute(rule, match, groups)
+      return substitute(rule, match, groups, named, groupOffset)
     })
   }
   return current

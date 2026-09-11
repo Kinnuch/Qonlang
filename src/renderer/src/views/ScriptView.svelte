@@ -1,13 +1,24 @@
 <script lang="ts">
+  import SyntaxLink from '$lib/ui/SyntaxLink.svelte'
+  import { navScroll } from '$lib/ui/navScroll'
+  import type { PageView } from '$lib/state/ui.svelte'
+  import { matchQuery, parseQuery } from '$lib/core/query'
+  import { SEARCH_FIELDS } from '$lib/core/searchFields'
   /** 文字：字形表 / 映射规则 / 预览；字体导入与内嵌；检视器编辑字形或文字属性并试写。 */
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { platform } from '$lib/platform'
   import { createScript, newId } from '$lib/core/factory'
-  import type { Glyph, Script, ScriptPacking, ScriptType } from '$lib/core/model'
+  import type { Glyph, Script, ScriptPacking, ScriptType, ParenMode } from '$lib/core/model'
   import { parseFont, guessCategory } from '$lib/script/fontParse'
-  import { ensureScriptFont, fontCss, fontDataUrl, base64ToBuffer } from '$lib/script/fonts'
+  import {
+    ensureScriptFont,
+    fontCss,
+    fontDataUrl,
+    base64ToBuffer,
+    fontFamilyCss
+  } from '$lib/script/fonts'
   import { autoMappingLines, expandRules, renderScript } from '$lib/script/render'
   import { parseRuleText, runRules, type RuleProgram } from '$lib/engine/sca'
   import { languageParseOptions } from '$lib/engine/phon'
@@ -30,7 +41,10 @@
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
 
-  let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
+  let {
+    inspectorTitle = $bindable(''),
+    inspectorTitleStyle = $bindable('')
+  }: { inspectorTitle?: string; inspectorTitleStyle?: string } = $props()
 
   const project = $derived(projectState.project!)
   const glossLangs = $derived(project.settings.glossLanguages)
@@ -68,6 +82,34 @@
   let tab = $state<Tab>('glyphs')
   let selectedScript = $state<string | null>(null)
   let selectedGlyph = $state<string | null>(null)
+  // 从一致性检查跳过来：选中那套文字
+  $effect(() => {
+    const id = ui.takePending('script')
+    if (!id) return
+    // 可能是别的语言的文字：先切到那门语言
+    const owner = project.languages.find((l) => l.scripts.some((sc) => sc.id === id))
+    if (owner && owner.id !== lang?.id) projectState.currentLanguageId = owner.id
+    selectedScript = id
+  })
+  // 「返回」用：报上当前位置，返回时原样恢复
+  $effect(() => {
+    ui.reportView('script', {
+      kind: 'script',
+      lang: projectState.currentLanguageId,
+      id: selectedScript,
+      tab,
+      glyph: selectedGlyph
+    })
+  })
+  $effect(() => {
+    const r = ui.takeRestore('script')
+    if (!r) return
+    const v: PageView = r.view ?? {}
+    selectedScript = v.id ?? null
+    if (v.tab === 'glyphs' || v.tab === 'rules' || v.tab === 'preview') tab = v.tab
+    selectedGlyph = v.glyph ?? null
+    ui.restoreScroll('script', r.scroll)
+  })
   /** Ctrl / Shift 多选出来的字形 */
   let multiGlyphs = $state<string[]>([])
   let lastGlyphIndex = $state(-1)
@@ -91,15 +133,21 @@
     ]
   })
   const shownGlyphs = $derived.by(() => {
-    const q = ui.search.trim().toLowerCase()
+    const pq = parseQuery(ui.search, SEARCH_FIELDS.script)
     return (script?.glyphs ?? []).filter(
       (g) =>
         (!catFilter || g.category === catFilter) &&
-        (!q ||
-          g.char.toLowerCase().includes(q) ||
-          g.name.toLowerCase().includes(q) ||
-          g.value.toLowerCase().includes(q) ||
-          g.category.toLowerCase().includes(q))
+        matchQuery(pq, (f) =>
+          f === 'char'
+            ? [g.char]
+            : f === 'value'
+              ? [g.value]
+              : f === 'name'
+                ? [g.name]
+                : f === 'category'
+                  ? [g.category]
+                  : [g.char, g.name, g.value, g.category]
+        )
     )
   })
   const catLabel = (c: string): string =>
@@ -108,6 +156,8 @@
   $effect(() => {
     inspectorTitle =
       glyph && tab === 'glyphs' ? glyph.char : script ? script.name : t('script.title')
+    // 标题显示的是字形本身时，用这套文字的字体，否则会是方框
+    inspectorTitleStyle = glyph && tab === 'glyphs' && script ? fontFamilyCss(script) : ''
   })
   $effect(() => {
     if (script) ensureScriptFont(script)
@@ -347,34 +397,32 @@
 </script>
 
 <div class="page">
-  <div class="page-head row">
+  <div class="page-head row tabbed">
     <h1>{t('script.title')}</h1>
-    <GuideLink section="script" />
+    <GuideLink section="script" /><SyntaxLink anchor="places" />
     {#if lang}<span class="badge" style:background={lang.color} style:color="#fff">{lang.name}</span
       >{/if}
-    {#if lang}
-      <div class="row wrap chips">
-        {#each lang.scripts as s (s.id)}
-          <button
-            class="chip big"
-            class:active={script?.id === s.id}
-            onclick={() => {
-              selectedScript = s.id
-              selectedGlyph = null
-            }}>{s.name}</button
-          >
-        {/each}
-        <button class="btn ghost sm" onclick={addScript}><Plus size={14} />{t('script.add')}</button
-        >
-      </div>
-    {/if}
-    <span class="grow"></span>
     {#if script}
       <div class="seg">
         {#each TABS as tb (tb)}<button class:active={tab === tb} onclick={() => (tab = tb)}
             >{t(`script.tabs.${tb}`)}</button
           >{/each}
       </div>
+    {/if}
+    <div class="booktabs grow">
+      {#each lang?.scripts ?? [] as s (s.id)}
+        <button
+          class="tab"
+          class:active={script?.id === s.id}
+          onclick={() => {
+            selectedScript = s.id
+            selectedGlyph = null
+          }}>{s.name}</button
+        >
+      {/each}
+    </div>
+    {#if lang}
+      <button class="btn primary" onclick={addScript}><Plus size={16} />{t('script.add')}</button>
     {/if}
   </div>
   <Hint id="script" text={t('script.hint')} />
@@ -384,7 +432,7 @@
   {:else if !script}
     <p class="muted">{t('script.empty')}</p>
   {:else if tab === 'glyphs'}
-    <div class="scroll">
+    <div class="scroll" use:navScroll={'script'}>
       <div class="row wrap tools">
         <button class="btn sm" onclick={() => importFont(true)}
           ><FileType size={14} />{t('script.importFromFont')}</button
@@ -633,6 +681,7 @@
         <label for="g-char">{t('script.char')}</label><input
           id="g-char"
           class="input data"
+          style={fontFamilyCss(sc)}
           bind:value={g.char}
           oninput={touch}
         />
@@ -708,6 +757,23 @@
         <span>{t('script.vertical')}</span>
         <HelpDot tip={t('script.verticalHint')} />
       </label>
+      <div class="field">
+        <label for="s-parens">{t('script.parens')}</label>
+        <select
+          id="s-parens"
+          class="select"
+          value={sc.parens ?? 'keep'}
+          onchange={(e) => {
+            sc.parens = (e.currentTarget as HTMLSelectElement).value as ParenMode
+            touch()
+          }}
+        >
+          {#each ['keep', 'include', 'omit'] as pm (pm)}
+            <option value={pm}>{t(`script.parensModes.${pm}`)}</option>
+          {/each}
+        </select>
+        <span class="small muted">{t('script.parensHint')}</span>
+      </div>
       <div class="field">
         <span class="small muted">{t('script.font')}</span>
         <input
@@ -803,9 +869,6 @@
     gap: 10px;
     flex-wrap: wrap;
   }
-  .chips {
-    gap: 6px;
-  }
   .chip {
     padding: 2px 10px;
     border-radius: 999px;
@@ -814,10 +877,6 @@
     font-size: 13px;
     cursor: pointer;
     color: var(--text-2);
-  }
-  .chip.big {
-    padding: 4px 12px;
-    font-size: 14px;
   }
   .chip.active {
     border-color: var(--accent);

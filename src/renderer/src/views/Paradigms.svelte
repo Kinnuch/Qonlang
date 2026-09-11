@@ -1,4 +1,8 @@
 <script lang="ts">
+  import SyntaxLink from '$lib/ui/SyntaxLink.svelte'
+  import type { PageView } from '$lib/state/ui.svelte'
+  import { matchQuery, parseQuery } from '$lib/core/query'
+  import { SEARCH_FIELDS } from '$lib/core/searchFields'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
@@ -62,6 +66,23 @@
     const id = ui.takePending('paradigm')
     if (id) activeId = id
   })
+  // 「返回」用：报上当前位置，返回时原样恢复
+  $effect(() => {
+    ui.reportView('paradigms', {
+      kind: 'paradigm',
+      lang: projectState.currentLanguageId,
+      id: activeId,
+      view
+    })
+  })
+  $effect(() => {
+    const r = ui.takeRestore('paradigms')
+    if (!r) return
+    const v: PageView = r.view ?? {}
+    if (v.id) activeId = v.id
+    // 一致性检查的结果不跟着页面留下来：没有结果就回到槽位表
+    view = v.view === 'report' && report ? 'report' : 'slots'
+  })
   $effect(() => {
     if (active && activeId !== active.id) activeId = active.id
   })
@@ -94,26 +115,37 @@
   )
   /** 顶栏搜索：按槽位名或 gloss 缩写筛（推导与检查仍然跑全部槽位） */
   const slots = $derived.by(() => {
-    const q = ui.search.trim().toLowerCase()
-    if (!q) return allSlots
-    return allSlots.filter(
-      (s) => s.label.toLowerCase().includes(q) || s.abbr.toLowerCase().includes(q)
+    const pq = parseQuery(ui.search, SEARCH_FIELDS.paradigms)
+    if (!pq.terms.length) return allSlots
+    return allSlots.filter((s) =>
+      matchQuery(pq, (f) =>
+        f === 'slot' ? [s.label] : f === 'gloss' ? [s.abbr] : [s.label, s.abbr]
+      )
     )
   })
   const boundPos = $derived(active ? project.posList.filter((p) => p.paradigmId === active.id) : [])
   /** 绑定词类的全部词位；当前语言的排在前面 */
   const boundLexemes = $derived(
     project.lexemes
-      .filter((l) => boundPos.some((p) => p.id === l.posId))
+      // 作用于所有词的构形：测试台列出当前语言的全部词
+      .filter((l) =>
+        active?.appliesToAll
+          ? !language || l.languageId === language.id
+          : boundPos.some((p) => p.id === l.posId)
+      )
       .sort(
         (a, b) =>
           (language && a.languageId === language.id ? 0 : 1) -
           (language && b.languageId === language.id ? 0 : 1)
       )
   )
-  const stemNames = $derived(
-    [...new Set(project.lexemes.flatMap((l) => Object.keys(l.stems)))].sort()
-  )
+  /** 词干候选：绑定词类里定义的词干槽在前，再补上词条里实际填过的 */
+  const stemNames = $derived([
+    ...new Set([
+      ...boundPos.flatMap((p) => (p.stemSlots ?? []).map((st) => st.name.trim())).filter(Boolean),
+      ...[...new Set(project.lexemes.flatMap((l) => Object.keys(l.stems)))].sort()
+    ])
+  ])
   /** 每门语言一个推导上下文（音类、多合字母、音节核、规则集缓存） */
   const ctxCache = new Map<Id, ReturnType<typeof makeContext>>()
   function ctxFor(languageId: Id): ReturnType<typeof makeContext> | null {
@@ -352,7 +384,8 @@
     const merged = new Map<string, SlotReport>()
     const jobs: { ctx: ReturnType<typeof makeContext>; ls: typeof boundLexemes; slot: SlotDef }[] =
       []
-    for (const [lid, ls] of byLang) {
+    // 作用于所有词的构形不往词条里写形式，没有可比对的；只跑项目一致性
+    for (const [lid, ls] of para.appliesToAll ? [] : byLang) {
       const ctx = ctxFor(lid)
       if (!ctx) continue
       for (const slot of allSlots) jobs.push({ ctx, ls, slot })
@@ -388,10 +421,10 @@
 </script>
 
 <div class="page">
-  <div class="page-head row">
+  <div class="page-head row tabbed">
     <h1>{t('paradigms.title')}</h1>
-    <GuideLink section="paradigms" />
-    <div class="tabs grow">
+    <GuideLink section="paradigms" /><SyntaxLink anchor="adjust" />
+    <div class="booktabs grow">
       {#each project.paradigms as p (p.id)}
         <button
           class="tab"
@@ -616,7 +649,6 @@
                         bind:stem={g.stem}
                         bind:steps={g.steps}
                         ruleSets={project.ruleSets}
-                        {stemNames}
                         onchange={touch}
                       />
                     {:else if g.kind === 'table'}
@@ -646,25 +678,62 @@
       <span class="small muted">{t('common.name')}</span>
       <LocalizedInput bind:value={p.name} languages={glossLangs} onchange={touch} />
     </div>
-    <div class="field">
-      <span class="small muted">{t('paradigms.bindPos')}</span>
-      {#each project.posList as pos (pos.id)}
-        <label class="row check"
-          ><input
-            type="checkbox"
-            checked={pos.paradigmId === p.id}
-            onchange={(e) => bindPos(pos.id, (e.currentTarget as HTMLInputElement).checked)}
-          />{pickText(pos.name, glossLangs) ||
-            pos.abbr}{#if pos.paradigmId && pos.paradigmId !== p.id}<span class="small muted"
-              >({pickText(
-                project.paradigms.find((x) => x.id === pos.paradigmId)?.name ?? {},
-                glossLangs
-              )})</span
-            >{/if}</label
+    {#if !p.appliesToAll}
+      <div class="field">
+        <span class="small muted">{t('paradigms.bindPos')}</span>
+        {#each project.posList as pos (pos.id)}
+          <label class="row check"
+            ><input
+              type="checkbox"
+              checked={pos.paradigmId === p.id}
+              onchange={(e) => bindPos(pos.id, (e.currentTarget as HTMLInputElement).checked)}
+            />{pickText(pos.name, glossLangs) ||
+              pos.abbr}{#if pos.paradigmId && pos.paradigmId !== p.id}<span class="small muted"
+                >({pickText(
+                  project.paradigms.find((x) => x.id === pos.paradigmId)?.name ?? {},
+                  glossLangs
+                )})</span
+              >{/if}</label
+          >
+        {/each}
+        {#if project.posList.length === 0}<span class="small muted">{t('taxonomy.pos')}: 0</span
+          >{/if}
+      </div>
+    {/if}
+    <label class="row check">
+      <input
+        type="checkbox"
+        checked={!!p.appliesToAll}
+        onchange={(e) => {
+          const on = (e.currentTarget as HTMLInputElement).checked
+          p.appliesToAll = on || undefined
+          // 作用于所有词的构形不绑定词类，也不给单个词条指名
+          if (on) {
+            for (const pos of project.posList) if (pos.paradigmId === p.id) pos.paradigmId = null
+            for (const l of project.lexemes) if (l.paradigmId === p.id) l.paradigmId = null
+          }
+          touch()
+        }}
+      />
+      {t('paradigms.appliesToAll')}<HelpDot tip={t('paradigms.appliesToAllHint')} />
+    </label>
+    {#if p.appliesToAll}
+      <div class="field">
+        <label for="pd-scope">{t('paradigms.appliesToLanguage')}</label>
+        <select
+          id="pd-scope"
+          class="select"
+          value={p.appliesToLanguageId ?? ''}
+          onchange={(e) => {
+            p.appliesToLanguageId = (e.currentTarget as HTMLSelectElement).value || null
+            touch()
+          }}
         >
-      {/each}
-      {#if project.posList.length === 0}<span class="small muted">{t('taxonomy.pos')}: 0</span>{/if}
-    </div>
+          <option value="">{t('topbar.allLanguages')}</option>
+          {#each project.languages as lg (lg.id)}<option value={lg.id}>{lg.name}</option>{/each}
+        </select>
+      </div>
+    {/if}
     <div class="field">
       <label for="pd-inh">{t('paradigms.inheritsFrom')}</label>
       <select
@@ -736,18 +805,22 @@
             {/each}
           </tbody>
         </table>
-        <div class="row">
-          <button class="btn sm" onclick={deriveOne}
-            ><Play size={14} />{t('paradigms.deriveOne')}</button
-          >
-        </div>
+        {#if !p.appliesToAll}
+          <div class="row">
+            <button class="btn sm" onclick={deriveOne}
+              ><Play size={14} />{t('paradigms.deriveOne')}</button
+            >
+          </div>
+        {/if}
       {/if}
     </div>
-    <div class="row wrap">
-      <button class="btn sm" disabled={!boundLexemes.length} onclick={deriveAllBound}
-        ><Play size={14} />{t('paradigms.deriveAll', { n: boundLexemes.length })}</button
-      >
-    </div>
+    {#if !p.appliesToAll}
+      <div class="row wrap">
+        <button class="btn sm" disabled={!boundLexemes.length} onclick={deriveAllBound}
+          ><Play size={14} />{t('paradigms.deriveAll', { n: boundLexemes.length })}</button
+        >
+      </div>
+    {/if}
     <button class="btn sm danger" onclick={() => removeParadigm(p)}
       ><Trash2 size={14} />{t('common.delete')}</button
     >
@@ -812,33 +885,6 @@
   }
   .page-head {
     gap: 12px;
-  }
-  .tabs {
-    display: flex;
-    gap: 4px;
-    overflow-x: auto;
-    /* grow 项默认 min-width:auto，构形一多就把右边的按钮挤出去 */
-    min-width: 0;
-    scrollbar-width: thin;
-  }
-  .tabs .tab {
-    flex: none;
-  }
-  .tab {
-    border: 1px solid transparent;
-    background: transparent;
-    padding: 4px 10px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    color: var(--text-2);
-    white-space: nowrap;
-  }
-  .tab:hover {
-    background: var(--bg-hover);
-  }
-  .tab.active {
-    background: var(--accent-soft);
-    color: var(--accent-text);
   }
   .scroll {
     flex: 1;

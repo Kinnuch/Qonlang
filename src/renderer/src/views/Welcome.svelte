@@ -1,4 +1,5 @@
 <script lang="ts">
+  import RuleSyntax from '$lib/ui/RuleSyntax.svelte'
   import { onMount } from 'svelte'
   import { platform, type RecentEntry } from '$lib/platform'
   import { projectState } from '$lib/state/project.svelte'
@@ -21,13 +22,16 @@
     Link2,
     ExternalLink,
     BookOpen,
-    Sparkles
+    Sparkles,
+    HeartHandshake,
+    BookText
   } from '@lucide/svelte'
   import changelogRaw from '../../../../CHANGELOG.md?raw'
   import wechatQr from '../assets/img/wechat-qr.png'
   import iconGilatod from '../assets/friends/gilatod.png'
   import iconKikomas from '../assets/friends/kikomas.png'
   import iconCathamos from '../assets/friends/cathamos.png'
+  import iconScarps from '../assets/credits/scarps.png'
 
   const WIKI_URL = 'https://wiki.gilatod.art'
   const DEV = {
@@ -54,7 +58,28 @@
     },
     { name: 'Sicusa', url: 'https://github.com/sicusa', icon: null, blurb: 'GitHub 主页。' }
   ]
-  let footerPanel = $state<'examples' | 'coffee' | 'changelog' | 'dev' | 'friends' | null>(null)
+  /** 致谢：名字原样写，不跟着界面语言翻译 */
+  const CREDITS: {
+    role: 'pixelArt' | 'sponsors' | 'testing' | 'other'
+    names: { name: string; icon?: string }[]
+  }[] = [
+    { role: 'pixelArt', names: [{ name: 'scarps', icon: iconScarps }] },
+    { role: 'sponsors', names: [{ name: 'Kikomas' }, { name: 'Cathamos' }] },
+    {
+      role: 'testing',
+      names: [
+        { name: 'Cathamos' },
+        { name: 'Kikomas' },
+        { name: '呼延' },
+        { name: '小熊' },
+        { name: '夏穆' }
+      ]
+    },
+    { role: 'other', names: [{ name: '老婆大人' }] }
+  ]
+  let footerPanel = $state<
+    'examples' | 'coffee' | 'changelog' | 'dev' | 'friends' | 'credits' | 'syntax' | null
+  >(null)
 
   /**
    * 示例工程：随软件一起带的两个虚构项目，覆盖各模块的功能。
@@ -360,6 +385,18 @@
           onclick={() => (footerPanel = footerPanel === 'friends' ? null : 'friends')}
           ><Link2 size={16} />{t('welcome.friends')}</button
         >
+        <button
+          class="btn"
+          class:active={footerPanel === 'credits'}
+          onclick={() => (footerPanel = footerPanel === 'credits' ? null : 'credits')}
+          ><HeartHandshake size={16} />{t('welcome.credits')}</button
+        >
+        <button
+          class="btn"
+          class:active={footerPanel === 'syntax'}
+          onclick={() => (footerPanel = footerPanel === 'syntax' ? null : 'syntax')}
+          ><BookText size={16} />{t('welcome.syntax')}</button
+        >
       </div>
     </div>
   </main>
@@ -421,6 +458,25 @@
               </button>
             {/each}
           </div>
+        {:else if footerPanel === 'syntax'}
+          <RuleSyntax />
+        {:else if footerPanel === 'credits'}
+          <div class="card panel credits">
+            {#each CREDITS as c (c.role)}
+              <div class="credit">
+                <span class="small muted">{t(`welcome.creditRoles.${c.role}`)}</span>
+                <div class="names">
+                  {#each c.names as n (n.name)}
+                    <span class="credit-name"
+                      >{#if n.icon}<img class="pixel" src={n.icon} alt={n.name} />{/if}<strong
+                        >{n.name}</strong
+                      ></span
+                    >
+                  {/each}
+                </div>
+              </div>
+            {/each}
+          </div>
         {/if}
       </div>
     </aside>
@@ -442,6 +498,34 @@
   }
   .example p {
     margin: 0;
+  }
+  .credits {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 12px 14px;
+  }
+  .credit {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .credit .names {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+  }
+  .credit-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  /* 像素画按整数倍放大，不要糊 */
+  .pixel {
+    width: 98px;
+    height: 116px;
+    image-rendering: pixelated;
   }
   .side-panel {
     /* 与检视器同宽，但窗口窄时让主区留得住 */

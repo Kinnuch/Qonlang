@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { matchQuery, parseQuery } from '$lib/core/query'
+  import { SEARCH_FIELDS } from '$lib/core/searchFields'
   /** 皮肤：预设 / 颜色 / 字体 / 字体库；检视器里是实时预览。 */
   import { ui } from '$lib/state/ui.svelte'
   import { projectState } from '$lib/state/project.svelte'
@@ -40,15 +42,16 @@
   const zh = $derived(i18n.locale === 'zh')
   const SLOTS: FontSlot[] = ['ui', 'data', 'mono', 'corpusText', 'corpusTr', 'gloss', 'script']
   /** 顶栏搜索：字体按名称、说明、标签筛 */
-  const fontQuery = $derived(ui.search.trim().toLowerCase())
+  const fontQuery = $derived(parseQuery(ui.search, SEARCH_FIELDS.skin))
   const catalogShown = $derived(
-    FONT_CATALOG.filter(
-      (f) =>
-        !fontQuery ||
-        f.family.toLowerCase().includes(fontQuery) ||
-        f.desc.zh.toLowerCase().includes(fontQuery) ||
-        f.desc.en.toLowerCase().includes(fontQuery) ||
-        f.tags.some((x) => x.toLowerCase().includes(fontQuery))
+    FONT_CATALOG.filter((f) =>
+      matchQuery(fontQuery, (field) =>
+        field === 'name'
+          ? [f.family]
+          : field === 'tag'
+            ? f.tags
+            : [f.family, f.desc.zh, f.desc.en, ...f.tags]
+      )
     )
   )
   const fontOptions = $derived([
@@ -204,6 +207,19 @@
     save()
     ui.toast(t('skin.resetDone'))
   }
+  /** 当前项目里的每套文字，皮肤里可以单独给它换字体 */
+  const projectScripts = $derived(
+    (projectState.project?.languages ?? []).flatMap((l) =>
+      l.scripts.map((sc) => ({ script: sc, lang: l.name }))
+    )
+  )
+  function setScriptFont(id: string, v: string): void {
+    const next = { ...(skin.scriptFonts ?? {}) }
+    if (v.trim()) next[id] = v.trim()
+    else delete next[id]
+    skin.scriptFonts = next
+    save()
+  }
   function setFont(slot: FontSlot, v: string): void {
     skin.fonts[slot] = v
     bump('font:' + slot)
@@ -352,6 +368,28 @@
           </label>
         {/each}
       </div>
+      {#if projectScripts.length}
+        <p class="small muted">{t('skin.scriptFontsHint')}</p>
+        <div class="fonts">
+          {#each projectScripts as ps (ps.script.id)}
+            <label class="font-row">
+              <span class="fl"
+                >{t('skin.scriptFontFor', { name: ps.script.name, lang: ps.lang })}</span
+              >
+              <input
+                class="input"
+                list="font-options"
+                value={skin.scriptFonts?.[ps.script.id] ?? ''}
+                placeholder={ps.script.font.fileName ||
+                  ps.script.font.family ||
+                  t('skin.fontPlaceholder')}
+                onchange={(e) =>
+                  setScriptFont(ps.script.id, (e.currentTarget as HTMLInputElement).value)}
+              />
+            </label>
+          {/each}
+        </div>
+      {/if}
     </section>
 
     <section>

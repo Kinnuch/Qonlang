@@ -3,7 +3,7 @@
  * 只用构形里写着的字面词缀做剥离，代价很小，不必把整本词典推导一遍。
  */
 import type { Id, Project } from '$lib/core/model'
-import { paradigmSlots } from './index'
+import { paradigmSlots, parseAffixRef } from './index'
 
 export interface ParadigmAffix {
   form: string
@@ -23,17 +23,14 @@ export function paradigmAffixes(project: Project, languageId: Id): ParadigmAffix
   const prefixes = new Map<string, string>()
   const suffixes = new Map<string, string>()
   const expand = (text: string): string[] => {
-    const raw = text.trim()
-    if (!raw) return []
-    if (!raw.startsWith('@')) return [trim(raw)]
-    const ref = raw.slice(1).trim()
-    const m = project.morphemes.find(
-      (x) =>
-        x.languageId === languageId &&
-        (x.form === ref || x.gloss === ref || trim(x.form) === trim(ref))
+    if (!text.trim()) return []
+    const r = parseAffixRef(text, project.morphemes, languageId)
+    if (!r) return [trim(text)]
+    if (!r.morpheme) return [trim(r.lead + r.ref + r.tail)]
+    // 引用前后写的中点这些也算词缀的一部分（an· 能从 an·derg 上剥下来）
+    return [r.morpheme.form, ...r.morpheme.allomorphs.map((a) => a.form)].map((f) =>
+      trim(r.lead + trim(f) + r.tail)
     )
-    if (!m) return [trim(ref)]
-    return [trim(m.form), ...m.allomorphs.map((a) => trim(a.form))]
   }
   for (const p of project.paradigms) {
     const labels = new Map<string, string>()

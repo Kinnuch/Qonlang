@@ -13,6 +13,8 @@ import type {
   TokenizerMode
 } from '$lib/core/model'
 import { paradigmFor, paradigmSlots } from '../morph'
+import { nucleusSet } from '../phon'
+import { mutationTables, type MutationTable } from '../morph/mutation'
 import { sentenceScript } from '$lib/script/render'
 
 export interface GlossIndex {
@@ -24,6 +26,14 @@ export interface GlossIndex {
   suffixes: { form: string; morpheme: Morpheme }[]
   confirmed: Map<string, Analysis[]>
   glossLangs: string[]
+  /** 作用于所有词的构形（词首音变这类）归纳出来的对照表，分词时反推用；第一次用到才算 */
+  readonly mutations: MutationTable[]
+  /** 撇号缩略时可以补回去的元音（这门语言音系里的元音，去掉附加符） */
+  vowels: Set<string>
+  /** 词典里带空格的形式（ar mae），分词时连着的词合起来查 */
+  phrases: Set<string>
+  /** 带空格的形式最多有几个词 */
+  maxPhrase: number
 }
 
 const PUNCT =
@@ -114,8 +124,17 @@ function formKeys(raw: string, boundaries: string[], prefixes: string[]): string
   return [...out]
 }
 
+/** 常见拉丁元音：语言没有音系数据时撇号缩略用它 */
+const FALLBACK_VOWELS = 'aeiouyæøœɑɛɔəɪʊɨʉɯ'
+
 export function buildIndex(project: Project, languageId: Id): GlossIndex {
   const glossLangs = project.settings.glossLanguages
+  const language = project.languages.find((l) => l.id === languageId)
+  const vowels = new Set(
+    [...(language ? nucleusSet(language) : [])].map((v) => foldDiacritics(v).toLowerCase())
+  )
+  if (!vowels.size) for (const v of FALLBACK_VOWELS) vowels.add(v)
+  let mutations: MutationTable[] | null = null
   const idx: GlossIndex = {
     lemma: new Map(),
     stems: new Map(),
@@ -124,7 +143,14 @@ export function buildIndex(project: Project, languageId: Id): GlossIndex {
     prefixes: [],
     suffixes: [],
     confirmed: new Map(),
-    glossLangs
+    glossLangs,
+    get mutations() {
+      mutations ??= mutationTables(project, languageId)
+      return mutations
+    },
+    vowels,
+    phrases: new Set(),
+    maxPhrase: 1
   }
   const boundaries = project.settings.morphemeBoundaries
   // 本语言（含祖语）的前缀与附着词，用来还原脱落词头的写法
@@ -171,6 +197,12 @@ export function buildIndex(project: Project, languageId: Id): GlossIndex {
       if (m.type === 'suffix' || m.type === 'clitic') idx.suffixes.push({ form: f, morpheme: m })
       if (m.type === 'prefix' || m.type === 'clitic') idx.prefixes.push({ form: f, morpheme: m })
     }
+  }
+  // 带空格的形式（ar mae 这种限定词 + 名词分开写的屈折形）
+  for (const k of [...idx.lemma.keys(), ...idx.forms.keys(), ...idx.stems.keys()]) {
+    if (!k.includes(' ')) continue
+    idx.phrases.add(k)
+    idx.maxPhrase = Math.max(idx.maxPhrase, k.split(/\s+/).length)
   }
   // 长词缀优先
   idx.suffixes.sort((a, b) => b.form.length - a.form.length)
@@ -227,19 +259,123 @@ function wholeWord(idx: GlossIndex, w: string): Analysis[] {
   return out
 }
 
-/** 词缀剥离：最多剥 depth 层前后缀，剩余部分必须能整词匹配 */
-function stripAffixes(idx: GlossIndex, w: string, depth: number): Analysis[] {
-  const base = wholeWord(idx, w)
+/** 整词候选；没有时去掉附加符再试（语料里的重音记号与词典未必一致），形式仍记表层写法 */
+function lookupWord(idx: GlossIndex, w: string): Analysis[] {
+  const hit = wholeWord(idx, w)
+  if (hit.length) return hit
+  const f = foldDiacritics(w)
+  return f === w ? [] : withForm(wholeWord(idx, f), w)
+}
+
+/** 只有一段的候选改记成表层写法 */
+function withForm(list: Analysis[], form: string): Analysis[] {
+  return list.map((a) => (a.morphs.length === 1 ? { ...a, morphs: [{ ...a.morphs[0], form }] } : a))
+}
+
+/**
+ * 反推「作用于所有词」的构形（词首音变这类）：按归纳出的对照表把开头 / 结尾换回原形再查，
+ * gloss 后面接上那个槽位的缩写（wenallan → menallan「遥远的.LEN」）。
+ */
+function demutate(idx: GlossIndex, w: string): Analysis[] {
+  const out: Analysis[] = []
+  for (const tb of idx.mutations) {
+    const bases = new Set<string>()
+    for (const pr of tb.initial)
+      if (w.length > pr.to.length && w.startsWith(pr.to)) bases.add(pr.from + w.slice(pr.to.length))
+    for (const pr of tb.final)
+      if (w.length > pr.to.length && w.endsWith(pr.to))
+        bases.add(w.slice(0, w.length - pr.to.length) + pr.from)
+    bases.delete(w)
+    const tag = tb.abbr || tb.label
+    for (const base of bases) {
+      const found = lookupWord(idx, base)
+      // 对照表只记了开头换了什么，丢了上下文（t>d 碰上 th 就不成立）：正着推回来得是这个词才算
+      if (!found.length || norm(tb.apply(base)) !== w) continue
+      for (const a of found)
+        out.push({
+          ...a,
+          morphs: a.morphs.map((m, i) =>
+            i === 0 ? { ...m, form: w, gloss: tag ? `${m.gloss}.${tag}` : m.gloss } : m
+          )
+        })
+    }
+  }
+  return out
+}
+
+/** 缩略用的撇号：写进语素边界符号才算（很多语言拿撇号当字母，如声门塞音） */
+const ELISION = new Set(["'", '’', 'ʼ'])
+
+/** 语素边界符号；写了 ' 的话输入法打出的 ’ 也算同一个 */
+function boundarySet(boundaries: string[]): string[] {
+  const set = new Set(boundaries.filter((b) => b && b !== ' '))
+  if (set.has("'")) set.add('’')
+  return [...set]
+}
+
+/**
+ * 撇号缩略：t'am 的 t' 是省掉词尾元音的 ta；'s 这类是省掉词首元音的。
+ * 在词头与语素里找补上一两个元音（这门语言的元音）就对得上的，补得少的排前面。
+ */
+function elided(idx: GlossIndex, part: string, side: 'final' | 'initial'): Analysis[] {
+  if (!part) return []
+  const isVowels = (x: string): boolean => {
+    const f = foldDiacritics(x).toLowerCase()
+    const units = Array.from(f)
+    return idx.vowels.has(f) || (units.length <= 2 && units.every((u) => idx.vowels.has(u)))
+  }
+  const keys = new Set<string>()
+  for (const k of [...idx.lemma.keys(), ...idx.morphemes.keys()]) {
+    if (k.length <= part.length) continue
+    let extra = ''
+    if (side === 'final' && k.startsWith(part)) extra = k.slice(part.length)
+    if (side === 'initial' && k.endsWith(part)) extra = k.slice(0, k.length - part.length)
+    if (extra && isVowels(extra)) keys.add(k)
+  }
+  const form = side === 'final' ? `${part}'` : `'${part}`
+  return [...keys]
+    .sort((x, y) => x.length - y.length)
+    .flatMap((k) => withForm(wholeWord(idx, k), form))
+}
+
+/** 实在找不到：试着拆成两个整词（复合词、连写），最多给三种拆法；不在附加符前面切 */
+function splitCompound(idx: GlossIndex, w: string): Analysis[] {
+  const out: Analysis[] = []
+  const cps = Array.from(w)
+  for (let i = 2; i <= cps.length - 2 && out.length < 3; i++) {
+    if (/\p{M}/u.test(cps[i])) continue
+    const left = lookupWord(idx, cps.slice(0, i).join(''))[0]
+    if (!left) continue
+    const right = lookupWord(idx, cps.slice(i).join(''))[0]
+    if (!right) continue
+    const main = i >= cps.length - i ? left : right
+    out.push({
+      lexemeId: main.lexemeId ?? left.lexemeId ?? right.lexemeId,
+      slot: null,
+      morphs: [...left.morphs, ...right.morphs],
+      guess: 'split'
+    })
+  }
+  return out
+}
+
+/**
+ * 词缀剥离：最多剥 depth 层前后缀，剩余部分必须能整词匹配。
+ * 剥过词缀的余部对不上时也试着反推词首音变（否定前缀让后面的 m 软化成 w：e-wenallan）。
+ */
+function stripAffixes(idx: GlossIndex, w: string, depth: number, inner = false): Analysis[] {
+  let base = wholeWord(idx, w)
+  if (!base.length && inner) base = demutate(idx, w)
   if (depth === 0) return base
   const out = [...base]
   for (const s of idx.suffixes) {
     if (w.length > s.form.length && w.endsWith(s.form)) {
       const rest = w.slice(0, w.length - s.form.length)
-      for (const inner of stripAffixes(idx, rest, depth - 1)) {
+      for (const inside of stripAffixes(idx, rest, depth - 1, true)) {
         out.push({
-          ...inner,
+          ...inside,
           morphs: [
-            ...inner.morphs,
+            ...inside.morphs,
             {
               form: s.form,
               gloss: morphemeGloss(s.morpheme, idx.glossLangs),
@@ -253,21 +389,90 @@ function stripAffixes(idx: GlossIndex, w: string, depth: number): Analysis[] {
   for (const p of idx.prefixes) {
     if (w.length > p.form.length && w.startsWith(p.form)) {
       const rest = w.slice(p.form.length)
-      for (const inner of stripAffixes(idx, rest, depth - 1)) {
+      for (const inside of stripAffixes(idx, rest, depth - 1, true)) {
         out.push({
-          ...inner,
+          ...inside,
           morphs: [
             {
               form: p.form,
               gloss: morphemeGloss(p.morpheme, idx.glossLangs),
               morphemeId: p.morpheme.id
             },
-            ...inner.morphs
+            ...inside.morphs
           ]
         })
       }
     }
   }
+  return out
+}
+
+/** 边界切开的一段：整词 → 反推词首音变 → 剥一层词缀（语素少的在前） */
+function partCandidates(idx: GlossIndex, w: string): Analysis[] {
+  const whole = lookupWord(idx, w)
+  if (whole.length) return whole
+  return [...demutate(idx, w), ...stripAffixes(idx, w, 1).filter((a) => a.morphs.length > 1)]
+}
+
+/** 每段最多留几个候选；最多拼出几种整词分析 */
+const PIECE_CHOICES = 3
+const MAX_SPLITS = 6
+
+/**
+ * 按边界符切开，每段各自找候选；紧挨着缩略撇号的段先按缩略补元音找（t' → ta），再照常找。
+ * 先给每段都取第一个候选拼一种，再一次换一段的候选，最多六种——第一个候选挑错了还有得选。
+ * 整词对应的词条取最长的那段（介词缩略 + 名词时是名词）。
+ */
+function splitAt(idx: GlossIndex, surface: string, seps: string[]): Analysis[] {
+  const re = new RegExp(`([${seps.map((b) => b.replace(/[\\\]^-]/g, '\\$&')).join('')}])`)
+  const pieces = surface.split(re)
+  const slots: { piece: string; cands: Analysis[] }[] = []
+  for (let i = 0; i < pieces.length; i += 2) {
+    const piece = pieces[i]
+    if (!piece) continue
+    const w = norm(piece)
+    const elision = [
+      ...(ELISION.has(pieces[i + 1] ?? '') ? elided(idx, w, 'final') : []),
+      ...(ELISION.has(pieces[i - 1] ?? '') ? elided(idx, w, 'initial') : [])
+    ]
+    // 同一个词条（或语素）的几个形式只留第一个，名额留给不同的词
+    const seen = new Set<string>()
+    const cands: Analysis[] = []
+    for (const c of [...elision, ...partCandidates(idx, w)]) {
+      const k = c.lexemeId ?? c.morphs.map((m) => m.morphemeId ?? m.gloss).join('|')
+      if (seen.has(k)) continue
+      seen.add(k)
+      cands.push(c)
+    }
+    slots.push({ piece, cands: cands.slice(0, PIECE_CHOICES) })
+  }
+  const build = (choice: number[]): Analysis => {
+    const morphs: Analysis['morphs'] = []
+    let main: Id | null = null
+    let mainLen = 0
+    for (let n = 0; n < slots.length; n++) {
+      const { piece, cands } = slots[n]
+      const c = cands[choice[n]]
+      if (!c) {
+        morphs.push({ form: piece, gloss: '?', morphemeId: null })
+        continue
+      }
+      morphs.push(...c.morphs)
+      if (c.lexemeId && piece.length > mainLen) {
+        main = c.lexemeId
+        mainLen = piece.length
+      }
+    }
+    return { lexemeId: main, slot: null, morphs }
+  }
+  const first = slots.map(() => 0)
+  const out = [build(first)]
+  for (let n = 0; n < slots.length && out.length < MAX_SPLITS; n++)
+    for (let k = 1; k < slots[n].cands.length && out.length < MAX_SPLITS; k++) {
+      const choice = [...first]
+      choice[n] = k
+      out.push(build(choice))
+    }
   return out
 }
 
@@ -284,32 +489,54 @@ export function analyzeToken(idx: GlossIndex, surface: string, boundaries: strin
   }
   for (const a of idx.confirmed.get(surface) ?? []) add(a)
   surface = surface.normalize('NFC')
-  // 用户已在词里写了边界：按边界切，每段整词匹配，不猜
-  const bset = boundaries.filter((b) => b && b !== ' ')
-  const hasBoundary = bset.some((b) => surface.includes(b))
-  if (hasBoundary) {
-    const re = new RegExp(`[${bset.map((b) => b.replace(/[\\\]^-]/g, '\\$&')).join('')}]`)
-    const parts = surface.split(re).filter(Boolean)
-    const morphs: Analysis['morphs'] = []
-    let lexemeId: Id | null = null
-    for (const p of parts) {
-      const cands = wholeWord(idx, p.toLowerCase())
-      const c = cands[0]
-      if (c) {
-        morphs.push(...c.morphs)
-        if (!lexemeId && c.lexemeId) lexemeId = c.lexemeId
-      } else morphs.push({ form: p, gloss: '?', morphemeId: null })
-    }
-    add({ lexemeId, slot: null, morphs })
-  }
+  const bset = boundarySet(boundaries)
+  // 用户已在词里写了边界：按边界切，每段各自找，不猜整词
+  if (bset.some((b) => surface.includes(b))) for (const a of splitAt(idx, surface, bset)) add(a)
   const plain = norm(surface)
-  const cands = stripAffixes(idx, plain, 2)
+  const found = stripAffixes(idx, plain, 2)
+  const whole = found.filter((c) => c.morphs.length === 1)
+  // 整词没对上：反推词首音变这类「作用于所有词」的构形，和剥词缀的结果一起排
+  const cands = whole.length ? found : [...found, ...demutate(idx, plain)]
   // 排序：先候选来源顺序（已确认 > 词头/屈折形/词干/语素 > 剥离），再语素少者优先
   cands.sort((a, b) => a.morphs.length - b.morphs.length)
   for (const c of cands) add(c)
-  const lower = plain.toLowerCase()
-  if (lower !== plain) for (const c of stripAffixes(idx, lower, 2)) add(c)
+  // 还是没有：去掉附加符再找一遍，最后试着拆成两个词——都算猜测，等人确认
+  if (!out.length) {
+    const folded = foldDiacritics(plain)
+    if (folded !== plain)
+      for (const c of stripAffixes(idx, folded, 2))
+        add({ ...withForm([c], plain)[0], guess: 'fold' })
+  }
+  if (!out.length) for (const c of splitCompound(idx, plain)) add(c)
   return out.slice(0, 12)
+}
+
+/**
+ * 词典里带空格的形式（ar mae 这种限定词 + 名词分开写的屈折形）：
+ * 连着的几个词合起来对得上就并成一个词；用户已经确认过的词不并。
+ */
+export function mergePhrases(
+  idx: GlossIndex,
+  words: string[],
+  isConfirmed: (word: string) => boolean = () => false
+): string[] {
+  if (idx.maxPhrase < 2) return words
+  const out: string[] = []
+  for (let i = 0; i < words.length;) {
+    let take = 1
+    for (let n = Math.min(idx.maxPhrase, words.length - i); n >= 2; n--) {
+      const span = words.slice(i, i + n)
+      if (span.some(isConfirmed)) continue
+      const k = norm(span.join(' '))
+      if (idx.phrases.has(k) || idx.phrases.has(foldDiacritics(k))) {
+        take = n
+        break
+      }
+    }
+    out.push(words.slice(i, i + take).join(' '))
+    i += take
+  }
+  return out
 }
 
 /** 分析整句：默认只重算未确认的词；保留手工分析 */
@@ -319,11 +546,15 @@ export function analyzeSentence(
   opts: { force?: boolean } = {}
 ): Sentence {
   const idx = buildIndex(project, sentence.languageId)
-  const words = tokenize(sentence.text, {
-    mode: project.settings.tokenizer,
-    pattern: project.settings.tokenizerPattern
-  })
   const old = new Map(sentence.tokens.map((t) => [t.surface, t]))
+  const words = mergePhrases(
+    idx,
+    tokenize(sentence.text, {
+      mode: project.settings.tokenizer,
+      pattern: project.settings.tokenizerPattern
+    }),
+    (w) => !!old.get(w)?.confirmed && !opts.force
+  )
   const tokens: Token[] = words.map((w) => {
     const prev = old.get(w)
     if (prev && prev.confirmed && !opts.force) return { ...prev, analyses: [...prev.analyses] }
@@ -341,9 +572,11 @@ export function analyzeSentence(
 
 export function coverage(s: Sentence): { total: number; resolved: number; confirmed: number } {
   const total = s.tokens.length
-  const resolved = s.tokens.filter(
-    (t) => t.analyses[t.chosen] && !t.analyses[t.chosen].morphs.some((m) => m.gloss === '?')
-  ).length
+  // 猜出来的分析（去附加符、拆词）确认之前不算认出
+  const resolved = s.tokens.filter((t) => {
+    const a = t.analyses[t.chosen]
+    return a && (t.confirmed || !a.guess) && !a.morphs.some((m) => m.gloss === '?')
+  }).length
   const confirmed = s.tokens.filter((t) => t.confirmed).length
   return { total, resolved, confirmed }
 }
@@ -358,10 +591,21 @@ export interface Interlinear {
   scripts: { name: string; text: string; scriptId: Id }[]
 }
 
+/** 语素 id → 类型；整批导出时每个语素只查一次（项目一改就重建） */
+const typeCache = new WeakMap<Project, { stamp: string; types: Map<Id, string> }>()
+function morphemeType(project: Project, id: Id): string | undefined {
+  const stamp = `${project.meta.updatedAt}|${project.morphemes.length}`
+  let c = typeCache.get(project)
+  if (!c || c.stamp !== stamp) {
+    c = { stamp, types: new Map(project.morphemes.map((m) => [m.id, m.type])) }
+    typeCache.set(project, c)
+  }
+  return c.types.get(id)
+}
+
 function joiner(a: Analysis, i: number, project: Project): string {
   const m = a.morphs[i]
-  const mo = m.morphemeId ? project.morphemes.find((x) => x.id === m.morphemeId) : null
-  return mo?.type === 'clitic' ? '=' : '-'
+  return m.morphemeId && morphemeType(project, m.morphemeId) === 'clitic' ? '=' : '-'
 }
 
 export function interlinear(project: Project, s: Sentence, glossLang?: string): Interlinear {

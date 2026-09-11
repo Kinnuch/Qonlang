@@ -134,6 +134,14 @@
         />
         {t('settings.showDerivedMark')}
       </label>
+      <label class="row check">
+        <input
+          type="checkbox"
+          bind:checked={ui.prefs.guideTourAlways}
+          onchange={() => ui.savePrefs()}
+        />
+        {t('settings.guideTourAlways')}
+      </label>
       <div class="field">
         <label for="s-examples">{t('settings.examplesPerEntry')}</label>
         <input

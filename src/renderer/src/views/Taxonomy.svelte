@@ -6,6 +6,7 @@
   import { newId } from '$lib/core/factory'
   import type { GrammaticalCategory, PartOfSpeech } from '$lib/core/model'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
   import { Plus, Trash2, X, ChevronUp, ChevronDown, ArrowDownAZ } from '@lucide/svelte'
 
   const project = $derived(projectState.project!)
@@ -121,6 +122,41 @@
           title={t('common.delete')}
           onclick={() => removePos(p)}><Trash2 size={14} /></button
         >
+        <div class="stems">
+          <span class="small muted">{t('taxonomy.stemSlots')}</span>
+          <HelpDot tip={t('taxonomy.stemSlotsHint')} />
+          {#each p.stemSlots ?? [] as st, si (si)}
+            <span class="stem-slot">
+              <input
+                class="input data"
+                bind:value={st.name}
+                placeholder={t('taxonomy.stemName')}
+                oninput={() => projectState.touch()}
+              />
+              <input
+                class="input"
+                bind:value={st.notes}
+                placeholder={t('taxonomy.stemNotes')}
+                oninput={() => projectState.touch()}
+              />
+              <button
+                class="btn ghost icon sm"
+                title={t('common.delete')}
+                onclick={() => {
+                  p.stemSlots?.splice(si, 1)
+                  projectState.touch()
+                }}><X size={12} /></button
+              >
+            </span>
+          {/each}
+          <button
+            class="btn ghost sm"
+            onclick={() => {
+              p.stemSlots = [...(p.stemSlots ?? []), { name: '', notes: '' }]
+              projectState.touch()
+            }}><Plus size={12} />{t('taxonomy.addStemSlot')}</button
+          >
+        </div>
       </div>
     {/each}
   </section>
@@ -223,6 +259,26 @@
 </div>
 
 <style>
+  .stems {
+    flex-basis: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border);
+  }
+  .stem-slot {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .stem-slot .input {
+    width: 120px;
+  }
+  .stem-slot .input + .input {
+    width: 200px;
+  }
   .tax {
     display: flex;
     flex-direction: column;
@@ -233,6 +289,7 @@
     margin-bottom: 8px;
   }
   .item {
+    flex-wrap: wrap;
     display: flex;
     gap: 12px;
     align-items: flex-start;

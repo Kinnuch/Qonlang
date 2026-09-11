@@ -1,4 +1,7 @@
 <script lang="ts">
+  import SyntaxLink from '$lib/ui/SyntaxLink.svelte'
+  import { navScroll } from '$lib/ui/navScroll'
+  import type { PageView } from '$lib/state/ui.svelte'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t } from '$lib/i18n/index.svelte'
@@ -47,6 +50,23 @@
   $effect(() => {
     const id = ui.takePending('ruleSet')
     if (id) activeId = id
+  })
+  // 「返回」用：报上当前位置，返回时原样恢复
+  $effect(() => {
+    ui.reportView('soundChanges', {
+      kind: 'ruleSet',
+      lang: projectState.currentLanguageId,
+      id: activeId,
+      view
+    })
+  })
+  $effect(() => {
+    const r = ui.takeRestore('soundChanges')
+    if (!r) return
+    const v: PageView = r.view ?? {}
+    if (v.id) activeId = v.id
+    if (v.view === 'list' || v.view === 'chain' || v.view === 'source') view = v.view
+    ui.restoreScroll('soundChanges', r.scroll)
   })
   $effect(() => {
     if (active && activeId !== active.id) activeId = active.id
@@ -203,6 +223,20 @@
     addSet(text, f.name.replace(/\.txt$/i, ''))
   }
 
+  /** 每个规则集一份 .txt，放进一个文件夹；重名的加序号 */
+  async function exportAllRuleSets(): Promise<void> {
+    const files: Record<string, string> = {}
+    const taken = new Set<string>()
+    for (const rs of project.ruleSets) {
+      const base = (rs.name || 'rules').replace(/[\\/:*?"<>|]+/g, '_')
+      let name = `${base}.txt`
+      // 文件系统多半不分大小写：Main 与 main 算重名
+      for (let i = 2; taken.has(name.toLowerCase()); i++) name = `${base}-${i}.txt`
+      taken.add(name.toLowerCase())
+      files[name] = rs.text
+    }
+    await platform.exportFolder(files, `${project.meta.name || 'rules'}-rules`)
+  }
   async function exportText(): Promise<void> {
     if (!active) return
     await platform.saveTextFile(`${active.name || 'rules'}.txt`, active.text)
@@ -230,10 +264,10 @@
 </script>
 
 <div class="page">
-  <div class="page-head row">
+  <div class="page-head row tabbed">
     <h1>{t('soundChanges.title')}</h1>
-    <GuideLink section="soundChanges" />
-    <div class="tabs grow">
+    <GuideLink section="soundChanges" /><SyntaxLink anchor="rule" />
+    <div class="booktabs grow">
       {#each project.ruleSets as rs (rs.id)}
         <button class="tab" class:active={active?.id === rs.id} onclick={() => (activeId = rs.id)}
           >{rs.name || t('soundChanges.untitledSet')}</button
@@ -247,6 +281,12 @@
       >
       <button onclick={() => importConverted('sca2')}>{t('soundChanges.importSca2')}</button>
       <button onclick={() => importConverted('plain')}>{t('soundChanges.importPlain')}</button>
+    </Menu>
+    <Menu label={t('common.export')} icon={Download}>
+      <button disabled={!active} onclick={exportText}>{t('io.exportRuleSet')}</button>
+      <button disabled={!project.ruleSets.length} onclick={exportAllRuleSets}
+        >{t('io.exportAllRuleSets')}</button
+      >
     </Menu>
     <button class="btn primary" onclick={() => addSet()}
       ><Plus size={16} />{t('soundChanges.newSet')}</button
@@ -277,7 +317,7 @@
           <RuleChainGraph {program} bind:selectedLine />
         </div>
       {:else}
-        <div class="list-wrap">
+        <div class="list-wrap" use:navScroll={'soundChanges'}>
           <RuleList
             bind:text={rs.text}
             {program}
@@ -472,27 +512,6 @@
   }
   .page-head {
     gap: 12px;
-  }
-  .tabs {
-    display: flex;
-    gap: 4px;
-    overflow-x: auto;
-  }
-  .tab {
-    border: 1px solid transparent;
-    background: transparent;
-    padding: 4px 10px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    color: var(--text-2);
-    white-space: nowrap;
-  }
-  .tab:hover {
-    background: var(--bg-hover);
-  }
-  .tab.active {
-    background: var(--accent-soft);
-    color: var(--accent-text);
   }
   .workspace {
     flex: 1;
