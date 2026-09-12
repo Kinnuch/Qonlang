@@ -75,7 +75,7 @@
   const BW = 320
   const BH = 150
   /** 气泡上面那只猫（像素画）占的高度：留出来，免得挡住正在讲的东西 */
-  const CAT_H = 96
+  const CAT_H = 106
   /** 气泡放目标下面，放不下就上面；都放不下就放右边；没有目标就居中 */
   const bubble = $derived.by(() => {
     if (!rect) return { left: (vw - BW) / 2, top: vh / 2 - BH / 2, side: 'none' as const }
@@ -221,7 +221,7 @@
   .arrow path {
     fill: var(--accent);
   }
-  /* 气泡长成像素画里那块牌子：深蓝粗边 + 湖蓝底，上面站着举牌子的猫 */
+  /* 气泡跟软件同一套绿：主色底 + 深一档的粗边，上沿趴着那只像素猫 */
   .bubble {
     position: fixed;
     width: 320px;
@@ -231,8 +231,8 @@
     flex-direction: column;
     gap: 8px;
     box-shadow: var(--shadow-lg);
-    background: #2e9cbb;
-    border: 4px solid #09205c;
+    background: var(--accent);
+    border: 4px solid color-mix(in srgb, var(--accent) 55%, #04231e);
     border-radius: 6px;
     color: #fff;
   }
@@ -241,8 +241,8 @@
     left: 50%;
     bottom: 100%;
     transform: translateX(-50%);
-    width: 124px;
-    margin-bottom: -10px;
+    width: 108px;
+    margin-bottom: -6px;
     image-rendering: pixelated;
     pointer-events: none;
   }
@@ -250,10 +250,34 @@
     color: #fff;
   }
   .bubble :global(.muted) {
-    color: #d6eef7;
+    color: #d9f2ec;
   }
-  .bubble :global(.btn.ghost) {
+  /* 气泡是深色底：按钮都得自己定颜色，不然白底白字看不清 */
+  .bubble.card :global(.btn) {
+    background: rgba(0, 0, 0, 0.28);
+    border-color: rgba(255, 255, 255, 0.45);
     color: #fff;
+  }
+  .bubble.card :global(.btn:hover) {
+    background: rgba(0, 0, 0, 0.4);
+    border-color: #fff;
+  }
+  .bubble.card :global(.btn.ghost) {
+    background: transparent;
+    border-color: transparent;
+  }
+  .bubble.card :global(.btn.ghost:hover) {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: transparent;
+  }
+  .bubble.card :global(.btn.primary) {
+    background: #fff;
+    border-color: #fff;
+    color: var(--accent-text);
+  }
+  .bubble.card :global(.btn.primary:hover) {
+    background: #e9faf6;
+    border-color: #e9faf6;
   }
   .head {
     gap: 8px;

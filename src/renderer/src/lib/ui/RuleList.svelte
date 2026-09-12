@@ -105,6 +105,34 @@
     dropBefore = null
     if (from !== null) moveLineBefore(from, before)
   }
+  /** 现在这个占位空白把它后面的内容推下去了多少（自身高度 + 上下外边距 + 栏间距） */
+  function gapShift(host: HTMLElement): number {
+    const el = document.querySelector<HTMLElement>('.drop-gap')
+    if (!el) return 0
+    const cs = getComputedStyle(el)
+    const my = (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0)
+    return el.getBoundingClientRect().height + my + (parseFloat(getComputedStyle(host).rowGap) || 0)
+  }
+  /**
+   * 按指针的高度算落点，不看鼠标底下压着哪一行：占位空白一出现就把下面的行推开，
+   * 再照「鼠标在哪一行上」判断的话，推开与没推开会互相触发，看着就是一直在抖。
+   * 所以量位置时先把被推开的那段高度补回去，算出来的落点就跟占位在不在无关了。
+   */
+  function dropTargetLine(host: HTMLElement, y: number, end: number): number {
+    const shift = gapShift(host)
+    for (const el of host.querySelectorAll<HTMLElement>('[data-line]')) {
+      const line = Number(el.dataset.line)
+      if (!Number.isFinite(line)) continue
+      const b = el.getBoundingClientRect()
+      const top = dropBefore !== null && dropBefore <= line ? b.top - shift : b.top
+      if (y < top + b.height / 2) return line
+    }
+    return end
+  }
+  /** 松手真能挪位置才空出一行：落回自己原来的地方等于没动，不必让人以为会变 */
+  function gapAt(line: number): boolean {
+    return dragLine !== null && dropBefore === line && line !== dragLine && line !== dragLine + 1
+  }
 
   function swapLines(a: number, b: number): void {
     const ls = lines()
@@ -554,11 +582,17 @@
         if (dragLine === null) return
         e.preventDefault()
         dropStage = si
-        // 停在段落空白处：落点就是这一段的末尾
-        if (!(e.target as HTMLElement).closest('.rule')) dropBefore = sec.endLine + 1
+        dropBefore = dropTargetLine(e.currentTarget as HTMLElement, e.clientY, sec.endLine + 1)
       }}
-      ondragleave={() => {
-        if (dropStage === si) dropStage = null
+      ondragleave={(e) => {
+        // 真的移出这一段才清掉：在段里的行之间移动时 dragleave 也会冒上来
+        const b = (e.currentTarget as HTMLElement).getBoundingClientRect()
+        const out =
+          e.clientX < b.left || e.clientX > b.right || e.clientY < b.top || e.clientY > b.bottom
+        if (out && dropStage === si) {
+          dropStage = null
+          dropBefore = null
+        }
       }}
       ondrop={(e) => {
         e.preventDefault()
@@ -627,7 +661,7 @@
       {/if}
 
       {#each sec.items as item (item.line)}
-        {#if dragLine !== null && dropBefore === item.line && dragLine !== item.line}
+        {#if gapAt(item.line)}
           <div class="drop-gap"></div>
         {/if}
         {#if item.kind === 'rule'}
@@ -637,6 +671,7 @@
           {:else}
             <div
               class="rule card"
+              data-line={r.line}
               class:selected={selectedLine === r.line}
               class:dragging={dragLine === r.line}
               role="button"
@@ -650,17 +685,6 @@
                 dragLine = null
                 dropStage = null
                 dropBefore = null
-              }}
-              ondragover={(e) => {
-                if (dragLine === null || dragLine === r.line) return
-                e.preventDefault()
-                dropStage = si
-                dropBefore = r.line
-              }}
-              ondrop={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                dropOnLine(r.line)
               }}
               onclick={() => (selectedLine = selectedLine === r.line ? null : r.line)}
               ondblclick={() => openRule(r)}
@@ -784,12 +808,12 @@
             >
           </div>
         {:else if item.kind === 'comment'}
-          <div class="note row">
+          <div class="note row" data-line={item.line}>
             <span class="small muted">{item.raw.replace(/^\s*[;#]\s?/, '')}</span>
           </div>
         {/if}
       {/each}
-      {#if dragLine !== null && dropStage === si && dropBefore === sec.endLine + 1}
+      {#if dropStage === si && gapAt(sec.endLine + 1)}
         <div class="drop-gap"></div>
       {/if}
 
@@ -936,6 +960,7 @@
   }
   /* 拖动时的落点：空出一行，松手就插在这儿 */
   .drop-gap {
+    pointer-events: none;
     height: 34px;
     margin: 2px 0;
     border: 2px dashed var(--accent);
