@@ -1519,9 +1519,11 @@ const en: Dict = {
       'Font size and block order of the entry card. Drag to reorder; changes apply at once.',
     cardScale: 'Font size',
     cardOrder: 'Block order (drag to sort)',
+    cardBlockScale: 'Size of this block (1 = same as the card)',
     cardReset: 'Reset',
     cardBlocks: {
       senses: 'Senses',
+      header: 'Headword & pronunciation',
       tags: 'Tags',
       etymology: 'Etymology',
       forms: 'Stems & forms',

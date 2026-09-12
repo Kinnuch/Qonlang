@@ -1163,7 +1163,8 @@
     position: relative;
     display: inline-flex;
   }
-  .vwrap > button:first-child {
+  .vwrap:hover > button:first-child,
+  .vwrap:focus-within > button:first-child {
     padding-right: 26px;
   }
   .vwrap .pen {

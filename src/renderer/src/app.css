@@ -429,7 +429,9 @@ kbd {
   display: inline-flex;
   flex: none;
 }
-.booktabs .tabwrap .tab {
+/* 铅笔藏着的时候不占地方，鼠标放上去才让出位置 */
+.booktabs .tabwrap:hover .tab,
+.booktabs .tabwrap:focus-within .tab {
   padding-right: 28px;
 }
 .booktabs .pen {

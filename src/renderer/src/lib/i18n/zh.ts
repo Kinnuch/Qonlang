@@ -1475,9 +1475,11 @@ export default {
     cardHint: '词条卡的字号和各块的顺序。顺序拖着排，改完马上生效。',
     cardScale: '字号',
     cardOrder: '各块顺序（拖动排序）',
+    cardBlockScale: '这一块的字号倍数（1 = 跟整体一样）',
     cardReset: '恢复默认',
     cardBlocks: {
       senses: '义项',
+      header: '词头与发音',
       tags: '标签',
       etymology: '词源',
       forms: '词干与屈折形',

@@ -118,9 +118,10 @@
     return hits.sort((a, b) => a.score - b.score || a.label.length - b.label.length).slice(0, 8)
   })
 
-  const style = $derived.by(() => {
+  /** 卡片放在词的下面还是上面，顺带算好定位样式 */
+  const place = $derived.by(() => {
     const r = wordHover.rect
-    if (!r) return ''
+    if (!r) return { style: '', below: true }
     // 并排候选时按个数放宽，最多三列
     const W = cands.length > 1 ? Math.min(3, cands.length) * 250 + 24 : 380
     const H = 360
@@ -129,11 +130,17 @@
     const below = r.bottom + 8
     // 放得下就贴着词的下面；放不下翻到上面时用 bottom 定位——卡片比上限矮时才不会离词老远
     if (below + H <= window.innerHeight - 12)
-      return `left:${left}px;top:${below}px;width:${W}px;max-height:${H}px`
+      return { style: `left:${left}px;top:${below}px;width:${W}px;max-height:${H}px`, below: true }
     const room = Math.max(140, r.top - 20)
     const gap = Math.max(12, window.innerHeight - r.top + 8)
-    return `left:${left}px;top:auto;bottom:${gap}px;width:${W}px;max-height:${Math.min(H, room)}px`
+    return {
+      style: `left:${left}px;top:auto;bottom:${gap}px;width:${W}px;max-height:${Math.min(H, room)}px`,
+      below: false
+    }
   })
+  const style = $derived(place.style)
+  /** 词在上面（卡片画在下面）时切分条与「在词库中查看」都靠上，反过来都靠下——离鼠标近 */
+  const chromeTop = $derived(place.below)
   let popEl = $state<HTMLElement | null>(null)
   // 钉住之后：点别处或按 Esc 收起
   $effect(() => {
@@ -213,6 +220,7 @@
 {:else if (lexeme || morpheme || wordHover.missing) && wordHover.rect}
   <div
     class="pop card"
+    class:chrome-top={chromeTop}
     class:miss={!!wordHover.missing}
     bind:this={popEl}
     {style}
@@ -491,5 +499,28 @@
     padding: 8px 12px;
     border-top: 1px solid var(--border);
     background: var(--bg);
+  }
+  /* 切分条与「在词库中查看」跟着词走：词在上面就都挤到卡片顶上，词在下面就都放到卡片底下 */
+  .pop.chrome-top .parts {
+    order: 1;
+  }
+  .pop.chrome-top .foot {
+    order: 2;
+    border-top: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .pop.chrome-top .body {
+    order: 3;
+  }
+  .pop:not(.chrome-top) .body {
+    order: 1;
+  }
+  .pop:not(.chrome-top) .parts {
+    order: 2;
+    border-bottom: 0;
+    border-top: 1px solid var(--border);
+  }
+  .pop:not(.chrome-top) .foot {
+    order: 3;
   }
 </style>

@@ -2,7 +2,7 @@
   import { matchQuery, parseQuery } from '$lib/core/query'
   import { sectionCollapsed } from '$lib/ui/section.svelte'
   import SectionHead from '$lib/ui/SectionHead.svelte'
-  import { cardBlocks, type CardBlock } from '$lib/ui/cardBlocks'
+  import { blockScale, cardBlocks, type CardBlock } from '$lib/ui/cardBlocks'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
   /** 皮肤：预设 / 颜色 / 字体 / 字体库；检视器里是实时预览。 */
   import { ui } from '$lib/state/ui.svelte'
@@ -267,6 +267,15 @@
   function resetCard(): void {
     ui.prefs.cardOrder = []
     ui.prefs.cardScale = 1
+    ui.prefs.cardBlockScale = {}
+    void ui.savePrefs()
+  }
+  /** 某一块单独的字号倍数：1 就当没设过 */
+  function setBlockScale(key: string, v: number): void {
+    const next = { ...ui.prefs.cardBlockScale }
+    if (!(v >= 0.5 && v <= 3) || v === 1) delete next[key]
+    else next[key] = Math.round(v * 100) / 100
+    ui.prefs.cardBlockScale = next
     void ui.savePrefs()
   }
 
@@ -437,6 +446,20 @@
         </label>
         <span class="small muted">{t('skin.cardOrder')}</span>
         <div class="blocks">
+          <div class="blk fixed">
+            <span class="grow">{t('skin.cardBlocks.header')}</span>
+            <input
+              class="input bs"
+              type="number"
+              min="0.5"
+              max="3"
+              step="0.05"
+              title={t('skin.cardBlockScale')}
+              value={blockScale(ui.prefs.cardBlockScale, 'header')}
+              oninput={(e) =>
+                setBlockScale('header', Number((e.currentTarget as HTMLInputElement).value))}
+            />
+          </div>
           {#each cardOrder as b (b)}
             <div
               class="blk"
@@ -460,7 +483,20 @@
                 dragOver = ''
               }}
             >
-              <GripVertical size={13} />{t(`skin.cardBlocks.${b}`)}
+              <GripVertical size={13} /><span class="grow">{t(`skin.cardBlocks.${b}`)}</span>
+              <input
+                class="input bs"
+                type="number"
+                min="0.5"
+                max="3"
+                step="0.05"
+                title={t('skin.cardBlockScale')}
+                value={blockScale(ui.prefs.cardBlockScale, b)}
+                draggable="false"
+                onpointerdown={(e) => e.stopPropagation()}
+                oninput={(e) =>
+                  setBlockScale(b, Number((e.currentTarget as HTMLInputElement).value))}
+              />
             </div>
           {/each}
         </div>
@@ -1005,6 +1041,15 @@ a > e / _i</span
     background: var(--bg-sunken);
     cursor: grab;
     font-size: 13px;
+  }
+  /* 「词头与发音」只调字号，不参与排序 */
+  .blk.fixed {
+    cursor: default;
+  }
+  .blk .bs {
+    width: 74px;
+    padding: 1px 4px;
+    font-size: 12px;
   }
   .blk:hover {
     border-style: dashed;

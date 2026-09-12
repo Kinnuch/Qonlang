@@ -74,6 +74,14 @@
   }
   const isOn = (v: string): boolean => !selected || selected.has(v)
 
+  /**
+   * 面板挪到 <body> 底下再定位：留在表头里时，外面的滚动容器、检视器会把它裁掉一截。
+   */
+  function toBody(node: HTMLElement): { destroy(): void } {
+    document.body.appendChild(node)
+    return { destroy: () => node.remove() }
+  }
+
   $effect(() => {
     if (!open) return
     const down = (e: PointerEvent): void => {
@@ -112,7 +120,7 @@
 </div>
 
 {#if open && options}
-  <div class="panel card" bind:this={panel} style={panelStyle} role="dialog">
+  <div class="panel card" use:toBody bind:this={panel} style={panelStyle} role="dialog">
     <div class="row tools">
       <button class="btn ghost sm" onclick={all}>{t('table.selectAll')}</button>
       <button class="btn ghost sm" onclick={none}>{t('table.selectNone')}</button>

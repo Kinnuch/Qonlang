@@ -87,6 +87,8 @@
   // ───── 拖动：同一段里换位置，也可以拖到别的阶段 ─────
   let dragLine = $state<number | null>(null)
   let dropStage = $state<number | null>(null)
+  /** 松手会插到哪一行前面：拖动时那儿空出一行，用户一眼看得到落点 */
+  let dropBefore = $state<number | null>(null)
   /** 把某一行挪到 before 那一行前面（before 比末行大就是放到最后） */
   function moveLineBefore(from: number, before: number): void {
     const ls = lines()
@@ -100,6 +102,7 @@
     const from = dragLine
     dragLine = null
     dropStage = null
+    dropBefore = null
     if (from !== null) moveLineBefore(from, before)
   }
 
@@ -551,13 +554,15 @@
         if (dragLine === null) return
         e.preventDefault()
         dropStage = si
+        // 停在段落空白处：落点就是这一段的末尾
+        if (!(e.target as HTMLElement).closest('.rule')) dropBefore = sec.endLine + 1
       }}
       ondragleave={() => {
         if (dropStage === si) dropStage = null
       }}
       ondrop={(e) => {
         e.preventDefault()
-        dropOnLine(sec.endLine + 1)
+        dropOnLine(dropBefore ?? sec.endLine + 1)
       }}
     >
       {#if sec.marker}
@@ -622,6 +627,9 @@
       {/if}
 
       {#each sec.items as item (item.line)}
+        {#if dragLine !== null && dropBefore === item.line && dragLine !== item.line}
+          <div class="drop-gap"></div>
+        {/if}
         {#if item.kind === 'rule'}
           {@const r = item}
           {#if editingLine === r.line}
@@ -641,9 +649,13 @@
               ondragend={() => {
                 dragLine = null
                 dropStage = null
+                dropBefore = null
               }}
               ondragover={(e) => {
-                if (dragLine !== null && dragLine !== r.line) e.preventDefault()
+                if (dragLine === null || dragLine === r.line) return
+                e.preventDefault()
+                dropStage = si
+                dropBefore = r.line
               }}
               ondrop={(e) => {
                 e.preventDefault()
@@ -777,6 +789,9 @@
           </div>
         {/if}
       {/each}
+      {#if dragLine !== null && dropStage === si && dropBefore === sec.endLine + 1}
+        <div class="drop-gap"></div>
+      {/if}
 
       <div class="row stage-foot">
         <button class="btn ghost sm" onclick={() => addRuleAfter(sec.endLine)}
@@ -918,6 +933,14 @@
   .stage.drop {
     background: var(--accent-soft);
     border-radius: var(--radius);
+  }
+  /* 拖动时的落点：空出一行，松手就插在这儿 */
+  .drop-gap {
+    height: 34px;
+    margin: 2px 0;
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius);
+    background: var(--bg-elev);
   }
   .rule:hover {
     border-color: var(--border-strong);

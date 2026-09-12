@@ -14,6 +14,16 @@ export const CARD_BLOCKS = [
 
 export type CardBlock = (typeof CARD_BLOCKS)[number]
 
+/** 可以单独调字号的块：词头那一段，加上上面这七块 */
+export const CARD_SCALABLE = ['header', ...CARD_BLOCKS] as const
+export type CardScalable = (typeof CARD_SCALABLE)[number]
+
+/** 某一块的字号倍数：没单独设过就是 1（再乘上整体的字号倍数） */
+export function blockScale(scales: Record<string, number> | undefined, key: string): number {
+  const v = Number(scales?.[key])
+  return v >= 0.5 && v <= 3 ? v : 1
+}
+
 /** 用户存的顺序在前，没列到的按默认顺序补在后面 */
 export function cardBlocks(order: readonly string[] | undefined): CardBlock[] {
   const known = (order ?? []).filter((k): k is CardBlock =>

@@ -750,6 +750,14 @@ const catAdjSource = category('形容词来源', 'adjective source', [
   ['来自动词', '←L'],
   ['本身', '本身']
 ])
+// 维度按词类限定：词条录入时只列出对得上的那几个（填过值的照样显示）
+catNumber.posIds = [N.id, PRO.id, NUM.id, A.id]
+catCase.posIds = [N.id, PRO.id, NUM.id, A.id]
+catGender.posIds = [N.id]
+catAccent.posIds = [N.id, A.id]
+catFocus.posIds = [V.id, VH.id]
+catValency.posIds = [V.id, VH.id]
+catAdjSource.posIds = [A.id]
 
 // ───────────────────────── 范式 ─────────────────────────
 
@@ -834,6 +842,9 @@ const catTense = category('时', 'tense', [
   ['过去时', 'PST'],
   ['远过去时', 'REM']
 ])
+catMood.posIds = [V.id, VH.id]
+catAspect.posIds = [V.id, VH.id]
+catTense.posIds = [V.id, VH.id]
 const headParadigm: Paradigm = {
   id: newId(),
   name: { zh: '动词头', en: 'verb head' },

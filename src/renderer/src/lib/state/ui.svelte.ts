@@ -299,6 +299,8 @@ class UiState {
     if (this.prefs.registerDisplay !== 'full') this.prefs.registerDisplay = 'short'
     if (!(Number(this.prefs.cardScale) >= 0.6)) this.prefs.cardScale = 1
     if (!Array.isArray(this.prefs.cardOrder)) this.prefs.cardOrder = []
+    if (!this.prefs.cardBlockScale || typeof this.prefs.cardBlockScale !== 'object')
+      this.prefs.cardBlockScale = {}
     if (this.prefs.pronBrackets !== 'bracket' && this.prefs.pronBrackets !== 'none')
       this.prefs.pronBrackets = 'slash'
     if (!Array.isArray(this.prefs.collapsedSections)) this.prefs.collapsedSections = []

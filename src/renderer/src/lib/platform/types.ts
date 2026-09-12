@@ -76,6 +76,8 @@ export interface Prefs {
   cardScale: number
   /** 词条卡各块的顺序（键见 LexemeCard 的 CARD_BLOCKS）；空表示用默认顺序 */
   cardOrder: string[]
+  /** 词条卡里每一块单独的字号倍数（块键 → 倍数）；没设过就是 1，再乘上 cardScale */
+  cardBlockScale: Record<string, number>
   /** 发音两边的符号：宽式斜线 /…/、严式方括号 […]、什么都不加 */
   pronBrackets: 'slash' | 'bracket' | 'none'
   /** 收起来的板块（SectionHead 的 id） */
@@ -133,6 +135,7 @@ export const DEFAULT_PREFS: Prefs = {
   registerDisplay: 'short',
   cardScale: 1,
   cardOrder: [],
+  cardBlockScale: {},
   pronBrackets: 'slash',
   collapsedSections: []
 }
