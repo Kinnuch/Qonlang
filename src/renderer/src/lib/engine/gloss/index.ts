@@ -426,7 +426,7 @@ const MAX_SPLITS = 6
 function splitAt(idx: GlossIndex, surface: string, seps: string[]): Analysis[] {
   const re = new RegExp(`([${seps.map((b) => b.replace(/[\\\]^-]/g, '\\$&')).join('')}])`)
   const pieces = surface.split(re)
-  const slots: { piece: string; cands: Analysis[] }[] = []
+  const slots: { piece: string; sep: string; cands: Analysis[] }[] = []
   for (let i = 0; i < pieces.length; i += 2) {
     const piece = pieces[i]
     if (!piece) continue
@@ -444,24 +444,26 @@ function splitAt(idx: GlossIndex, surface: string, seps: string[]): Analysis[] {
       seen.add(k)
       cands.push(c)
     }
-    slots.push({ piece, cands: cands.slice(0, PIECE_CHOICES) })
+    slots.push({ piece, sep: pieces[i - 1] ?? '', cands: cands.slice(0, PIECE_CHOICES) })
   }
   const build = (choice: number[]): Analysis => {
     const morphs: Analysis['morphs'] = []
     let main: Id | null = null
     let mainLen = 0
     for (let n = 0; n < slots.length; n++) {
-      const { piece, cands } = slots[n]
+      const { piece, cands, sep } = slots[n]
+      const at = morphs.length
       const c = cands[choice[n]]
-      if (!c) {
-        morphs.push({ form: piece, gloss: '?', morphemeId: null })
-        continue
+      if (!c) morphs.push({ form: piece, gloss: '?', morphemeId: null })
+      else {
+        morphs.push(...c.morphs)
+        if (c.lexemeId && piece.length > mainLen) {
+          main = c.lexemeId
+          mainLen = piece.length
+        }
       }
-      morphs.push(...c.morphs)
-      if (c.lexemeId && piece.length > mainLen) {
-        main = c.lexemeId
-        mainLen = piece.length
-      }
+      // 用户在词里写的分隔符照原样记下来：写 = 就一直是 =
+      if (n > 0 && (sep === '-' || sep === '=') && morphs[at]) morphs[at] = { ...morphs[at], sep }
     }
     return { lexemeId: main, slot: null, morphs }
   }
@@ -603,8 +605,10 @@ function morphemeType(project: Project, id: Id): string | undefined {
   return c.types.get(id)
 }
 
-function joiner(a: Analysis, i: number, project: Project): string {
+/** 两段之间写什么：用户在切分里写了什么就照写，没写才按语素类型定（附着词用 =） */
+export function morphJoiner(project: Project, a: Analysis, i: number): string {
   const m = a.morphs[i]
+  if (m.sep === '-' || m.sep === '=') return m.sep
   return m.morphemeId && morphemeType(project, m.morphemeId) === 'clitic' ? '=' : '-'
 }
 
@@ -615,7 +619,7 @@ export function interlinear(project: Project, s: Sentence, glossLang?: string): 
     let morphs = ''
     let gloss = ''
     a.morphs.forEach((m, i) => {
-      const j = i === 0 ? '' : joiner(a, i, project)
+      const j = i === 0 ? '' : morphJoiner(project, a, i)
       morphs += j + m.form
       gloss += j + m.gloss
     })

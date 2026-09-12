@@ -1,5 +1,6 @@
 <script lang="ts">
   import { navScroll } from '$lib/ui/navScroll'
+  import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
   import type { PageView } from '$lib/state/ui.svelte'
   import { platform } from '$lib/platform'
   import Menu from '$lib/ui/Menu.svelte'
@@ -303,6 +304,16 @@
       }
     })
   }
+
+  // 分批渲染：先画一屏，滚到快见底了再画下一批
+  const lz = lazy(50)
+  let lastCount = -1
+  $effect(() => {
+    const n = list.length
+    if (n === lastCount) return
+    lastCount = n
+    lz.reset()
+  })
 </script>
 
 <div class="page">
@@ -467,7 +478,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each list as m (m.id)}
+          {#each list.slice(0, lz.shown) as m (m.id)}
             <tr
               data-id={m.id}
               class:sel={selectedId === m.id}
@@ -510,6 +521,7 @@
           {/each}
         </tbody>
       </table>
+      {#if list.length > lz.shown}<div class="more-mark" use:lazyMore={lz}></div>{/if}
     </div>
   {/if}
 </div>
@@ -819,5 +831,8 @@
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
+  }
+  .more-mark {
+    height: 1px;
   }
 </style>

@@ -1,7 +1,8 @@
 <script lang="ts">
   /** 显示模式下的词条卡：只读、简约，把录入模式记录的信息排版出来 */
   import type { CustomFieldPosition, Id, Lexeme, Project, Sense } from '$lib/core/model'
-  import { etymologyTypeLabel, relationLabel } from '$lib/ui/labels'
+  import { etymologyTypeLabel, pronText, relationLabel } from '$lib/ui/labels'
+  import { cardBlocks } from '$lib/ui/cardBlocks'
   import { customFieldScript, customFieldsFor, customItems } from '$lib/core/customFields'
   import { morphemeLabel } from '$lib/core/etymology'
   import { t, pickText } from '$lib/i18n/index.svelte'
@@ -24,6 +25,8 @@
   const filledForms = $derived(Object.entries(l.forms).filter(([, f]) => f.surface.trim()))
   const lang = $derived(project.languages.find((x) => x.id === l.languageId))
   const pos = $derived(project.posList.find((p) => p.id === l.posId))
+  /** 各块的顺序：皮肤页里拖着排，没排过就用默认顺序 */
+  const blocks = $derived(cardBlocks(ui.prefs.cardOrder))
   const features = $derived(
     Object.entries(l.features)
       .map(([cid, vid]) => {
@@ -105,7 +108,7 @@
   {/each}
 {/snippet}
 
-<article class="entry" class:has-img={!!l.images?.length}>
+<article class="entry" class:has-img={!!l.images?.length} style:--cs={ui.prefs.cardScale}>
   {#if l.images?.[0]}
     <img
       class="hero"
@@ -127,7 +130,7 @@
     <div class="row meta">
       {#if pos}<span class="pos">{pos.abbr || pickText(pos.name, glossLangs)}</span>{/if}
       {#each pron as p (p.name)}<span class="ipa data"
-          >/{p.p.ipa}/{#if pron.length > 1}<span class="tiny">{p.name}</span>{/if}</span
+          >{pronText(p.p.ipa)}{#if pron.length > 1}<span class="tiny">{p.name}</span>{/if}</span
         >{/each}
     </div>
     {#if features.length || dialects.length}
@@ -150,125 +153,143 @@
     </div>
   {/if}
 
-  {@render customBlocks('beforeSenses')}
+  {#snippet blockSenses()}
+    {@render customBlocks('beforeSenses')}
 
-  <ol class="senses">
-    {#each l.senses as s (s.id)}
-      {@const firstLang = glossLangs.find((g) => s.definition[g])}
-      {@const sp = sensePos(project, l, s)}
-      <li>
-        {#each glossLangs as g (g)}
-          {#if s.definition[g]}<p class="def" lang={g}>
-              {#if g === firstLang}{#if sp}<span class="spos" title={pickText(sp.name, glossLangs)}
-                    >{posText(sp, glossLangs)}</span
-                  >{/if}{#each regsOf(s) as r (r)}<span class="reg" title={r}>{regLabel(r)}</span
-                  >{/each}{/if}{s.definition[g]}
-            </p>{/if}
-        {/each}
-        {#if !firstLang && (regsOf(s).length || sp)}
-          <p class="def">
-            {#if sp}<span class="spos">{posText(sp, glossLangs)}</span
-              >{/if}{#each regsOf(s) as r (r)}<span class="reg" title={r}>{regLabel(r)}</span
-              >{/each}
-          </p>
-        {/if}
-        {#if s.tags.length}
-          <p class="tiny muted tags">{s.tags.join(' · ')}</p>
-        {/if}
-      </li>
-    {/each}
-  </ol>
-
-  {#if l.tags.length}
-    <div class="chips">
-      {#each l.tags as tg (tg)}<span class="chip tag">{tg}</span>{/each}
-    </div>
-  {/if}
-
-  {@render customBlocks('afterSenses')}
-
-  {#if l.etymology.sources.length || l.etymology.stages.length || l.etymology.notes}
-    <section>
-      <h4>{t('lexicon.etymology')}</h4>
-      <p class="ety">
-        {#if l.etymology.type !== 'unknown'}<span class="muted"
-            >{etymologyTypeLabel(l.etymology.type)}</span
-          >{/if}
-        {#each l.etymology.sources as s, i (i)}
-          {@const st = sourceText(s)}
-          {#if i > 0}<span class="muted">+</span>{/if}
-          {#if st.id}<button class="link data" onclick={() => onselect?.(st.id!)}>{st.text}</button
-            >{:else}<span class="data">{st.text}</span>{/if}
-        {/each}
-        {#each l.etymology.stages as st (st.id)}
-          {#if st.form}<span class="muted">&gt;</span><span class="data">{st.form}</span>{/if}
-        {/each}
-        {#if l.etymology.sources.length || l.etymology.stages.length}
-          <span class="muted">&gt;</span><span class="data">{l.lemma}</span>
-        {/if}
-      </p>
-      {#if l.etymology.notes}<p class="small muted">{l.etymology.notes}</p>{/if}
-    </section>
-  {/if}
-
-  {@render customBlocks('afterEtymology')}
-
-  {#if filledStems.length || filledForms.length}
-    <section>
-      <h4>{t('lexicon.forms')}</h4>
-      <table class="forms">
-        <tbody>
-          {#each filledStems as [k, v] (k)}
-            <tr><th>{k}</th><td class="data">{v}</td></tr>
+    <ol class="senses">
+      {#each l.senses as s (s.id)}
+        {@const firstLang = glossLangs.find((g) => s.definition[g])}
+        {@const sp = sensePos(project, l, s)}
+        <li>
+          {#each glossLangs as g (g)}
+            {#if s.definition[g]}<p class="def" lang={g}>
+                {#if g === firstLang}{#if sp}<span
+                      class="spos"
+                      title={pickText(sp.name, glossLangs)}>{posText(sp, glossLangs)}</span
+                    >{/if}{#each regsOf(s) as r (r)}<span class="reg" title={r}>{regLabel(r)}</span
+                    >{/each}{/if}{s.definition[g]}
+              </p>{/if}
           {/each}
-          {#each filledForms as [k, f] (k)}
-            <tr
-              ><th>{k}</th><td class="data"
-                >{f.surface}{#if f.derived && ui.prefs.showDerivedMark}<span class="tiny muted">
-                    ⚙</span
-                  >{/if}</td
-              ></tr
-            >
+          {#if !firstLang && (regsOf(s).length || sp)}
+            <p class="def">
+              {#if sp}<span class="spos">{posText(sp, glossLangs)}</span
+                >{/if}{#each regsOf(s) as r (r)}<span class="reg" title={r}>{regLabel(r)}</span
+                >{/each}
+            </p>
+          {/if}
+          {#if s.tags.length}
+            <p class="tiny muted tags">{s.tags.join(' · ')}</p>
+          {/if}
+        </li>
+      {/each}
+    </ol>
+    {@render customBlocks('afterSenses')}
+  {/snippet}
+
+  {#snippet blockTags()}
+    {#if l.tags.length}
+      <div class="chips">
+        {#each l.tags as tg (tg)}<span class="chip tag">{tg}</span>{/each}
+      </div>
+    {/if}
+  {/snippet}
+
+  {#snippet blockEtymology()}
+    {#if l.etymology.sources.length || l.etymology.stages.length || l.etymology.notes}
+      <section>
+        <h4>{t('lexicon.etymology')}</h4>
+        <p class="ety">
+          {#if l.etymology.type !== 'unknown'}<span class="muted"
+              >{etymologyTypeLabel(l.etymology.type)}</span
+            >{/if}
+          {#each l.etymology.sources as s, i (i)}
+            {@const st = sourceText(s)}
+            {#if i > 0}<span class="muted">+</span>{/if}
+            {#if st.id}<button class="link data" onclick={() => onselect?.(st.id!)}
+                >{st.text}</button
+              >{:else}<span class="data">{st.text}</span>{/if}
           {/each}
-        </tbody>
-      </table>
-    </section>
-  {/if}
+          {#each l.etymology.stages as st (st.id)}
+            {#if st.form}<span class="muted">&gt;</span><span class="data">{st.form}</span>{/if}
+          {/each}
+          {#if l.etymology.sources.length || l.etymology.stages.length}
+            <span class="muted">&gt;</span><span class="data">{l.lemma}</span>
+          {/if}
+        </p>
+        {#if l.etymology.notes}<p class="small muted">{l.etymology.notes}</p>{/if}
+      </section>
+    {/if}
+    {@render customBlocks('afterEtymology')}
+  {/snippet}
 
-  {#if l.relations.length}
-    <section>
-      <h4>{t('lexicon.relations')}</h4>
-      <ul class="rel">
-        {#each l.relations as r, i (i)}
-          <li>
-            <span class="muted">{relationLabel(r.kind)}</span>
-            <button class="link data" onclick={() => onselect?.(r.lexemeId)}
-              >{lemmaOf(r.lexemeId)}</button
-            >
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
+  {#snippet blockForms()}
+    {#if filledStems.length || filledForms.length}
+      <section>
+        <h4>{t('lexicon.forms')}</h4>
+        <table class="forms">
+          <tbody>
+            {#each filledStems as [k, v] (k)}
+              <tr><th>{k}</th><td class="data">{v}</td></tr>
+            {/each}
+            {#each filledForms as [k, f] (k)}
+              <tr
+                ><th>{k}</th><td class="data"
+                  >{f.surface}{#if f.derived && ui.prefs.showDerivedMark}<span class="tiny muted">
+                      ⚙</span
+                    >{/if}</td
+                ></tr
+              >
+            {/each}
+          </tbody>
+        </table>
+      </section>
+    {/if}
+  {/snippet}
 
-  {#if derivedWords.length}
-    <section>
-      <h4>{t('lexicon.derivedWords')}</h4>
-      <p class="derivedWords">
-        {#each derivedWords as d (d.id)}<button class="link data" onclick={() => onselect?.(d.id)}
-            >{d.lemma}</button
-          >{/each}
-      </p>
-    </section>
-  {/if}
+  {#snippet blockRelations()}
+    {#if l.relations.length}
+      <section>
+        <h4>{t('lexicon.relations')}</h4>
+        <ul class="rel">
+          {#each l.relations as r, i (i)}
+            <li>
+              <span class="muted">{relationLabel(r.kind)}</span>
+              <button class="link data" onclick={() => onselect?.(r.lexemeId)}
+                >{lemmaOf(r.lexemeId)}</button
+              >
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
+  {/snippet}
 
-  {#if l.notes}
-    <section>
-      <h4>{t('common.notes')}</h4>
-      <p class="small notes">{l.notes}</p>
-    </section>
-  {/if}
+  {#snippet blockDerived()}
+    {#if derivedWords.length}
+      <section>
+        <h4>{t('lexicon.derivedWords')}</h4>
+        <p class="derivedWords">
+          {#each derivedWords as d (d.id)}<button class="link data" onclick={() => onselect?.(d.id)}
+              >{d.lemma}</button
+            >{/each}
+        </p>
+      </section>
+    {/if}
+  {/snippet}
 
+  {#snippet blockNotes()}
+    {#if l.notes}
+      <section>
+        <h4>{t('common.notes')}</h4>
+        <p class="small notes">{l.notes}</p>
+      </section>
+    {/if}
+  {/snippet}
+
+  <!-- 各块按皮肤页里排好的顺序画 -->
+  {#each blocks as b (b)}
+    {#if b === 'senses'}{@render blockSenses()}{:else if b === 'tags'}{@render blockTags()}{:else if b === 'etymology'}{@render blockEtymology()}{:else if b === 'forms'}{@render blockForms()}{:else if b === 'relations'}{@render blockRelations()}{:else if b === 'derived'}{@render blockDerived()}{:else}{@render blockNotes()}{/if}
+  {/each}
   {@render customBlocks('end')}
 </article>
 
@@ -278,6 +299,8 @@
     flex-direction: column;
     gap: 20px;
     position: relative;
+    /* 字号倍数在皮肤页里调（--cs），下面的字号都按 em 跟着走 */
+    font-size: calc(15px * var(--cs, 1));
   }
   .hero {
     position: absolute;
@@ -312,12 +335,12 @@
     gap: 8px;
   }
   .scr {
-    font-size: 24px;
+    font-size: 1.6em;
     line-height: 1.3;
     margin: 2px 0 4px;
   }
   .lemma {
-    font-size: 30px;
+    font-size: 2em;
     font-weight: 500;
     line-height: 1.2;
   }
@@ -333,7 +356,7 @@
     color: var(--text-2);
   }
   .tiny {
-    font-size: 10px;
+    font-size: 0.67em;
     color: var(--text-3);
     margin-left: 4px;
   }
@@ -346,7 +369,7 @@
     padding: 1px 8px;
     border-radius: 999px;
     background: var(--bg-sunken);
-    font-size: 12px;
+    font-size: 0.8em;
   }
   .chip.dia {
     background: var(--accent-soft);
@@ -365,10 +388,10 @@
   }
   .senses li::marker {
     color: var(--text-3);
-    font-size: 12px;
+    font-size: 0.8em;
   }
   .def {
-    font-size: 15px;
+    font-size: 1em;
     line-height: 1.6;
   }
   /* 语域：方框里一个字（或全称），像纸质词典的标签 */
@@ -400,7 +423,7 @@
     color: var(--text-2);
   }
   h4 {
-    font-size: 11px;
+    font-size: 0.73em;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--text-3);
@@ -422,7 +445,7 @@
   }
   .forms {
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 0.87em;
     width: 100%;
     table-layout: fixed;
   }
@@ -467,10 +490,10 @@
     padding: 1px 8px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    font-size: 15px;
+    font-size: 1em;
   }
   .cf-text {
-    font-size: 14px;
+    font-size: 0.93em;
     line-height: 1.6;
     white-space: pre-wrap;
   }

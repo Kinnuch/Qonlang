@@ -7,6 +7,7 @@
   import { ui } from '$lib/state/ui.svelte'
   import { t } from '$lib/i18n/index.svelte'
   import { X, ExternalLink } from '@lucide/svelte'
+  import catImage from '../../assets/tour/guide-cat.png'
 
   let rect = $state<DOMRect | null>(null)
   let vw = $state(typeof window !== 'undefined' ? window.innerWidth : 1200)
@@ -73,15 +74,18 @@
   const PAD = 6
   const BW = 320
   const BH = 150
+  /** 气泡上面那只猫（像素画）占的高度：留出来，免得挡住正在讲的东西 */
+  const CAT_H = 96
   /** 气泡放目标下面，放不下就上面；都放不下就放右边；没有目标就居中 */
   const bubble = $derived.by(() => {
     if (!rect) return { left: (vw - BW) / 2, top: vh / 2 - BH / 2, side: 'none' as const }
     const left = Math.max(12, Math.min(vw - BW - 12, rect.left + rect.width / 2 - BW / 2))
-    if (rect.bottom + 18 + BH < vh) return { left, top: rect.bottom + 18, side: 'below' as const }
+    if (rect.bottom + 18 + CAT_H + BH < vh)
+      return { left, top: rect.bottom + 18 + CAT_H, side: 'below' as const }
     if (rect.top - 18 - BH > 0) return { left, top: rect.top - 18 - BH, side: 'above' as const }
     return {
       left: Math.max(12, Math.min(vw - BW - 12, rect.left - BW - 24)),
-      top: Math.max(12, Math.min(vh - BH - 12, rect.top)),
+      top: Math.max(CAT_H + 12, Math.min(vh - BH - 12, rect.top)),
       side: 'side' as const
     }
   })
@@ -89,8 +93,9 @@
   const arrow = $derived.by(() => {
     if (!rect || bubble.side === 'none') return null
     const tx = Math.max(rect.left + 8, Math.min(rect.right - 8, bubble.left + BW / 2))
+    // 从气泡左肩出发：正中间站着那只猫，箭头别从它身上穿过去
     if (bubble.side === 'below')
-      return { x1: bubble.left + BW / 2, y1: bubble.top, x2: tx, y2: rect.bottom + PAD + 2 }
+      return { x1: bubble.left + 28, y1: bubble.top, x2: tx, y2: rect.bottom + PAD + 2 }
     if (bubble.side === 'above')
       return { x1: bubble.left + BW / 2, y1: bubble.top + BH, x2: tx, y2: rect.top - PAD - 2 }
     return {
@@ -133,6 +138,7 @@
       </svg>
     {/if}
     <div class="bubble card" style:left="{bubble.left}px" style:top="{bubble.top}px">
+      <img class="cat" src={catImage} alt="" />
       <div class="row head">
         <strong class="grow">{t(`nav.${tour.section}`)}</strong>
         <span class="small muted">{tour.index + 1} / {tour.steps.length}</span>
@@ -215,6 +221,7 @@
   .arrow path {
     fill: var(--accent);
   }
+  /* 气泡长成像素画里那块牌子：深蓝粗边 + 湖蓝底，上面站着举牌子的猫 */
   .bubble {
     position: fixed;
     width: 320px;
@@ -224,13 +231,36 @@
     flex-direction: column;
     gap: 8px;
     box-shadow: var(--shadow-lg);
-    border-color: var(--accent);
+    background: #2e9cbb;
+    border: 4px solid #09205c;
+    border-radius: 6px;
+    color: #fff;
+  }
+  .cat {
+    position: absolute;
+    left: 50%;
+    bottom: 100%;
+    transform: translateX(-50%);
+    width: 124px;
+    margin-bottom: -10px;
+    image-rendering: pixelated;
+    pointer-events: none;
+  }
+  .bubble .head strong {
+    color: #fff;
+  }
+  .bubble :global(.muted) {
+    color: #d6eef7;
+  }
+  .bubble :global(.btn.ghost) {
+    color: #fff;
   }
   .head {
     gap: 8px;
   }
   .text {
     margin: 0;
+    color: #fff;
     font-size: 14px;
     line-height: 1.6;
     flex: 1;

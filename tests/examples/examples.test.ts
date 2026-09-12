@@ -55,6 +55,10 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     expect(p.lexemes.some((l) => l.senses.some((s) => s.registers.length > 1))).toBe(true)
     expect(p.paradigms.find((x) => x.variants.length)?.baseVariantName).toBe('书面')
     expect(p.customFields.map((f) => f.name.zh)).toEqual(['文化注释', '刻文异体'])
+    // 维度按词类限定：「级与派生」只给形容词
+    const degree = p.categories.find((c) => c.name.zh === '级与派生')!
+    expect(degree.posIds).toHaveLength(1)
+    expect(p.categories.find((c) => c.name.zh === '和谐类')?.posIds).toBeUndefined()
     const kaso = p.lexemes.find((l) => l.lemma === 'kaso')!
     expect(Object.keys(kaso.custom ?? {})).toHaveLength(2)
     const rs = p.ruleSets.find((r) => r.name === '元音和谐')!

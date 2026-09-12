@@ -1,5 +1,7 @@
 <script lang="ts">
   import { navScroll } from '$lib/ui/navScroll'
+  import type { GrammaticalCategory } from '$lib/core/model'
+  import { lazyMore } from '$lib/ui/lazy.svelte'
   import type { PageView } from '$lib/state/ui.svelte'
   import { matchQuery, parseQuery } from '$lib/core/query'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
@@ -30,7 +32,7 @@
   } from '$lib/core/pos'
   import { PREVIEW_LIMIT, scratchProject } from '$lib/importers/preview'
   import ImportPreview from '$lib/ui/ImportPreview.svelte'
-  import { relationLabel } from '$lib/ui/labels'
+  import { pronText, relationLabel } from '$lib/ui/labels'
   import LexemeExamples from '$lib/ui/LexemeExamples.svelte'
   import { lexemeScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
@@ -199,7 +201,8 @@
     key === 'tags' ||
     key === 'language' ||
     key.startsWith('feat:')
-  let limit = $state(sameLang ? (memo.limit ?? 300) : 300)
+  // 先画一屏多一点，滚到底再自动加载下一批（一次画上千行会卡）
+  let limit = $state(sameLang ? (memo.limit ?? 150) : 150)
   /** Ctrl / Shift 多选出来的词条 */
   let multiIds = $state<Id[]>([])
   let lastIndex = $state(-1)
@@ -583,6 +586,14 @@
     void ui.savePrefs()
   }
 
+  /** 这个词条能填的语法维度：维度限定了词类时只列对得上的（已经填了值的照样显示） */
+  function catsFor(l: Lexeme): GrammaticalCategory[] {
+    const ids = new Set(lexemePosIds(project, l))
+    return project.categories.filter(
+      (c) => !c.posIds?.length || c.posIds.some((p) => ids.has(p)) || c.id in l.features
+    )
+  }
+
   function cell(l: Lexeme, key: string): string {
     if (key === 'pos') return posLabelOf(l)
     if (key === 'language') {
@@ -600,7 +611,7 @@
     if (key === 'proto') return etymologyOrigin(project, l.etymology)
     if (key === 'pron')
       return Object.values(l.pronunciations)
-        .map((p) => p.ipa)
+        .map((p) => pronText(p.ipa))
         .filter(Boolean)
         .join(' / ')
     if (key.startsWith('feat:')) {
@@ -1248,6 +1259,7 @@
         </tbody>
       </table>
       {#if list.length > limit}
+        <div class="more-mark" use:lazyMore={{ grow: () => (limit += 200) }}></div>
         <button class="btn ghost sm more" onclick={() => (limit += 300)}
           >… {list.length - limit}</button
         >
@@ -1371,12 +1383,12 @@
       </div>
     </div>
 
-    {#if project.categories.length}
+    {#if catsFor(l).length}
       <div class="field">
         <div class="row">
           <span class="small muted">{t('lexicon.features')}</span><HelpDot key="features" />
         </div>
-        {#each project.categories as c (c.id)}
+        {#each catsFor(l) as c (c.id)}
           <label class="row feat">
             <span class="grow small">{pickText(c.name, glossLangs)}</span>
             <select
@@ -2040,6 +2052,9 @@
   }
   .tags-cell .badge {
     margin-right: 3px;
+  }
+  .more-mark {
+    height: 1px;
   }
   .more {
     margin: 8px;

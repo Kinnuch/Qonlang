@@ -35,6 +35,7 @@
   import Docs from './Docs.svelte'
   import CommandPalette from '$lib/ui/CommandPalette.svelte'
   import PromptDialog from '$lib/ui/PromptDialog.svelte'
+  import ConfirmDialog from '$lib/ui/ConfirmDialog.svelte'
   import GuideTour from '$lib/ui/GuideTour.svelte'
   import SearchBar from '$lib/ui/SearchBar.svelte'
   import RuleSyntax from '$lib/ui/RuleSyntax.svelte'
@@ -400,6 +401,7 @@
 <GuideTour />
 <CommandPalette />
 <PromptDialog />
+<ConfirmDialog />
 <SentenceMergeDialog />
 
 <style>

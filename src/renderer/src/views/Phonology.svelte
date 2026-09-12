@@ -1,5 +1,7 @@
 <script lang="ts">
   import { navScroll } from '$lib/ui/navScroll'
+  import { sectionCollapsed } from '$lib/ui/section.svelte'
+  import SectionHead from '$lib/ui/SectionHead.svelte'
   import type { PageView } from '$lib/state/ui.svelte'
   import { matchQuery, parseQuery } from '$lib/core/query'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
@@ -268,7 +270,10 @@
     return orthoTest
       .split(/[\s,，、]+/)
       .filter(Boolean)
-      .map((w) => ({ w, out: runRules(orthoProgram!, w).output }))
+      .map((w) => {
+        const r = runRules(orthoProgram!, w)
+        return { w, out: r.output, stages: r.stages }
+      })
   })
   function addOrtho(): void {
     if (!lang) return
@@ -517,63 +522,71 @@
       </section>
 
       <section class="block">
-        <h3>{t('phonology.chartPulmonic')} <HelpDot tip={t('phonology.chartHint')} /></h3>
-        <div class="table-wrap">
-          <table class="chart">
-            <thead
-              ><tr
-                ><th></th>{#each PLACES as p (p.en)}<th>{zh ? p.zh : p.en}</th>{/each}</tr
-              ></thead
-            >
-            <tbody>
-              {#each PULMONIC as row, mi (mi)}
-                <tr>
-                  <th>{zh ? MANNERS[mi].zh : MANNERS[mi].en}</th>
-                  {#each row as cell, pi (pi)}<td
-                      >{@render chartCell(cell[0])}{@render chartCell(cell[1])}</td
-                    >{/each}
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-        <div class="chips">
-          {#each OTHER_PULMONIC as s (s.s)}{@render chartCell(s.s)}{/each}
-        </div>
-        {#each NON_PULMONIC as g (g.en)}
-          <div class="row wrap">
-            <span class="small muted lbl">{zh ? g.zh : g.en}</span
-            >{#each g.items.filter((x) => x.s.length === 1) as s (s.s)}{@render chartCell(
-                s.s
-              )}{/each}
+        <SectionHead
+          id="phonology.chartPulmonic"
+          title={t('phonology.chartPulmonic')}
+          tip={t('phonology.chartHint')}
+        />
+        {#if !sectionCollapsed('phonology.chartPulmonic')}
+          <div class="table-wrap">
+            <table class="chart">
+              <thead
+                ><tr
+                  ><th></th>{#each PLACES as p (p.en)}<th>{zh ? p.zh : p.en}</th>{/each}</tr
+                ></thead
+              >
+              <tbody>
+                {#each PULMONIC as row, mi (mi)}
+                  <tr>
+                    <th>{zh ? MANNERS[mi].zh : MANNERS[mi].en}</th>
+                    {#each row as cell, pi (pi)}<td
+                        >{@render chartCell(cell[0])}{@render chartCell(cell[1])}</td
+                      >{/each}
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
           </div>
-        {/each}
+          <div class="chips">
+            {#each OTHER_PULMONIC as s (s.s)}{@render chartCell(s.s)}{/each}
+          </div>
+          {#each NON_PULMONIC as g (g.en)}
+            <div class="row wrap">
+              <span class="small muted lbl">{zh ? g.zh : g.en}</span
+              >{#each g.items.filter((x) => x.s.length === 1) as s (s.s)}{@render chartCell(
+                  s.s
+                )}{/each}
+            </div>
+          {/each}
+        {/if}
       </section>
 
       <section class="block">
-        <h3>{t('phonology.chartVowels')}</h3>
-        <div class="table-wrap">
-          <table class="chart">
-            <thead
-              ><tr
-                ><th></th>{#each BACKNESS as b (b.en)}<th>{zh ? b.zh : b.en}</th>{/each}</tr
-              ></thead
-            >
-            <tbody>
-              {#each VOWELS as row, hi (hi)}
-                <tr>
-                  <th>{zh ? HEIGHTS[hi].zh : HEIGHTS[hi].en}</th>
-                  {#each row as cell, bi (bi)}<td
-                      >{@render chartCell(cell[0])}{@render chartCell(cell[1])}</td
-                    >{/each}
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-        <div class="chips">
-          {#each OTHER_VOWELS as s (s.s)}{@render chartCell(s.s)}{/each}
-        </div>
+        <SectionHead id="phonology.chartVowels" title={t('phonology.chartVowels')} />
+        {#if !sectionCollapsed('phonology.chartVowels')}
+          <div class="table-wrap">
+            <table class="chart">
+              <thead
+                ><tr
+                  ><th></th>{#each BACKNESS as b (b.en)}<th>{zh ? b.zh : b.en}</th>{/each}</tr
+                ></thead
+              >
+              <tbody>
+                {#each VOWELS as row, hi (hi)}
+                  <tr>
+                    <th>{zh ? HEIGHTS[hi].zh : HEIGHTS[hi].en}</th>
+                    {#each row as cell, bi (bi)}<td
+                        >{@render chartCell(cell[0])}{@render chartCell(cell[1])}</td
+                      >{/each}
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+          <div class="chips">
+            {#each OTHER_VOWELS as s (s.s)}{@render chartCell(s.s)}{/each}
+          </div>
+        {/if}
       </section>
     </div>
   {:else if tab === 'classes'}
@@ -831,7 +844,7 @@
         {#if syllResults.length}
           <table class="res">
             <tbody
-              >{#each syllResults as r (r.w)}<tr
+              >{#each syllResults as r, ri (ri)}<tr
                   ><td class="data">{r.w}</td><td class="data out">{r.out}</td></tr
                 >{/each}</tbody
             >
@@ -841,7 +854,7 @@
           <p class="small muted">{t('phonology.sampleFromLexicon')}</p>
           <table class="res">
             <tbody
-              >{#each sampleAnalyses as r (r.lemma)}<tr
+              >{#each sampleAnalyses as r, ri (ri)}<tr
                   ><td class="data">{r.lemma}</td><td class="data muted">{r.ipa}</td><td
                     class="data out">{r.out}</td
                   ></tr
@@ -936,7 +949,7 @@
             <p class="small muted">{t('phonology.violations', { n: violations.length })}</p>
             <table class="res">
               <tbody
-                >{#each violations.slice(0, 200) as v (v.lemma + v.ipa)}<tr
+                >{#each violations.slice(0, 200) as v, vi (vi)}<tr
                     ><td class="data">{v.lemma}</td><td class="data muted">{v.ipa}</td><td
                       >{#each v.v as x, i (i)}<span class="badge warn"
                           >{t(`phonology.violation.${x.kind}`)} {x.detail}</span
@@ -984,7 +997,7 @@
             >{/if}
         </div>
         <div class="chips">
-          {#each generated as g (g.ipa)}
+          {#each generated as g, gi (gi)}
             <span class="chip gen data"
               >{#if g.spelt && g.spelt !== g.ipa}<b>{g.spelt}</b><span class="muted small"
                   >{g.ipa}</span
@@ -1116,10 +1129,22 @@
         placeholder={t('phonology.testPlaceholder')}
       ></textarea>
       {#if orthoResults.length}
+        {@const stageNames = orthoProgram?.markers ?? []}
         <table class="res">
+          {#if stageNames.length}
+            <thead
+              ><tr
+                ><th></th>{#each stageNames as sn (sn)}<th class="small muted">{sn}</th>{/each}<th
+                  class="small muted">{t('soundChanges.output')}</th
+                ></tr
+              ></thead
+            >
+          {/if}
           <tbody
-            >{#each orthoResults as r (r.w)}<tr
-                ><td class="data">{r.w}</td><td class="data out">{r.out}</td></tr
+            >{#each orthoResults as r, ri (ri)}<tr
+                ><td class="data">{r.w}</td>{#each stageNames as sn (sn)}<td class="data muted"
+                    >{r.stages.find((x) => x.name === sn)?.form ?? ''}</td
+                  >{/each}<td class="data out">{r.out}</td></tr
               >{/each}</tbody
           >
         </table>

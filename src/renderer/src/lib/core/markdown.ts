@@ -10,6 +10,24 @@ export interface MdOptions {
 const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
+/** 表格一行拆成格子：写成 \\| 的竖线是格子里的内容，不当分隔 */
+function splitRow(row: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  for (let i = 0; i < row.length; i++) {
+    const c = row[i]
+    if (c === '\\' && row[i + 1] === '|') {
+      cur += '|'
+      i++
+    } else if (c === '|') {
+      out.push(cur.trim())
+      cur = ''
+    } else cur += c
+  }
+  out.push(cur.trim())
+  return out
+}
+
 function inline(text: string, opts: MdOptions): string {
   let s = esc(text)
   s = s.replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -91,11 +109,7 @@ export function mdToHtml(md: string, opts: MdOptions = {}): string {
     if (/^\s*\|.*\|\s*$/.test(line)) {
       closeList()
       flushQuote()
-      const cells = line
-        .trim()
-        .slice(1, -1)
-        .split('|')
-        .map((c) => c.trim())
+      const cells = splitRow(line.trim().slice(1, -1))
       if (cells.every((c) => /^:?-{2,}:?$/.test(c))) continue // 分隔行
       if (!table) table = []
       table.push(cells)

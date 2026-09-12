@@ -1,5 +1,10 @@
 <script lang="ts">
   import { navScroll } from '$lib/ui/navScroll'
+  import { focusField } from '$lib/ui/focus'
+  import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
+  import { sectionCollapsed } from '$lib/ui/section.svelte'
+  import SectionHead from '$lib/ui/SectionHead.svelte'
+  import { customFieldTitle } from '$lib/core/customFields'
   import type { PageView } from '$lib/state/ui.svelte'
   import { matchQuery, parseQuery } from '$lib/core/query'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
@@ -36,7 +41,8 @@
     Wand2,
     List,
     Code,
-    X
+    X,
+    Pencil
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
@@ -233,6 +239,24 @@
     )
   })
   const autoLines = $derived(script ? autoMappingLines(script) : [])
+  // 字形多的时候分批画
+  const lzG = lazy(80)
+  let lastGlyphs = -1
+  $effect(() => {
+    const n = shownGlyphs.length
+    if (n === lastGlyphs) return
+    lastGlyphs = n
+    lzG.reset()
+  })
+  /** 「转写来源」里能挑的词干槽：词类里定义的，加上词条里实际填过的 */
+  const stemNames = $derived(
+    [
+      ...new Set([
+        ...project.posList.flatMap((p) => (p.stemSlots ?? []).map((s) => s.name)),
+        ...project.lexemes.flatMap((l) => Object.keys(l.stems ?? {}))
+      ])
+    ].filter(Boolean)
+  )
   const testResults = $derived.by(() => {
     if (!program) return []
     return testText
@@ -491,14 +515,27 @@
     {/if}
     <div class="booktabs grow">
       {#each lang?.scripts ?? [] as s (s.id)}
-        <button
-          class="tab"
-          class:active={script?.id === s.id}
-          onclick={() => {
-            selectedScript = s.id
-            selectedGlyph = null
-          }}>{s.name}</button
-        >
+        <span class="tabwrap">
+          <button
+            class="tab"
+            class:active={script?.id === s.id}
+            onclick={() => {
+              selectedScript = s.id
+              selectedGlyph = null
+            }}>{s.name}</button
+          >
+          <button
+            class="pen"
+            title={t('common.rename')}
+            onclick={() => {
+              selectedScript = s.id
+              selectedGlyph = null
+              ui.inspectorOpen = true
+              ui.syntaxOpen = false
+              focusField('#s-name')
+            }}><Pencil size={11} /></button
+          >
+        </span>
       {/each}
     </div>
     {#if lang}
@@ -595,7 +632,7 @@
         <p class="muted">{t('script.noGlyphs')}</p>
       {:else}
         <div class="grid" use:flashOn={importedFlash}>
-          {#each shownGlyphs as g, gi (g.id)}
+          {#each shownGlyphs.slice(0, lzG.shown) as g, gi (g.id)}
             <button
               class="gcard"
               class:sel={selectedGlyph === g.id || multiGlyphs.includes(g.id)}
@@ -607,6 +644,7 @@
             </button>
           {/each}
         </div>
+        {#if shownGlyphs.length > lzG.shown}<div class="more-mark" use:lazyMore={lzG}></div>{/if}
       {/if}
     </div>
   {:else if tab === 'rules'}
@@ -639,93 +677,99 @@
           </div>
         {/if}
       </div>
-      <details class="pack">
-        <summary class="small muted"
-          >{t('script.packing.title')} <HelpDot tip={t('script.packing.hint')} /></summary
-        >
-        <label class="row check"
-          ><input
-            type="checkbox"
-            checked={script.packing?.enabled ?? false}
-            onchange={(e) => setPacking('enabled', (e.currentTarget as HTMLInputElement).checked)}
-          />{t('script.packing.enabled')}</label
-        >
-        {#if script.packing?.enabled}
-          <div class="grid2">
-            <label class="field"
-              ><span>{t('script.packing.killer')}</span><input
-                class="input data"
-                value={script.packing.killer}
-                oninput={(e) => setPacking('killer', (e.currentTarget as HTMLInputElement).value)}
-              /></label
-            >
-            <label class="field"
-              ><span>{t('script.packing.dummyVowel')}</span><input
-                class="input data"
-                value={script.packing.dummyVowel}
-                oninput={(e) =>
-                  setPacking('dummyVowel', (e.currentTarget as HTMLInputElement).value)}
-              /></label
-            >
-            <label class="field"
-              ><span>{t('script.packing.marked')}</span><input
-                class="input data"
-                value={script.packing.marked}
-                oninput={(e) => setPacking('marked', (e.currentTarget as HTMLInputElement).value)}
-              /></label
-            >
-            <label class="field"
-              ><span>{t('script.packing.vowels')}</span><input
-                class="input data"
-                value={script.packing.vowels}
-                oninput={(e) => setPacking('vowels', (e.currentTarget as HTMLInputElement).value)}
-              /></label
-            >
-          </div>
-          <label class="field"
-            ><span>{t('script.packing.letters')}</span><input
-              class="input data"
-              value={script.packing.letters}
-              oninput={(e) => setPacking('letters', (e.currentTarget as HTMLInputElement).value)}
-            /></label
+      <section class="pack">
+        <SectionHead
+          id="script.packing"
+          title={t('script.packing.title')}
+          tip={t('script.packing.hint')}
+        />
+        {#if !sectionCollapsed('script.packing')}
+          <label class="row check"
+            ><input
+              type="checkbox"
+              checked={script.packing?.enabled ?? false}
+              onchange={(e) => setPacking('enabled', (e.currentTarget as HTMLInputElement).checked)}
+            />{t('script.packing.enabled')}</label
           >
-          <div class="grid2">
-            <label class="field"
-              ><span>{t('script.packing.letterMap')}</span><textarea
-                class="textarea data"
-                rows="4"
-                value={script.packing.letterMap}
-                oninput={(e) =>
-                  setPacking('letterMap', (e.currentTarget as HTMLTextAreaElement).value)}
-              ></textarea></label
-            >
-            <div class="col">
+          {#if script.packing?.enabled}
+            <div class="grid2">
               <label class="field"
-                ><span>{t('script.packing.lengths')}</span><textarea
-                  class="textarea data"
-                  rows="2"
-                  value={script.packing.lengths}
-                  oninput={(e) =>
-                    setPacking('lengths', (e.currentTarget as HTMLTextAreaElement).value)}
-                ></textarea></label
+                ><span>{t('script.packing.killer')}</span><input
+                  class="input data"
+                  value={script.packing.killer}
+                  oninput={(e) => setPacking('killer', (e.currentTarget as HTMLInputElement).value)}
+                /></label
               >
               <label class="field"
-                ><span>{t('script.packing.baseVowels')}</span><textarea
-                  class="textarea data"
-                  rows="2"
-                  value={script.packing.baseVowels}
+                ><span>{t('script.packing.dummyVowel')}</span><input
+                  class="input data"
+                  value={script.packing.dummyVowel}
                   oninput={(e) =>
-                    setPacking('baseVowels', (e.currentTarget as HTMLTextAreaElement).value)}
-                ></textarea></label
+                    setPacking('dummyVowel', (e.currentTarget as HTMLInputElement).value)}
+                /></label
+              >
+              <label class="field"
+                ><span>{t('script.packing.marked')}</span><input
+                  class="input data"
+                  value={script.packing.marked}
+                  oninput={(e) => setPacking('marked', (e.currentTarget as HTMLInputElement).value)}
+                /></label
+              >
+              <label class="field"
+                ><span>{t('script.packing.vowels')}</span><input
+                  class="input data"
+                  value={script.packing.vowels}
+                  oninput={(e) => setPacking('vowels', (e.currentTarget as HTMLInputElement).value)}
+                /></label
               >
             </div>
-          </div>
+            <label class="field"
+              ><span>{t('script.packing.letters')}</span><input
+                class="input data"
+                value={script.packing.letters}
+                oninput={(e) => setPacking('letters', (e.currentTarget as HTMLInputElement).value)}
+              /></label
+            >
+            <div class="grid2">
+              <label class="field"
+                ><span>{t('script.packing.letterMap')}</span><textarea
+                  class="textarea data"
+                  rows="4"
+                  value={script.packing.letterMap}
+                  oninput={(e) =>
+                    setPacking('letterMap', (e.currentTarget as HTMLTextAreaElement).value)}
+                ></textarea></label
+              >
+              <div class="col">
+                <label class="field"
+                  ><span>{t('script.packing.lengths')}</span><textarea
+                    class="textarea data"
+                    rows="2"
+                    value={script.packing.lengths}
+                    oninput={(e) =>
+                      setPacking('lengths', (e.currentTarget as HTMLTextAreaElement).value)}
+                  ></textarea></label
+                >
+                <label class="field"
+                  ><span>{t('script.packing.baseVowels')}</span><textarea
+                    class="textarea data"
+                    rows="2"
+                    value={script.packing.baseVowels}
+                    oninput={(e) =>
+                      setPacking('baseVowels', (e.currentTarget as HTMLTextAreaElement).value)}
+                  ></textarea></label
+                >
+              </div>
+            </div>
+          {/if}
         {/if}
-      </details>
-      <details class="auto">
-        <summary class="small muted">{t('script.autoRules', { n: autoLines.length })}</summary>
-        <pre class="mono">{autoLines.join('\n')}</pre>
-      </details>
+      </section>
+      <section class="auto">
+        <SectionHead id="script.autoRules" title={t('script.autoRules', { n: autoLines.length })} />
+        {#if !sectionCollapsed('script.autoRules')}
+          <pre class="mono">{autoLines.join('\n')}</pre>
+        {/if}
+      </section>
     </div>
   {:else}
     <div class="scroll">
@@ -889,6 +933,31 @@
         </select>
       </div>
       <div class="field">
+        <label for="s-from">{t('script.from')} <HelpDot tip={t('script.fromHint')} /></label>
+        <select
+          id="s-from"
+          class="select"
+          value={sc.from ?? 'lemma'}
+          onchange={(e) => {
+            const v = (e.currentTarget as HTMLSelectElement).value
+            if (v === 'lemma') delete sc.from
+            else sc.from = v
+            touch()
+          }}
+        >
+          <option value="lemma">{t('script.fromLemma')}</option>
+          {#each stemNames as n (n)}<option value={`stem:${n}`}
+              >{t('script.fromStem', { name: n })}</option
+            >{/each}
+          {#each lang?.orthographies ?? [] as o (o.id)}<option value={`pron:${o.id}`}
+              >{t('script.fromPron', { name: o.name })}</option
+            >{/each}
+          {#each project.customFields as f (f.id)}<option value={`custom:${f.id}`}
+              >{t('script.fromCustom', { name: customFieldTitle(f, glossLangs) })}</option
+            >{/each}
+        </select>
+      </div>
+      <div class="field">
         <span class="small muted">{t('script.font')} <HelpDot tip={t('script.fontHint')} /></span>
         <input
           class="input"
@@ -919,7 +988,7 @@
         {#if testResults.length}
           <table class="res">
             <tbody
-              >{#each testResults as r (r.w)}<tr
+              >{#each testResults as r, ri (ri)}<tr
                   ><td class="data">{r.w}</td><td
                     class="scr"
                     style={fontCss(sc)}
@@ -1053,9 +1122,8 @@
     white-space: nowrap;
   }
   .editor-area {
-    /* basis 必须是 auto：写成 flex:1 时高度只按剩余空间算，
-       规则一多就溢出去盖住后面的「自动映射」折叠块 */
-    flex: 1 1 auto;
+    /* 不跟着拉伸：编辑规则时这一块会变高，下面的「音节拼合」「自动映射」照样往下排 */
+    flex: none;
     min-height: 240px;
     display: flex;
     flex-direction: column;
@@ -1065,8 +1133,12 @@
     min-height: 240px;
     display: flex;
   }
-  .auto {
+  .auto,
+  .pack {
     flex: none;
+  }
+  .more-mark {
+    height: 1px;
   }
   .auto pre {
     margin: 6px 0 0;

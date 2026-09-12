@@ -328,9 +328,19 @@
   }
   .src {
     gap: 4px;
+    flex-wrap: wrap;
+  }
+  /* 「自定义来源」这类标签不许被挤成一竖条 */
+  .src .badge {
+    flex: none;
+    white-space: nowrap;
+  }
+  .src .input {
+    min-width: 80px;
   }
   .src .lang {
     width: 84px;
+    flex: none;
   }
   .star {
     color: var(--text-3);

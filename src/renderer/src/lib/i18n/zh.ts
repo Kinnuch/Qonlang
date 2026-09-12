@@ -17,6 +17,8 @@ export default {
     undo: '撤销',
     close: '关闭',
     ok: '确定',
+    expand: '展开',
+    collapse: '收起',
     redo: '重做',
     backPage: '返回上一页 (Alt+←)',
     guide: '使用指南',
@@ -54,6 +56,7 @@ export default {
     skin: '皮肤',
     inspector: '检视器',
     home: '返回开始页（关闭当前项目）',
+    welcome: '开始',
     backTo: '返回「{name}」'
   },
   welcome: {
@@ -194,6 +197,7 @@ export default {
     duplicate: '复制',
     moveUp: '上移',
     moveDown: '下移',
+    dragHint: '按住规则拖到别的阶段，或拖到某一条前面',
     hits: '命中 {n}',
     classes: '音类',
     digraphs: '多合字母',
@@ -516,6 +520,13 @@ export default {
     openSite: '前往网站',
     always: '以后每次点「使用指南」都先看一遍图文引导',
     steps: {
+      welcome: [
+        '开始页：新建项目、打开已有项目，或者点「示例工程」翻两个做好的项目看看。',
+        '起步模板：空白单语从零开始；语系模板一次建好祖语和几门子语言。',
+        '最近打开的项目列在这里，点一下就接着上次干活。',
+        '底部这排：使用指南、更新日志、规则语法、致谢；规则语法随时能查规则怎么写。',
+        '打开项目后记住右上角那本翻开的书——「规则语法」：音变、构形、文字、异体形的写法都在里面。每页标题旁还有「使用指南」，会先在界面上把要点圈一遍。'
+      ],
       languages: [
         '语言页：项目里的每一门语言都在这里，按语系树排列。',
         '每张卡片是一门语言，子语言缩进在祖语下面；点卡片，右侧检视器里改名称、字母表、方言等。',
@@ -798,7 +809,11 @@ export default {
     customScriptNone: '正文字体',
     customAliases: '导入时也认的列名',
     customAliasesPlaceholder: '列名（回车添加）',
-    deletedCustomField: '已删除模块「{name}」'
+    deletedCustomField: '已删除模块「{name}」',
+    catPos: '用于词类',
+    catPosHint: '这个维度只给哪几个词类用；不选就是所有词类。词条录入时只列出对得上的维度。',
+    catPosAll: '所有词类',
+    addPosScope: '＋ 词类'
   },
   csv: {
     title: 'CSV 导入',
@@ -966,6 +981,13 @@ export default {
       omit: '括号连内容都不写'
     },
     parensHint: '原文里的括号：照留、拼进词里，或者省掉。',
+    from: '转写来源',
+    fromHint:
+      '这套文字按词条的哪一栏转写：默认是单词，也可以挑某个词干、某套正字法的发音或某个检视器模块；那一栏空着就回落到单词。',
+    fromLemma: '单词',
+    fromStem: '词干：{name}',
+    fromPron: '发音：{name}',
+    fromCustom: '模块：{name}',
     vertical: '竖排显示',
     verticalHint:
       '勾上后语料、短语、词库里的这种文字都竖着排；列从右往左，书写方向选「从左到右」则列从左往右。',
@@ -1449,6 +1471,20 @@ export default {
     scriptFontFor: '{name}（{lang}）',
     fontPlaceholder: '留空用默认；可写多个，逗号分隔',
     library: '字体库',
+    card: '词条卡',
+    cardHint: '词条卡的字号和各块的顺序。顺序拖着排，改完马上生效。',
+    cardScale: '字号',
+    cardOrder: '各块顺序（拖动排序）',
+    cardReset: '恢复默认',
+    cardBlocks: {
+      senses: '义项',
+      tags: '标签',
+      etymology: '词源',
+      forms: '词干与屈折形',
+      relations: '关系',
+      derived: '派生词',
+      notes: '备注'
+    },
     libraryHint: '都是可免费商用的 OFL 字体，下载后一直在；也能添加本地字体。',
     installed: '已安装',
     installBuiltin: '安装',
@@ -1507,6 +1543,10 @@ export default {
     registerDisplay: '词条卡里语域的显示',
     registerDisplayShort: '方框里一个字（英文显示缩写，如 lit.）',
     registerDisplayFull: '方框里写全称',
+    pronBrackets: '发音两边的符号',
+    pronBracketsSlash: '宽式 /…/',
+    pronBracketsBracket: '严式 […]',
+    pronBracketsNone: '不加符号',
     projectName: '项目名称',
     author: '作者',
     description: '简介',
@@ -1524,6 +1564,28 @@ export default {
     exportFolderDesc: '每个集合一个 JSON、规则一份纯文本，便于版本控制。',
     exportCsv: '导出为一个 CSV',
     exportCsvDesc: '整个项目放进一个表格文件，改完从「打开项目」选它就能读回来。',
+    clear: '清空内容',
+    clearHint: '把某个模块的内容整块清掉，方便重新导入；清之前会问一次，清完可以按 Ctrl+Z 撤销。',
+    clearPick: '选择要清空的内容…',
+    clearBtn: '清空',
+    clearConfirm: '确定清空「{name}」吗？',
+    clearConfirmBody: '这一步会删掉 {n} 条内容，撤销（Ctrl+Z）可以还原。',
+    cleared: '已清空「{name}」：{n} 条',
+    clearKinds: {
+      lexemes: '词库',
+      morphemes: '语素',
+      sentences: '语料',
+      phrasebook: '短语',
+      docs: '文档',
+      ruleSets: '音变规则集',
+      paradigms: '构形',
+      posList: '词类',
+      categories: '语法维度',
+      customFields: '检视器模块',
+      abbreviations: '缩写表',
+      scripts: '文字（各语言）',
+      images: '词条配图'
+    },
     about: '关于',
     version: '版本',
     userData: '数据目录',

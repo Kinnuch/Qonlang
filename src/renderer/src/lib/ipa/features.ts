@@ -24,6 +24,9 @@ export const DEFAULT_DIMENSIONS = [
   'syllabic'
 ] as const
 
+/** 比较用的写法：去掉连音弧这类组合符，t͡s 与 ts 算同一个 */
+const bare = (s: string | null): string => (s ?? '').normalize('NFD').replace(/\p{M}/gu, '')
+
 export function defaultFeatures(symbol: string): Record<string, string> {
   const base = symbol
     .normalize('NFD')
@@ -32,7 +35,7 @@ export function defaultFeatures(symbol: string): Record<string, string> {
   for (let mi = 0; mi < PULMONIC.length; mi++) {
     for (let pi = 0; pi < PULMONIC[mi].length; pi++) {
       const cell = PULMONIC[mi][pi]
-      if (cell[0] === base)
+      if (cell[0] && bare(cell[0]) === base)
         return {
           type: 'consonant',
           voice: 'voiceless',
@@ -40,7 +43,7 @@ export function defaultFeatures(symbol: string): Record<string, string> {
           manner: MANNERS[mi].en,
           syllabic: 'no'
         }
-      if (cell[1] === base)
+      if (cell[1] && bare(cell[1]) === base)
         return {
           type: 'consonant',
           voice: 'voiced',

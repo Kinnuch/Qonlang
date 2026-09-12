@@ -1,5 +1,7 @@
 <script lang="ts">
   import { navScroll } from '$lib/ui/navScroll'
+  import { morphJoiner } from '$lib/engine/gloss'
+  import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
   import type { PageView } from '$lib/state/ui.svelte'
   import { untrack } from 'svelte'
   import { platform } from '$lib/platform'
@@ -706,19 +708,45 @@
     wordHover.hide(true)
     ui.jump('lexicon', 'lexeme', id, project.lexemes.find((l) => l.id === id)?.languageId)
   }
+  // 分批渲染：先画一屏，滚到快见底了再画下一批（例句一多，整份重画会卡一下）
+  const lz = lazy(30)
+  let lastCount = -1
+  $effect(() => {
+    const n = list.length
+    if (n === lastCount) return
+    lastCount = n
+    lz.reset()
+  })
+
+  /** 切分、gloss 拼成一行：分隔符按用户写的（附着词默认 =） */
+  function joinMorphs(a: Analysis, pick: (m: Analysis['morphs'][number]) => string): string {
+    return a.morphs.map((m, i) => (i ? morphJoiner(project, a, i) : '') + pick(m)).join('')
+  }
   function analysisLabel(a: Analysis): string {
-    return a.morphs.map((m) => m.form).join('-') + ' → ' + a.morphs.map((m) => m.gloss).join('-')
+    return joinMorphs(a, (m) => m.form) + ' → ' + joinMorphs(a, (m) => m.gloss)
   }
   /** 手工修改语素切分 / gloss：写成自定义分析放到首位并选中 */
   function customize(tk: Token, morphsText: string, glossText: string): void {
-    const forms = morphsText.split(/[-=]/).map((x) => x.trim())
-    const glosses = glossText.split(/[-=]/).map((x) => x.trim())
+    // 连分隔符一起拆出来：写 = 的地方就记成 =，显示时不会变成 -
+    const cut = (s: string): { parts: string[]; seps: ('-' | '=')[] } => {
+      const bits = s.split(/([-=])/)
+      return {
+        parts: bits.filter((_, i) => i % 2 === 0).map((x) => x.trim()),
+        seps: bits.filter((_, i) => i % 2 === 1) as ('-' | '=')[]
+      }
+    }
+    const f = cut(morphsText)
+    const g = cut(glossText)
+    const forms = f.parts
+    const glosses = g.parts
+    const seps = f.seps.length ? f.seps : g.seps
     const n = Math.max(forms.length, glosses.length, 1)
     const cur = tk.analyses[tk.chosen]
     const morphs = Array.from({ length: n }, (_, i) => ({
       form: forms[i] ?? '',
       gloss: glosses[i] ?? '',
-      morphemeId: cur?.morphs[i]?.morphemeId ?? null
+      morphemeId: cur?.morphs[i]?.morphemeId ?? null,
+      ...(i > 0 && seps[i - 1] ? { sep: seps[i - 1] } : {})
     }))
     const custom: Analysis = { lexemeId: cur?.lexemeId ?? null, slot: cur?.slot ?? null, morphs }
     if (cur && tk.analyses.length && (tk as Token & { customIdx?: number }).customIdx === tk.chosen)
@@ -732,11 +760,11 @@
   }
   function morphsOf(tk: Token): string {
     const a = tk.analyses[tk.chosen]
-    return a ? a.morphs.map((m) => m.form).join('-') : tk.surface
+    return a ? joinMorphs(a, (m) => m.form) : tk.surface
   }
   function glossOf(tk: Token): string {
     const a = tk.analyses[tk.chosen]
-    return a ? a.morphs.map((m) => m.gloss).join('-') : ''
+    return a ? joinMorphs(a, (m) => m.gloss) : ''
   }
   function unresolved(tk: Token): boolean {
     const a = tk.analyses[tk.chosen]
@@ -1151,7 +1179,7 @@
         <p class="muted">{t('corpus.empty')}</p>
       {:else}
         <div class="list">
-          {#each list as s (s.id)}
+          {#each list.slice(0, lz.shown) as s (s.id)}
             {#if selectedId === s.id && collapsedId !== s.id}{@render editorPanel(s)}{/if}
             {@const c = coverage(s)}
             {@const done = fullyConfirmed(s)}
@@ -1211,6 +1239,7 @@
                 </div>{/if}
             </div>
           {/each}
+          {#if list.length > lz.shown}<div class="more-mark" use:lazyMore={lz}></div>{/if}
         </div>
       {/if}
     </div>
@@ -1495,6 +1524,9 @@
     font-style: italic;
     font-size: 15px;
     font-weight: 500;
+  }
+  .more-mark {
+    height: 1px;
   }
   .list {
     display: flex;

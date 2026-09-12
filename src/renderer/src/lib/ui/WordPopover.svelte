@@ -127,8 +127,12 @@
     let left = r.left
     if (left + W > window.innerWidth - 12) left = Math.max(12, window.innerWidth - W - 12)
     const below = r.bottom + 8
-    const top = below + H > window.innerHeight - 12 ? Math.max(12, r.top - H - 8) : below
-    return `left:${left}px;top:${top}px;width:${W}px;max-height:${H}px`
+    // 放得下就贴着词的下面；放不下翻到上面时用 bottom 定位——卡片比上限矮时才不会离词老远
+    if (below + H <= window.innerHeight - 12)
+      return `left:${left}px;top:${below}px;width:${W}px;max-height:${H}px`
+    const room = Math.max(140, r.top - 20)
+    const gap = Math.max(12, window.innerHeight - r.top + 8)
+    return `left:${left}px;top:auto;bottom:${gap}px;width:${W}px;max-height:${Math.min(H, room)}px`
   })
   let popEl = $state<HTMLElement | null>(null)
   // 钉住之后：点别处或按 Esc 收起

@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { PageView } from '$lib/state/ui.svelte'
+  import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
+  import { focusField } from '$lib/ui/focus'
   import { matchQuery, parseQuery } from '$lib/core/query'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
   import { projectState } from '$lib/state/project.svelte'
@@ -36,7 +38,8 @@
     ArrowLeft,
     Check,
     X,
-    Minus
+    Minus,
+    Pencil
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import {
@@ -263,6 +266,15 @@
       editVariantId
     })
   })
+  // 槽位多的时候分批画（维度一多就是几百行）
+  const lzSlots = lazy(60)
+  let lastSlots = -1
+  $effect(() => {
+    const n = slots.length
+    if (n === lastSlots) return
+    lastSlots = n
+    lzSlots.reset()
+  })
   const variants = $derived(active?.variants ?? [])
   /** 没选变体时那一套的名字：用户改过就用改的 */
   const baseName = $derived(active?.baseVariantName?.trim() || t('paradigms.variantBase'))
@@ -457,14 +469,27 @@
     <GuideLink section="paradigms" />
     <div class="booktabs grow">
       {#each project.paradigms as p (p.id)}
-        <button
-          class="tab"
-          class:active={active?.id === p.id}
-          onclick={() => {
-            activeId = p.id
-            view = 'slots'
-          }}>{pickText(p.name, glossLangs) || t('paradigms.untitled')}</button
-        >
+        <span class="tabwrap">
+          <button
+            class="tab"
+            class:active={active?.id === p.id}
+            onclick={() => {
+              activeId = p.id
+              view = 'slots'
+            }}>{pickText(p.name, glossLangs) || t('paradigms.untitled')}</button
+          >
+          <button
+            class="pen"
+            title={t('common.rename')}
+            onclick={() => {
+              activeId = p.id
+              view = 'slots'
+              ui.inspectorOpen = true
+              ui.syntaxOpen = false
+              focusField('#p-name-field input')
+            }}><Pencil size={11} /></button
+          >
+        </span>
       {/each}
     </div>
     {#if view === 'report'}
@@ -613,19 +638,38 @@
         <div class="row wrap vbar">
           <span class="small muted">{t('paradigms.variants')}</span>
           <div class="seg">
-            <button class:active={editVariantId === null} onclick={() => (editVariantId = null)}
-              >{baseName}</button
-            >
-            {#each variants as v (v.id)}
-              <button class:active={editVariantId === v.id} onclick={() => (editVariantId = v.id)}
-                >{v.name}</button
+            <span class="vwrap">
+              <button class:active={editVariantId === null} onclick={() => (editVariantId = null)}
+                >{baseName}</button
               >
+              <button
+                class="pen"
+                title={t('common.rename')}
+                onclick={() => {
+                  editVariantId = null
+                  void renameVariant()
+                }}><Pencil size={11} /></button
+              >
+            </span>
+            {#each variants as v (v.id)}
+              <span class="vwrap">
+                <button class:active={editVariantId === v.id} onclick={() => (editVariantId = v.id)}
+                  >{v.name}</button
+                >
+                <button
+                  class="pen"
+                  title={t('common.rename')}
+                  onclick={() => {
+                    editVariantId = v.id
+                    void renameVariant()
+                  }}><Pencil size={11} /></button
+                >
+              </span>
             {/each}
           </div>
           <button class="btn ghost sm" onclick={addVariant}
             ><Plus size={13} />{t('paradigms.addVariant')}</button
           >
-          <button class="btn ghost sm" onclick={renameVariant}>{t('common.rename')}</button>
           {#if editVariantId}
             <button class="btn ghost sm danger" onclick={removeVariant}>{t('common.delete')}</button
             >
@@ -644,7 +688,7 @@
               ></thead
             >
             <tbody>
-              {#each slots as s (s.key)}
+              {#each slots.slice(0, lzSlots.shown) as s (s.key)}
                 {@const disabled = active.disabledSlots.includes(s.key)}
                 {@const g = active.generators[gkey(s.key)] ?? { kind: 'none' }}
                 <tr class:off={disabled}>
@@ -692,6 +736,7 @@
               {/each}
             </tbody>
           </table>
+          {#if slots.length > lzSlots.shown}<div use:lazyMore={lzSlots}></div>{/if}
           <datalist id="dl-stems"
             ><option value="lemma"></option>{#each stemNames as s (s)}<option value={s}
               ></option>{/each}</datalist
@@ -707,7 +752,9 @@
   <Portal>
     <div class="field">
       <span class="small muted">{t('common.name')}</span>
-      <LocalizedInput bind:value={p.name} languages={glossLangs} onchange={touch} />
+      <div id="p-name-field">
+        <LocalizedInput bind:value={p.name} languages={glossLangs} onchange={touch} />
+      </div>
     </div>
     {#if !p.appliesToAll}
       <div class="field">
@@ -1110,5 +1157,30 @@
   }
   h3 {
     margin-top: 6px;
+  }
+  /* 变体按钮上的铅笔：鼠标放上去才出现，点了就地改名 */
+  .vwrap {
+    position: relative;
+    display: inline-flex;
+  }
+  .vwrap > button:first-child {
+    padding-right: 26px;
+  }
+  .vwrap .pen {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    background: none;
+    padding: 2px;
+    color: var(--text-3);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  .vwrap:hover .pen,
+  .vwrap .pen:focus-visible {
+    opacity: 1;
   }
 </style>

@@ -205,10 +205,14 @@ export function packWord(lang: Language, script: Script, word: string, isHead = 
       out.push(s.c + next.c)
       carry(next, true)
       i += 2
-    } else {
+    } else if (t.killer) {
       // 没有元音可拼：借一个元音再用消音符消掉
       out.push(s.c + t.dummy)
-      if (t.killer) out.push(t.killer)
+      out.push(t.killer)
+      i += 1
+    } else {
+      // 没设消音符：不借元音，直接写辅音本身，免得凭空多出一个元音
+      out.push(s.c)
       i += 1
     }
   }

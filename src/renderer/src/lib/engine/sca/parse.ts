@@ -173,11 +173,24 @@ function dedupe(items: string[]): string[] {
   return [...new Set(items)]
 }
 
-/** 应用多合字母替换，并去掉用于隔开字母的点号 */
+/** 音类名 {Vlong} 与语素引用 @定指 里的字母不算多合字母，也不去点号 */
+const PROTECTED = /\{[^}]*\}|@[^\s>/,_#()[\]{}]+/g
+
+/** 应用多合字母替换，并去掉用于隔开字母的点号（音类名、@引用原样留着） */
 export function applyReplacements(text: string, replacements: [string, string][]): string {
-  let t = text
-  for (const [from, to] of replacements) t = t.split(from).join(to)
-  return t.split('.').join('')
+  const one = (s: string): string => {
+    let t = s
+    for (const [from, to] of replacements) t = t.split(from).join(to)
+    return t.split('.').join('')
+  }
+  let out = ''
+  let last = 0
+  for (const m of text.matchAll(PROTECTED)) {
+    const at = m.index ?? 0
+    out += one(text.slice(last, at)) + m[0]
+    last = at + m[0].length
+  }
+  return out + one(text.slice(last))
 }
 
 export function revertReplacements(text: string, replacements: [string, string][]): string {

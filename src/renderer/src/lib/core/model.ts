@@ -162,6 +162,11 @@ export interface Script {
    * include 去掉括号、内容并进词里（可省音）；omit 连括号带内容都不写。
    */
   parens?: ParenMode
+  /**
+   * 文字写法按哪一栏转写：`lemma`（默认，单词）、`stem:<词干名>`、`form:<槽位名>`、
+   * `pron:<正字法 id>`、`custom:<检视器模块 id>`；那一栏是空的就回落到单词。
+   */
+  from?: string
 }
 
 /**
@@ -301,6 +306,8 @@ export interface GrammaticalCategory {
   id: Id
   name: LocalizedText
   values: CategoryValue[]
+  /** 只给这几个词类用（词条录入时只列出对得上的）；空着或没写就是所有词类 */
+  posIds?: Id[]
 }
 
 export interface CategoryValue {
@@ -623,8 +630,17 @@ export interface Token {
 export interface Analysis {
   lexemeId: Id | null
   slot: string | null
-  /** lexemeId：手动指定给这一段的词条（悬浮卡里「没有找到」时挑的） */
-  morphs: { form: string; gloss: string; morphemeId: Id | null; lexemeId?: Id | null }[]
+  /**
+   * lexemeId：手动指定给这一段的词条（悬浮卡里「没有找到」时挑的）；
+   * sep：这一段前面的分隔符（`-` 或 `=`），没写就按语素类型定。
+   */
+  morphs: {
+    form: string
+    gloss: string
+    morphemeId: Id | null
+    lexemeId?: Id | null
+    sep?: '-' | '='
+  }[]
   /** 猜出来的（去掉附加符才对上、拆成了两个词）：没确认之前不算认出 */
   guess?: 'fold' | 'split'
 }

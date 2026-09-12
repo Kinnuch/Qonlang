@@ -1,6 +1,15 @@
 /** 界面上的名字：种类允许用户自定义，翻译不到就原样显示。 */
 import { t } from '$lib/i18n/index.svelte'
 import { ETYMOLOGY_TYPES } from '$lib/core/model'
+import { ui } from '$lib/state/ui.svelte'
+
+/** 发音两边的符号：设置里选宽式 /…/、严式 […]，或者什么都不加 */
+export function pronText(ipa: string): string {
+  const s = (ipa ?? '').trim()
+  if (!s) return ''
+  const mode = ui.prefs.pronBrackets
+  return mode === 'none' ? s : mode === 'bracket' ? `[${s}]` : `/${s}/`
+}
 
 /** 词源类别的显示名：内置类别翻译过来，用户自己写的（导入进来的 bor. from CS 这类）原样显示 */
 export function etymologyTypeLabel(type: string): string {

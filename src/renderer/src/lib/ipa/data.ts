@@ -27,6 +27,7 @@ export const PLACES = [
 
 export const MANNERS = [
   { zh: '塞音', en: 'plosive' },
+  { zh: '塞擦音', en: 'affricate' },
   { zh: '鼻音', en: 'nasal' },
   { zh: '颤音', en: 'trill' },
   { zh: '闪音', en: 'tap or flap' },
@@ -41,6 +42,20 @@ const _: Cell = [null, null]
 /** [manner][place] = [清, 浊] */
 export const PULMONIC: Cell[][] = [
   [['p', 'b'], _, _, ['t', 'd'], _, ['ʈ', 'ɖ'], ['c', 'ɟ'], ['k', 'ɡ'], ['q', 'ɢ'], _, ['ʔ', null]],
+  // 塞擦音：写成带连音弧的两个字母（t͡s）；比较时按去掉连音弧算，写成 ts 也认
+  [
+    ['p͡ɸ', 'b͡β'],
+    ['p͡f', 'b͡v'],
+    ['t͡θ', 'd͡ð'],
+    ['t͡s', 'd͡z'],
+    ['t͡ʃ', 'd͡ʒ'],
+    ['ʈ͡ʂ', 'ɖ͡ʐ'],
+    ['t͡ɕ', 'd͡ʑ'],
+    ['k͡x', 'ɡ͡ɣ'],
+    ['q͡χ', 'ɢ͡ʁ'],
+    _,
+    _
+  ],
   [
     [null, 'm'],
     [null, 'ɱ'],

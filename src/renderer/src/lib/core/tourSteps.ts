@@ -8,6 +8,14 @@ export interface TourStep {
 }
 
 export const TOUR_STEPS: Record<string, TourStep[]> = {
+  // 第一次打开软件时在开始页讲一遍：新建 / 打开、起步模板、示例、底部按钮，最后交代规则语法与使用指南
+  welcome: [
+    { selector: '.welcome .actions' },
+    { selector: '.welcome .templates' },
+    { selector: '.welcome .recent' },
+    { selector: '.welcome .footer-bar' },
+    { selector: '.topbar .syntax' }
+  ],
   languages: [
     { selector: '.page-head h1' },
     { selector: '.tree' },

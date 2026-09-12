@@ -227,6 +227,19 @@ class UiState {
       this.promptReq = { title, value, resolve }
     })
   }
+  /** 危险操作的确认框：确认了才返回 true */
+  confirmReq = $state<{
+    title: string
+    body: string
+    okLabel: string
+    resolve: (v: boolean) => void
+  } | null>(null)
+  confirm(title: string, body = '', okLabel = ''): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (this.confirmReq) this.confirmReq.resolve(false)
+      this.confirmReq = { title, body, okLabel, resolve }
+    })
+  }
   /** 语料查重确认框：返回用户勾选要合并的那些 */
   mergeReq = $state<{ pairs: DupPair[]; resolve: (v: DupPair[]) => void } | null>(null)
   askMerge(pairs: DupPair[]): Promise<DupPair[]> {
@@ -284,6 +297,11 @@ class UiState {
     this.prefs.examplesPerEntry ??= 3
     this.prefs.showDerivedMark ??= true
     if (this.prefs.registerDisplay !== 'full') this.prefs.registerDisplay = 'short'
+    if (!(Number(this.prefs.cardScale) >= 0.6)) this.prefs.cardScale = 1
+    if (!Array.isArray(this.prefs.cardOrder)) this.prefs.cardOrder = []
+    if (this.prefs.pronBrackets !== 'bracket' && this.prefs.pronBrackets !== 'none')
+      this.prefs.pronBrackets = 'slash'
+    if (!Array.isArray(this.prefs.collapsedSections)) this.prefs.collapsedSections = []
     this.prefs.checkUpdates ??= true
     if (!(Number(this.prefs.updateCheckMinutes) >= 1)) this.prefs.updateCheckMinutes = 5
     this.prefs.skippedVersion ??= ''

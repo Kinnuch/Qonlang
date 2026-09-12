@@ -21,6 +21,8 @@ const en: Dict = {
     undo: 'Undo',
     close: 'Close',
     ok: 'OK',
+    expand: 'Expand',
+    collapse: 'Collapse',
     redo: 'Redo',
     backPage: 'Back (Alt+←)',
     guide: 'User guide',
@@ -58,6 +60,7 @@ const en: Dict = {
     skin: 'Skin',
     inspector: 'Inspector',
     home: 'Back to the start page (closes the project)',
+    welcome: 'Start',
     backTo: 'Back to “{name}”'
   },
   welcome: {
@@ -203,6 +206,7 @@ const en: Dict = {
     duplicate: 'Another entry in this language has the same form',
     moveUp: 'Move up',
     moveDown: 'Move down',
+    dragHint: 'Drag a rule onto another stage, or in front of another rule',
     hits: '{n} hits',
     classes: 'Classes',
     digraphs: 'Digraphs',
@@ -530,6 +534,13 @@ const en: Dict = {
     openSite: 'Open website',
     always: 'Show this guided tour every time I click “Guide”',
     steps: {
+      welcome: [
+        'Start page: create a project, open an existing one, or try the two bundled examples.',
+        'Starter templates: a blank single language, or a family with a proto-language and daughters.',
+        'Recently opened projects are listed here — one click and you are back where you left off.',
+        'Along the bottom: user guide, changelog, rule syntax and credits. Rule syntax is always there to look things up.',
+        'Once a project is open, remember the open-book button at the top right — “Rule syntax”: sound changes, paradigms, scripts and allomorph environments are all explained there. The “User guide” beside each page title walks you through that page first.'
+      ],
       languages: [
         'The Languages page lists every language in the project as a family tree.',
         'Each card is a language; daughters are indented under their parent. Click a card to edit its name, alphabet and dialects in the inspector.',
@@ -823,7 +834,12 @@ const en: Dict = {
     customScriptNone: 'Body font',
     customAliases: 'Also match columns named',
     customAliasesPlaceholder: 'Column name (Enter to add)',
-    deletedCustomField: 'Deleted module “{name}”'
+    deletedCustomField: 'Deleted module “{name}”',
+    catPos: 'For parts of speech',
+    catPosHint:
+      'Which parts of speech this dimension applies to; none selected means all of them. Entry editing only lists the dimensions that apply.',
+    catPosAll: 'all parts of speech',
+    addPosScope: '+ Part of speech'
   },
   csv: {
     title: 'CSV import',
@@ -992,6 +1008,13 @@ const en: Dict = {
     },
     parensHint:
       'What to do with parentheses: keep them, merge the letters into the word, or leave them out.',
+    from: 'Transcribe from',
+    fromHint:
+      'Which field of an entry this script transcribes: the headword by default, or a stem, the pronunciation in one orthography, or an inspector module. Empty fields fall back to the headword.',
+    fromLemma: 'Headword',
+    fromStem: 'Stem: {name}',
+    fromPron: 'Pronunciation: {name}',
+    fromCustom: 'Module: {name}',
     vertical: 'Vertical layout',
     verticalHint:
       'When on, this script is laid out vertically in the corpus, phrasebook and lexicon; columns run right-to-left, or left-to-right if the direction is set to LTR.',
@@ -1491,6 +1514,21 @@ const en: Dict = {
     scriptFontFor: '{name} ({lang})',
     fontPlaceholder: 'Empty = default; several names separated by commas',
     library: 'Font library',
+    card: 'Entry card',
+    cardHint:
+      'Font size and block order of the entry card. Drag to reorder; changes apply at once.',
+    cardScale: 'Font size',
+    cardOrder: 'Block order (drag to sort)',
+    cardReset: 'Reset',
+    cardBlocks: {
+      senses: 'Senses',
+      tags: 'Tags',
+      etymology: 'Etymology',
+      forms: 'Stems & forms',
+      relations: 'Relations',
+      derived: 'Derived words',
+      notes: 'Notes'
+    },
     libraryHint:
       'All OFL fonts, free for commercial use and kept after download; local fonts can be added too.',
     installed: 'Installed',
@@ -1554,6 +1592,10 @@ const en: Dict = {
     registerDisplayShort:
       'Boxed short form (first character for CJK, abbreviations such as lit. otherwise)',
     registerDisplayFull: 'Boxed full name',
+    pronBrackets: 'Pronunciation brackets',
+    pronBracketsSlash: 'Broad /…/',
+    pronBracketsBracket: 'Narrow […]',
+    pronBracketsNone: 'None',
     projectName: 'Project name',
     author: 'Author',
     description: 'Description',
@@ -1578,6 +1620,29 @@ const en: Dict = {
     exportCsv: 'Export as one CSV',
     exportCsvDesc:
       'The whole project in one spreadsheet file; pick it in “Open project” to read it back.',
+    clear: 'Clear data',
+    clearHint:
+      'Empty one module in one go, ready for a fresh import. You are asked first, and Ctrl+Z undoes it.',
+    clearPick: 'Pick what to clear…',
+    clearBtn: 'Clear',
+    clearConfirm: 'Clear “{name}”?',
+    clearConfirmBody: 'This deletes {n} items; undo (Ctrl+Z) brings them back.',
+    cleared: 'Cleared “{name}”: {n} items',
+    clearKinds: {
+      lexemes: 'Lexicon',
+      morphemes: 'Morphemes',
+      sentences: 'Corpus',
+      phrasebook: 'Phrasebook',
+      docs: 'Documents',
+      ruleSets: 'Sound change rule sets',
+      paradigms: 'Paradigms',
+      posList: 'Parts of speech',
+      categories: 'Grammatical dimensions',
+      customFields: 'Inspector modules',
+      abbreviations: 'Abbreviations',
+      scripts: 'Scripts (all languages)',
+      images: 'Entry images'
+    },
     about: 'About',
     version: 'Version',
     userData: 'Data directory',

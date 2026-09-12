@@ -1,6 +1,9 @@
 <script lang="ts">
   /** 词类与语法维度：全部是项目数据，软件不预设任何一个 */
   import { projectState } from '$lib/state/project.svelte'
+  import SectionHead from '$lib/ui/SectionHead.svelte'
+  import { sectionCollapsed } from '$lib/ui/section.svelte'
+  import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { createCustomField, newId } from '$lib/core/factory'
@@ -102,6 +105,14 @@
     ;[arr[i], arr[j]] = [arr[j], arr[i]]
     projectState.touch()
   }
+  // 分批渲染：词类、维度多的时候不要一次全画
+  const lzPos = lazy(40)
+  const lzCat = lazy(40)
+  const posLabel = (id: Id): string => {
+    const p = project.posList.find((x) => x.id === id)
+    return p ? pickText(p.name, glossLangs) || p.abbr : '?'
+  }
+
   // ───── 检视器模块 ─────
   function customUse(f: CustomField): number {
     return project.lexemes.filter((l) => !!l.custom?.[f.id]?.trim()).length
@@ -156,127 +167,130 @@
 
 <div class="tax">
   <section>
-    <div class="row head">
-      <h3 class="grow">{t('taxonomy.pos')}</h3>
+    <SectionHead id="taxonomy.pos" title={t('taxonomy.pos')} count={String(project.posList.length)}>
       <button
         class="btn ghost sm"
         onclick={() => sortBy(project.posList, (p) => pickText(p.name, glossLangs) || p.abbr)}
         ><ArrowDownAZ size={14} />{t('taxonomy.sortAZ')}</button
       >
       <button class="btn sm" onclick={addPos}><Plus size={14} />{t('taxonomy.addPos')}</button>
-    </div>
-    {#each project.posList as p (p.id)}
-      <div class="card item">
-        <div class="grow">
-          <LocalizedInput
-            bind:value={p.name}
-            languages={glossLangs}
-            placeholder={t('taxonomy.posName')}
-            onchange={() => projectState.touch()}
-          />
-        </div>
-        <div class="field abbr">
-          <label for={`pos-abbr-${p.id}`}>{t('taxonomy.abbr')}</label>
-          <input
-            id={`pos-abbr-${p.id}`}
-            class="input mono"
-            bind:value={p.abbr}
-            oninput={() => projectState.touch()}
-          />
-        </div>
-        <span class="small muted use">{t('taxonomy.inUse', { n: posUse(p) })}</span>
-        <button
-          class="btn ghost icon sm"
-          title={t('lexicon.moveUp')}
-          onclick={() => moveIn(project.posList, p, -1)}><ChevronUp size={14} /></button
-        >
-        <button
-          class="btn ghost icon sm"
-          title={t('lexicon.moveDown')}
-          onclick={() => moveIn(project.posList, p, 1)}><ChevronDown size={14} /></button
-        >
-        <button
-          class="btn ghost icon sm danger"
-          title={t('common.delete')}
-          onclick={() => removePos(p)}><Trash2 size={14} /></button
-        >
-        <div class="stems">
-          <span class="small muted">{t('taxonomy.stemSlots')}</span>
-          <HelpDot tip={t('taxonomy.stemSlotsHint')} />
-          {#each p.stemSlots ?? [] as st, si (si)}
-            <span class="stem-slot">
-              <input
-                class="input data"
-                bind:value={st.name}
-                placeholder={t('taxonomy.stemName')}
-                oninput={() => projectState.touch()}
-              />
-              <input
-                class="input"
-                bind:value={st.notes}
-                placeholder={t('taxonomy.stemNotes')}
-                oninput={() => projectState.touch()}
-              />
-              <button
-                class="btn ghost icon sm"
-                title={t('common.delete')}
-                onclick={() => {
-                  p.stemSlots?.splice(si, 1)
-                  projectState.touch()
-                }}><X size={12} /></button
-              >
-            </span>
-          {/each}
+    </SectionHead>
+    {#if !sectionCollapsed('taxonomy.pos')}
+      {#each project.posList.slice(0, lzPos.shown) as p (p.id)}
+        <div class="card item">
+          <div class="grow">
+            <LocalizedInput
+              bind:value={p.name}
+              languages={glossLangs}
+              placeholder={t('taxonomy.posName')}
+              onchange={() => projectState.touch()}
+            />
+          </div>
+          <div class="field abbr">
+            <label for={`pos-abbr-${p.id}`}>{t('taxonomy.abbr')}</label>
+            <input
+              id={`pos-abbr-${p.id}`}
+              class="input mono"
+              bind:value={p.abbr}
+              oninput={() => projectState.touch()}
+            />
+          </div>
+          <span class="small muted use">{t('taxonomy.inUse', { n: posUse(p) })}</span>
           <button
-            class="btn ghost sm"
-            onclick={() => {
-              p.stemSlots = [...(p.stemSlots ?? []), { name: '', notes: '' }]
-              projectState.touch()
-            }}><Plus size={12} />{t('taxonomy.addStemSlot')}</button
+            class="btn ghost icon sm"
+            title={t('lexicon.moveUp')}
+            onclick={() => moveIn(project.posList, p, -1)}><ChevronUp size={14} /></button
           >
-        </div>
-        <div class="stems">
-          <span class="small muted">{t('taxonomy.components')}</span>
-          <HelpDot tip={t('taxonomy.componentsHint')} />
-          {#each p.components ?? [] as cid (cid)}
-            {@const c = project.posList.find((x) => x.id === cid)}
-            <span class="part-chip"
-              >{c ? pickText(c.name, glossLangs) || c.abbr : '?'}<button
-                class="btn ghost icon sm"
-                title={t('common.delete')}
-                onclick={() =>
-                  setComponents(
-                    p,
-                    (p.components ?? []).filter((x) => x !== cid)
-                  )}><X size={12} /></button
-              ></span
+          <button
+            class="btn ghost icon sm"
+            title={t('lexicon.moveDown')}
+            onclick={() => moveIn(project.posList, p, 1)}><ChevronDown size={14} /></button
+          >
+          <button
+            class="btn ghost icon sm danger"
+            title={t('common.delete')}
+            onclick={() => removePos(p)}><Trash2 size={14} /></button
+          >
+          <div class="stems">
+            <span class="small muted">{t('taxonomy.stemSlots')}</span>
+            <HelpDot tip={t('taxonomy.stemSlotsHint')} />
+            {#each p.stemSlots ?? [] as st, si (si)}
+              <span class="stem-slot">
+                <input
+                  class="input data"
+                  bind:value={st.name}
+                  placeholder={t('taxonomy.stemName')}
+                  oninput={() => projectState.touch()}
+                />
+                <input
+                  class="input"
+                  bind:value={st.notes}
+                  placeholder={t('taxonomy.stemNotes')}
+                  oninput={() => projectState.touch()}
+                />
+                <button
+                  class="btn ghost icon sm"
+                  title={t('common.delete')}
+                  onclick={() => {
+                    p.stemSlots?.splice(si, 1)
+                    projectState.touch()
+                  }}><X size={12} /></button
+                >
+              </span>
+            {/each}
+            <button
+              class="btn ghost sm"
+              onclick={() => {
+                p.stemSlots = [...(p.stemSlots ?? []), { name: '', notes: '' }]
+                projectState.touch()
+              }}><Plus size={12} />{t('taxonomy.addStemSlot')}</button
             >
-          {/each}
-          <select
-            class="select part-add"
-            value=""
-            onchange={(e) => {
-              const el = e.currentTarget as HTMLSelectElement
-              if (el.value) setComponents(p, [...(p.components ?? []), el.value])
-              el.value = ''
-            }}
-          >
-            <option value="">{t('taxonomy.addComponent')}</option>
-            {#each project.posList.filter((x) => x.id !== p.id && !isCompoundPos(x) && !(p.components ?? []).includes(x.id)) as x (x.id)}<option
-                value={x.id}>{pickText(x.name, glossLangs) || x.abbr}</option
-              >{/each}
-          </select>
+          </div>
+          <div class="stems">
+            <span class="small muted">{t('taxonomy.components')}</span>
+            <HelpDot tip={t('taxonomy.componentsHint')} />
+            {#each p.components ?? [] as cid (cid)}
+              {@const c = project.posList.find((x) => x.id === cid)}
+              <span class="part-chip"
+                >{c ? pickText(c.name, glossLangs) || c.abbr : '?'}<button
+                  class="btn ghost icon sm"
+                  title={t('common.delete')}
+                  onclick={() =>
+                    setComponents(
+                      p,
+                      (p.components ?? []).filter((x) => x !== cid)
+                    )}><X size={12} /></button
+                ></span
+              >
+            {/each}
+            <select
+              class="select part-add"
+              value=""
+              onchange={(e) => {
+                const el = e.currentTarget as HTMLSelectElement
+                if (el.value) setComponents(p, [...(p.components ?? []), el.value])
+                el.value = ''
+              }}
+            >
+              <option value="">{t('taxonomy.addComponent')}</option>
+              {#each project.posList.filter((x) => x.id !== p.id && !isCompoundPos(x) && !(p.components ?? []).includes(x.id)) as x (x.id)}<option
+                  value={x.id}>{pickText(x.name, glossLangs) || x.abbr}</option
+                >{/each}
+            </select>
+          </div>
         </div>
-      </div>
-    {/each}
+      {/each}
+      {#if project.posList.length > lzPos.shown}<div use:lazyMore={lzPos}></div>{/if}
+    {/if}
   </section>
 
   <section>
-    <div class="row head">
-      <h3 class="grow">
-        {t('taxonomy.categories')}
-        <HelpDot tip={t('taxonomy.categoriesHint')} />
-      </h3>
+    <SectionHead
+      id="taxonomy.categories"
+      title={t('taxonomy.categories')}
+      tip={t('taxonomy.categoriesHint')}
+      count={String(project.categories.length)}
+    >
       <button
         class="btn ghost sm"
         onclick={() => sortBy(project.categories, (c) => pickText(c.name, glossLangs))}
@@ -285,210 +299,250 @@
       <button class="btn sm" onclick={addCategory}
         ><Plus size={14} />{t('taxonomy.addCategory')}</button
       >
-    </div>
-    {#each project.categories as c (c.id)}
-      <div class="card cat">
-        <div class="row">
+    </SectionHead>
+    {#if !sectionCollapsed('taxonomy.categories')}
+      {#each project.categories.slice(0, lzCat.shown) as c (c.id)}
+        <div class="card cat">
+          <div class="row">
+            <div class="grow">
+              <LocalizedInput
+                bind:value={c.name}
+                languages={glossLangs}
+                placeholder={t('taxonomy.categoryName')}
+                onchange={() => projectState.touch()}
+              />
+            </div>
+            <span class="small muted use">{t('taxonomy.inUse', { n: catUse(c) })}</span>
+            <button
+              class="btn ghost icon sm"
+              title={t('lexicon.moveUp')}
+              onclick={() => moveIn(project.categories, c, -1)}><ChevronUp size={14} /></button
+            >
+            <button
+              class="btn ghost icon sm"
+              title={t('lexicon.moveDown')}
+              onclick={() => moveIn(project.categories, c, 1)}><ChevronDown size={14} /></button
+            >
+            <button
+              class="btn ghost sm"
+              title={t('taxonomy.sortAZ')}
+              onclick={() => sortBy(c.values, (v) => pickText(v.name, glossLangs) || v.abbr)}
+              ><ArrowDownAZ size={14} /></button
+            >
+            <button
+              class="btn ghost icon sm danger"
+              title={t('common.delete')}
+              onclick={() => removeCategory(c)}><Trash2 size={14} /></button
+            >
+          </div>
+          <div class="stems">
+            <span class="small muted">{t('taxonomy.catPos')}</span>
+            <HelpDot tip={t('taxonomy.catPosHint')} />
+            {#if !c.posIds?.length}<span class="small">{t('taxonomy.catPosAll')}</span>{/if}
+            {#each c.posIds ?? [] as pid (pid)}
+              <span class="part-chip"
+                >{posLabel(pid)}<button
+                  class="btn ghost icon sm"
+                  title={t('common.delete')}
+                  onclick={() => {
+                    c.posIds = (c.posIds ?? []).filter((x) => x !== pid)
+                    projectState.touch()
+                  }}><X size={12} /></button
+                ></span
+              >
+            {/each}
+            <select
+              class="select part-add"
+              value=""
+              onchange={(e) => {
+                const el = e.currentTarget as HTMLSelectElement
+                if (el.value) {
+                  c.posIds = [...(c.posIds ?? []), el.value]
+                  projectState.touch()
+                }
+                el.value = ''
+              }}
+            >
+              <option value="">{t('taxonomy.addPosScope')}</option>
+              {#each project.posList.filter((x) => !(c.posIds ?? []).includes(x.id)) as x (x.id)}<option
+                  value={x.id}>{pickText(x.name, glossLangs) || x.abbr}</option
+                >{/each}
+            </select>
+          </div>
+          <div class="values">
+            <span class="small muted">{t('taxonomy.values')}</span>
+            {#each c.values as v, i (v.id)}
+              <div class="row val">
+                {#each glossLangs as lg (lg)}
+                  <input
+                    class="input"
+                    placeholder={`${t('taxonomy.valueName')} (${lg})`}
+                    bind:value={v.name[lg]}
+                    oninput={() => projectState.touch()}
+                  />
+                {/each}
+                <input
+                  class="input mono abbr-in"
+                  placeholder={t('taxonomy.valueAbbr')}
+                  bind:value={v.abbr}
+                  oninput={() => projectState.touch()}
+                />
+                <button
+                  class="btn ghost icon sm"
+                  title={t('lexicon.moveUp')}
+                  onclick={() => moveIn(c.values, v, -1)}><ChevronUp size={14} /></button
+                >
+                <button
+                  class="btn ghost icon sm"
+                  title={t('lexicon.moveDown')}
+                  onclick={() => moveIn(c.values, v, 1)}><ChevronDown size={14} /></button
+                >
+                <button
+                  class="btn ghost icon sm"
+                  onclick={() => {
+                    c.values.splice(i, 1)
+                    projectState.touch()
+                  }}><X size={14} /></button
+                >
+              </div>
+            {/each}
+            <button
+              class="btn ghost sm self-start"
+              onclick={() => {
+                c.values.push({ id: newId(), name: {}, abbr: '' })
+                projectState.touch()
+              }}><Plus size={14} />{t('taxonomy.addValue')}</button
+            >
+          </div>
+        </div>
+      {/each}
+      {#if project.categories.length > lzCat.shown}<div use:lazyMore={lzCat}></div>{/if}
+    {/if}
+  </section>
+
+  <section>
+    <SectionHead
+      id="taxonomy.customFields"
+      title={t('taxonomy.customFields')}
+      tip={t('taxonomy.customFieldsHint')}
+      count={String(project.customFields.length)}
+    >
+      <button class="btn sm" onclick={addCustomField}
+        ><Plus size={14} />{t('taxonomy.addCustomField')}</button
+      >
+    </SectionHead>
+    {#if !sectionCollapsed('taxonomy.customFields')}
+      {#each project.customFields as f (f.id)}
+        <div class="card item">
           <div class="grow">
             <LocalizedInput
-              bind:value={c.name}
+              bind:value={f.name}
               languages={glossLangs}
-              placeholder={t('taxonomy.categoryName')}
+              placeholder={t('taxonomy.customFieldName')}
               onchange={() => projectState.touch()}
             />
           </div>
-          <span class="small muted use">{t('taxonomy.inUse', { n: catUse(c) })}</span>
+          <div class="field pick">
+            <label for={`cf-kind-${f.id}`}>{t('taxonomy.customKind')}</label>
+            <select
+              id={`cf-kind-${f.id}`}
+              class="select"
+              bind:value={f.kind}
+              onchange={() => projectState.touch()}
+            >
+              {#each CUSTOM_FIELD_KINDS as k (k)}<option value={k}
+                  >{t(`taxonomy.customKinds.${k}`)}</option
+                >{/each}
+            </select>
+          </div>
+          <div class="field pick">
+            <label for={`cf-pos-${f.id}`}>{t('taxonomy.customPosition')}</label>
+            <select
+              id={`cf-pos-${f.id}`}
+              class="select"
+              bind:value={f.position}
+              onchange={() => projectState.touch()}
+            >
+              {#each CUSTOM_FIELD_POSITIONS as ps (ps)}<option value={ps}
+                  >{t(`taxonomy.customPositions.${ps}`)}</option
+                >{/each}
+            </select>
+          </div>
+          <span class="small muted use">{t('taxonomy.inUse', { n: customUse(f) })}</span>
           <button
             class="btn ghost icon sm"
             title={t('lexicon.moveUp')}
-            onclick={() => moveIn(project.categories, c, -1)}><ChevronUp size={14} /></button
+            onclick={() => moveIn(project.customFields, f, -1)}><ChevronUp size={14} /></button
           >
           <button
             class="btn ghost icon sm"
             title={t('lexicon.moveDown')}
-            onclick={() => moveIn(project.categories, c, 1)}><ChevronDown size={14} /></button
-          >
-          <button
-            class="btn ghost sm"
-            title={t('taxonomy.sortAZ')}
-            onclick={() => sortBy(c.values, (v) => pickText(v.name, glossLangs) || v.abbr)}
-            ><ArrowDownAZ size={14} /></button
+            onclick={() => moveIn(project.customFields, f, 1)}><ChevronDown size={14} /></button
           >
           <button
             class="btn ghost icon sm danger"
             title={t('common.delete')}
-            onclick={() => removeCategory(c)}><Trash2 size={14} /></button
+            onclick={() => removeCustomField(f)}><Trash2 size={14} /></button
           >
-        </div>
-        <div class="values">
-          <span class="small muted">{t('taxonomy.values')}</span>
-          {#each c.values as v, i (v.id)}
-            <div class="row val">
-              {#each glossLangs as lg (lg)}
-                <input
-                  class="input"
-                  placeholder={`${t('taxonomy.valueName')} (${lg})`}
-                  bind:value={v.name[lg]}
-                  oninput={() => projectState.touch()}
-                />
-              {/each}
-              <input
-                class="input mono abbr-in"
-                placeholder={t('taxonomy.valueAbbr')}
-                bind:value={v.abbr}
-                oninput={() => projectState.touch()}
-              />
-              <button
-                class="btn ghost icon sm"
-                title={t('lexicon.moveUp')}
-                onclick={() => moveIn(c.values, v, -1)}><ChevronUp size={14} /></button
+          <div class="stems">
+            <span class="small muted">{t('taxonomy.customLanguages')}</span>
+            {#if !f.languageIds.length}<span class="small">{t('taxonomy.customAllLanguages')}</span
+              >{/if}
+            {#each f.languageIds as lid (lid)}
+              <span class="part-chip"
+                >{project.languages.find((x) => x.id === lid)?.name ?? '?'}<button
+                  class="btn ghost icon sm"
+                  title={t('common.delete')}
+                  onclick={() => {
+                    f.languageIds = f.languageIds.filter((x) => x !== lid)
+                    projectState.touch()
+                  }}><X size={12} /></button
+                ></span
               >
-              <button
-                class="btn ghost icon sm"
-                title={t('lexicon.moveDown')}
-                onclick={() => moveIn(c.values, v, 1)}><ChevronDown size={14} /></button
-              >
-              <button
-                class="btn ghost icon sm"
-                onclick={() => {
-                  c.values.splice(i, 1)
+            {/each}
+            <select
+              class="select part-add"
+              value=""
+              onchange={(e) => {
+                const el = e.currentTarget as HTMLSelectElement
+                if (el.value) {
+                  f.languageIds = [...f.languageIds, el.value]
                   projectState.touch()
-                }}><X size={14} /></button
-              >
-            </div>
-          {/each}
-          <button
-            class="btn ghost sm self-start"
-            onclick={() => {
-              c.values.push({ id: newId(), name: {}, abbr: '' })
-              projectState.touch()
-            }}><Plus size={14} />{t('taxonomy.addValue')}</button
-          >
-        </div>
-      </div>
-    {/each}
-  </section>
-
-  <section>
-    <div class="row head">
-      <h3 class="grow">
-        {t('taxonomy.customFields')}
-        <HelpDot tip={t('taxonomy.customFieldsHint')} />
-      </h3>
-      <button class="btn sm" onclick={addCustomField}
-        ><Plus size={14} />{t('taxonomy.addCustomField')}</button
-      >
-    </div>
-    {#each project.customFields as f (f.id)}
-      <div class="card item">
-        <div class="grow">
-          <LocalizedInput
-            bind:value={f.name}
-            languages={glossLangs}
-            placeholder={t('taxonomy.customFieldName')}
-            onchange={() => projectState.touch()}
-          />
-        </div>
-        <div class="field pick">
-          <label for={`cf-kind-${f.id}`}>{t('taxonomy.customKind')}</label>
-          <select
-            id={`cf-kind-${f.id}`}
-            class="select"
-            bind:value={f.kind}
-            onchange={() => projectState.touch()}
-          >
-            {#each CUSTOM_FIELD_KINDS as k (k)}<option value={k}
-                >{t(`taxonomy.customKinds.${k}`)}</option
-              >{/each}
-          </select>
-        </div>
-        <div class="field pick">
-          <label for={`cf-pos-${f.id}`}>{t('taxonomy.customPosition')}</label>
-          <select
-            id={`cf-pos-${f.id}`}
-            class="select"
-            bind:value={f.position}
-            onchange={() => projectState.touch()}
-          >
-            {#each CUSTOM_FIELD_POSITIONS as ps (ps)}<option value={ps}
-                >{t(`taxonomy.customPositions.${ps}`)}</option
-              >{/each}
-          </select>
-        </div>
-        <span class="small muted use">{t('taxonomy.inUse', { n: customUse(f) })}</span>
-        <button
-          class="btn ghost icon sm"
-          title={t('lexicon.moveUp')}
-          onclick={() => moveIn(project.customFields, f, -1)}><ChevronUp size={14} /></button
-        >
-        <button
-          class="btn ghost icon sm"
-          title={t('lexicon.moveDown')}
-          onclick={() => moveIn(project.customFields, f, 1)}><ChevronDown size={14} /></button
-        >
-        <button
-          class="btn ghost icon sm danger"
-          title={t('common.delete')}
-          onclick={() => removeCustomField(f)}><Trash2 size={14} /></button
-        >
-        <div class="stems">
-          <span class="small muted">{t('taxonomy.customLanguages')}</span>
-          {#if !f.languageIds.length}<span class="small">{t('taxonomy.customAllLanguages')}</span
-            >{/if}
-          {#each f.languageIds as lid (lid)}
-            <span class="part-chip"
-              >{project.languages.find((x) => x.id === lid)?.name ?? '?'}<button
-                class="btn ghost icon sm"
-                title={t('common.delete')}
-                onclick={() => {
-                  f.languageIds = f.languageIds.filter((x) => x !== lid)
-                  projectState.touch()
-                }}><X size={12} /></button
-              ></span
+                }
+                el.value = ''
+              }}
             >
-          {/each}
-          <select
-            class="select part-add"
-            value=""
-            onchange={(e) => {
-              const el = e.currentTarget as HTMLSelectElement
-              if (el.value) {
-                f.languageIds = [...f.languageIds, el.value]
+              <option value="">{t('taxonomy.addLanguage')}</option>
+              {#each project.languages.filter((x) => !f.languageIds.includes(x.id)) as x (x.id)}<option
+                  value={x.id}>{x.name}</option
+                >{/each}
+            </select>
+            <span class="small muted gap-left">{t('taxonomy.customScript')}</span>
+            <select
+              class="select part-add"
+              value={f.scriptId ?? ''}
+              onchange={(e) => {
+                f.scriptId = (e.currentTarget as HTMLSelectElement).value || null
                 projectState.touch()
-              }
-              el.value = ''
-            }}
-          >
-            <option value="">{t('taxonomy.addLanguage')}</option>
-            {#each project.languages.filter((x) => !f.languageIds.includes(x.id)) as x (x.id)}<option
-                value={x.id}>{x.name}</option
-              >{/each}
-          </select>
-          <span class="small muted gap-left">{t('taxonomy.customScript')}</span>
-          <select
-            class="select part-add"
-            value={f.scriptId ?? ''}
-            onchange={(e) => {
-              f.scriptId = (e.currentTarget as HTMLSelectElement).value || null
-              projectState.touch()
-            }}
-          >
-            <option value="">{t('taxonomy.customScriptNone')}</option>
-            {#each scriptChoices as sc (sc.id)}<option value={sc.id}>{sc.label}</option>{/each}
-          </select>
-        </div>
-        <div class="stems">
-          <span class="small muted">{t('taxonomy.customAliases')}</span>
-          <div class="grow">
-            <TagInput
-              bind:tags={f.aliases}
-              placeholder={t('taxonomy.customAliasesPlaceholder')}
-              onchange={() => projectState.touch()}
-            />
+              }}
+            >
+              <option value="">{t('taxonomy.customScriptNone')}</option>
+              {#each scriptChoices as sc (sc.id)}<option value={sc.id}>{sc.label}</option>{/each}
+            </select>
+          </div>
+          <div class="stems">
+            <span class="small muted">{t('taxonomy.customAliases')}</span>
+            <div class="grow">
+              <TagInput
+                bind:tags={f.aliases}
+                placeholder={t('taxonomy.customAliasesPlaceholder')}
+                onchange={() => projectState.touch()}
+              />
+            </div>
           </div>
         </div>
-      </div>
-    {/each}
+      {/each}
+    {/if}
   </section>
 </div>
 
@@ -533,9 +587,6 @@
     flex-direction: column;
     gap: 24px;
     max-width: 900px;
-  }
-  .head {
-    margin-bottom: 8px;
   }
   .item {
     flex-wrap: wrap;

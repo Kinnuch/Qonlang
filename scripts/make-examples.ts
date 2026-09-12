@@ -303,6 +303,13 @@ function makeAelith(): void {
     ['后元音', 'back', 'B'],
     ['前元音', 'front', 'F']
   ])
+  // 维度按词类限定：录入词条时只列出对得上的那几个（和谐类不限，所有词都有）
+  num.posIds = [N.id, PRO.id]
+  kase.posIds = [N.id, PRO.id]
+  person.posIds = [V.id, PRO.id]
+  tense.posIds = [V.id]
+  polarity.posIds = [V.id]
+  degree.posIds = [A.id]
 
   // ── 语素：祖语词根 + 现代语的各类词缀 ──
   const protoRoots = new Map<string, Morpheme>()
@@ -1217,6 +1224,9 @@ function makeTsahun(): void {
     ['原级', 'positive', 'POS'],
     ['强调', 'intensive', 'INT']
   ])
+  // 维度按词类限定
+  number.posIds = [N.id, PRO.id]
+  degree.posIds = [A.id]
   const words: [string, PartOfSpeech, string, string, string[]][] = [
     ['tsa55', N, '水', 'water', ['自然']],
     ['tsa21', N, '火', 'fire', ['自然']],

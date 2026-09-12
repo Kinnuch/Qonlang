@@ -1,5 +1,7 @@
 <script lang="ts">
   import RuleSyntax from '$lib/ui/RuleSyntax.svelte'
+  import GuideTour from '$lib/ui/GuideTour.svelte'
+  import { tour } from '$lib/state/tour.svelte'
   import { onMount } from 'svelte'
   import { platform, type RecentEntry } from '$lib/platform'
   import { projectState } from '$lib/state/project.svelte'
@@ -70,13 +72,20 @@
       names: [
         { name: 'Cathamos' },
         { name: 'Kikomas' },
-        { name: '呼延' },
-        { name: '小熊' },
-        { name: '夏穆' }
+        { name: '呼延式微1997' },
+        { name: 'sgiofh' },
+        { name: '夏穆' },
+        { name: 'Kyiexitah' },
+        { name: 'Sicusa' }
       ]
     },
     { role: 'other', names: [{ name: '老婆大人' }] }
   ]
+  // 第一次打开软件：在开始页先把最基本的几处讲一遍（讲过一次就不再自动弹）
+  onMount(() => {
+    if (!ui.prefs.seenTours.includes('welcome')) tour.request('welcome')
+  })
+
   let footerPanel = $state<
     'examples' | 'coffee' | 'changelog' | 'dev' | 'friends' | 'credits' | 'syntax' | null
   >(null)
@@ -482,6 +491,8 @@
     </aside>
   {/if}
 </div>
+
+<GuideTour />
 
 <style>
   .welcome {

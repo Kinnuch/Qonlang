@@ -5,8 +5,9 @@
   import { ui } from '$lib/state/ui.svelte'
   import { t, LOCALES } from '$lib/i18n/index.svelte'
   import { TOKENIZER_MODES } from '$lib/core/model'
-  import { Eye, FileSpreadsheet, FolderOutput } from '@lucide/svelte'
+  import { Eye, FileSpreadsheet, FolderOutput, Trash2 } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
   import { filterRows } from '$lib/ui/filterRows'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -33,6 +34,48 @@
       .filter(Boolean)
     projectState.touch()
   }
+  /** 可以整块清掉的内容：清之前问一次，清完能撤销 */
+  const CLEAR_KINDS = [
+    'lexemes',
+    'morphemes',
+    'sentences',
+    'phrasebook',
+    'docs',
+    'ruleSets',
+    'paradigms',
+    'posList',
+    'categories',
+    'customFields',
+    'abbreviations',
+    'scripts',
+    'images'
+  ] as const
+  type ClearKind = (typeof CLEAR_KINDS)[number]
+  let clearKind = $state<'' | ClearKind>('')
+  function clearCount(k: ClearKind): number {
+    if (k === 'scripts') return project.languages.reduce((n, l) => n + l.scripts.length, 0)
+    if (k === 'images') return project.lexemes.reduce((n, l) => n + (l.images?.length ?? 0), 0)
+    return ((project as unknown as Record<string, unknown[]>)[k] ?? []).length
+  }
+  async function doClear(): Promise<void> {
+    const k = clearKind
+    if (!k) return
+    const name = t(`settings.clearKinds.${k}`)
+    const n = clearCount(k)
+    const ok = await ui.confirm(
+      t('settings.clearConfirm', { name }),
+      t('settings.clearConfirmBody', { n }),
+      t('settings.clearBtn')
+    )
+    if (!ok) return
+    if (k === 'scripts') for (const l of project.languages) l.scripts = []
+    else if (k === 'images') for (const l of project.lexemes) l.images = []
+    else (project as unknown as Record<string, unknown[]>)[k] = []
+    projectState.touch()
+    ui.toast(t('settings.cleared', { name, n }))
+    clearKind = ''
+  }
+
   function commitBoundaries(): void {
     project.settings.morphemeBoundaries = boundaries.split(/\s+/).filter(Boolean)
     projectState.touch()
@@ -165,6 +208,19 @@
         >
           <option value="short">{t('settings.registerDisplayShort')}</option>
           <option value="full">{t('settings.registerDisplayFull')}</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="s-pron">{t('settings.pronBrackets')}</label>
+        <select
+          id="s-pron"
+          class="select"
+          bind:value={ui.prefs.pronBrackets}
+          onchange={() => ui.savePrefs()}
+        >
+          <option value="slash">{t('settings.pronBracketsSlash')}</option>
+          <option value="bracket">{t('settings.pronBracketsBracket')}</option>
+          <option value="none">{t('settings.pronBracketsNone')}</option>
         </select>
       </div>
       <div class="field">
@@ -319,6 +375,22 @@
         ><Eye size={16} />{t('readonly.export')}</button
       >
       <span class="small muted">{t('readonly.exportDesc')}</span>
+    </div>
+  </section>
+
+  <section use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
+    <h3>{t('settings.clear')} <HelpDot tip={t('settings.clearHint')} /></h3>
+    <div class="row">
+      <select class="select" bind:value={clearKind}>
+        <option value="">{t('settings.clearPick')}</option>
+        {#each CLEAR_KINDS as k (k)}<option value={k}
+            >{t(`settings.clearKinds.${k}`)}（{clearCount(k)}）</option
+          >{/each}
+      </select>
+      <button class="btn sm danger" disabled={!clearKind} onclick={doClear}
+        ><Trash2 size={14} />{t('settings.clearBtn')}</button
+      >
+      <span class="small muted">{t('settings.clearHint')}</span>
     </div>
   </section>
 

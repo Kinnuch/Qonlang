@@ -1,5 +1,8 @@
 <script lang="ts">
   import { matchQuery, parseQuery } from '$lib/core/query'
+  import { sectionCollapsed } from '$lib/ui/section.svelte'
+  import SectionHead from '$lib/ui/SectionHead.svelte'
+  import { cardBlocks, type CardBlock } from '$lib/ui/cardBlocks'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
   /** 皮肤：预设 / 颜色 / 字体 / 字体库；检视器里是实时预览。 */
   import { ui } from '$lib/state/ui.svelte'
@@ -28,7 +31,8 @@
     FolderPlus,
     Loader,
     Save,
-    Pencil
+    Pencil,
+    GripVertical
   } from '@lucide/svelte'
   import { newId } from '$lib/core/factory'
   import GuideLink from '$lib/ui/GuideLink.svelte'
@@ -245,6 +249,27 @@
   function mb(n: number): string {
     return (n / 1048576).toFixed(1) + ' MB'
   }
+  // 词条卡：字号倍数与各块的顺序（拖着排）
+  const cardOrder = $derived(cardBlocks(ui.prefs.cardOrder))
+  let dragBlock = $state('')
+  let dragOver = $state('')
+  function dropBlock(target: string): void {
+    const from = dragBlock
+    dragOver = ''
+    dragBlock = ''
+    if (!from || from === target) return
+    const order = cardBlocks(ui.prefs.cardOrder).filter((b) => b !== from)
+    const at = order.indexOf(target as CardBlock)
+    order.splice(at < 0 ? order.length : at, 0, from as CardBlock)
+    ui.prefs.cardOrder = order
+    void ui.savePrefs()
+  }
+  function resetCard(): void {
+    ui.prefs.cardOrder = []
+    ui.prefs.cardScale = 1
+    void ui.savePrefs()
+  }
+
   const previewLexeme = $derived(projectState.project?.lexemes.find((l) => l.lemma) ?? null)
   const previewSentence = $derived(projectState.project?.sentences.find((s) => s.text) ?? null)
 </script>
@@ -393,71 +418,126 @@
     </section>
 
     <section>
-      <h3>{t('skin.library')} <HelpDot tip={t('skin.libraryHint')} /></h3>
-      <div class="row wrap">
-        <button class="btn sm" onclick={importLocal}
-          ><FolderPlus size={14} />{t('skin.importLocal')}</button
-        >
-        <span class="grow"></span>
-        <label class="row small muted mirror" title={t('skin.mirrorHint')}>
-          {t('skin.mirror')}
+      <SectionHead id="skin.card" title={t('skin.card')} tip={t('skin.cardHint')} />
+      {#if !sectionCollapsed('skin.card')}
+        <label class="row scale">
+          <span class="small muted">{t('skin.cardScale')}</span>
           <input
-            class="input"
-            bind:value={skin.mirror}
-            onchange={save}
-            placeholder="https://ghfast.top/"
+            type="range"
+            min="0.8"
+            max="1.6"
+            step="0.05"
+            value={ui.prefs.cardScale}
+            oninput={(e) => {
+              ui.prefs.cardScale = Number((e.currentTarget as HTMLInputElement).value)
+              void ui.savePrefs()
+            }}
           />
+          <span class="small">{Math.round(ui.prefs.cardScale * 100)}%</span>
         </label>
-      </div>
-      <table class="tbl">
-        <tbody>
-          {#each catalogShown as f (f.file)}
-            {@const inst = fontLibrary.fonts.find((x) => x.file === f.file)}
-            <tr>
-              <td class="fam" style:font-family={inst ? `"${f.family}"` : ''}>{f.family}</td>
-              <td class="muted small">{zh ? f.desc.zh : f.desc.en}</td>
-              <td class="act">
-                {#if inst}
+        <span class="small muted">{t('skin.cardOrder')}</span>
+        <div class="blocks">
+          {#each cardOrder as b (b)}
+            <div
+              class="blk"
+              class:over={dragOver === b}
+              draggable="true"
+              role="listitem"
+              ondragstart={() => (dragBlock = b)}
+              ondragover={(e) => {
+                e.preventDefault()
+                dragOver = b
+              }}
+              ondragleave={() => {
+                if (dragOver === b) dragOver = ''
+              }}
+              ondrop={(e) => {
+                e.preventDefault()
+                dropBlock(b)
+              }}
+              ondragend={() => {
+                dragBlock = ''
+                dragOver = ''
+              }}
+            >
+              <GripVertical size={13} />{t(`skin.cardBlocks.${b}`)}
+            </div>
+          {/each}
+        </div>
+        <button class="btn ghost sm self-start" onclick={resetCard}
+          ><RotateCcw size={13} />{t('skin.cardReset')}</button
+        >
+      {/if}
+    </section>
+
+    <section>
+      <SectionHead id="skin.library" title={t('skin.library')} tip={t('skin.libraryHint')} />
+      {#if !sectionCollapsed('skin.library')}
+        <div class="row wrap">
+          <button class="btn sm" onclick={importLocal}
+            ><FolderPlus size={14} />{t('skin.importLocal')}</button
+          >
+          <span class="grow"></span>
+          <label class="row small muted mirror" title={t('skin.mirrorHint')}>
+            {t('skin.mirror')}
+            <input
+              class="input"
+              bind:value={skin.mirror}
+              onchange={save}
+              placeholder="https://ghfast.top/"
+            />
+          </label>
+        </div>
+        <table class="tbl">
+          <tbody>
+            {#each catalogShown as f (f.file)}
+              {@const inst = fontLibrary.fonts.find((x) => x.file === f.file)}
+              <tr>
+                <td class="fam" style:font-family={inst ? `"${f.family}"` : ''}>{f.family}</td>
+                <td class="muted small">{zh ? f.desc.zh : f.desc.en}</td>
+                <td class="act">
+                  {#if inst}
+                    <span class="badge accent"
+                      ><Check size={12} />{t('skin.installed')} · {mb(inst.size)}</span
+                    >
+                    <button
+                      class="btn ghost icon sm"
+                      title={t('skin.removeFont')}
+                      onclick={() => fontLibrary.remove(f.file)}><Trash2 size={13} /></button
+                    >
+                  {:else if fontLibrary.isDownloading(f)}
+                    <span class="badge"
+                      ><Loader size={12} />{t('skin.downloading', { pct: pct(f.file) })}</span
+                    >
+                  {:else}
+                    <button class="btn sm" onclick={() => download(f)}
+                      ><Download size={13} />{f.builtin
+                        ? t('skin.installBuiltin')
+                        : t('skin.download')}</button
+                    >
+                  {/if}
+                </td>
+              </tr>
+            {/each}
+            {#each fontLibrary.fonts.filter((x) => !FONT_CATALOG.some((c) => c.file === x.file)) as x (x.file)}
+              <tr>
+                <td class="fam" style:font-family={`"${x.family}"`}>{x.family}</td>
+                <td class="muted small">{x.file}</td>
+                <td class="act">
                   <span class="badge accent"
-                    ><Check size={12} />{t('skin.installed')} · {mb(inst.size)}</span
+                    ><Check size={12} />{t('skin.installed')} · {mb(x.size)}</span
                   >
                   <button
                     class="btn ghost icon sm"
                     title={t('skin.removeFont')}
-                    onclick={() => fontLibrary.remove(f.file)}><Trash2 size={13} /></button
+                    onclick={() => fontLibrary.remove(x.file)}><Trash2 size={13} /></button
                   >
-                {:else if fontLibrary.isDownloading(f)}
-                  <span class="badge"
-                    ><Loader size={12} />{t('skin.downloading', { pct: pct(f.file) })}</span
-                  >
-                {:else}
-                  <button class="btn sm" onclick={() => download(f)}
-                    ><Download size={13} />{f.builtin
-                      ? t('skin.installBuiltin')
-                      : t('skin.download')}</button
-                  >
-                {/if}
-              </td>
-            </tr>
-          {/each}
-          {#each fontLibrary.fonts.filter((x) => !FONT_CATALOG.some((c) => c.file === x.file)) as x (x.file)}
-            <tr>
-              <td class="fam" style:font-family={`"${x.family}"`}>{x.family}</td>
-              <td class="muted small">{x.file}</td>
-              <td class="act">
-                <span class="badge accent"
-                  ><Check size={12} />{t('skin.installed')} · {mb(x.size)}</span
-                >
-                <button
-                  class="btn ghost icon sm"
-                  title={t('skin.removeFont')}
-                  onclick={() => fontLibrary.remove(x.file)}><Trash2 size={13} /></button
-                >
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
     </section>
   </div>
 </div>
@@ -833,6 +913,8 @@ a > e / _i</span
   .pv-row {
     margin: 8px 0;
     gap: 6px;
+    /* 预览里的按钮、标签排不下时换行，不要被面板边缘裁掉 */
+    flex-wrap: wrap;
   }
   .pv-row > * {
     white-space: nowrap;
@@ -905,5 +987,38 @@ a > e / _i</span
     background: var(--bg-sunken);
     border-radius: var(--radius-sm);
     color: var(--text);
+  }
+  .blocks {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 4px 0 8px;
+  }
+  /* 拖着排顺序：悬停时描一圈虚线 */
+  .blk {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: var(--bg-sunken);
+    cursor: grab;
+    font-size: 13px;
+  }
+  .blk:hover {
+    border-style: dashed;
+    border-color: var(--border-strong);
+  }
+  .blk.over {
+    border-style: dashed;
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .scale input[type='range'] {
+    flex: 1;
+  }
+  .self-start {
+    align-self: flex-start;
   }
 </style>

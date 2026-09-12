@@ -186,7 +186,8 @@
   }
   .panel {
     position: fixed;
-    z-index: 80;
+    /* 比检视器、面板都高：筛选面板不该被它们盖住 */
+    z-index: 300;
     width: 240px;
     max-height: 320px;
     display: flex;

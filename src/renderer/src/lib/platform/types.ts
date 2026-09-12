@@ -72,6 +72,14 @@ export interface Prefs {
   seenTours: string[]
   /** 词条卡里语域标签：short 方框里一个字（英文缩写），full 整个名字 */
   registerDisplay: 'short' | 'full'
+  /** 词条卡的字号倍数（0.8 ~ 1.6） */
+  cardScale: number
+  /** 词条卡各块的顺序（键见 LexemeCard 的 CARD_BLOCKS）；空表示用默认顺序 */
+  cardOrder: string[]
+  /** 发音两边的符号：宽式斜线 /…/、严式方括号 […]、什么都不加 */
+  pronBrackets: 'slash' | 'bracket' | 'none'
+  /** 收起来的板块（SectionHead 的 id） */
+  collapsedSections: string[]
 }
 
 export interface CsvPreset {
@@ -122,7 +130,11 @@ export const DEFAULT_PREFS: Prefs = {
   skippedVersion: '',
   guideTourAlways: false,
   seenTours: [],
-  registerDisplay: 'short'
+  registerDisplay: 'short',
+  cardScale: 1,
+  cardOrder: [],
+  pronBrackets: 'slash',
+  collapsedSections: []
 }
 
 export interface UpdateInfo {

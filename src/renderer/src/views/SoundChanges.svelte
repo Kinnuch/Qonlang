@@ -1,5 +1,6 @@
 <script lang="ts">
   import { navScroll } from '$lib/ui/navScroll'
+  import { focusField } from '$lib/ui/focus'
   import type { PageView } from '$lib/state/ui.svelte'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
@@ -36,7 +37,8 @@
     Code,
     GitBranch,
     Sprout,
-    X
+    X,
+    Pencil
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   let evolveOpen = $state(false)
@@ -311,9 +313,21 @@
     <GuideLink section="soundChanges" />
     <div class="booktabs grow">
       {#each project.ruleSets as rs (rs.id)}
-        <button class="tab" class:active={active?.id === rs.id} onclick={() => (activeId = rs.id)}
-          >{rs.name || t('soundChanges.untitledSet')}</button
-        >
+        <span class="tabwrap">
+          <button class="tab" class:active={active?.id === rs.id} onclick={() => (activeId = rs.id)}
+            >{rs.name || t('soundChanges.untitledSet')}</button
+          >
+          <button
+            class="pen"
+            title={t('common.rename')}
+            onclick={() => {
+              activeId = rs.id
+              ui.inspectorOpen = true
+              ui.syntaxOpen = false
+              focusField('#rs-name')
+            }}><Pencil size={11} /></button
+          >
+        </span>
       {/each}
     </div>
     <Menu label={t('soundChanges.import')} icon={Upload}>

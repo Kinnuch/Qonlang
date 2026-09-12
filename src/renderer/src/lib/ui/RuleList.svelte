@@ -84,6 +84,25 @@
     ls.splice(line - 1, 1)
     commit(ls.length ? ls : [''])
   }
+  // ───── 拖动：同一段里换位置，也可以拖到别的阶段 ─────
+  let dragLine = $state<number | null>(null)
+  let dropStage = $state<number | null>(null)
+  /** 把某一行挪到 before 那一行前面（before 比末行大就是放到最后） */
+  function moveLineBefore(from: number, before: number): void {
+    const ls = lines()
+    if (from < 1 || from > ls.length || from === before) return
+    const [s] = ls.splice(from - 1, 1)
+    const at = from < before ? before - 2 : before - 1
+    ls.splice(Math.max(0, Math.min(ls.length, at)), 0, s)
+    commit(ls)
+  }
+  function dropOnLine(before: number): void {
+    const from = dragLine
+    dragLine = null
+    dropStage = null
+    if (from !== null) moveLineBefore(from, before)
+  }
+
   function swapLines(a: number, b: number): void {
     const ls = lines()
     if (a < 1 || b < 1 || a > ls.length || b > ls.length) return
@@ -523,7 +542,24 @@
 
   <!-- 规则分段 -->
   {#each sections as sec, si (sec.marker?.line ?? -si)}
-    <section class="stage">
+    <!-- 整段都能接住拖过来的规则：放在这一段的末尾 -->
+    <section
+      class="stage"
+      class:drop={dropStage === si && dragLine !== null}
+      role="list"
+      ondragover={(e) => {
+        if (dragLine === null) return
+        e.preventDefault()
+        dropStage = si
+      }}
+      ondragleave={() => {
+        if (dropStage === si) dropStage = null
+      }}
+      ondrop={(e) => {
+        e.preventDefault()
+        dropOnLine(sec.endLine + 1)
+      }}
+    >
       {#if sec.marker}
         {@const m = sec.marker}
         <div class="stage-head row">
@@ -594,8 +630,26 @@
             <div
               class="rule card"
               class:selected={selectedLine === r.line}
+              class:dragging={dragLine === r.line}
               role="button"
               tabindex="0"
+              draggable="true"
+              ondragstart={(e) => {
+                dragLine = r.line
+                e.dataTransfer?.setData('text/plain', String(r.line))
+              }}
+              ondragend={() => {
+                dragLine = null
+                dropStage = null
+              }}
+              ondragover={(e) => {
+                if (dragLine !== null && dragLine !== r.line) e.preventDefault()
+              }}
+              ondrop={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                dropOnLine(r.line)
+              }}
               onclick={() => (selectedLine = selectedLine === r.line ? null : r.line)}
               ondblclick={() => openRule(r)}
               onkeydown={(e) => e.key === 'Enter' && openRule(r)}
@@ -767,7 +821,9 @@
   .decl-head {
     margin-top: 4px;
   }
+  /* 音类、语素那排按钮排不下时换行，别横着溢出去盖住别的 */
   .chips {
+    flex-wrap: wrap;
     display: flex;
     gap: 6px;
     align-items: center;
@@ -852,6 +908,16 @@
     transition:
       border-color 0.12s,
       box-shadow 0.12s;
+  }
+  .rule[draggable='true'] {
+    cursor: grab;
+  }
+  .rule.dragging {
+    opacity: 0.45;
+  }
+  .stage.drop {
+    background: var(--accent-soft);
+    border-radius: var(--radius);
   }
   .rule:hover {
     border-color: var(--border-strong);
