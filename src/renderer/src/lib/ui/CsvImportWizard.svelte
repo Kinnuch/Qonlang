@@ -42,7 +42,7 @@
   import Portal from './Portal.svelte'
   import ImportPreview from './ImportPreview.svelte'
   import { guideUrl } from '$lib/core/guide'
-  import { FileUp, Check, X, Save, Trash2, BookOpenText } from '@lucide/svelte'
+  import { FileDown, Check, X, Save, Trash2, BookOpenText } from '@lucide/svelte'
 
   let {
     onclose,
@@ -328,7 +328,7 @@
   </div>
 
   <div class="row">
-    <button class="btn" onclick={pick}><FileUp size={16} />{t('csv.pickFile')}</button>
+    <button class="btn" onclick={pick}><FileDown size={16} />{t('csv.pickFile')}</button>
     {#if fileName}
       <span class="small">{fileName}</span>
       <span class="badge">{t('csv.rows', { n: rows.length, cols: colCount })}</span>

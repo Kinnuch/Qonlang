@@ -886,11 +886,11 @@
     </div>
     <span class="grow"></span>
     {#if mode === 'entries' && language}
-      <Menu label={t('lexicon.import')} icon={Upload}>
+      <Menu label={t('lexicon.import')} icon={Download}>
         <button onclick={() => openImport(false)}>{t('io.importTable')}</button>
         <button onclick={() => openImport(true)}>{t('io.importJson')}</button>
       </Menu>
-      <Menu label={t('common.export')} icon={Download}>
+      <Menu label={t('common.export')} icon={Upload}>
         <button onclick={() => exportSentences('csv')}>{t('io.exportCsv')}</button>
         <button onclick={() => exportSentences('json')}>{t('io.exportJson')}</button>
         <button onclick={() => exportSentences('leipzig')}>{t('corpus.formats.leipzig')}</button>

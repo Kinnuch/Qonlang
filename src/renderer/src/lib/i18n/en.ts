@@ -788,6 +788,8 @@ const en: Dict = {
   },
   taxonomy: {
     stemSlots: 'Stem slots',
+    followedStems: 'Moved the stems of {n} entries to the new name.',
+    followedForms: 'Moved the inflected forms of {n} entries to the new slot names.',
     stemSlotsHint:
       'Which stems entries of this part of speech have (e.g. strong / middle / weak). A paradigm pipeline’s “stem” picks from these; fill them per entry in edit mode — empty ones fall back to the headword.',
     stemName: 'Name',

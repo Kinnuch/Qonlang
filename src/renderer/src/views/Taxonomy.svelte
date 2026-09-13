@@ -26,6 +26,12 @@
   import TagInput from '$lib/ui/TagInput.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { sortable } from '$lib/ui/sortable.svelte'
+  import {
+    followSlotLabels,
+    followStemRename,
+    slotLabels,
+    type SlotLabels
+  } from '$lib/core/relabel'
   import { moveItem } from '$lib/core/move'
   import {
     Plus,
@@ -46,6 +52,30 @@
   function posUse(p: PartOfSpeech): number {
     return project.lexemes.filter((l) => l.posId === p.id || l.senses.some((s) => s.posId === p.id))
       .length
+  }
+  /**
+   * 改名跟着走：词干槽、维度取值改名时，词库里按旧名存的词干、屈折形挪到新名下。
+   * 输入框聚焦时记下改之前的样子，改完（失焦或回车）再比。
+   */
+  let stemNameBefore = ''
+  function followStem(p: PartOfSpeech, name: string): void {
+    const n = followStemRename(project, p.id, stemNameBefore, name)
+    stemNameBefore = name
+    if (!n) return
+    projectState.touch()
+    ui.toast(t('taxonomy.followedStems', { n }))
+  }
+  let labelsBefore: SlotLabels | null = null
+  function rememberLabels(): void {
+    labelsBefore = slotLabels(project)
+  }
+  function followLabels(): void {
+    if (!labelsBefore) return
+    const n = followSlotLabels(project, labelsBefore)
+    labelsBefore = slotLabels(project)
+    if (!n) return
+    projectState.touch()
+    ui.toast(t('taxonomy.followedForms', { n }))
   }
   /** 复合词类的组成：名字、缩写还空着或者是按组成拼出来的，就跟着一起更新 */
   function setComponents(p: PartOfSpeech, ids: Id[]): void {
@@ -302,7 +332,9 @@
                     class="input data"
                     bind:value={st.name}
                     placeholder={t('taxonomy.stemName')}
+                    onfocus={() => (stemNameBefore = st.name)}
                     oninput={() => projectState.touch()}
+                    onchange={() => followStem(p, st.name)}
                   />
                   <input
                     class="input"
@@ -483,14 +515,18 @@
                       class="input"
                       placeholder={`${t('taxonomy.valueName')} (${lg})`}
                       bind:value={v.name[lg]}
+                      onfocus={rememberLabels}
                       oninput={() => projectState.touch()}
+                      onchange={followLabels}
                     />
                   {/each}
                   <input
                     class="input mono abbr-in"
                     placeholder={t('taxonomy.valueAbbr')}
                     bind:value={v.abbr}
+                    onfocus={rememberLabels}
                     oninput={() => projectState.touch()}
+                    onchange={followLabels}
                   />
                   <button
                     class="btn ghost icon sm"

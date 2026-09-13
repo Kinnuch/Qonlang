@@ -41,7 +41,7 @@
   import {
     Plus,
     Trash2,
-    Upload,
+    Download,
     FileType,
     ClipboardPaste,
     Wand2,
@@ -990,7 +990,7 @@
         />
         <div class="row wrap">
           <button class="btn sm" onclick={() => importFont(false)}
-            ><Upload size={14} />{t('script.importFont')}</button
+            ><Download size={14} />{t('script.importFont')}</button
           >
           {#if sc.font.dataUrl}<span class="small muted"
               >{t('script.fontEmbedded', { name: sc.font.fileName })}</span

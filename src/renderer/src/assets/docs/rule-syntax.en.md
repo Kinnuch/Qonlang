@@ -31,7 +31,7 @@ Classes and multigraphs defined on the Phonology page are available everywhere; 
 
 | Notation | Meaning | Example |
 |---|---|---|
-| `#` | word start (on the left) or word end (on the right) | `V > / _#` drops a final vowel |
+| `#` | word start (on the left) or word end (on the right); with spaces in the input each word has its own (a paradigm pipeline treats the whole form as one word) | `V > / _#` drops a final vowel |
 | `C`, `V`, `{name}`, `[ptk]` | **any one** member of the class; each occurrence is independent | `_CC`: followed by **any two** consonants |
 | `C1`, `C2`, `V1`… | numbered class: **within one rule, the same number is the same sound** | `_C1C1`: followed by **the same consonant twice** |
 | `(x)` | optional | `#(C)V_` |

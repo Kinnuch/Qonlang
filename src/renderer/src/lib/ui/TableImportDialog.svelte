@@ -15,7 +15,7 @@
   import { ioFieldLabel } from '$lib/ui/ioLabels'
   import Portal from './Portal.svelte'
   import ImportPreview from './ImportPreview.svelte'
-  import { FileUp, X, BookOpenText } from '@lucide/svelte'
+  import { FileDown, X, BookOpenText } from '@lucide/svelte'
 
   let {
     title,
@@ -153,7 +153,8 @@
     >
   </div>
   <div class="row opts">
-    <button class="btn sm" onclick={() => pickFile()}><FileUp size={14} />{t('io.pickFile')}</button
+    <button class="btn sm" onclick={() => pickFile()}
+      ><FileDown size={14} />{t('io.pickFile')}</button
     >
     <span class="small muted grow">{fileName || t('io.orPaste')}</span>
     {#if !jsonText}

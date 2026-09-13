@@ -269,11 +269,11 @@
     <GuideLink section="phrasebook" />
     <span class="grow"></span>
     {#if language}
-      <Menu label={t('lexicon.import')} icon={Upload}>
+      <Menu label={t('lexicon.import')} icon={Download}>
         <button onclick={() => openImport(false)}>{t('io.importTable')}</button>
         <button onclick={() => openImport(true)}>{t('io.importJson')}</button>
       </Menu>
-      <Menu label={t('common.export')} icon={Download}>
+      <Menu label={t('common.export')} icon={Upload}>
         <button onclick={() => exportPhrases('csv')}>{t('io.exportCsv')}</button>
         <button onclick={() => exportPhrases('json')}>{t('io.exportJsonPlain')}</button>
       </Menu>

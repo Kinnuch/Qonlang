@@ -23,6 +23,11 @@
   // 留空的词干与屈折形不占位置
   const filledStems = $derived(Object.entries(l.stems).filter(([, v]) => v.trim()))
   const filledForms = $derived(Object.entries(l.forms).filter(([, f]) => f.surface.trim()))
+  /** 词干与屈折形排在一张表里：名字、写法、是不是推导出来的 */
+  const formRows = $derived([
+    ...filledStems.map(([k, v]) => ({ k, v, derived: false })),
+    ...filledForms.map(([k, f]) => ({ k, v: f.surface, derived: f.derived }))
+  ])
   const lang = $derived(project.languages.find((x) => x.id === l.languageId))
   const pos = $derived(project.posList.find((p) => p.id === l.posId))
   /** 各块的顺序：皮肤页里拖着排，没排过就用默认顺序 */
@@ -228,22 +233,18 @@
     {#if filledStems.length || filledForms.length}
       <section>
         <h4>{t('lexicon.forms')}</h4>
-        <table class="forms">
-          <tbody>
-            {#each filledStems as [k, v] (k)}
-              <tr><th>{k}</th><td class="data">{v}</td></tr>
-            {/each}
-            {#each filledForms as [k, f] (k)}
-              <tr
-                ><th>{k}</th><td class="data"
-                  >{f.surface}{#if f.derived && ui.prefs.showDerivedMark}<span class="tiny muted">
-                      ⚙</span
-                    >{/if}</td
-                ></tr
-              >
-            {/each}
-          </tbody>
-        </table>
+        <!-- 名字一栏按最长的名字定宽、最多占 55%，更长的在 . 后面折行，不会压到右边的形式上 -->
+        <div class="forms">
+          {#each formRows as row, i (i)}
+            <span class="fk" class:alt={i % 2 === 1}
+              >{#each row.k.split('.') as part, pi (pi)}{#if pi}.<wbr />{/if}{part}{/each}</span
+            ><span class="fv data" class:alt={i % 2 === 1}
+              >{row.v}{#if row.derived && ui.prefs.showDerivedMark}<span class="tiny muted">
+                  ⚙</span
+                >{/if}</span
+            >
+          {/each}
+        </div>
       </section>
     {/if}
   {/snippet}
@@ -452,27 +453,23 @@
     font-size: inherit;
   }
   .forms {
-    border-collapse: collapse;
+    display: grid;
+    grid-template-columns: fit-content(55%) minmax(0, 1fr);
     font-size: 0.87em;
-    width: 100%;
-    table-layout: fixed;
   }
-  .forms th {
-    text-align: left;
+  .forms .fk {
     font-weight: 500;
     color: var(--text-2);
     padding: 4px 10px 4px 8px;
-    white-space: nowrap;
-    width: 40%;
+    overflow-wrap: anywhere;
     border-radius: var(--radius-sm) 0 0 var(--radius-sm);
   }
-  .forms td {
+  .forms .fv {
     padding: 4px 8px 4px 0;
+    overflow-wrap: anywhere;
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    word-break: break-word;
   }
-  .forms tr:nth-child(even) th,
-  .forms tr:nth-child(even) td {
+  .forms .alt {
     background: var(--bg-sunken);
   }
   .rel {

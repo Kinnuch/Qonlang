@@ -12,7 +12,7 @@
   import type { DocPage, Id } from '$lib/core/model'
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
-  import { Plus, Trash2, Download, Eye, Pencil, Columns2, FileText } from '@lucide/svelte'
+  import { Plus, Trash2, Upload, Eye, Pencil, Columns2, FileText } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -228,8 +228,8 @@
     </div>
     <p class="small muted">{t('docs.updated')}: {d.updatedAt.slice(0, 16).replace('T', ' ')}</p>
     <div class="row wrap">
-      <button class="btn sm" onclick={() => exportMd(d)}><Download size={14} />Markdown</button>
-      <button class="btn sm" onclick={() => exportPdf(d)}><Download size={14} />PDF</button>
+      <button class="btn sm" onclick={() => exportMd(d)}><Upload size={14} />Markdown</button>
+      <button class="btn sm" onclick={() => exportPdf(d)}><Upload size={14} />PDF</button>
     </div>
     <p class="small muted">{t('docs.syntax')}</p>
     <button class="btn sm danger" onclick={() => remove(d)}

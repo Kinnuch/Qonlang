@@ -5,7 +5,7 @@
 import type { Id, Lexeme, Morpheme, Project, RuleSet } from '$lib/core/model'
 import { createLexeme, now } from '$lib/core/factory'
 import { lexemePosIds } from '$lib/core/pos'
-import { runRules, type RuleProgram } from '$lib/engine/sca'
+import { runRulesOnText, type RuleProgram } from '$lib/engine/sca'
 
 export interface EvolveOptions {
   ruleSet: RuleSet
@@ -64,11 +64,11 @@ export function planEvolution(project: Project, o: EvolveOptions): EvolveRow[] {
     if (!input.trim()) continue
     let output = ''
     try {
-      output = runRules(o.program, input, {
+      // 词头里有空格时每个词各自演化，跟测试台一样：`#` 是每个词自己的词首词尾
+      output = runRulesOnText(o.program, input, {
         startAt: o.startAt || undefined,
-        stopAt: o.stopAt || undefined,
-        trace: false
-      }).output
+        stopAt: o.stopAt || undefined
+      })
     } catch {
       output = ''
     }

@@ -885,6 +885,16 @@
       )
     })
   }
+  /** 双击一行：选中这一条，右侧检视器切到录入模式直接改 */
+  function editRow(e: MouseEvent, id: Id): void {
+    if ((e.target as Element | null)?.closest('button, input, select, textarea, a')) return
+    window.getSelection()?.removeAllRanges()
+    multiIds = []
+    selectedId = id
+    editMode = true
+    ui.inspectorOpen = true
+    ui.syntaxOpen = false
+  }
   function rowClick(e: MouseEvent, l: Lexeme, i: number): void {
     if (e.shiftKey && lastIndex >= 0) {
       const [a, b] = [Math.min(lastIndex, i), Math.max(lastIndex, i)]
@@ -974,11 +984,11 @@
         {/each}
         <button onclick={resetWidths}>{t('lexicon.resetWidths')}</button>
       </Menu>
-      <Menu label={t('lexicon.import')} icon={Upload}>
+      <Menu label={t('lexicon.import')} icon={Download}>
         <button onclick={() => (mode = 'csv')}>{t('lexicon.importCsv')}</button>
         <button onclick={importLexicanter}>{t('lexicon.importLexicanter')}</button>
       </Menu>
-      <Menu label={t('common.export')} icon={Download}>
+      <Menu label={t('common.export')} icon={Upload}>
         <button onclick={() => exportCsv('lexemes')}>{t('lexicon.exportCsv')}</button>
         <button onclick={() => exportCsv('morphemes')}>{t('lexicon.exportMorphemesCsv')}</button>
         {#if language}<button onclick={() => (mode = 'export')}>{t('dict.menu')}</button>{/if}
@@ -1222,6 +1232,7 @@
               class:flash={flashId === l.id}
               class:dup-row={ui.prefs.highlightDuplicates && isDup(l)}
               onclick={(e) => rowClick(e, l, li)}
+              ondblclick={(e) => editRow(e, l.id)}
             >
               <td class="mv">
                 {#if sort === 'custom'}

@@ -140,6 +140,28 @@ export function runRules(program: RuleProgram, word: string, options: RunOptions
   return { input: word, output: revertReplacements(current, replacements), stages, trace }
 }
 
+/** 词两头的标点（逗号、句号、引号……）：单独过规则，不挡住词首、词末（`kam,` 里的逗号） */
+const EDGE_PUNCT =
+  /^([.,;:!?…“”"«»‹›—–「」『』，。！？；：、]*)(.*?)([.,;:!?…“”"«»‹›—–「」『』，。！？；：、]*)$/su
+
+/**
+ * 一段可能有好几个词的文字：按空白切开，每个词单独跑一遍规则——`#` 是每个词自己的词首、词尾
+ * （`A B` 里 A 的末尾也是词尾），空白原样留着；词两头的标点单独跑。只要输出文字时用它。
+ */
+export function runRulesOnText(
+  program: RuleProgram,
+  text: string,
+  options: RunOptions = {}
+): string {
+  const conv = (x: string): string =>
+    x ? runRules(program, x, { ...options, trace: false }).output : ''
+  return text.replace(/\S+/gu, (w) => {
+    const m = EDGE_PUNCT.exec(w)
+    if (!m || (!m[1] && !m[3]) || !m[2]) return conv(w)
+    return conv(m[1]) + conv(m[2]) + conv(m[3])
+  })
+}
+
 /** 只应用一条规则（预览用）。输入输出都是书写形式（经多合字母替换与还原）。 */
 export function runSingleRule(program: RuleProgram, rule: ParsedRule, word: string): string {
   const inner = applyReplacements(word, program.replacements)

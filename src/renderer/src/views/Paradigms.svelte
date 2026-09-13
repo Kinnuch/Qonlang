@@ -64,6 +64,7 @@
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import { sortable } from '$lib/ui/sortable.svelte'
   import { moveItem } from '$lib/core/move'
+  import { setDimensionOrder } from '$lib/core/relabel'
   import {
     checkConsistency,
     groupIssues,
@@ -572,11 +573,16 @@
     if (!active) return
     const j = i + dir
     if (j < 0 || j >= active.dimensionIds.length) return
-    ;[active.dimensionIds[i], active.dimensionIds[j]] = [
-      active.dimensionIds[j],
-      active.dimensionIds[i]
-    ]
+    const order = [...active.dimensionIds]
+    ;[order[i], order[j]] = [order[j], order[i]]
+    reorderDimensions(order)
+  }
+  /** 换维度先后：生成器、停用的槽位按新顺序重拼 key，词库里的屈折形挪到新槽位名下 */
+  function reorderDimensions(order: Id[]): void {
+    if (!active) return
+    const n = setDimensionOrder(project, active, order)
     touch()
+    if (n) ui.toast(t('taxonomy.followedForms', { n }))
   }
   function toggleSlot(key: string): void {
     if (!active) return
@@ -827,7 +833,9 @@
             <span
               class="chip on"
               {...sortable(`dims-${active.id}`, i, (from, to) => {
-                if (active && moveItem(active.dimensionIds, from, to)) touch()
+                if (!active) return
+                const order = [...active.dimensionIds]
+                if (moveItem(order, from, to)) reorderDimensions(order)
               })}
             >
               <b>{i + 1}</b>

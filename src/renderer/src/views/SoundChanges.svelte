@@ -337,7 +337,7 @@
         </span>
       {/each}
     </div>
-    <Menu label={t('soundChanges.import')} icon={Upload}>
+    <Menu label={t('soundChanges.import')} icon={Download}>
       <button onclick={importYinbianji}>{t('soundChanges.importYinbianji')}</button>
       <button onclick={() => importConverted('lexicanter')}
         >{t('soundChanges.importLexicanter')}</button
@@ -345,7 +345,7 @@
       <button onclick={() => importConverted('sca2')}>{t('soundChanges.importSca2')}</button>
       <button onclick={() => importConverted('plain')}>{t('soundChanges.importPlain')}</button>
     </Menu>
-    <Menu label={t('common.export')} icon={Download}>
+    <Menu label={t('common.export')} icon={Upload}>
       <button disabled={!active} onclick={exportText}>{t('io.exportRuleSet')}</button>
       <button disabled={!project.ruleSets.length} onclick={exportAllRuleSets}
         >{t('io.exportAllRuleSets')}</button
@@ -460,7 +460,7 @@
         {#if !errorCount && !warnCount}<span class="badge">{t('soundChanges.noDiagnostics')}</span
           >{/if}
         <button class="btn ghost sm" onclick={exportText}
-          ><Download size={14} />{t('soundChanges.exportText')}</button
+          ><Upload size={14} />{t('soundChanges.exportText')}</button
         >
       </div>
       {#if program && program.diagnostics.length}

@@ -763,6 +763,8 @@ export default {
   },
   taxonomy: {
     stemSlots: '词干槽',
+    followedStems: '{n} 个词条里的词干跟着挪到了新名字下。',
+    followedForms: '{n} 个词条里的屈折形跟着挪到了新的槽位名下。',
     stemSlotsHint:
       '这个词类的词条有哪几个词干（比如强形 / 中形 / 弱形）。构形流水线的「词干」从这里挑；词条录入时逐个填，没填的回落到词头。',
     stemName: '名称',

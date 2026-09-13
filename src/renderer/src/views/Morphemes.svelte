@@ -61,6 +61,15 @@
   const mStats = $derived(mode === 'stats' ? morphemeStats(project, langId) : null)
   const pctOf = (n: number, total: number): string =>
     total ? `${Math.round((n / total) * 100)}%` : '—'
+  /** 双击一行：选中这一条，右侧检视器切到录入模式直接改 */
+  function editRow(e: MouseEvent, id: Id): void {
+    if ((e.target as Element | null)?.closest('button, input, select, textarea, a')) return
+    window.getSelection()?.removeAllRanges()
+    selectedId = id
+    editMode = true
+    ui.inspectorOpen = true
+    ui.syntaxOpen = false
+  }
   function filterFromStats(key: string, value: string): void {
     setFilter(key, new Set([value]))
     mode = 'entries'
@@ -342,10 +351,10 @@
       >
     </div>
     <span class="grow"></span>
-    <Menu label={t('lexicon.import')} icon={Upload}>
+    <Menu label={t('lexicon.import')} icon={Download}>
       <button onclick={() => (mode = 'csv')}>{t('lexicon.importCsv')}</button>
     </Menu>
-    <Menu label={t('common.export')} icon={Download}>
+    <Menu label={t('common.export')} icon={Upload}>
       <button onclick={exportCsv}>{t('lexicon.exportMorphemesCsv')}</button>
     </Menu>
     <button class="btn primary" onclick={add}><Plus size={16} />{t('morphemes.add')}</button>
@@ -484,6 +493,7 @@
               class:sel={selectedId === m.id}
               class:flash={flashId === m.id}
               onclick={() => (selectedId = m.id)}
+              ondblclick={(e) => editRow(e, m.id)}
             >
               <td class="mv">
                 {#if sort === 'custom'}

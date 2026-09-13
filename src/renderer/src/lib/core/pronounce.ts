@@ -2,7 +2,7 @@
  * 正字法 → IPA 的自动标音。规则文本按正字法解析并缓存；不规则发音不覆盖。
  */
 import type { Language, Lexeme, Orthography, Project } from './model'
-import { parseRuleText, runRules, type RuleProgram } from '$lib/engine/sca'
+import { parseRuleText, runRulesOnText, type RuleProgram } from '$lib/engine/sca'
 import { languageParseOptions } from '$lib/engine/phon'
 
 const cache = new Map<string, { text: string; classes: string; program: RuleProgram }>()
@@ -24,10 +24,11 @@ export function orthoProgram(
   return program
 }
 
+/** 按空白分词逐个转写：`A B` 里 A 的末尾同样算词尾（`_#` 的规则对每个词都生效） */
 export function transcribe(lang: Language, ortho: Orthography, text: string): string | null {
   const p = orthoProgram(lang, ortho, 'toIpa')
   if (!p) return null
-  return runRules(p, text, { trace: false }).output
+  return runRulesOnText(p, text)
 }
 
 /** 给一个词位按各正字法重算发音（不规则的保留）。返回是否有变化。 */

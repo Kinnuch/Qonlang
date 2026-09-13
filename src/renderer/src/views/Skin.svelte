@@ -42,6 +42,7 @@
     GripVertical
   } from '@lucide/svelte'
   import { newId } from '$lib/core/factory'
+  import { interlinear } from '$lib/engine/gloss'
   import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -289,7 +290,36 @@
   let onSlider = false
 
   const previewLexeme = $derived(projectState.project?.lexemes.find((l) => l.lemma) ?? null)
-  const previewSentence = $derived(projectState.project?.sentences.find((s) => s.text) ?? null)
+  /** 预览用的例句：当前语言里第一句每个词都分析过的，没有就第一句有原文的；项目里没有例句时用内置示例 */
+  const previewSentence = $derived.by(() => {
+    const p = projectState.project
+    if (!p) return null
+    const withText = p.sentences.filter((s) => s.text.trim())
+    const lid = projectState.currentLanguageId
+    const pool = withText.some((s) => s.languageId === lid)
+      ? withText.filter((s) => s.languageId === lid)
+      : withText
+    return (
+      pool.find((s) => s.tokens.length > 0 && s.tokens.every((tk) => tk.analyses[tk.chosen])) ??
+      pool[0] ??
+      null
+    )
+  })
+  /** 这一句的切分、gloss、译文与文字行（跟语料页同一套算法） */
+  const previewLines = $derived(
+    previewSentence && projectState.project
+      ? interlinear(projectState.project, previewSentence)
+      : null
+  )
+  const previewWords = $derived(
+    previewLines
+      ? previewLines.words.map((w) => ({ morphs: w.morphs, gloss: w.gloss }))
+      : [
+          { morphs: 'ilen-ler', gloss: `${zh ? '孩子' : 'child'}-PL` },
+          { morphs: 'kaso-da', gloss: `${zh ? '房子' : 'house'}-LOC` },
+          { morphs: 'jat-du', gloss: `${zh ? '睡' : 'sleep'}-PST` }
+        ]
+  )
 </script>
 
 <div class="page">
@@ -605,23 +635,28 @@
       >
         {previewSentence?.text ?? 'ilenler kasoda jatdu'}
       </div>
-      <div class="pv-gl" use:pvMark={pvp('font:corpusText')}>
-        <span>ilen-ler</span><span>kaso-da</span><span>jat-du</span>
-      </div>
-      <div class="pv-gloss" use:pvMark={pvp('font:gloss')} title={t('skin.fontSlots.gloss')}>
-        <span>{zh ? '孩子' : 'child'}-PL</span><span>{zh ? '房子' : 'house'}-LOC</span><span
-          >{zh ? '睡' : 'sleep'}-PST</span
-        >
+      <!-- 切分与 gloss 逐词上下对齐，跟语料页一样 -->
+      <div class="pv-il">
+        {#each previewWords as w, i (i)}
+          <span class="pv-w">
+            <span class="pv-gl" use:pvMark={pvp('font:corpusText')}>{w.morphs}</span>
+            <span class="pv-gloss" use:pvMark={pvp('font:gloss')} title={t('skin.fontSlots.gloss')}
+              >{w.gloss}</span
+            >
+          </span>
+        {/each}
       </div>
       <div class="pv-tr" use:pvMark={pvp('font:corpusTr')} title={t('skin.fontSlots.corpusTr')}>
-        {previewSentence
-          ? Object.values(previewSentence.translation)[0]
+        {previewLines
+          ? previewLines.translation
           : zh
             ? '孩子们在房子里睡了。'
             : 'The children slept in the house.'}
       </div>
       <div class="pv-scr" use:pvMark={pvp('font:script')} title={t('skin.fontSlots.script')}>
-        ᛁᛚᛖᚾᛚᛖᚱ ᚲᚨᛊᛟᛞᚨ ᛃᚨᛏᛞᚢ
+        {previewLines
+          ? (previewLines.scripts[0]?.text ?? previewSentence?.text)
+          : 'ᛁᛚᛖᚾᛚᛖᚱ ᚲᚨᛊᛟᛞᚨ ᛃᚨᛏᛞᚢ'}
       </div>
     </div>
     <div class="row wrap pv-row">
@@ -900,15 +935,21 @@ a > e / _i</span
     font-family: var(--font-corpus-text);
     font-size: 17px;
   }
-  .pv-gl {
+  .pv-il {
     display: flex;
-    gap: 12px;
+    flex-wrap: wrap;
+    column-gap: 12px;
+    row-gap: 2px;
+  }
+  .pv-w {
+    display: inline-flex;
+    flex-direction: column;
+  }
+  .pv-gl {
     font-family: var(--font-corpus-text);
     font-size: 14px;
   }
   .pv-gloss {
-    display: flex;
-    gap: 12px;
     font-family: var(--font-gloss);
     font-size: 12px;
     color: var(--text-2);

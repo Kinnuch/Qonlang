@@ -12,7 +12,7 @@
     renderEntries,
     type DictOptions
   } from '$lib/export/dictionary'
-  import { Download, Check, Trash2, X, Copy } from '@lucide/svelte'
+  import { Upload, Check, Trash2, X, Copy } from '@lucide/svelte'
 
   let { language, onclose }: { language: Language; onclose: () => void } = $props()
   const project = $derived(projectState.project!)
@@ -153,11 +153,10 @@
           >{/each}
       </div>
       <div class="row wrap gap">
-        <button class="btn sm" onclick={() => doExport('html')}><Download size={14} />HTML</button>
-        <button class="btn sm" onclick={() => doExport('md')}><Download size={14} />Markdown</button
-        >
+        <button class="btn sm" onclick={() => doExport('html')}><Upload size={14} />HTML</button>
+        <button class="btn sm" onclick={() => doExport('md')}><Upload size={14} />Markdown</button>
         <button class="btn primary sm" onclick={() => doExport('pdf')}
-          ><Download size={14} />PDF</button
+          ><Upload size={14} />PDF</button
         >
       </div>
     </section>
@@ -188,7 +187,7 @@
           ><Copy size={14} />{t('corpus.copy')}</button
         >
         <button class="btn sm" onclick={() => doExport('template')}
-          ><Download size={14} />{t('dict.exportTemplate')}</button
+          ><Upload size={14} />{t('dict.exportTemplate')}</button
         >
       </div>
     </section>
