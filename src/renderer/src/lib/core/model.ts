@@ -321,8 +321,10 @@ export interface PartOfSpeech {
   id: Id
   name: LocalizedText
   abbr: string
-  /** 绑定的范式；孤立语词类可为 null */
+  /** 绑定的范式；孤立语词类可为 null。绑了几个时这是默认的那个 */
   paradigmId: Id | null
+  /** 这个词类另外可选的构形（变位法二、三……）；词条在录入模式里挑，没挑的用 paradigmId */
+  extraParadigmIds?: Id[]
   /**
    * 这个词类的词干槽（比如强形 / 中形 / 弱形）：构形流水线的「词干」从这里挑，
    * 词条录入时逐个填；没填的词条回落到词头。

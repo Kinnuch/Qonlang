@@ -17,6 +17,7 @@ import { parseRuleText, runRules, type RuleProgram } from '../sca'
 import { languageParseOptions, nucleusSet, segment } from '../phon'
 import { transcribe } from '$lib/core/pronounce'
 import { posParadigmId } from '$lib/core/pos'
+import { activeValues, conditionVariants, resolveConditions } from './conditions'
 
 export interface SlotDef {
   key: string
@@ -210,19 +211,23 @@ function lemmaOf(ctx: MorphContext, name: string): Lexeme | undefined {
 /** 只由分隔符组成（没有字母、数字、附加符） */
 const ONLY_SEPARATORS = /^[^\p{L}\p{N}\p{M}]*$/u
 
-/** 生成器里写词缀的那些文本（前缀、后缀、中缀、环缀两截） */
+/** 生成器里写词缀的那些文本（前缀、后缀、中缀、环缀两截）；按条件换字母的写法每种挑法各算一条 */
 export function affixTexts(g: SlotGenerator): string[] {
-  if (g.kind === 'pipeline')
-    return g.steps.flatMap((st) =>
-      st.kind === 'prefix' || st.kind === 'suffix' || st.kind === 'infix'
-        ? [st.text]
-        : st.kind === 'circumfix'
-          ? [st.text, st.text2]
+  const raw =
+    g.kind === 'pipeline'
+      ? g.steps.flatMap((st) =>
+          st.kind === 'prefix' || st.kind === 'suffix' || st.kind === 'infix'
+            ? [st.text]
+            : st.kind === 'circumfix'
+              ? [st.text, st.text2]
+              : []
+        )
+      : g.kind === 'affix'
+        ? [g.prefix, g.suffix, g.infix]
+        : g.kind === 'affix-sca'
+          ? [g.prefix, g.suffix]
           : []
-    )
-  if (g.kind === 'affix') return [g.prefix, g.suffix, g.infix]
-  if (g.kind === 'affix-sca') return [g.prefix, g.suffix]
-  return []
+  return raw.flatMap((x) => conditionVariants(x ?? '').map((v) => v.text))
 }
 
 export interface AffixRef {
@@ -442,38 +447,55 @@ export function applyAdjust(
   return s
 }
 
-/** 跑一步：把上一步的结果变成这一步的结果，并记一条轨迹 */
-function runStep(ctx: MorphContext, step: MorphStep, surface: string, trace: string[]): string {
+/** 词缀文本按条件挑过之后，轨迹里写成「原文 → 挑出来的」 */
+const shown = (raw: string, got: string): string => (raw === got ? raw : `${raw} → ${got}`)
+
+/**
+ * 跑一步：把上一步的结果变成这一步的结果，并记一条轨迹。
+ * pick 把词缀、微调里按条件换字母的写法（`{阴:g|k}`）按这个词条、这个槽位挑好。
+ */
+function runStep(
+  ctx: MorphContext,
+  step: MorphStep,
+  surface: string,
+  trace: string[],
+  pick: (text: string) => string = (x) => x
+): string {
   const nuclei = nucleusSet(ctx.language)
   const inventory = ctx.language.phonemes.map((p) => p.symbol)
   switch (step.kind) {
     case 'prefix': {
-      const a = resolveAffix(ctx, step.text, surface, 'prefix')
+      const text = pick(step.text)
+      const a = resolveAffix(ctx, text, surface, 'prefix')
       if (a.note) trace.push(a.note)
       surface = a.form + surface
-      trace.push(`前缀 ${step.text}: ${surface}`)
+      trace.push(`前缀 ${shown(step.text, text)}: ${surface}`)
       return surface
     }
     case 'suffix': {
-      const a = resolveAffix(ctx, step.text, surface, 'suffix')
+      const text = pick(step.text)
+      const a = resolveAffix(ctx, text, surface, 'suffix')
       if (a.note) trace.push(a.note)
       surface = surface + a.form
-      trace.push(`后缀 ${step.text}: ${surface}`)
+      trace.push(`后缀 ${shown(step.text, text)}: ${surface}`)
       return surface
     }
     case 'circumfix': {
-      const a = resolveAffix(ctx, step.text, surface, 'prefix')
-      const b = resolveAffix(ctx, step.text2, surface, 'suffix')
+      const t1 = pick(step.text)
+      const t2 = pick(step.text2)
+      const a = resolveAffix(ctx, t1, surface, 'prefix')
+      const b = resolveAffix(ctx, t2, surface, 'suffix')
       if (a.note) trace.push(a.note)
       if (b.note) trace.push(b.note)
       surface = a.form + surface + b.form
-      trace.push(`环缀 ${step.text}…${step.text2}: ${surface}`)
+      trace.push(`环缀 ${shown(`${step.text}…${step.text2}`, `${t1}…${t2}`)}: ${surface}`)
       return surface
     }
     case 'infix': {
-      const a = resolveAffix(ctx, step.text, surface, 'prefix')
+      const text = pick(step.text)
+      const a = resolveAffix(ctx, text, surface, 'prefix')
       surface = insertInfix(surface, trimHyphens(a.form), step.at, nuclei, inventory)
-      trace.push(`中缀 ${step.text} @ ${step.at || 'V1'}: ${surface}`)
+      trace.push(`中缀 ${shown(step.text, text)} @ ${step.at || 'V1'}: ${surface}`)
       return surface
     }
     case 'pattern': {
@@ -491,7 +513,7 @@ function runStep(ctx: MorphContext, step: MorphStep, surface: string, trace: str
       return surface
     }
     case 'adjust':
-      return applyAdjust(ctx, surface, step.text, trace, '微调')
+      return applyAdjust(ctx, surface, pick(step.text), trace, '微调')
     case 'sca': {
       if (!step.ruleSetId) return surface
       const prog = ctx.program(step.ruleSetId)
@@ -532,26 +554,35 @@ export function generateForm(
   const trace: string[] = []
   const stem = stemOf(lexeme, g.stem)
   trace.push(`词干 ${stem.note}: ${stem.value}`)
+  // 按条件换字母（{阴:g|k}）：看这个槽位的维度取值，再看词条自己的语法特征
+  const active = activeValues(slot.values, lexeme)
+  const unknown = new Set<string>()
+  const pick = (text: string): string =>
+    resolveConditions(text, ctx.project.categories, active, unknown)
+  const noteUnknown = (): void => {
+    if (unknown.size) trace.push(`条件没对上任何取值：${[...unknown].join('、')}`)
+  }
   if (g.kind === 'pipeline') {
     let out = stem.value
-    for (const step of g.steps) out = runStep(ctx, step, out, trace)
+    for (const step of g.steps) out = runStep(ctx, step, out, trace, pick)
+    noteUnknown()
     return { surface: out, trace }
   }
   const nuclei = nucleusSet(ctx.language)
   const inventory = ctx.language.phonemes.map((p) => p.symbol)
   let surface = stem.value
   if (g.kind === 'affix' || g.kind === 'affix-sca') {
-    const pre = resolveAffix(ctx, g.prefix ?? '', surface, 'prefix')
-    const suf = resolveAffix(ctx, g.suffix ?? '', surface, 'suffix')
+    const pre = resolveAffix(ctx, pick(g.prefix ?? ''), surface, 'prefix')
+    const suf = resolveAffix(ctx, pick(g.suffix ?? ''), surface, 'suffix')
     if (pre.note) trace.push(pre.note)
     if (suf.note) trace.push(suf.note)
     if (g.kind === 'affix' && g.infix) {
-      surface = insertInfix(surface, trimHyphens(g.infix), g.infixAt, nuclei, inventory)
+      surface = insertInfix(surface, trimHyphens(pick(g.infix)), g.infixAt, nuclei, inventory)
       trace.push(`中缀 ${g.infix} @ ${g.infixAt || 'V1'}: ${surface}`)
     }
     surface = pre.form + surface + suf.form
     trace.push(`拼接: ${surface}`)
-    surface = applyAdjust(ctx, surface, g.pre, trace, '微调(前)')
+    surface = applyAdjust(ctx, surface, g.pre && pick(g.pre), trace, '微调(前)')
     if (g.kind === 'affix-sca' && g.ruleSetId) {
       const prog = ctx.program(g.ruleSetId)
       if (prog) {
@@ -567,11 +598,11 @@ export function generateForm(
       } else trace.push('规则集不存在')
     }
   } else if (g.kind === 'pattern') {
-    surface = applyAdjust(ctx, surface, g.pre, trace, '微调(前)')
+    surface = applyAdjust(ctx, surface, g.pre && pick(g.pre), trace, '微调(前)')
     surface = applyPattern(surface, g.pattern, nuclei, inventory)
     trace.push(`模板 ${g.pattern}: ${surface}`)
   } else if (g.kind === 'reduplication') {
-    surface = applyAdjust(ctx, surface, g.pre, trace, '微调(前)')
+    surface = applyAdjust(ctx, surface, g.pre && pick(g.pre), trace, '微调(前)')
     const segs = segment(surface, inventory)
     const n = Math.max(1, g.length || 1)
     if (g.scope === 'full') surface = surface + surface
@@ -579,7 +610,8 @@ export function generateForm(
     else surface = surface + segs.slice(-n).join('')
     trace.push(`重叠 ${g.scope}: ${surface}`)
   }
-  surface = applyAdjust(ctx, surface, g.post, trace, '微调(后)')
+  surface = applyAdjust(ctx, surface, g.post && pick(g.post), trace, '微调(后)')
+  noteUnknown()
   return { surface, trace }
 }
 

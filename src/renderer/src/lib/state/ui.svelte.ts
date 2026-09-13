@@ -3,6 +3,7 @@ import { platform, DEFAULT_PREFS, type Prefs } from '$lib/platform'
 import { i18n, type LocaleCode } from '$lib/i18n/index.svelte'
 import { applySkin } from '$lib/skin/apply'
 import { DEFAULT_SKIN, EMPTY_FONTS } from '$lib/skin/presets'
+import { sizesFromScales } from '$lib/ui/cardBlocks'
 
 export type Section =
   | 'languages'
@@ -297,10 +298,17 @@ class UiState {
     this.prefs.examplesPerEntry ??= 3
     this.prefs.showDerivedMark ??= true
     if (this.prefs.registerDisplay !== 'full') this.prefs.registerDisplay = 'short'
-    if (!(Number(this.prefs.cardScale) >= 0.6)) this.prefs.cardScale = 1
     if (!Array.isArray(this.prefs.cardOrder)) this.prefs.cardOrder = []
-    if (!this.prefs.cardBlockScale || typeof this.prefs.cardBlockScale !== 'object')
-      this.prefs.cardBlockScale = {}
+    if (!this.prefs.cardBlockSize || typeof this.prefs.cardBlockSize !== 'object')
+      this.prefs.cardBlockSize = {}
+    // 0.8.0 的字号是倍数（整张卡 × 每块）：换算成每块的字号一次，旧的两项不再留着
+    const legacy = this.prefs as Prefs & { cardScale?: unknown; cardBlockScale?: unknown }
+    if ('cardScale' in legacy || 'cardBlockScale' in legacy) {
+      if (!Object.keys(this.prefs.cardBlockSize).length)
+        this.prefs.cardBlockSize = sizesFromScales(legacy.cardScale, legacy.cardBlockScale)
+      delete legacy.cardScale
+      delete legacy.cardBlockScale
+    }
     if (this.prefs.pronBrackets !== 'bracket' && this.prefs.pronBrackets !== 'none')
       this.prefs.pronBrackets = 'slash'
     if (!Array.isArray(this.prefs.collapsedSections)) this.prefs.collapsedSections = []

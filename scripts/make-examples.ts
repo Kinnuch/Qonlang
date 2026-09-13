@@ -303,6 +303,11 @@ function makeAelith(): void {
     ['后元音', 'back', 'B'],
     ['前元音', 'front', 'F']
   ])
+  // 性：名词自己带着的语法特征，不进构形维度；与格写成 ¢{阴:g|k}A，按阴阳只换一个字母
+  const gender = category(p, '性', 'gender', [
+    ['阳', 'masculine', 'M'],
+    ['阴', 'feminine', 'F']
+  ])
   // 维度按词类限定：录入词条时只列出对得上的那几个（和谐类不限，所有词都有）
   num.posIds = [N.id, PRO.id]
   kase.posIds = [N.id, PRO.id]
@@ -310,6 +315,7 @@ function makeAelith(): void {
   tense.posIds = [V.id]
   polarity.posIds = [V.id]
   degree.posIds = [A.id]
+  gender.posIds = [N.id]
 
   // ── 语素：祖语词根 + 现代语的各类词缀 ──
   const protoRoots = new Map<string, Morpheme>()
@@ -495,6 +501,8 @@ function makeAelith(): void {
     ['göl', N, '湖', 'lake', ['自然']],
     ['dünar', N, '世界', 'world', []],
     ['bura', N, '面包', 'bread', ['食物']],
+    ['sila', N, '月亮', 'moon', ['自然']],
+    ['vene', N, '河', 'river', ['自然']],
     ['kel-', V, '来', 'come', ['运动'], 'kel'],
     ['git-', V, '去', 'go', ['运动']],
     ['sör-', V, '看见', 'see', ['感知'], 'sor'],
@@ -504,6 +512,8 @@ function makeAelith(): void {
     ['je-', V, '吃', 'eat', ['食物']],
     ['bil-', V, '知道', 'know', ['认知']],
     ['jat-', V, '睡', 'sleep', []],
+    ['tur-', V, '站', 'stand', []],
+    ['sal-', V, '放', 'put', []],
     ['kara', A, '黑的', 'black', ['颜色'], 'kara'],
     ['pelin', A, '小的', 'small', ['尺寸']],
     ['oru', A, '大的', 'big', ['尺寸']],
@@ -538,6 +548,13 @@ function makeAelith(): void {
     p.lexemes.push(lx)
     lex.set(lemma, lx)
   }
+  // 名词都标上性：sila、vene 是阴性，其余阳性（与格只在阴性上换成 -gA）
+  for (const [lemma, ps] of words)
+    if (ps === N)
+      lex.get(lemma)!.features[gender.id] = value(
+        gender,
+        ['sila', 'vene'].includes(lemma) ? 'F' : 'M'
+      )
   // 多义项、语域、方言、备注、配图、手改发音
   const kaso = lex.get('kaso')!
   kaso.senses[0].tags = ['建筑']
@@ -710,7 +727,13 @@ function makeAelith(): void {
   const sca = (): MorphStep =>
     step('sca', { ruleSetId: harmonyRs.id, fromStage: '底层', toStage: '表层' })
   const nounP = paradigm(p, '名词', 'noun', [num, kase])
-  const caseSuffix: Record<string, string> = { NOM: '', ACC: '¢Ŭm', LOC: '¢dA', DAT: '¢kA' }
+  // 与格按词条的「性」只换一个字母：阴性 -gA（silaga），其余 -kA（kasoka）
+  const caseSuffix: Record<string, string> = {
+    NOM: '',
+    ACC: '¢Ŭm',
+    LOC: '¢dA',
+    DAT: '¢{阴:g|k}A'
+  }
   for (const n of num.values)
     for (const k of kase.values) {
       const steps: MorphStep[] = []
@@ -723,7 +746,9 @@ function makeAelith(): void {
 
   // 动词：变体「口语」把第一人称的 -Ŭm 换成 -Ŭ；否定现在第三人称用迂说法，屏蔽掉
   const spoken = { id: newId(), name: '口语' }
-  const verbP = paradigm(p, '动词', 'verb', [polarity, tense, person], { variants: [spoken] })
+  const verbP = paradigm(p, '动词（变位法一）', 'verb (conjugation I)', [polarity, tense, person], {
+    variants: [spoken]
+  })
   // 没选变体时那一套也可以改名（默认叫「通用」）
   verbP.baseVariantName = '书面'
   const personSuffix: Record<string, string> = { '1': '¢Ŭm', '2': '¢sAn', '3': '' }
@@ -771,6 +796,30 @@ function makeAelith(): void {
   ol.paradigmId = irregVerbP.id
   ol.stems = { 词干: 'ol', 过去词干: 'oldu' }
   ol.notes = '过去时不规则：另有「过去词干」oldu，由继承的构形「动词（不规则）」接手。'
+
+  // 变位法二：继承变位法一，只把过去时换成 -tI。「动词」这个词类同时绑着三个构形——
+  // 默认变位法一，另外可选变位法二与不规则；tur-、sal- 在词条的构形下拉里挑了变位法二
+  const conj2P = paradigm(
+    p,
+    '动词（变位法二）',
+    'verb (conjugation II)',
+    [polarity, tense, person],
+    { inheritsFrom: verbP.id }
+  )
+  conj2P.disabledSlots = [...verbP.disabledSlots]
+  for (const po of polarity.values)
+    for (const pe of person.values) {
+      const key = `${po.id}|${value(tense, 'PST')}|${pe.id}`
+      const steps: MorphStep[] = []
+      if (po.abbr === 'NEG') steps.push(step('suffix', { text: '¢mA' }))
+      steps.push(step('suffix', { text: '¢tI' }))
+      const tail = personSuffix[pe.abbr]
+      if (tail) steps.push(step('suffix', { text: tail }))
+      steps.push(sca())
+      conj2P.generators[key] = pipeline('词干', ...steps)
+    }
+  V.extraParadigmIds = [conj2P.id, irregVerbP.id]
+  for (const w of ['tur-', 'sal-']) lex.get(w)!.paradigmId = conj2P.id
 
   // 形容词：一个维度演示前缀 / 环缀 / 中缀 / 模板 / 重叠 / 微调
   const adjP = paradigm(p, '形容词', 'adjective', [degree])
@@ -1013,7 +1062,7 @@ function makeAelith(): void {
     '- **语素**：词根 / 前缀 / 后缀 / 中缀 / 环缀 / 附着词 / 小品词，异体形环境，词源',
     '- **词库**：多义项、一个义项几个语域（dünar）、方言、标签、维度、复合词类与义项自己的词类（kara）、词干槽、词源链（词根 / 复合 / 派生 / 音变 / 借词 / 自己写的类别「仿译」）、自定义关系种类（押韵）、配图、手改发音',
     '- **检视器模块**：「词类与维度」最下面定义的「文化注释」与「刻文异体」（用刻文的字体显示），打开 kaso、nöl、sepe 看',
-    '- **构形**：流水线的八种步骤（前缀、后缀、中缀、环缀、音变、模板、重叠、微调）、变体（基础那套改名叫「书面」）、继承、屏蔽槽位、手填表、作用于所有词的「连读浊化」（ve 后面 tovar → dovar）',
+    '- **构形**：流水线的八种步骤（前缀、后缀、中缀、环缀、音变、模板、重叠、微调）、变体（基础那套改名叫「书面」）、继承、屏蔽槽位、手填表、作用于所有词的「连读浊化」（ve 后面 tovar → dovar）、一个词类绑几个构形（「动词」默认变位法一，tur-、sal- 在词条里挑了变位法二，ol- 用不规则）、按条件换字母（名词与格只写一条 ¢{阴:g|k}A：阴性的 sila、vene 是 silaga、venege，其余是 kasoka 这样）',
     '- **语料**：已 gloss 并确认的例句、其他正字法、手填的文字写法、自由行、出处与标签；dovar 靠「连读浊化」反推认出；人名 Mira 故意没进词库，悬浮时是「没有找到」',
     '- **短语**：分类、变体、发音、方括号占位符',
     '- **文档**：项目级与语言级页面，写 `[[kaso]]` 就能点到词库里的词',
@@ -1030,7 +1079,7 @@ function makeAelith(): void {
     '- 后缀里的 A / U 按词内最后一个元音实现（见「音变 → 元音和谐」）。',
     '',
     '## 名词',
-    '词根-数-格：复数 -lAr，宾格 -(U)m，位格 -dA，与格 -kA。',
+    '词根-数-格：复数 -lAr，宾格 -(U)m，位格 -dA，与格 -kA；阴性名词（[[sila]]、[[vene]]）的与格是 -gA，构形里只写一条 ¢{阴:g|k}A。',
     '',
     '| | 单数 | 复数 |',
     '|---|---|---|',
@@ -1039,6 +1088,8 @@ function makeAelith(): void {
     '',
     '## 动词',
     '词根-否定-时-人称：`sör-me-dü-m` 我没看见。第三人称零标记，否定现在第三人称用迂说法（构形里已屏蔽）。',
+    '',
+    '两种变位法：变位法一过去时 -dU（sördüm），变位法二过去时 -tI（tur- → turtim、sal- → saltim）。',
     '',
     '## 疑问',
     '句末附着词 =mU：`sen kelsen mü`。',
@@ -1071,7 +1122,9 @@ function makeAelith(): void {
     ['DIM', '小称', 'diminutive'],
     ['SUP', '最高级', 'superlative'],
     ['PRIV', '无…的', 'privative'],
-    ['VOI', '连读浊化', 'sandhi voicing']
+    ['VOI', '连读浊化', 'sandhi voicing'],
+    ['M', '阳性', 'masculine'],
+    ['F', '阴性', 'feminine']
   ])
   p.settings.exportTemplates.push(
     {

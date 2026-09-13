@@ -10,3 +10,22 @@ export function toggleSection(id: string): void {
   ui.prefs.collapsedSections = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
   void ui.savePrefs()
 }
+
+/** 一批条目一起收起或展开（ids 是这批条目各自的记忆 id） */
+export function setSectionsCollapsed(ids: string[], collapsed: boolean): void {
+  const cur = new Set(ui.prefs.collapsedSections ?? [])
+  for (const id of ids) {
+    if (collapsed) cur.add(id)
+    else cur.delete(id)
+  }
+  ui.prefs.collapsedSections = [...cur]
+  void ui.savePrefs()
+}
+
+/** 条目删掉了，就不用再记着它收没收起 */
+export function forgetSection(id: string): void {
+  const cur = ui.prefs.collapsedSections ?? []
+  if (!cur.includes(id)) return
+  ui.prefs.collapsedSections = cur.filter((x) => x !== id)
+  void ui.savePrefs()
+}

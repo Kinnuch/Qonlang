@@ -27,12 +27,14 @@
     ensureCompoundPos,
     findPos,
     lexemePosIds,
+    posParadigmIds,
     posParts,
     posStemSlotList
   } from '$lib/core/pos'
   import { PREVIEW_LIMIT, scratchProject } from '$lib/importers/preview'
   import ImportPreview from '$lib/ui/ImportPreview.svelte'
   import { pronText, relationLabel } from '$lib/ui/labels'
+  import { KeyRows, renameObjectKey, type KeyRow } from '$lib/ui/keyRows'
   import LexemeExamples from '$lib/ui/LexemeExamples.svelte'
   import { lexemeScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
@@ -738,6 +740,11 @@
   }
 
   const paradigmOf = (l: Lexeme): Paradigm | null => paradigmFor(project, l)
+  const paraName = (id: string): string =>
+    pickText(project.paradigms.find((x) => x.id === id)?.name ?? {}, glossLangs) ||
+    t('paradigms.untitled')
+  /** 词类绑的构形（第一个是默认的）：绑了几个时在下拉里单独列一组 */
+  const posParas = (l: Lexeme): string[] => posParadigmIds(project, l.posId)
   const slotsOf = (l: Lexeme): SlotDef[] => {
     const p = paradigmFor(project, l)
     return p ? paradigmSlots(p, project.categories, glossLangs) : []
@@ -755,11 +762,24 @@
     deriveNow(l)
   }
 
-  function renameKey(obj: Record<string, unknown>, oldKey: string, newKey: string): void {
-    if (oldKey === newKey || !newKey) return
-    const v = obj[oldKey]
-    delete obj[oldKey]
-    obj[newKey] = v
+  // 词条自己加的词干、屈折形：每行一个固定 id（见 keyRows.ts），改名时焦点不丢、行不换位
+  const stemRows = new KeyRows()
+  const formRows = new KeyRows()
+  function renameRow(
+    obj: Record<string, unknown>,
+    rows: KeyRows,
+    row: KeyRow,
+    input: HTMLInputElement,
+    l: Lexeme
+  ): void {
+    const name = input.value.trim()
+    if (renameObjectKey(obj, row.key, name)) {
+      rows.rename(row.id, name)
+      touch(l)
+    } else {
+      if (name && name !== row.key) ui.toast(t('lexicon.nameTaken', { name }))
+      input.value = row.key
+    }
   }
 
   async function importLexicanter(): Promise<void> {
@@ -1624,23 +1644,20 @@
           <span class="kv-spacer"></span>
         </div>
       {/each}
-      {#each Object.keys(l.stems).filter((k) => !posStemSlots(l).some((st) => st.name === k)) as k (k)}
+      {#each stemRows.sync( l.id, Object.keys(l.stems).filter((k) => !posStemSlots(l).some((st) => st.name === k)) ) as row (row.id)}
         <div class="row kv">
           <input
             class="input"
-            value={k}
-            title={posStemSlots(l).find((st) => st.name === k)?.notes ?? ''}
+            value={row.key}
             placeholder={t('lexicon.stemName')}
-            onchange={(e) => {
-              renameKey(l.stems, k, (e.currentTarget as HTMLInputElement).value.trim())
-              touch(l)
-            }}
+            onchange={(e) =>
+              renameRow(l.stems, stemRows, row, e.currentTarget as HTMLInputElement, l)}
           />
-          <input class="input data" bind:value={l.stems[k]} oninput={() => touch(l)} />
+          <input class="input data" bind:value={l.stems[row.key]} oninput={() => touch(l)} />
           <button
             class="btn ghost icon sm"
             onclick={() => {
-              delete l.stems[k]
+              delete l.stems[row.key]
               touch(l)
             }}><X size={14} /></button
           >
@@ -1725,10 +1742,25 @@
             rederive(l)
           }}
         >
-          <option value="">{t('lexicon.paradigmByPos')}</option>
-          {#each project.paradigms.filter((pa) => !pa.appliesToAll) as pa (pa.id)}<option
-              value={pa.id}>{pickText(pa.name, glossLangs) || t('paradigms.untitled')}</option
-            >{/each}
+          <option value=""
+            >{posParas(l)[0]
+              ? t('lexicon.paradigmByPosNamed', { name: paraName(posParas(l)[0]) })
+              : t('lexicon.paradigmByPos')}</option
+          >
+          {#if posParas(l).length > 1}
+            <optgroup label={t('lexicon.paradigmsOfPos')}>
+              {#each posParas(l) as id (id)}<option value={id}>{paraName(id)}</option>{/each}
+            </optgroup>
+            <optgroup label={t('lexicon.paradigmsOther')}>
+              {#each project.paradigms.filter((pa) => !pa.appliesToAll && !posParas(l).includes(pa.id)) as pa (pa.id)}<option
+                  value={pa.id}>{paraName(pa.id)}</option
+                >{/each}
+            </optgroup>
+          {:else}
+            {#each project.paradigms.filter((pa) => !pa.appliesToAll) as pa (pa.id)}<option
+                value={pa.id}>{paraName(pa.id)}</option
+              >{/each}
+          {/if}
         </select>
         {#if (paradigmOf(l)?.variants.length ?? 0) > 0}
           <select
@@ -1802,29 +1834,27 @@
       {:else if l.posId}
         <span class="hint">{t('lexicon.noParadigm')}</span>
       {/if}
-      {#each Object.keys(l.forms).filter((k) => !slotsOf(l).some((s) => s.label === k)) as k (k)}
+      {#each formRows.sync( l.id, Object.keys(l.forms).filter((k) => !slotsOf(l).some((s) => s.label === k)) ) as row (row.id)}
         <div class="row kv">
           <input
             class="input"
-            value={k}
+            value={row.key}
             placeholder={t('lexicon.slot')}
-            onchange={(e) => {
-              renameKey(l.forms, k, (e.currentTarget as HTMLInputElement).value.trim())
-              touch(l)
-            }}
+            onchange={(e) =>
+              renameRow(l.forms, formRows, row, e.currentTarget as HTMLInputElement, l)}
           />
           <input
             class="input data"
-            bind:value={l.forms[k].surface}
+            bind:value={l.forms[row.key].surface}
             oninput={() => {
-              l.forms[k].override = true
+              l.forms[row.key].override = true
               touch(l)
             }}
           />
           <button
             class="btn ghost icon sm"
             onclick={() => {
-              delete l.forms[k]
+              delete l.forms[row.key]
               touch(l)
             }}><X size={14} /></button
           >

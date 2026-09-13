@@ -2,7 +2,7 @@
   /** 显示模式下的词条卡：只读、简约，把录入模式记录的信息排版出来 */
   import type { CustomFieldPosition, Id, Lexeme, Project, Sense } from '$lib/core/model'
   import { etymologyTypeLabel, pronText, relationLabel } from '$lib/ui/labels'
-  import { blockScale, cardBlocks } from '$lib/ui/cardBlocks'
+  import { blockSize, cardBlocks } from '$lib/ui/cardBlocks'
   import { customFieldScript, customFieldsFor, customItems } from '$lib/core/customFields'
   import { morphemeLabel } from '$lib/core/etymology'
   import { t, pickText } from '$lib/i18n/index.svelte'
@@ -27,8 +27,8 @@
   const pos = $derived(project.posList.find((p) => p.id === l.posId))
   /** 各块的顺序：皮肤页里拖着排，没排过就用默认顺序 */
   const blocks = $derived(cardBlocks(ui.prefs.cardOrder))
-  /** 每一块单独的字号倍数（皮肤页里逐块调），乘在整张卡的字号上 */
-  const em = (key: string): string => `${blockScale(ui.prefs.cardBlockScale, key)}em`
+  /** 每一块的字号（皮肤页里逐块调，px）；块里的字号都按 em 跟着走，比例不变 */
+  const px = (key: string): string => `${blockSize(ui.prefs.cardBlockSize, key)}px`
   const features = $derived(
     Object.entries(l.features)
       .map(([cid, vid]) => {
@@ -110,7 +110,7 @@
   {/each}
 {/snippet}
 
-<article class="entry" class:has-img={!!l.images?.length} style:--cs={ui.prefs.cardScale}>
+<article class="entry" class:has-img={!!l.images?.length}>
   {#if l.images?.[0]}
     <img
       class="hero"
@@ -119,7 +119,7 @@
       title={l.images[0].caption}
     />
   {/if}
-  <header style:font-size={em('header')}>
+  <header style:font-size={px('header')}>
     <h2 class="lemma data">{l.lemma || '—'}</h2>
     {#each scripts as x (x.sc.id)}<div
         class="scr"
@@ -291,7 +291,7 @@
   <!-- 各块按皮肤页里排好的顺序画 -->
   {#each blocks as b (b)}
     <!-- display:contents：不占布局，只把这一块的字号传给里面 -->
-    <div class="blk-scale" style:font-size={em(b)}>
+    <div class="blk-scale" style:font-size={px(b)}>
       {#if b === 'senses'}{@render blockSenses()}{:else if b === 'tags'}{@render blockTags()}{:else if b === 'etymology'}{@render blockEtymology()}{:else if b === 'forms'}{@render blockForms()}{:else if b === 'relations'}{@render blockRelations()}{:else if b === 'derived'}{@render blockDerived()}{:else}{@render blockNotes()}{/if}
     </div>
   {/each}
@@ -304,8 +304,8 @@
     flex-direction: column;
     gap: 20px;
     position: relative;
-    /* 字号倍数在皮肤页里调（--cs），下面的字号都按 em 跟着走 */
-    font-size: calc(15px * var(--cs, 1));
+    /* 默认字号（cardBlocks.ts 的 CARD_BASE_PX）；各块在皮肤页里单独调，里面的字号都按 em 跟着走 */
+    font-size: 15px;
   }
   .blk-scale {
     display: contents;

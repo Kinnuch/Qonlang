@@ -226,7 +226,7 @@
       program = null
       return
     }
-    const text = expandRules(script)
+    const text = expandRules(script, lang)
     const opts = languageParseOptions(lang, project)
     const id = setTimeout(() => (program = parseRuleText(text, opts)), 120)
     return () => clearTimeout(id)
@@ -238,7 +238,7 @@
       languageParseOptions(lang, project)
     )
   })
-  const autoLines = $derived(script ? autoMappingLines(script) : [])
+  const autoLines = $derived(script ? autoMappingLines(script, lang) : [])
   // 字形多的时候分批画
   const lzG = lazy(80)
   let lastGlyphs = -1

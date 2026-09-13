@@ -4,7 +4,7 @@
  */
 import type { Id, Project } from '$lib/core/model'
 import { paradigmSlots, resolveGenerator } from './morph'
-import { posParadigmId } from '$lib/core/pos'
+import { ownParadigmIds, posParadigmId } from '$lib/core/pos'
 
 export type IssueSeverity = 'error' | 'warn' | 'info'
 export type IssueTarget =
@@ -160,7 +160,7 @@ export function checkConsistency(project: Project, languageId: Id | null): Issue
 
   // ── 词类 / 维度 / 构形 ──
   for (const p of project.posList)
-    if (p.paradigmId && !paraById.has(p.paradigmId))
+    if (ownParadigmIds(p).some((id) => !paraById.has(id)))
       add('pos.missingParadigm', 'error', pick(p.name, langs) || p.abbr, 'taxonomy', p.id)
   const usedCats = new Set(project.paradigms.flatMap((p) => p.dimensionIds))
   for (const l of project.lexemes) for (const cid of Object.keys(l.features)) usedCats.add(cid)
@@ -177,7 +177,7 @@ export function checkConsistency(project: Project, languageId: Id | null): Issue
     // 作用于所有词的构形（词首音变这类）本来就不绑定词类
     if (
       !p.appliesToAll &&
-      !project.posList.some((x) => x.paradigmId === p.id) &&
+      !project.posList.some((x) => ownParadigmIds(x).includes(p.id)) &&
       !project.lexemes.some((l) => l.paradigmId === p.id)
     )
       add('paradigm.unbound', 'info', name, 'paradigm', p.id)

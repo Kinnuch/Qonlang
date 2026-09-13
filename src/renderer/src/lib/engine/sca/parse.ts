@@ -109,9 +109,7 @@ export function parseClassLine(raw: string): { name: string; members: string[] }
   const m = CLASS_LINE.exec(content)
   if (!m) return null
   const key = m[1]
-  const members =
-    key.length === 1 ? dedupe(Array.from(m[2].replace(/\s+/g, ''))) : dedupe(splitMembers(m[2]))
-  return { name: key.replace(/^\{|\}$/g, ''), members }
+  return { name: key.replace(/^\{|\}$/g, ''), members: classMembers(key, m[2]) }
 }
 
 /** 解析多合字母声明行；不是则返回 null */
@@ -119,17 +117,26 @@ export function parseReplacementLine(raw: string): { from: string; to: string } 
   const content = stripComment(raw)
   if (content.includes('>')) return null
   const m = REPL_LINE.exec(content)
-  return m ? { from: m[1], to: m[2] } : null
+  return m ? { from: literalEscapes(m[1]), to: literalEscapes(m[2]) } : null
 }
 
+/** 去掉注释后的内容（转义已换成占位字符，`\;` 不算注释开头） */
 function stripComment(raw: string): string {
-  const semi = raw.indexOf(';')
-  return (semi >= 0 ? raw.slice(0, semi) : raw).trim()
+  const enc = encodeEscapes(raw)
+  const semi = enc.indexOf(';')
+  return (semi >= 0 ? enc.slice(0, semi) : enc).trim()
 }
 
 function commentOf(raw: string): string {
-  const semi = raw.indexOf(';')
-  return semi >= 0 ? raw.slice(semi + 1).trim() : ''
+  const enc = encodeEscapes(raw)
+  const semi = enc.indexOf(';')
+  return semi >= 0 ? decodeEscapes(enc.slice(semi + 1).trim()) : ''
+}
+
+/** 音类声明的成员：单字母音类按字符拆，长名音类按空白 / 逗号拆；转义过的字符是字面成员 */
+function classMembers(key: string, value: string): string[] {
+  const parts = key.length === 1 ? Array.from(value.replace(/\s+/g, '')) : splitMembers(value)
+  return dedupe(parts.map(literalEscapes))
 }
 
 export type ParsedLine = ParsedRule | MarkerLine | OtherLine
@@ -159,6 +166,70 @@ export interface ParseOptions {
   morphemes?: Record<string, string[]>
 }
 
+/**
+ * 反斜杠转义：`\?`、`\.`、`\#`、`\C` 这样写表示字面上的那个字符——不当通配、不当音类，
+ * 也不当分隔符。解析一开始就把「反斜杠 + 字符」换成私用区里一一对应的占位字符，
+ * 切行、找注释、多合字母替换都碰不到它；编正则、拼替换文本时再换回字面字符。
+ * 反斜杠后面是空白、斜杠或行尾时不算转义：单独一个 `\` 仍是换位（`ab > \ / _#`）。
+ */
+const ESCAPE_BASE = 0x10ff00
+const ESCAPABLE = /^[\\?#()[\]{}@|.*+^$_>,\-;=~!%&'"A-Z0-9]$/
+const HAS_PLACEHOLDER = /[\u{10FF00}-\u{10FF7F}]/u
+
+export function encodeEscapes(s: string): string {
+  if (!s.includes('\\')) return s
+  let out = ''
+  const chars = Array.from(s)
+  for (let i = 0; i < chars.length; i++) {
+    const next = chars[i + 1]
+    if (chars[i] === '\\' && next !== undefined && ESCAPABLE.test(next)) {
+      out += String.fromCodePoint(ESCAPE_BASE + next.charCodeAt(0))
+      i++
+    } else out += chars[i]
+  }
+  return out
+}
+
+/** 占位字符对应的字面字符；不是占位字符返回 null */
+function escapedChar(c: string): string | null {
+  const cp = c.codePointAt(0) ?? 0
+  return cp >= ESCAPE_BASE && cp < ESCAPE_BASE + 0x80 ? String.fromCharCode(cp - ESCAPE_BASE) : null
+}
+
+function mapPlaceholders(s: string, to: (lit: string) => string): string {
+  if (!HAS_PLACEHOLDER.test(s)) return s
+  return Array.from(s)
+    .map((c) => {
+      const lit = escapedChar(c)
+      return lit === null ? c : to(lit)
+    })
+    .join('')
+}
+
+/** 占位字符换回「反斜杠 + 字符」（给界面显示、再写回文本用） */
+export function decodeEscapes(s: string): string {
+  return mapPlaceholders(s, (lit) => '\\' + lit)
+}
+
+/** 占位字符换成字面字符（音类成员、多合字母声明用） */
+function literalEscapes(s: string): string {
+  return mapPlaceholders(s, (lit) => lit)
+}
+
+/**
+ * 让一段文字在规则里按字面匹配：`?` `.` `#` 这类符号前面加反斜杠；
+ * 大写字母只有跟 classNames 里的音类同名时才加（其余大写字母本来就是字面字符）。
+ */
+export function escapeRuleText(s: string, classNames?: ReadonlySet<string>): string {
+  return Array.from(s)
+    .map((c) => {
+      if (c >= 'A' && c <= 'Z') return classNames?.has(c) ? '\\' + c : c
+      if (c >= '0' && c <= '9') return c
+      return ESCAPABLE.test(c) ? '\\' + c : c
+    })
+    .join('')
+}
+
 const CLASS_LINE = /^(\{[^}]+\}|[A-Z])\s*=(.*)$/
 const REPL_LINE = /^(\S+)\s*\|\s*(\S+)$/
 
@@ -176,12 +247,19 @@ function dedupe(items: string[]): string[] {
 /** 音类名 {Vlong} 与语素引用 @定指 里的字母不算多合字母，也不去点号 */
 const PROTECTED = /\{[^}]*\}|@[^\s>/,_#()[\]{}]+/g
 
-/** 应用多合字母替换，并去掉用于隔开字母的点号（音类名、@引用原样留着） */
-export function applyReplacements(text: string, replacements: [string, string][]): string {
+/**
+ * 应用多合字母替换，并去掉用于隔开字母的点号（音类名、@引用原样留着）。
+ * keepDots：点号按字面留着（转写成文字时句号是标点，不是隔开字母的记号）。
+ */
+export function applyReplacements(
+  text: string,
+  replacements: [string, string][],
+  keepDots = false
+): string {
   const one = (s: string): string => {
     let t = s
     for (const [from, to] of replacements) t = t.split(from).join(to)
-    return t.split('.').join('')
+    return keepDots ? t : t.split('.').join('')
   }
   let out = ''
   let last = 0
@@ -257,7 +335,10 @@ function expand(
   }
   while (i < chars.length) {
     const c = chars[i]
-    if (c === '#' && opts.boundary) {
+    const lit = escapedChar(c)
+    if (lit !== null) {
+      out += lit.replace(RE_ESCAPE, '\\$&')
+    } else if (c === '#' && opts.boundary) {
       out += opts.boundary
     } else if (c === '?') {
       out += '.*'
@@ -298,7 +379,13 @@ function expand(
       let j = i + 1
       while (j < chars.length && chars[j] !== ']') j++
       const inner = chars.slice(i + 1, j).join('')
-      pushClass({ name: '[' + inner + ']', members: Array.from(inner) }, '[' + inner + ']')
+      // 方括号里照旧是正则字符组（[^aeiou]、[a-z] 都能写）；转义过的字符按字面放进去
+      const raw = mapPlaceholders(inner, (x) => x.replace(CLASS_ESCAPE, '\\$&'))
+      const shown = decodeEscapes(inner)
+      pushClass(
+        { name: '[' + shown + ']', members: Array.from(literalEscapes(inner)) },
+        '[' + raw + ']'
+      )
       i = j
     } else if (c >= 'A' && c <= 'Z' && classes.has(c)) {
       let j = i + 1
@@ -329,7 +416,10 @@ function parseReplacement(s: string, classes: Map<string, string[]>): Replacemen
   const chars = Array.from(s)
   for (let i = 0; i < chars.length; i++) {
     const c = chars[i]
-    if (c === '{') {
+    const lit = escapedChar(c)
+    if (lit !== null) {
+      text += lit
+    } else if (c === '{') {
       let j = i + 1
       while (j < chars.length && chars[j] !== '}') j++
       const name = chars.slice(i + 1, j).join('')
@@ -351,7 +441,10 @@ function parseReplacement(s: string, classes: Map<string, string[]>): Replacemen
       if (text) parts.push({ kind: 'text', text })
       text = ''
       const inner = chars.slice(i + 1, j).join('')
-      parts.push({ kind: 'class', ref: { name: '[' + inner + ']', members: Array.from(inner) } })
+      parts.push({
+        kind: 'class',
+        ref: { name: '[' + decodeEscapes(inner) + ']', members: Array.from(literalEscapes(inner)) }
+      })
       i = j
     } else if (c >= 'A' && c <= 'Z' && classes.has(c)) {
       if (text) parts.push({ kind: 'text', text })
@@ -454,10 +547,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
   const kinds: ('blank' | 'comment' | 'class' | 'replacement' | 'marker' | 'rule')[] = []
   const contents: string[] = []
   rawLines.forEach((raw, idx) => {
-    let content = raw
-    const semi = content.indexOf(';')
-    if (semi >= 0) content = content.slice(0, semi)
-    content = content.trim()
+    const content = stripComment(raw)
     contents.push(content)
     if (!content) {
       kinds.push(raw.trim() ? 'comment' : 'blank')
@@ -473,19 +563,14 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     }
     const cm = CLASS_LINE.exec(content)
     if (cm) {
-      const key = cm[1]
-      const members =
-        key.length === 1
-          ? dedupe(Array.from(cm[2].replace(/\s+/g, '')))
-          : dedupe(splitMembers(cm[2]))
-      classes.set(key, members)
+      classes.set(cm[1], classMembers(cm[1], cm[2]))
       kinds.push('class')
       return
     }
     if (!content.includes('>')) {
       const rm = REPL_LINE.exec(content)
       if (rm) {
-        replacements.push([rm[1], rm[2]])
+        replacements.push([literalEscapes(rm[1]), literalEscapes(rm[2])])
         kinds.push('replacement')
         return
       }
@@ -512,7 +597,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
       return
     }
     if (kind === 'marker') {
-      const name = content.slice(2).trim()
+      const name = decodeEscapes(content.slice(2).trim())
       const m: MarkerLine = { kind: 'marker', line, raw, comment, name }
       lines.push(m)
       steps.push(m)
@@ -550,14 +635,14 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     if (contextPart.trim()) {
       for (const piece of contextPart.split(',')) {
         const ctx = splitContext(applyReplacements(piece.trim(), replacements))
-        if (!ctx) return fail(`环境「${piece.trim()}」缺少 _`)
+        if (!ctx) return fail(`环境「${decodeEscapes(piece.trim())}」缺少 _`)
         contexts.push(ctx)
       }
     } else contexts.push({ left: '', right: '' })
     let exception: Context | null = null
     if (exceptionPart) {
       exception = splitContext(applyReplacements(exceptionPart, replacements))
-      if (!exception) return fail(`排除环境「${exceptionPart}」缺少 _`)
+      if (!exception) return fail(`排除环境「${decodeEscapes(exceptionPart)}」缺少 _`)
       if (!exception.left && !exception.right) exception = null
     }
 
@@ -617,15 +702,20 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
       return fail(`正则无法编译：${(e as Error).message}`)
     }
 
+    // 编译用的是带占位字符的文本；留给界面显示、再写回规则的换回反斜杠写法
+    const shown = (c: Context): Context => ({
+      left: decodeEscapes(c.left),
+      right: decodeEscapes(c.right)
+    })
     const rule: ParsedRule = {
       kind: 'rule',
       line,
       raw,
       comment,
-      target,
-      replacement,
-      contexts,
-      exception,
+      target: decodeEscapes(target),
+      replacement: decodeEscapes(replacement),
+      contexts: contexts.map(shown),
+      exception: exception && shown(exception),
       targetClass: t.firstClass,
       targetGroup: t.groupIndex,
       compiled,

@@ -9,9 +9,16 @@
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { makeCollator } from '$lib/core/collate'
   import { newId } from '$lib/core/factory'
-  import { posParadigmId } from '$lib/core/pos'
-  import type { Id, Paradigm, SlotGenerator } from '$lib/core/model'
   import {
+    bindPosParadigm,
+    ownParadigmIds,
+    posParadigmIds,
+    setDefaultPosParadigm,
+    unbindParadigm
+  } from '$lib/core/pos'
+  import type { Id, Lexeme, Paradigm, SlotGenerator } from '$lib/core/model'
+  import {
+    paradigmFor,
     paradigmSlots,
     resolveGenerator,
     generateForm,
@@ -137,7 +144,15 @@
       )
     )
   })
-  const boundPos = $derived(active ? project.posList.filter((p) => p.paradigmId === active.id) : [])
+  const boundPos = $derived(
+    active ? project.posList.filter((p) => ownParadigmIds(p).includes(active.id)) : []
+  )
+  /** 词条眼下用的就是这个构形（词条上指名的，或者词类默认的）排前面 */
+  const usesRank = (l: Lexeme): number =>
+    active && paradigmFor(project, l)?.id === active.id ? 0 : 1
+  const paradigmName = (id: Id): string =>
+    pickText(project.paradigms.find((x) => x.id === id)?.name ?? {}, glossLangs) ||
+    t('paradigms.untitled')
   /** 绑定词类的全部词位；当前语言的排在前面 */
   const boundLexemes = $derived(
     project.lexemes
@@ -145,13 +160,16 @@
       .filter((l) =>
         active?.appliesToAll
           ? !language || l.languageId === language.id
-          : // 复合词类没绑构形时跟着组成词类走
-            posParadigmId(project, l.posId) === active?.id
+          : // 用着这个构形的词，加上词类绑了它、可以改用它的（复合词类没绑时跟着组成词类走）
+            !!active &&
+            (paradigmFor(project, l)?.id === active.id ||
+              posParadigmIds(project, l.posId).includes(active.id))
       )
       .sort(
         (a, b) =>
+          usesRank(a) - usesRank(b) ||
           (language && a.languageId === language.id ? 0 : 1) -
-          (language && b.languageId === language.id ? 0 : 1)
+            (language && b.languageId === language.id ? 0 : 1)
       )
   )
   /** 词干候选：绑定词类里定义的词干槽在前，再补上词条里实际填过的 */
@@ -335,7 +353,7 @@
     const idx = project.paradigms.indexOf(p)
     const snap = $state.snapshot(p) as Paradigm
     project.paradigms.splice(idx, 1)
-    for (const pos of project.posList) if (pos.paradigmId === p.id) pos.paradigmId = null
+    unbindParadigm(project, p.id)
     activeId = project.paradigms[0]?.id ?? null
     touch()
     ui.toast(t('paradigms.deleted', { name: pickText(snap.name, glossLangs) }), {
@@ -395,7 +413,7 @@
   function bindPos(posId: Id, on: boolean): void {
     const pos = project.posList.find((p) => p.id === posId)
     if (!pos || !active) return
-    pos.paradigmId = on ? active.id : null
+    bindPosParadigm(pos, active.id, on)
     touch()
   }
   function deriveOne(): void {
@@ -760,19 +778,38 @@
       <div class="field">
         <span class="small muted">{t('paradigms.bindPos')}</span>
         {#each project.posList as pos (pos.id)}
-          <label class="row check"
-            ><input
-              type="checkbox"
-              checked={pos.paradigmId === p.id}
-              onchange={(e) => bindPos(pos.id, (e.currentTarget as HTMLInputElement).checked)}
-            />{pickText(pos.name, glossLangs) ||
-              pos.abbr}{#if pos.paradigmId && pos.paradigmId !== p.id}<span class="small muted"
-                >({pickText(
-                  project.paradigms.find((x) => x.id === pos.paradigmId)?.name ?? {},
-                  glossLangs
-                )})</span
-              >{/if}</label
-          >
+          {@const ids = ownParadigmIds(pos)}
+          {@const others = ids.filter((x) => x !== p.id)}
+          <div class="row bind">
+            <label class="row check"
+              ><input
+                type="checkbox"
+                checked={ids.includes(p.id)}
+                onchange={(e) => bindPos(pos.id, (e.currentTarget as HTMLInputElement).checked)}
+              />{pickText(pos.name, glossLangs) || pos.abbr}</label
+            >
+            <!-- 一个词类绑了几个构形（变位法一、二……）：没挑构形的词条用默认的那个 -->
+            {#if ids.includes(p.id) && ids.length > 1}
+              {#if pos.paradigmId === p.id}
+                <span class="badge">{t('paradigms.defaultForPos')}</span>
+              {:else}
+                <button
+                  class="btn ghost sm"
+                  onclick={() => {
+                    setDefaultPosParadigm(pos, p.id)
+                    touch()
+                  }}>{t('paradigms.makeDefault')}</button
+                >
+              {/if}
+            {/if}
+            {#if others.length}
+              <span class="small muted"
+                >{t(ids.includes(p.id) ? 'paradigms.alsoBound' : 'paradigms.boundTo', {
+                  list: others.map(paradigmName).join(t('taxonomy.listSep'))
+                })}</span
+              >
+            {/if}
+          </div>
         {/each}
         {#if project.posList.length === 0}<span class="small muted">{t('taxonomy.pos')}: 0</span
           >{/if}
@@ -787,7 +824,7 @@
           p.appliesToAll = on || undefined
           // 作用于所有词的构形不绑定词类，也不给单个词条指名
           if (on) {
-            for (const pos of project.posList) if (pos.paradigmId === p.id) pos.paradigmId = null
+            unbindParadigm(project, p.id)
             for (const l of project.lexemes) if (l.paradigmId === p.id) l.paradigmId = null
           }
           touch()
@@ -1183,5 +1220,9 @@
   .vwrap:hover .pen,
   .vwrap .pen:focus-visible {
     opacity: 1;
+  }
+  .bind {
+    gap: 6px;
+    flex-wrap: wrap;
   }
 </style>

@@ -97,7 +97,7 @@ const en: Dict = {
     exampleOpened: 'Opened the example project “{name}”',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: proto-to-modern family, vowel harmony, all eight pipeline steps, variants and inheritance, sandhi undone in the corpus, compound parts of speech, inspector modules, etymology chains and the relation graph, glossed corpus, runic script.',
+        'Agglutinative a priori language: proto-to-modern family, vowel harmony, all eight pipeline steps, variants and inheritance, several paradigms per part of speech, letters that change by gender, sandhi undone in the corpus, compound parts of speech, inspector modules, etymology chains and the relation graph, glossed corpus, runic script.',
       tsahun:
         'Isolating tone language: five tones, Latin and Cyrillic orthographies, syllabary packing and vertical layout, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font.'
     },
@@ -690,6 +690,7 @@ const en: Dict = {
     stems: 'Stems',
     addStem: 'Add stem',
     stemName: 'Stem name',
+    nameTaken: '“{name}” already exists; name unchanged',
     pronunciations: 'Pronunciations',
     irregular: 'Irregular (not recomputed by rules)',
     forms: 'Inflected forms',
@@ -779,6 +780,9 @@ const en: Dict = {
     resetDerived: 'Restore derived value',
     deriveForms: 'Derive from paradigm',
     paradigmByPos: 'Paradigm: by part of speech',
+    paradigmByPosNamed: 'Paradigm: by part of speech ({name})',
+    paradigmsOfPos: 'Paradigms of this part of speech',
+    paradigmsOther: 'Other paradigms',
     extraForms: 'Other forms',
     noParadigm: 'This part of speech has no paradigm; bind one on the Paradigms page.'
   },
@@ -797,6 +801,15 @@ const en: Dict = {
     pos: 'Parts of speech',
     addPos: 'Add part of speech',
     sortAZ: 'Sort A–Z',
+    collapseAll: 'Collapse all',
+    expandAll: 'Expand all',
+    untitled: '(untitled)',
+    listSep: ', ',
+    foldStems: 'stems: {list}',
+    foldParadigms: 'paradigms: {list}',
+    foldParts: 'parts: {list}',
+    foldScope: 'for {list}',
+    noValues: 'no values yet',
     posName: 'Name',
     abbr: 'Abbreviation',
     paradigm: 'Bound paradigm',
@@ -1274,6 +1287,10 @@ const en: Dict = {
     generator: 'Word generator',
     count: 'Count',
     generate: 'Generate',
+    learnFromLexicon: 'Learn from lexicon ({n} words)',
+    learnHint:
+      'Learns from the words already in this language: common sounds at word starts and ends, typical word length, which sounds go together. Results sound more like the language, most natural first, and avoid forms one sound away from existing words where possible. Phonotactics remain hard rules. With fewer than {n} words only the phonotactics are used.',
+    likeWords: 'Similar to: {list}',
     addToLexicon: 'Add to lexicon',
     addedWord: 'Added {w} to the lexicon'
   },
@@ -1352,6 +1369,11 @@ const en: Dict = {
     length: 'Segments',
     inherited: 'inherited',
     bindPos: 'Bound parts of speech',
+    defaultForPos: 'default',
+    makeDefault: 'Make default',
+    alsoBound: 'also: {list}',
+    boundTo: 'bound: {list}',
+    otherwise: 'otherwise',
     appliesToLanguage: 'Language it applies to',
     appliesToAll: 'Applies to all words (initial mutation, sandhi…)',
     appliesToAllHint:
@@ -1379,7 +1401,7 @@ const en: Dict = {
     deleted: 'Deleted paradigm “{name}”',
     hint: 'Bind a paradigm to a part of speech and its entries get a slot panel in the lexicon.',
     affixHint:
-      'Write affixes literally; start with @ to reference a morpheme, picked by allomorph environment (@-lAr). An empty stem is the lemma; spaces and middle dots are kept.',
+      'Write affixes literally; start with @ to reference a morpheme, picked by allomorph environment (@-lAr). An empty stem is the lemma; spaces and middle dots are kept. Letters that change by condition: {F:g|k} uses g when the entry or this cell is feminine, k otherwise; conditions are value names or abbreviations, a comma means any, + means all.',
     adjust: 'Adjustments',
     adjustPre: 'before sound changes…',
     adjustStem: 'on the stem…',
@@ -1516,10 +1538,9 @@ const en: Dict = {
     library: 'Font library',
     card: 'Entry card',
     cardHint:
-      'Font size and block order of the entry card. Drag to reorder; changes apply at once.',
-    cardScale: 'Font size',
-    cardOrder: 'Block order (drag to sort)',
-    cardBlockScale: 'Size of this block (1 = same as the card)',
+      'Font size and order of each block on the entry card: drag a slider to resize that block, drag a row to reorder.',
+    cardOrder: 'Blocks: size and order',
+    cardBlockSize: 'Font size of this block',
     cardReset: 'Reset',
     cardBlocks: {
       senses: 'Senses',

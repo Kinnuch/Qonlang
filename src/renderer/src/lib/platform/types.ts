@@ -72,12 +72,10 @@ export interface Prefs {
   seenTours: string[]
   /** 词条卡里语域标签：short 方框里一个字（英文缩写），full 整个名字 */
   registerDisplay: 'short' | 'full'
-  /** 词条卡的字号倍数（0.8 ~ 1.6） */
-  cardScale: number
   /** 词条卡各块的顺序（键见 LexemeCard 的 CARD_BLOCKS）；空表示用默认顺序 */
   cardOrder: string[]
-  /** 词条卡里每一块单独的字号倍数（块键 → 倍数）；没设过就是 1，再乘上 cardScale */
-  cardBlockScale: Record<string, number>
+  /** 词条卡里每一块的字号（块键 → px）；没设过的块用默认字号 */
+  cardBlockSize: Record<string, number>
   /** 发音两边的符号：宽式斜线 /…/、严式方括号 […]、什么都不加 */
   pronBrackets: 'slash' | 'bracket' | 'none'
   /** 收起来的板块（SectionHead 的 id） */
@@ -133,9 +131,8 @@ export const DEFAULT_PREFS: Prefs = {
   guideTourAlways: false,
   seenTours: [],
   registerDisplay: 'short',
-  cardScale: 1,
   cardOrder: [],
-  cardBlockScale: {},
+  cardBlockSize: {},
   pronBrackets: 'slash',
   collapsedSections: []
 }

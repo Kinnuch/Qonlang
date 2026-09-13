@@ -2,7 +2,14 @@
   import { matchQuery, parseQuery } from '$lib/core/query'
   import { sectionCollapsed } from '$lib/ui/section.svelte'
   import SectionHead from '$lib/ui/SectionHead.svelte'
-  import { blockScale, cardBlocks, type CardBlock } from '$lib/ui/cardBlocks'
+  import {
+    CARD_BASE_PX,
+    CARD_SIZE_MAX,
+    CARD_SIZE_MIN,
+    blockSize,
+    cardBlocks,
+    type CardBlock
+  } from '$lib/ui/cardBlocks'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
   /** 皮肤：预设 / 颜色 / 字体 / 字体库；检视器里是实时预览。 */
   import { ui } from '$lib/state/ui.svelte'
@@ -266,18 +273,20 @@
   }
   function resetCard(): void {
     ui.prefs.cardOrder = []
-    ui.prefs.cardScale = 1
-    ui.prefs.cardBlockScale = {}
+    ui.prefs.cardBlockSize = {}
     void ui.savePrefs()
   }
-  /** 某一块单独的字号倍数：1 就当没设过 */
-  function setBlockScale(key: string, v: number): void {
-    const next = { ...ui.prefs.cardBlockScale }
-    if (!(v >= 0.5 && v <= 3) || v === 1) delete next[key]
-    else next[key] = Math.round(v * 100) / 100
-    ui.prefs.cardBlockScale = next
+  /** 某一块的字号（px）：跟默认字号一样就当没设过 */
+  function setBlockSize(key: string, v: number): void {
+    const next = { ...ui.prefs.cardBlockSize }
+    const n = Math.round(v)
+    if (!(n >= CARD_SIZE_MIN && n <= CARD_SIZE_MAX) || n === CARD_BASE_PX) delete next[key]
+    else next[key] = n
+    ui.prefs.cardBlockSize = next
     void ui.savePrefs()
   }
+  /** 这次按下去是不是按在字号滑块上：是的话这一行不跟着拖去排序 */
+  let onSlider = false
 
   const previewLexeme = $derived(projectState.project?.lexemes.find((l) => l.lemma) ?? null)
   const previewSentence = $derived(projectState.project?.sentences.find((s) => s.text) ?? null)
@@ -429,36 +438,27 @@
     <section>
       <SectionHead id="skin.card" title={t('skin.card')} tip={t('skin.cardHint')} />
       {#if !sectionCollapsed('skin.card')}
-        <label class="row scale">
-          <span class="small muted">{t('skin.cardScale')}</span>
+        <!-- 每一块一个字号滑块（px），就放在这一行右边 -->
+        {#snippet sizeCtl(key: string)}
+          {@const n = blockSize(ui.prefs.cardBlockSize, key)}
           <input
+            class="bsz"
             type="range"
-            min="0.8"
-            max="1.6"
-            step="0.05"
-            value={ui.prefs.cardScale}
-            oninput={(e) => {
-              ui.prefs.cardScale = Number((e.currentTarget as HTMLInputElement).value)
-              void ui.savePrefs()
-            }}
+            min={CARD_SIZE_MIN}
+            max={CARD_SIZE_MAX}
+            step="1"
+            title={t('skin.cardBlockSize')}
+            aria-label={t('skin.cardBlockSize')}
+            value={n}
+            oninput={(e) => setBlockSize(key, Number((e.currentTarget as HTMLInputElement).value))}
           />
-          <span class="small">{Math.round(ui.prefs.cardScale * 100)}%</span>
-        </label>
+          <span class="small px" class:changed={n !== CARD_BASE_PX}>{n}px</span>
+        {/snippet}
         <span class="small muted">{t('skin.cardOrder')}</span>
         <div class="blocks">
           <div class="blk fixed">
             <span class="grow">{t('skin.cardBlocks.header')}</span>
-            <input
-              class="input bs"
-              type="number"
-              min="0.5"
-              max="3"
-              step="0.05"
-              title={t('skin.cardBlockScale')}
-              value={blockScale(ui.prefs.cardBlockScale, 'header')}
-              oninput={(e) =>
-                setBlockScale('header', Number((e.currentTarget as HTMLInputElement).value))}
-            />
+            {@render sizeCtl('header')}
           </div>
           {#each cardOrder as b (b)}
             <div
@@ -466,7 +466,15 @@
               class:over={dragOver === b}
               draggable="true"
               role="listitem"
-              ondragstart={() => (dragBlock = b)}
+              onpointerdown={(e) => (onSlider = !!(e.target as HTMLElement).closest('.bsz'))}
+              ondragstart={(e) => {
+                // 按在字号滑块上拖动的是滑块，这一行不跟着去排序
+                if (onSlider) {
+                  e.preventDefault()
+                  return
+                }
+                dragBlock = b
+              }}
               ondragover={(e) => {
                 e.preventDefault()
                 dragOver = b
@@ -484,19 +492,7 @@
               }}
             >
               <GripVertical size={13} /><span class="grow">{t(`skin.cardBlocks.${b}`)}</span>
-              <input
-                class="input bs"
-                type="number"
-                min="0.5"
-                max="3"
-                step="0.05"
-                title={t('skin.cardBlockScale')}
-                value={blockScale(ui.prefs.cardBlockScale, b)}
-                draggable="false"
-                onpointerdown={(e) => e.stopPropagation()}
-                oninput={(e) =>
-                  setBlockScale(b, Number((e.currentTarget as HTMLInputElement).value))}
-              />
+              {@render sizeCtl(b)}
             </div>
           {/each}
         </div>
@@ -1046,10 +1042,17 @@ a > e / _i</span
   .blk.fixed {
     cursor: default;
   }
-  .blk .bs {
-    width: 74px;
-    padding: 1px 4px;
-    font-size: 12px;
+  .blk .bsz {
+    width: 132px;
+  }
+  .blk .px {
+    width: 34px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-3);
+  }
+  .blk .px.changed {
+    color: var(--accent-text);
   }
   .blk:hover {
     border-style: dashed;
@@ -1059,9 +1062,6 @@ a > e / _i</span
     border-style: dashed;
     border-color: var(--accent);
     background: var(--accent-soft);
-  }
-  .scale input[type='range'] {
-    flex: 1;
   }
   .self-start {
     align-self: flex-start;

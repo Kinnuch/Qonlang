@@ -40,6 +40,7 @@ Classes and multigraphs defined on the Phonology page are available everywhere; 
 | `@name` | a morpheme (by gloss or form); members are all its allomorphs | `@PL > @PL.weak / V_` |
 | `t.h` | a dot keeps two letters from being read as a multigraph | |
 | `¢` | compound-internal boundary (an ordinary symbol; delete it at the end: `¢ > / _`) | |
+| `\?`, `\.`, `\#`, `\C`… | backslash + symbol: that character itself, not a rule symbol or a class | `\? > ⸮` turns a question mark into the script's question mark |
 
 Numbers only count within one rule: `C1C2` is two consonants (same or different), `C1VC1` is consonant–vowel–the same consonant.
 
@@ -57,7 +58,7 @@ Numbers only count within one rule: `C1C2` is two consonants (same or different)
 
 ### Sound changes, orthographies, script mappings
 
-Everything above works. In a script mapping, a line containing only `@glyphs` expands into the correspondences generated from the glyph table.
+Everything above works. In a script mapping, a line containing only `@glyphs` expands into the correspondences generated from the glyph table; transliterations containing symbols such as `?` `.` `#` are escaped with a backslash automatically, so they match literally.
 
 ### Allomorph environments {#allomorph}
 
@@ -77,6 +78,18 @@ One rule per line, e.g. `at > / _#`, `> u / _#`. Four literal shorthands are als
 | `+u` | `> u / _#` append u |
 | `^-e` | `e > / #_` remove initial e |
 | `^+a` | `> a / #_` prepend a |
+
+### Letters that change by condition {#condition}
+
+Prefixes, suffixes, infixes, circumfixes and adjust steps accept `{condition:form|condition:form|default}`: each entry and cell picks one branch while the rest stays the same. Conditions are value names or abbreviations; both the entry's own features (gender, noun class…) and the cell's dimension values count, and for the same dimension the cell wins.
+
+| Notation | Meaning |
+|---|---|
+| `-{F:g\|k}A` | g when the entry is feminine, k otherwise |
+| `{gender=F:a\|o}` | name the dimension when two dimensions share a value name |
+| `{M,N:o\|a}` | comma: any of them |
+| `{F+PL:ae\|F:a\|o}` | plus: all of them; the first matching branch from the left wins |
+| `-{M:s}` | with no default branch and no match, the piece is empty |
 
 ### Paradigm templates {#pattern}
 

@@ -112,11 +112,52 @@ export function ensureCompoundPos(
   return { pos, created: true }
 }
 
-/** 词类绑定的构形：自己没绑时看组成词类，第一个绑了的算 */
-export function posParadigmId(project: PosHost, id: Id | null | undefined): Id | null {
+/** 词类自己绑的全部构形：第一个是默认的（paradigmId），后面是另外可选的（变位法二、三……） */
+export function ownParadigmIds(p: PartOfSpeech): Id[] {
+  return [...new Set([p.paradigmId, ...(p.extraParadigmIds ?? [])].filter((x): x is Id => !!x))]
+}
+
+/** 词类能用的全部构形：自己没绑时看组成词类，第一个绑了的算 */
+export function posParadigmIds(project: PosHost, id: Id | null | undefined): Id[] {
   const p = findPos(project, id)
-  if (!p) return null
-  return p.paradigmId ?? posParts(project, p.id).find((c) => c.paradigmId)?.paradigmId ?? null
+  if (!p) return []
+  const own = ownParadigmIds(p)
+  if (own.length) return own
+  for (const c of posParts(project, p.id)) {
+    const ids = ownParadigmIds(c)
+    if (ids.length) return ids
+  }
+  return []
+}
+
+/** 词类绑定的默认构形：自己没绑时看组成词类，第一个绑了的算 */
+export function posParadigmId(project: PosHost, id: Id | null | undefined): Id | null {
+  return posParadigmIds(project, id)[0] ?? null
+}
+
+function setOwnParadigms(p: PartOfSpeech, ids: Id[]): void {
+  p.paradigmId = ids[0] ?? null
+  if (ids.length > 1) p.extraParadigmIds = ids.slice(1)
+  else delete p.extraParadigmIds
+}
+
+/** 给词类绑上或解开一个构形：原来一个没绑时，绑上的就是默认；解开默认的那个时下一个顶上 */
+export function bindPosParadigm(p: PartOfSpeech, paradigmId: Id, on: boolean): void {
+  const ids = ownParadigmIds(p)
+  if (on === ids.includes(paradigmId)) return
+  setOwnParadigms(p, on ? [...ids, paradigmId] : ids.filter((x) => x !== paradigmId))
+}
+
+/** 把词类已经绑着的某个构形设成默认（没挑构形的词条用它） */
+export function setDefaultPosParadigm(p: PartOfSpeech, paradigmId: Id): void {
+  const ids = ownParadigmIds(p)
+  if (!ids.includes(paradigmId)) return
+  setOwnParadigms(p, [paradigmId, ...ids.filter((x) => x !== paradigmId)])
+}
+
+/** 构形删掉或改成作用于所有词时，从每个词类上解开 */
+export function unbindParadigm(project: PosHost, paradigmId: Id): void {
+  for (const p of project.posList) bindPosParadigm(p, paradigmId, false)
 }
 
 /** 词类的词干槽：复合词类自己没定义时，把组成词类的接起来 */

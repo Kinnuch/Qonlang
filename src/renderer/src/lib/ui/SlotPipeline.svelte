@@ -7,6 +7,7 @@
   import { newId } from '$lib/core/factory'
   import type { Id, MorphStep, MorphStepKind, RuleSet } from '$lib/core/model'
   import { Plus, X, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from '@lucide/svelte'
+  import { conditionVariants, hasConditions } from '$lib/engine/morph/conditions'
 
   let {
     stem = $bindable(),
@@ -77,6 +78,16 @@
       .filter(Boolean)
 </script>
 
+<!-- 按条件换字母（{阴:g|k}）的词缀：旁边小字列出每种挑法 -->
+{#snippet alts(text: string)}
+  {#if hasConditions(text)}
+    {@const line = conditionVariants(text, 8)
+      .map((v) => `${v.when || t('paradigms.otherwise')} ${v.text || '∅'}`)
+      .join(' · ')}
+    <span class="alts" title={line}>{line}</span>
+  {/if}
+{/snippet}
+
 <div class="pipe">
   <label class="step stem" title={t('paradigms.stemHint')}>
     <span class="tag">{t('paradigms.stem')}</span>
@@ -126,12 +137,15 @@
           bind:value={st.text}
           oninput={onchange}
         />
+        {@render alts(st.text)}
       {:else if st.kind === 'circumfix'}
         <input class="input data sm" bind:value={st.text} oninput={onchange} placeholder="a-" />
         <span class="dots">…</span>
         <input class="input data sm" bind:value={st.text2} oninput={onchange} placeholder="-o" />
+        {@render alts(`${st.text}…${st.text2}`)}
       {:else if st.kind === 'infix'}
         <input class="input data sm" bind:value={st.text} oninput={onchange} placeholder="-i-" />
+        {@render alts(st.text)}
         <input
           class="input sm"
           list="dl-infix-at"
@@ -219,6 +233,14 @@
 </div>
 
 <style>
+  .alts {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    color: var(--accent-text);
+  }
   .pipe {
     display: flex;
     align-items: center;

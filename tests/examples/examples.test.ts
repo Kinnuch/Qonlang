@@ -54,6 +54,19 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     expect(new Set(kara.senses.map((s) => s.posId)).size).toBe(2)
     expect(p.lexemes.some((l) => l.senses.some((s) => s.registers.length > 1))).toBe(true)
     expect(p.paradigms.find((x) => x.variants.length)?.baseVariantName).toBe('书面')
+    // 一个词类绑几个构形：「动词」默认变位法一，tur- 在词条里挑了变位法二（过去时 -tI）
+    const verbPos = p.posList.find((x) => x.name.zh === '动词')!
+    expect(verbPos.extraParadigmIds).toHaveLength(2)
+    const surfaces = (lemma: string): string[] =>
+      Object.values(p.lexemes.find((l) => l.lemma === lemma)!.forms).map((f) => f.surface)
+    expect(p.lexemes.find((l) => l.lemma === 'tur-')!.paradigmId).toBe(verbPos.extraParadigmIds![0])
+    expect(surfaces('tur-')).toContain('turtim')
+    expect(surfaces('sör-')).toContain('sördüm')
+    // 按条件换字母：与格 ¢{阴:g|k}A，阴性 sila / vene 用 g，阳性 kaso 用 k
+    expect(surfaces('sila')).toContain('silaga')
+    expect(surfaces('sila')).not.toContain('silaka')
+    expect(surfaces('vene')).toContain('venege')
+    expect(surfaces('kaso')).toContain('kasoka')
     expect(p.customFields.map((f) => f.name.zh)).toEqual(['文化注释', '刻文异体'])
     // 维度按词类限定：「级与派生」只给形容词
     const degree = p.categories.find((c) => c.name.zh === '级与派生')!

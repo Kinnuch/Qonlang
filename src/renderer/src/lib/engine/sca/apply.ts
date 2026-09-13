@@ -16,6 +16,8 @@ export interface StageForm {
 }
 
 export interface RunOptions {
+  /** 输入里的点号按字面保留（文字转写时句号是标点）；默认去掉，点号只用来隔开字母 */
+  keepDots?: boolean
   /** 输入已经是该阶段的形式：跳过它之前的规则 */
   startAt?: string
   /** 推到该阶段为止 */
@@ -97,7 +99,7 @@ function applyRule(rule: ParsedRule, input: string): string {
 /** 对一个词运行整套规则 */
 export function runRules(program: RuleProgram, word: string, options: RunOptions = {}): RunResult {
   const { replacements } = program
-  let current = applyReplacements(word, replacements)
+  let current = applyReplacements(word, replacements, options.keepDots)
   const stages: StageForm[] = []
   const trace: TraceEntry[] = []
   let stage = ''

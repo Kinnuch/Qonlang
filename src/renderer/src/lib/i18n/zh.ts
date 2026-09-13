@@ -89,7 +89,7 @@ export default {
     exampleOpened: '已打开示例工程「{name}」',
     exampleDesc: {
       aelith:
-        '黏着先验语：祖语→现代语的语系、元音和谐、流水线构形的八种步骤、变体与继承、连读浊化反推、复合词类、检视器模块、词源链与关系图、已 gloss 的语料、卢恩刻文。',
+        '黏着先验语：祖语→现代语的语系、元音和谐、流水线构形的八种步骤、变体与继承、一个词类几个构形、按阴阳换字母、连读浊化反推、复合词类、检视器模块、词源链与关系图、已 gloss 的语料、卢恩刻文。',
       tsahun:
         '孤立声调语：五个声调、罗马化与西里尔双正字法、音节文字的拼合与竖排、重叠构形、带空格的屈折形、同形词候选、用文字字体显示的异体字模块。'
     },
@@ -668,6 +668,7 @@ export default {
     stems: '词干',
     addStem: '添加词干',
     stemName: '词干名',
+    nameTaken: '已经有叫「{name}」的了，没改名',
     pronunciations: '发音',
     irregular: '不规则（不随规则重算）',
     forms: '屈折形',
@@ -754,6 +755,9 @@ export default {
     resetDerived: '恢复推导值',
     deriveForms: '按构形推导',
     paradigmByPos: '构形：按词类',
+    paradigmByPosNamed: '构形：按词类（{name}）',
+    paradigmsOfPos: '这个词类的构形',
+    paradigmsOther: '其他构形',
     extraForms: '其他形式',
     noParadigm: '该词类未绑定构形；可在「构形」页绑定。'
   },
@@ -772,6 +776,15 @@ export default {
     pos: '词类',
     addPos: '新增词类',
     sortAZ: '按字母排序',
+    collapseAll: '全部收起',
+    expandAll: '全部展开',
+    untitled: '（未命名）',
+    listSep: '、',
+    foldStems: '词干槽：{list}',
+    foldParadigms: '构形：{list}',
+    foldParts: '组成：{list}',
+    foldScope: '用于 {list}',
+    noValues: '还没有取值',
     posName: '名称',
     abbr: '缩写',
     paradigm: '绑定构形',
@@ -1235,9 +1248,13 @@ export default {
       nucleus: '音节核',
       syllables: '音节数'
     },
-    generator: '随机造词',
+    generator: '造词',
     count: '数量',
     generate: '生成',
+    learnFromLexicon: '参考词库（{n} 个词）',
+    learnHint:
+      '照着这门语言词库里已有的词学：词首词尾常见什么音、几个音节的词多、音和音怎么搭配，造出来的更像这门语言，排在前面的最像；也会尽量避开跟已有词只差一个音的形式。配列设置仍然是硬规定。词库少于 {n} 个词时只按配列造。',
+    likeWords: '像：{list}',
     addToLexicon: '加入词库',
     addedWord: '已把 {w} 加入词库'
   },
@@ -1313,6 +1330,11 @@ export default {
     length: '音段数',
     inherited: '继承',
     bindPos: '绑定词类',
+    defaultForPos: '默认',
+    makeDefault: '设为默认',
+    alsoBound: '另绑了：{list}',
+    boundTo: '已绑：{list}',
+    otherwise: '其他',
     appliesToLanguage: '只作用于哪门语言',
     appliesToAll: '作用于所有词（词首音变、连读变化这类）',
     appliesToAllHint:
@@ -1339,7 +1361,7 @@ export default {
     deleted: '已删除构形「{name}」',
     hint: '构形绑到词类后，词库里这类词条会出现槽位面板。',
     affixHint:
-      '词缀直接写；@ 开头引用语素，按异体形环境自动挑，如 @-lAr。词干留空是词头，写进去的空格和中点原样保留。',
+      '词缀直接写；@ 开头引用语素，按异体形环境自动挑，如 @-lAr。词干留空是词头，写进去的空格和中点原样保留。按条件换字母写 {阴:g|k}：词条或这一格是「阴」时用 g，否则用 k；条件写取值的名字或缩写，逗号是任一、+ 是都要。',
     adjust: '微调',
     adjustPre: '跑音变前…',
     adjustStem: '对词干…',
@@ -1472,10 +1494,9 @@ export default {
     fontPlaceholder: '留空用默认；可写多个，逗号分隔',
     library: '字体库',
     card: '词条卡',
-    cardHint: '词条卡的字号和各块的顺序。顺序拖着排，改完马上生效。',
-    cardScale: '字号',
-    cardOrder: '各块顺序（拖动排序）',
-    cardBlockScale: '这一块的字号倍数（1 = 跟整体一样）',
+    cardHint: '词条卡每一块的字号和顺序：拖滑块调这一块的字号，拖整行排顺序，改完马上生效。',
+    cardOrder: '各块的字号与顺序',
+    cardBlockSize: '这一块的字号',
     cardReset: '恢复默认',
     cardBlocks: {
       senses: '义项',

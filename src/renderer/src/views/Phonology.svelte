@@ -9,7 +9,14 @@
   import { ui } from '$lib/state/ui.svelte'
   import { i18n, t } from '$lib/i18n/index.svelte'
   import { newId, createLexeme, createOrthography } from '$lib/core/factory'
-  import type { Id, Orthography, Phoneme, PhonemeClass, StressPosition } from '$lib/core/model'
+  import type {
+    Id,
+    Lexeme,
+    Orthography,
+    Phoneme,
+    PhonemeClass,
+    StressPosition
+  } from '$lib/core/model'
   import {
     PULMONIC,
     PLACES,
@@ -26,12 +33,12 @@
   import {
     analyzeWord,
     checkWord,
-    generateWords,
     languageParseOptions,
     phonemeFeatures,
     type Violation
   } from '$lib/engine/phon'
   import { parseRuleText, runRules, type RuleProgram } from '$lib/engine/sca'
+  import { generateNaturalWords, MIN_LEXICON, type LexiconWord } from '$lib/engine/phon/wordgen'
   import { deriveAll, transcribe } from '$lib/core/pronounce'
   import Portal from '$lib/ui/Portal.svelte'
   import RuleList from '$lib/ui/RuleList.svelte'
@@ -68,6 +75,7 @@
     genCount: number
     genMin: number
     genMax: number
+    genLearn: boolean
   }>('phonology')
   const sameLang = memo.lang === projectState.currentLanguageId
   let tab = $state<Tab>(memo.tab ?? 'phonemes')
@@ -371,6 +379,15 @@
     if (!lang.phonotactics.codas.length) lang.phonotactics.codas = cons
     touch()
   }
+  /** 词条的读音：主正字法下手填或推导的 IPA，都没有就按主正字法转一遍，再不行用词头 */
+  function ipaOf(l: Lexeme, primary: Orthography | undefined): string {
+    if (!lang) return l.lemma
+    return (
+      (primary && l.pronunciations[primary.id]?.ipa) ||
+      (primary ? transcribe(lang, primary, l.lemma) : null) ||
+      l.lemma
+    )
+  }
   let violations = $state<{ lemma: string; ipa: string; v: Violation[] }[] | null>(null)
   function runCheck(): void {
     if (!lang) return
@@ -378,10 +395,7 @@
     const out: { lemma: string; ipa: string; v: Violation[] }[] = []
     for (const l of project.lexemes) {
       if (l.languageId !== lang.id) continue
-      const ipa =
-        (primary && l.pronunciations[primary.id]?.ipa) ||
-        (primary ? transcribe(lang, primary, l.lemma) : null) ||
-        l.lemma
+      const ipa = ipaOf(l, primary)
       const a = analyzeWord(lang, ipa)
       const v = checkWord(a.segments, a.syllables, lang.phonotactics)
       if (v.length) out.push({ lemma: l.lemma, ipa, v })
@@ -391,6 +405,8 @@
   let genCount = $state(memo.genCount ?? 20)
   let genMin = $state(memo.genMin ?? 1)
   let genMax = $state(memo.genMax ?? 3)
+  /** 造词时照着这门语言词库里已有的词学（词不够时不起作用） */
+  let genLearn = $state(memo.genLearn ?? true)
   $effect(() => {
     Object.assign(memo, {
       lang: projectState.currentLanguageId,
@@ -405,26 +421,39 @@
       queryVal,
       genCount,
       genMin,
-      genMax
+      genMax,
+      genLearn
     })
   })
   if (sameLang && !ui.restoring('phonology'))
     ui.restoreScroll('phonology', ui.lastScroll('phonology'))
-  let generated = $state<{ ipa: string; spelt: string | null }[]>([])
+  let generated = $state<{ ipa: string; spelt: string | null; like: string[] }[]>([])
+  /** 这门语言词库里有词头的词条数：少于 MIN_LEXICON 个时不照着学 */
+  const lexCount = $derived(
+    lang ? project.lexemes.filter((l) => l.languageId === lang!.id && l.lemma.trim()).length : 0
+  )
   function generate(): void {
     if (!lang) return
     const primary = lang.orthographies.find((o) => o.isPrimary)
     const fromIpa = primary ? orthoProgramOf(primary, 'fromIpa') : null
-    const existing = new Set(
-      project.lexemes.filter((l) => l.languageId === lang!.id).map((l) => l.lemma)
-    )
-    const words = generateWords(lang.phonotactics, {
+    const mine = project.lexemes.filter((l) => l.languageId === lang!.id && l.lemma.trim())
+    const existing = new Set(mine.map((l) => l.lemma))
+    const lexicon: LexiconWord[] = genLearn
+      ? mine.map((l) => ({ label: l.lemma, ipa: ipaOf(l, primary) }))
+      : []
+    const words = generateNaturalWords(lang, {
       count: genCount,
       minSyllables: genMin,
-      maxSyllables: genMax
+      maxSyllables: genMax,
+      lexicon,
+      exclude: existing
     })
     generated = words
-      .map((ipa) => ({ ipa, spelt: fromIpa ? runRules(fromIpa, ipa).output : null }))
+      .map((w) => ({
+        ipa: w.ipa,
+        spelt: fromIpa ? runRules(fromIpa, w.ipa).output : null,
+        like: w.like
+      }))
       .filter((g) => !existing.has(g.spelt ?? g.ipa))
   }
   function orthoProgramOf(o: Orthography, dir: 'toIpa' | 'fromIpa'): RuleProgram | null {
@@ -989,6 +1018,12 @@
               bind:value={genMax}
             /></label
           >
+          <label class="row small" class:muted={lexCount < MIN_LEXICON}
+            ><input type="checkbox" bind:checked={genLearn} disabled={lexCount < MIN_LEXICON} />{t(
+              'phonology.learnFromLexicon',
+              { n: lexCount }
+            )}<HelpDot tip={t('phonology.learnHint', { n: MIN_LEXICON })} /></label
+          >
           <button class="btn primary sm" onclick={generate}
             ><Wand2 size={14} />{t('phonology.generate')}</button
           >
@@ -998,7 +1033,11 @@
         </div>
         <div class="chips">
           {#each generated as g, gi (gi)}
-            <span class="chip gen data"
+            <span
+              class="chip gen data"
+              title={g.like.length
+                ? t('phonology.likeWords', { list: g.like.join(t('taxonomy.listSep')) })
+                : undefined}
               >{#if g.spelt && g.spelt !== g.ipa}<b>{g.spelt}</b><span class="muted small"
                   >{g.ipa}</span
                 >{:else}{g.ipa}{/if}<button

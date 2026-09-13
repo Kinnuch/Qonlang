@@ -4,6 +4,7 @@
  */
 import type { Id, Project } from '$lib/core/model'
 import { paradigmSlots, parseAffixRef } from './index'
+import { conditionVariants } from './conditions'
 
 export interface ParadigmAffix {
   form: string
@@ -22,7 +23,10 @@ export function paradigmAffixes(project: Project, languageId: Id): ParadigmAffix
   const glossLangs = project.settings.glossLanguages
   const prefixes = new Map<string, string>()
   const suffixes = new Map<string, string>()
-  const expand = (text: string): string[] => {
+  // 按条件换字母的写法（{阴:g|k}）：每种挑法都当一个词缀来剥
+  const expand = (text: string): string[] =>
+    conditionVariants(text).flatMap((v) => expandOne(v.text))
+  const expandOne = (text: string): string[] => {
     if (!text.trim()) return []
     const r = parseAffixRef(text, project.morphemes, languageId)
     if (!r) return [trim(text)]
