@@ -22,7 +22,8 @@ export interface Context {
 
 export interface CompiledContext {
   main: RegExp
-  exclude: RegExp | null
+  /** 各个排除环境（`- 排除 , 排除`）：落在任何一个里的匹配都不改 */
+  excludes: RegExp[]
   /** 左环境里编号音类占掉的捕获组个数（目标的捕获组要往后数这么多） */
   offset: number
 }
@@ -36,7 +37,8 @@ export interface ParsedRule {
   target: string
   replacement: string
   contexts: Context[]
-  exception: Context | null
+  /** 排除环境，可以几个（`- 排除 , 排除`） */
+  exceptions: Context[]
   /** 目标里第一个音类（用于替换侧一一对应） */
   targetClass: ClassRef | null
   /** 该音类在目标正则里的捕获组序号 */
@@ -44,6 +46,22 @@ export interface ParsedRule {
   compiled: CompiledContext[]
   /** 替换文本中的音类引用已按 pos 展开时用到 */
   replacementParts: ReplacementPart[]
+  /**
+   * 满足 / 不满足环境两路（`x1?x2 > a?b / 环境`）：满足环境的 x1 改成 a，其余位置的 x2 改成 b。
+   * 目标、替换两边只写一边带 `?` 时，另一边两路共用。没有 `?` 的普通规则没有这一项。
+   */
+  branches?: { then: RuleBranch; otherwise: RuleBranch & { anywhere: RegExp } }
+}
+
+/** if-else 规则的一路：要改的目标、改成什么，以及编好的匹配 */
+export interface RuleBranch {
+  target: string
+  replacement: string
+  targetClass: ClassRef | null
+  targetGroup: number
+  replacementParts: ReplacementPart[]
+  /** then：目标在环境里的匹配；otherwise：目标满足环境的位置（这些位置不改） */
+  compiled: CompiledContext[]
 }
 
 export type ReplacementPart =
@@ -73,7 +91,7 @@ export interface RuleDraft {
   target: string
   replacement: string
   contexts: Context[]
-  exception: Context | null
+  exceptions: Context[]
   comment: string
 }
 
@@ -81,9 +99,10 @@ export function formatRule(d: RuleDraft): string {
   let s = `${d.target.trim()} > ${d.replacement.trim()}`.trimEnd()
   const ctxs = d.contexts.filter((c) => c.left.trim() || c.right.trim())
   if (ctxs.length) s += ' / ' + ctxs.map((c) => `${c.left.trim()}_${c.right.trim()}`).join(' , ')
-  if (d.exception && (d.exception.left.trim() || d.exception.right.trim())) {
+  const excs = d.exceptions.filter((c) => c.left.trim() || c.right.trim())
+  if (excs.length) {
     if (!ctxs.length) s += ' / _'
-    s += ` - ${d.exception.left.trim()}_${d.exception.right.trim()}`
+    s += ' - ' + excs.map((c) => `${c.left.trim()}_${c.right.trim()}`).join(' , ')
   }
   if (d.comment.trim()) s += `  ; ${d.comment.trim()}`
   return s
@@ -330,7 +349,8 @@ function expand(
       firstClass = ref
       capturing++
       groupIndex = capturing
-      out += '(' + body + ')'
+      // 命名组：替换时按名字取，目标里音类前面有别的字（kV、s[ptk]）或编号音类时也对得上
+      out += '(?<tc>' + body + ')'
     } else out += body
   }
   while (i < chars.length) {
@@ -526,6 +546,33 @@ function compile(left: string, target: string, right: string): RegExp {
   }
 }
 
+/**
+ * 目标或替换里顶层的 `?`（不在 [] {} () 里、没被反斜杠转义）：if-else 规则的「满足 ? 不满足」。
+ * 没有返回 null，不止一个返回 'many'。
+ */
+export function splitBranches(s: string): [string, string] | 'many' | null {
+  const chars = Array.from(s)
+  let depth = 0
+  let at = -1
+  for (let i = 0; i < chars.length; i++) {
+    const c = chars[i]
+    if (c === '[' || c === '{' || c === '(') depth++
+    else if ((c === ']' || c === '}' || c === ')') && depth > 0) depth--
+    else if (c === '?' && depth === 0) {
+      if (at >= 0) return 'many'
+      at = i
+    }
+  }
+  if (at < 0) return null
+  return [
+    chars.slice(0, at).join('').trim(),
+    chars
+      .slice(at + 1)
+      .join('')
+      .trim()
+  ]
+}
+
 function splitContext(s: string): Context | null {
   const idx = s.indexOf('_')
   if (idx < 0) return null
@@ -639,28 +686,32 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
         contexts.push(ctx)
       }
     } else contexts.push({ left: '', right: '' })
-    let exception: Context | null = null
+    // 排除也可以写几个，跟环境一样用 , 隔开
+    const exceptions: Context[] = []
     if (exceptionPart) {
-      exception = splitContext(applyReplacements(exceptionPart, replacements))
-      if (!exception) return fail(`排除环境「${decodeEscapes(exceptionPart)}」缺少 _`)
-      if (!exception.left && !exception.right) exception = null
+      for (const piece of exceptionPart.split(',')) {
+        if (!piece.trim()) continue
+        const ex = splitContext(applyReplacements(piece.trim(), replacements))
+        if (!ex) return fail(`排除环境「${decodeEscapes(piece.trim())}」缺少 _`)
+        if (ex.left || ex.right) exceptions.push(ex)
+      }
     }
 
-    const t = expand(target, classes, { boundary: null, captureFirst: true, warn })
     const quiet = (): void => {}
     // 左环境里定义了几个编号捕获组：目标的捕获组要往后数这么多
     const groupsIn = (re: string): number => (re.match(/\(\?<n[A-Z]\d+>/g) ?? []).length
-    const compiled: CompiledContext[] = []
-    try {
+    /** 某个目标在各个环境里的匹配（带排除）；环境的警告只报一次 */
+    const compileFor = (tgt: string, envWarn: (m: string) => void): CompiledContext[] => {
+      const out: CompiledContext[] = []
       for (const ctx of contexts) {
-        const plan = planNumbered(ctx.left, target, ctx.right, classes)
+        const plan = planNumbered(ctx.left, tgt, ctx.right, classes)
         const l = expand(ctx.left, classes, {
           boundary: '^',
           captureFirst: false,
-          warn,
+          warn: envWarn,
           numbered: plan.left
         }).re
-        const tt = expand(target, classes, {
+        const tt = expand(tgt, classes, {
           boundary: null,
           captureFirst: true,
           warn: quiet,
@@ -669,20 +720,20 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
         const r = expand(ctx.right, classes, {
           boundary: '$',
           captureFirst: false,
-          warn,
+          warn: envWarn,
           numbered: plan.right
         }).re
         const main = compile(l, tt, r)
-        let exclude: RegExp | null = null
-        if (exception) {
-          const ep = planNumbered(exception.left, target, exception.right, classes)
+        const excludes: RegExp[] = []
+        for (const exception of exceptions) {
+          const ep = planNumbered(exception.left, tgt, exception.right, classes)
           const el = expand(exception.left, classes, {
             boundary: '^',
             captureFirst: false,
-            warn,
+            warn: envWarn,
             numbered: ep.left
           }).re
-          const et = expand(target, classes, {
+          const et = expand(tgt, classes, {
             boundary: null,
             captureFirst: true,
             warn: quiet,
@@ -691,12 +742,86 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
           const er = expand(exception.right, classes, {
             boundary: '$',
             captureFirst: false,
-            warn,
+            warn: envWarn,
             numbered: ep.right
           }).re
-          exclude = compile(el, et, er)
+          excludes.push(compile(el, et, er))
         }
-        compiled.push({ main, exclude, offset: groupsIn(l) })
+        out.push({ main, excludes, offset: groupsIn(l) })
+      }
+      return out
+    }
+
+    // if-else：目标、替换里顶层的 ? 把规则分成「满足环境」「不满足环境」两路。
+    // 替换以 \? 开头、后面还有东西、又写了环境时，读作「满足时换位 ? 不满足时……」（\?2）；
+    // 单独一个 \?、没有环境的（文字映射）仍是问号本身
+    const qmark = String.fromCodePoint(ESCAPE_BASE + 63)
+    const replacementText =
+      replacement.startsWith(qmark) &&
+      replacement.length > qmark.length &&
+      contextPart.trim() &&
+      splitBranches(replacement) === null
+        ? '\\?' + replacement.slice(qmark.length)
+        : replacement
+    const targetSplit = splitBranches(target)
+    const replacementSplit = splitBranches(replacementText)
+    if (targetSplit === 'many' || replacementSplit === 'many')
+      return fail(
+        '一条规则的目标、替换里各只能有一个 ?（满足环境 ? 不满足环境）；要写问号本身用 \\?'
+      )
+    const branching = !!targetSplit || !!replacementSplit
+    const [thenTarget, elseTarget] = targetSplit ?? [target, target]
+    const [thenReplacement, elseReplacement] = replacementSplit ?? [replacement, replacement]
+    /** 目标里第一个音类（编号音类是命名组、不算）：跟编好的正则里 tc 那一组是同一个 */
+    const firstClassOf = (tgt: string): ExpandResult =>
+      expand(tgt, classes, {
+        boundary: null,
+        captureFirst: true,
+        warn,
+        numbered: planNumbered('', tgt, '', classes).target
+      })
+    if (branching && !elseTarget) return fail('? 后面（不满足环境时）要改的目标不能为空')
+
+    const t = firstClassOf(thenTarget)
+    let compiled: CompiledContext[] = []
+    let branches: ParsedRule['branches']
+    try {
+      compiled = compileFor(thenTarget, warn)
+      if (branching) {
+        const e = firstClassOf(elseTarget)
+        const anywherePlan = planNumbered('', elseTarget, '', classes)
+        const anywhere = compile(
+          '',
+          expand(elseTarget, classes, {
+            boundary: null,
+            captureFirst: true,
+            warn: quiet,
+            numbered: anywherePlan.target
+          }).re,
+          ''
+        )
+        const branch = (
+          tgt: string,
+          rep: string,
+          x: ExpandResult,
+          c: CompiledContext[]
+        ): RuleBranch => ({
+          target: decodeEscapes(tgt),
+          replacement: decodeEscapes(rep),
+          targetClass: x.firstClass,
+          targetGroup: x.groupIndex,
+          replacementParts: parseReplacement(rep, classes),
+          compiled: c
+        })
+        branches = {
+          then: branch(thenTarget, thenReplacement, t, compiled),
+          otherwise: {
+            ...branch(elseTarget, elseReplacement, e, compileFor(elseTarget, quiet)),
+            anywhere
+          }
+        }
+        if (!contexts.some((c) => c.left || c.right) && !exceptions.length)
+          warn('没有写环境：处处都算满足，? 后面那一路用不上')
       }
     } catch (e) {
       return fail(`正则无法编译：${(e as Error).message}`)
@@ -715,11 +840,12 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
       target: decodeEscapes(target),
       replacement: decodeEscapes(replacement),
       contexts: contexts.map(shown),
-      exception: exception && shown(exception),
+      exceptions: exceptions.map(shown),
       targetClass: t.firstClass,
       targetGroup: t.groupIndex,
       compiled,
-      replacementParts: parseReplacement(replacement, classes)
+      replacementParts: parseReplacement(thenReplacement, classes),
+      ...(branches ? { branches } : {})
     }
     lines.push(rule)
     steps.push(rule)

@@ -57,7 +57,8 @@
     const slash = code.indexOf('/')
     const rulePart = slash >= 0 ? code.slice(0, slash) : code
     if (gt >= 0) {
-      out += `<span class="t">${esc(rulePart.slice(0, gt))}</span><span class="o">&gt;</span><span class="r">${esc(rulePart.slice(gt + 1))}</span>`
+      const branch = (s: string): string => esc(s).replace(/(?<!\\)\?/g, '<span class="o">?</span>')
+      out += `<span class="t">${branch(rulePart.slice(0, gt))}</span><span class="o">&gt;</span><span class="r">${branch(rulePart.slice(gt + 1))}</span>`
     } else out += `<span class="e">${esc(rulePart)}</span>`
     if (slash >= 0) {
       let ctx = code.slice(slash + 1)

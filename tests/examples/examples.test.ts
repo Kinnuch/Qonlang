@@ -6,6 +6,7 @@ import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { parseProject } from '$lib/core/serialize'
 import { parseRuleText, runRules } from '$lib/engine/sca'
+import { languageParseOptions } from '$lib/engine/phon'
 
 const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
@@ -84,6 +85,23 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     expect(out('sör¢mA¢dU¢Ŭm')).toBe('sörmedüm')
     expect(out('kel¢dU¢sAn')).toBe('keldüsen')
     expect(out('teli¢Ŭm')).toBe('telim')
+    // 祖语到现代语：两路规则与两个排除，推出来的就是词库里的现代形式
+    const protoRs = p.ruleSets.find((r) => r.name === 'Proto → Aelith')!
+    const proto = parseRuleText(protoRs.text)
+    expect(proto.diagnostics.filter((d) => d.severity === 'error')).toEqual([])
+    const evolve = (w: string): string => runRules(proto, w).output
+    expect(['kasu', 'nol', 'sor', 'teli', 'θura', 'metha', 'taku'].map(evolve)).toEqual([
+      'kaso',
+      'nöl',
+      'sör',
+      'teli',
+      'tura',
+      'mesa',
+      'taku'
+    ])
+    const rules = proto.steps.filter((s) => s.kind === 'rule')
+    expect(rules.some((r) => r.kind === 'rule' && r.branches)).toBe(true)
+    expect(rules.some((r) => r.kind === 'rule' && r.exceptions.length === 2)).toBe(true)
   })
 
   it('Tsahun loads with tones, two orthographies, packing and reduplication', () => {
@@ -123,5 +141,11 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     const prog = parseRuleText(L.orthographies[0].rulesToIpa)
     expect(runRules(prog, 'tsa55').output).toBe('t͡sa˥')
     expect(runRules(prog, 'ngo21').output).toBe('ŋo˨˩')
+    // 连读变调：35 后面还有音节读 33（软件里正字法规则带着这门语言的音类 C、V）
+    const sandhi = parseRuleText(L.orthographies[0].rulesToIpa, {
+      classes: languageParseOptions(L).classes
+    })
+    expect(runRules(sandhi, 'lun35').output).toBe('lun˧˥')
+    expect(runRules(sandhi, 'lun35lun35').output).toBe('lun˧lun˧˥')
   })
 })

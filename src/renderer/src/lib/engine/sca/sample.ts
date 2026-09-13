@@ -86,7 +86,7 @@ export function sampleForRule(program: RuleProgram, rule: ParsedRule): string {
   const ctx = rule.contexts[0] ?? { left: '', right: '' }
   const left = concretize(ctx.left, program.classes)
   const right = concretize(ctx.right, program.classes)
-  const target = concretize(rule.target, program.classes)
+  const target = concretize(rule.branches?.then.target ?? rule.target, program.classes)
   return left + target + right
 }
 

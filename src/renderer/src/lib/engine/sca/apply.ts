@@ -1,4 +1,11 @@
-import { applyReplacements, revertReplacements, type ParsedRule, type RuleProgram } from './parse'
+import {
+  applyReplacements,
+  revertReplacements,
+  type CompiledContext,
+  type ParsedRule,
+  type RuleBranch,
+  type RuleProgram
+} from './parse'
 
 export interface TraceEntry {
   line: number
@@ -38,19 +45,21 @@ function reverseText(s: string): string {
   return Array.from(s).reverse().join('')
 }
 
+/** 替换要用到的：替换文本（`\` 换位、`2` 双写）、目标里第一个音类、拆好的替换 */
+type Substitution = Pick<ParsedRule, 'replacement' | 'targetClass' | 'replacementParts'>
+
 function substitute(
-  rule: ParsedRule,
+  rule: Substitution,
   match: string,
-  groups: string[],
-  named: Record<string, string> | undefined,
-  offset: number
+  named: Record<string, string> | undefined
 ): string {
   if (rule.replacement === '\\') return reverseText(match)
   if (rule.replacement === '2') return match + match
   if (rule.replacement === '') return ''
   let pos = 0
   if (rule.targetClass) {
-    const captured = groups[offset + rule.targetGroup - 1] ?? ''
+    // 目标里第一个音类是命名组 tc（见 parse.ts 的 expand）
+    const captured = named?.tc ?? ''
     pos = rule.targetClass.members.indexOf(captured)
     if (pos < 0) pos = 9999
   }
@@ -63,25 +72,72 @@ function substitute(
   return out
 }
 
+/** 各个排除环境命中的范围 */
+function exclusionRanges(excludes: RegExp[], input: string): [number, number][] {
+  return excludes.flatMap((re) =>
+    [...input.matchAll(re)].map((m): [number, number] => [m.index, m.index + m[0].length])
+  )
+}
+
+/** 这个匹配有没有整个落在排除范围里 */
+const excluded = (ranges: [number, number][], start: number, end: number): boolean =>
+  ranges.some(([s, e]) => start >= s && end <= e)
+
+/**
+ * if-else 规则：满足环境的 x1 改成 a，其余位置的 x2 改成 b。两路都按改之前的词判断、一次改完，
+ * 满足环境那一路先占位置，另一路跟它重叠的不改。
+ */
+function applyBranches(branches: NonNullable<ParsedRule['branches']>, input: string): string {
+  const spans: { start: number; end: number; out: string }[] = []
+  const free = (start: number, end: number): boolean =>
+    spans.every((x) =>
+      start === end
+        ? !(x.start < start && start < x.end)
+        : x.start === x.end
+          ? !(start < x.start && x.start < end)
+          : end <= x.start || start >= x.end
+    )
+  const take = (branch: RuleBranch, m: RegExpExecArray | RegExpMatchArray): void => {
+    const start = m.index ?? 0
+    const end = start + m[0].length
+    if (!free(start, end)) return
+    spans.push({ start, end, out: substitute(branch, m[0], m.groups) })
+  }
+  const inContext = (c: CompiledContext): RegExpMatchArray[] => {
+    const ranges = exclusionRanges(c.excludes, input)
+    return [...input.matchAll(c.main)].filter(
+      (m) => !excluded(ranges, m.index ?? 0, (m.index ?? 0) + m[0].length)
+    )
+  }
+  for (const c of branches.then.compiled) for (const m of inContext(c)) take(branches.then, m)
+  // x2 满足环境的位置：留给上面那一路（改不改看 x1），这里不动
+  const inside = new Set<number>()
+  for (const c of branches.otherwise.compiled)
+    for (const m of inContext(c)) inside.add(m.index ?? 0)
+  for (const m of input.matchAll(branches.otherwise.anywhere))
+    if (m[0].length && !inside.has(m.index ?? 0)) take(branches.otherwise, m)
+  if (!spans.length) return input
+  spans.sort((a, b) => a.start - b.start || a.end - b.end)
+  let out = ''
+  let pos = 0
+  for (const s of spans) {
+    out += input.slice(pos, s.start) + s.out
+    pos = s.end
+  }
+  return out + input.slice(pos)
+}
+
 function applyRule(rule: ParsedRule, input: string): string {
+  if (rule.branches) return applyBranches(rule.branches, input)
   let current = input
-  for (const { main, exclude, offset: groupOffset } of rule.compiled) {
-    let ranges: [number, number][] = []
-    if (exclude) {
-      exclude.lastIndex = 0
-      let m: RegExpExecArray | null
-      while ((m = exclude.exec(current)) !== null) {
-        ranges.push([m.index, m.index + m[0].length])
-        if (m[0].length === 0) exclude.lastIndex++
-      }
-    } else ranges = []
+  for (const { main, excludes } of rule.compiled) {
+    const ranges = exclusionRanges(excludes, current)
     current = current.replace(main, (...args: unknown[]) => {
       const match = args[0] as string
       // 最后两个（或三个，若有命名组）参数是 offset 与整串
       let offsetIdx = args.length - 2
       if (typeof args[args.length - 1] === 'object') offsetIdx = args.length - 3
       const offset = args[offsetIdx] as number
-      const groups = args.slice(1, offsetIdx) as string[]
       const named =
         typeof args[args.length - 1] === 'object'
           ? (args[args.length - 1] as Record<string, string>)
@@ -90,7 +146,7 @@ function applyRule(rule: ParsedRule, input: string): string {
         const end = offset + match.length
         for (const [s, e] of ranges) if (offset >= s && end <= e) return match
       }
-      return substitute(rule, match, groups, named, groupOffset)
+      return substitute(rule, match, named)
     })
   }
   return current

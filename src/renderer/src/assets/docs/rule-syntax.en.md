@@ -5,13 +5,13 @@ Everywhere Qonlang takes "rules" — sound-change rule sets, orthographies, scri
 ## One rule {#rule}
 
 ```
-target > replacement / environment , environment … - exclusion
+target > replacement / environment , environment … - exclusion , exclusion …
 ```
 
 - **Target**: what to change. Leave it empty to **insert** at the environment (`> e / #_CC`).
 - **Replacement**: what it becomes. Leave it empty to **delete** (`h > / V_V`).
 - **Environment**: `_` marks where the target sits; write what must come before it on the left and after it on the right. Either side may be empty, but `_` may not be omitted. Without `/` the rule applies everywhere. Separate several environments with `,`; they apply one after another.
-- **Exclusion**: after `-`, an environment where nothing changes (`p > pp / V_V - _#`).
+- **Exclusion**: after `-`, an environment where nothing changes (`p > pp / V_V - _#`); separate several with `,` — a match inside any of them is left alone (`p > b / V_V - a_a , o_o`).
 
 Rules apply top to bottom, and each rule matches repeatedly from left to right across the word. `;` starts a comment.
 
@@ -36,7 +36,7 @@ Classes and multigraphs defined on the Phonology page are available everywhere; 
 | `C1`, `C2`, `V1`… | numbered class: **within one rule, the same number is the same sound** | `_C1C1`: followed by **the same consonant twice** |
 | `(x)` | optional | `#(C)V_` |
 | `x\|y` | either | `#\|C_` word-initially or after a consonant |
-| `?` | any number of sounds in between | `A > e / Front?_` |
+| `?` | (in environments; for `?` in the target or replacement see "Inside / outside the environment" below) any number of sounds in between | `A > e / Front?_` |
 | `@name` | a morpheme (by gloss or form); members are all its allomorphs | `@PL > @PL.weak / V_` |
 | `t.h` | a dot keeps two letters from being read as a multigraph | |
 | `¢` | compound-internal boundary (an ordinary symbol; delete it at the end: `¢ > / _`) | |
@@ -53,6 +53,22 @@ Numbers only count within one rule: `C1C2` is two consonants (same or different)
 | `\` | metathesis (longer matches are reversed) | `bm > \ / _` |
 | `2` | write the target twice | `p > 2 / V_V` |
 | empty | delete | `h > / V_V` |
+
+## Inside / outside the environment {#ifelse}
+
+One `?` in the target or the replacement splits a rule in two: before the `?` is what happens **inside** the environment, after it what happens **outside**.
+
+| Notation | Meaning | Example |
+|---|---|---|
+| `x > a?b / env` | x inside the environment becomes a, every other x becomes b | `p > b?f / V_V`: p between vowels becomes b, p elsewhere becomes f |
+| `x1?x2 > a?b / env` | x1 inside the environment becomes a; wherever the environment does not hold, x2 becomes b | `t?d > s?z / _i`: t before i becomes s, d not before i becomes z |
+| `x1?x2 > a / env` | x1 inside becomes a, x2 outside becomes a | `p?b > f / V_V` |
+
+- a and b can be any replacement: class correspondence (`[ptk] > [bdg]?[fθx] / V_V`), `\` metathesis, `2` doubling, empty for deletion. Metathesis inside and doubling outside is `\?2`.
+- "Inside" means one of the environments matches and no exclusion does; every other position is "outside".
+- Both halves look at the word as it was before the rule and change it in one go, so what one half writes is never changed again by the other; where both could apply, the inside half wins.
+- The target and the replacement may each hold one `?`; in environments `?` still means "any number of sounds in between". Write `\?` for a literal question mark.
+- Without an environment every position counts as inside, so the half after `?` never applies (you get a warning).
 
 ## Where it is used {#places}
 

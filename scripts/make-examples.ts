@@ -165,7 +165,7 @@ function makeAelith(): void {
   const p = createProject({
     name: 'Aelith',
     template: 'family',
-    appVersion: '0.7.3',
+    appVersion: '0.8.1',
     uiLocale: 'zh'
   })
   p.meta.author = '千语集示例'
@@ -705,21 +705,20 @@ function makeAelith(): void {
   const protoRs = createRuleSet(
     'Proto → Aelith',
     [
-      '; 祖语到现代语：词尾 u 降为 o，前元音环境里 o 变 ö，s 在元音间浊化为 v',
+      '; 祖语到现代语：词尾 u 降为 o（k、g 后面不降，两个排除）；词尾闭音节里的 o 前化为 ö；',
+      '; θ 在词首变 t、在别处变 s（满足 / 不满足环境两路写成一条）',
       'th|θ',
       'C=ptkbdgmnsvrljwθ',
       'V=aeiouöü',
       '-* 祖语',
-      'u > o / _#',
-      'o > ö / _[^aeiou]*[ei]',
-      'o > ö / [ei][^aeiou]*_',
-      's > v / V_V',
-      'θ > t',
+      'u > o / _# - k_ , g_',
+      'o > ö / _C#',
+      'θ > t?s / #_',
       '-* 现代语'
     ].join('\n')
   )
   protoRs.notes = '「整库演化」用它把祖语的语素表整体推到 Aelith 词库。'
-  protoRs.testWords = 'kasu\nteli\nnol\nkel\nsor\nkara\nθura'
+  protoRs.testWords = 'kasu\nteli\nnol\nkel\nsor\nkara\nθura\nmetha\ntaku'
   protoRs.stageLanguages = { 祖语: P.id, 现代语: L.id }
   p.ruleSets.push(protoRs)
 
@@ -1058,7 +1057,7 @@ function makeAelith(): void {
     '- **语言**：语系树（Proto-Aelith → Aelith）、方言、字母表',
     '- **音系**：音位与特征、由特征生成的音类、多合字母、两套正字法、音节与重音、配列与造词',
     '- **文字**：卢恩刻文、映射规则、手填的文字写法',
-    '- **音变**：两套规则集，阶段绑定语言，测试台词表',
+    '- **音变**：两套规则集，阶段绑定语言，测试台词表；「Proto → Aelith」里有满足 / 不满足环境两路的规则（`θ > t?s / #_`：词首变 t、别处变 s）和带两个排除的规则（`u > o / _# - k_ , g_`），整库演化推出来的正是词库里的 kaso、nöl、sör-',
     '- **语素**：词根 / 前缀 / 后缀 / 中缀 / 环缀 / 附着词 / 小品词，异体形环境，词源',
     '- **词库**：多义项、一个义项几个语域（dünar）、方言、标签、维度、复合词类与义项自己的词类（kara）、词干槽、词源链（词根 / 复合 / 派生 / 音变 / 借词 / 自己写的类别「仿译」）、自定义关系种类（押韵）、配图、手改发音',
     '- **检视器模块**：「词类与维度」最下面定义的「文化注释」与「刻文异体」（用刻文的字体显示），打开 kaso、nöl、sepe 看',
@@ -1099,7 +1098,7 @@ function makeAelith(): void {
   ].join('\n')
   const protoDoc = createDoc(P.id, '祖语拟构说明')
   protoDoc.markdown =
-    '# 祖语拟构说明\n\n词根表在「语素」页；「音变 → Proto → Aelith」给出到现代语的规则，用「整库演化」可以整表推导。'
+    '# 祖语拟构说明\n\n词根表在「语素」页；「音变 → Proto → Aelith」给出到现代语的规则，用「整库演化」可以整表推导：词尾 u 降为 o（*kasu → kaso，k、g 后面不降），词尾闭音节的 o 前化为 ö（*nol → nöl、*sor → sör-），θ 在词首变 t、在别处变 s（*θura → tura）。'
   p.docs.push(about, grammar, protoDoc)
 
   // ── 缩写表、导出模板、默认列 ──
@@ -1150,7 +1149,7 @@ function makeTsahun(): void {
   const p = createProject({
     name: 'Tsahun',
     template: 'blank',
-    appVersion: '0.7.3',
+    appVersion: '0.8.1',
     uiLocale: 'zh'
   })
   p.meta.author = '千语集示例'
@@ -1166,6 +1165,8 @@ function makeTsahun(): void {
   const rom = L.orthographies[0]
   rom.name = '罗马化'
   rom.rulesToIpa = [
+    '; 连读变调：35 调后面还接着音节时读 33（叠词前一个音节），否则仍是 35——满足 / 不满足环境两路写成一条',
+    '35 > ˧?˧˥ / _C , _V',
     '; 数字调 → 五度标调字母',
     'ts > t͡s',
     'ng > ŋ',
@@ -1560,7 +1561,7 @@ function makeTsahun(): void {
     '',
     'Tsahun 是虚构的孤立声调语，与另一个示例 **Aelith** 互补，专门展示这些功能：',
     '',
-    '- **声调**：韵律类型选「声调」，五个调各有调符与数字',
+    '- **声调**：韵律类型选「声调」，五个调各有调符与数字；罗马化转 IPA 的第一条是连读变调 `35 > ˧?˧˥ / _C , _V`（满足 / 不满足环境两路），叠词 lun35lun35 读 lun˧lun˧˥',
     '- **双正字法**：罗马化（数字标调）与西里尔正字，例句可以并列两种写法',
     '- **文字**：音节文字的**拼合**（辅音+元音自动拼格，尾辅音用消音符）与**竖排显示**',
     '- **构形**：孤立语也有构形——重叠出复数与强调；代词复数后面空一格接 `@tui55`（语素表里没有就引用同名词条），推出带空格的 `ngo21 tui55`',
@@ -1575,6 +1576,8 @@ function makeTsahun(): void {
     '',
     '## 声调',
     '五个声调：55 高平、35 升、21 低降、51 降、33 中平。同音节异调是不同的词：[[tsa55]]「水」/ [[tsa21]]「火」。',
+    '',
+    '连读变调：35 调后面还接着音节时读 33，所以叠词 `lun35lun35` 读 lun˧lun˧˥。',
     '',
     '## 语序',
     'SVO；领属用 ka55 连接：`ta51 ka55 wa55` 他的房子。',

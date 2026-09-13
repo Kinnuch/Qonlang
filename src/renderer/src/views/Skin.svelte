@@ -43,6 +43,7 @@
   } from '@lucide/svelte'
   import { newId } from '$lib/core/factory'
   import { interlinear } from '$lib/engine/gloss'
+  import { ensureScriptFont, fontFamilyCss } from '$lib/script/fonts'
   import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -311,6 +312,19 @@
       ? interlinear(projectState.project, previewSentence)
       : null
   )
+  /** 文字行是哪套文字：用它自己的字体（内嵌字体先注册），不然私用区字形会显示成方框 */
+  const previewScript = $derived.by(() => {
+    const id = previewLines?.scripts[0]?.scriptId
+    if (!id) return null
+    for (const lg of projectState.project?.languages ?? []) {
+      const sc = lg.scripts.find((x) => x.id === id)
+      if (sc) return sc
+    }
+    return null
+  })
+  $effect(() => {
+    if (previewScript) ensureScriptFont(previewScript)
+  })
   const previewWords = $derived(
     previewLines
       ? previewLines.words.map((w) => ({ morphs: w.morphs, gloss: w.gloss }))
@@ -653,7 +667,12 @@
             ? '孩子们在房子里睡了。'
             : 'The children slept in the house.'}
       </div>
-      <div class="pv-scr" use:pvMark={pvp('font:script')} title={t('skin.fontSlots.script')}>
+      <div
+        class="pv-scr"
+        use:pvMark={pvp('font:script')}
+        title={t('skin.fontSlots.script')}
+        style={previewScript ? fontFamilyCss(previewScript) : undefined}
+      >
         {previewLines
           ? (previewLines.scripts[0]?.text ?? previewSentence?.text)
           : 'ᛁᛚᛖᚾᛚᛖᚱ ᚲᚨᛊᛟᛞᚨ ᛃᚨᛏᛞᚢ'}

@@ -97,9 +97,9 @@ const en: Dict = {
     exampleOpened: 'Opened the example project “{name}”',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: proto-to-modern family, vowel harmony, all eight pipeline steps, variants and inheritance, several paradigms per part of speech, letters that change by gender, sandhi undone in the corpus, compound parts of speech, inspector modules, etymology chains and the relation graph, glossed corpus, runic script.',
+        'Agglutinative a priori language: proto-to-modern family (with inside/outside if-else sound changes), vowel harmony, all eight pipeline steps, variants and inheritance, several paradigms per part of speech, letters that change by gender, sandhi undone in the corpus, compound parts of speech, inspector modules, etymology chains and the relation graph, glossed corpus, runic script.',
       tsahun:
-        'Isolating tone language: five tones, Latin and Cyrillic orthographies, syllabary packing and vertical layout, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font.'
+        'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies, syllabary packing and vertical layout, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font.'
     },
     coffee: 'Buy me a coffee',
     changelog: 'Changelog',

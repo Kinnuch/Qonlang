@@ -22,6 +22,8 @@
     w: number
   }
   interface Edge {
+    /** 规则行号；if-else 规则两条边同一行，用 key 区分 */
+    key: string
     line: number
     from: string
     to: string
@@ -74,22 +76,31 @@
         continue
       }
       if (col < 0) continue
-      const from = getNode(col, step.target)
-      const to = getNode(
-        Math.min(col + 1, columns.length - 1),
-        step.replacement === '\\'
-          ? step.target.split('').reverse().join('')
-          : step.replacement === '2'
-            ? step.target + step.target
-            : step.replacement
-      )
-      edges.push({
-        line: step.line,
-        from: from.id,
-        to: to.id,
-        rule: step,
-        ordinal: ordinals.get(step.line) ?? 0
-      })
+      const paths = step.branches
+        ? [
+            { key: `${step.line}:then`, ...step.branches.then },
+            { key: `${step.line}:else`, ...step.branches.otherwise }
+          ]
+        : [{ key: String(step.line), target: step.target, replacement: step.replacement }]
+      for (const b of paths) {
+        const from = getNode(col, b.target)
+        const to = getNode(
+          Math.min(col + 1, columns.length - 1),
+          b.replacement === '\\'
+            ? b.target.split('').reverse().join('')
+            : b.replacement === '2'
+              ? b.target + b.target
+              : b.replacement
+        )
+        edges.push({
+          key: b.key,
+          line: step.line,
+          from: from.id,
+          to: to.id,
+          rule: step,
+          ordinal: ordinals.get(step.line) ?? 0
+        })
+      }
     }
     // 重心排序：按前驱平均位置排每一列
     const pos = new Map<string, number>()
@@ -166,7 +177,7 @@
           class="sep"
         />
       {/each}
-      {#each graph.edges as e (e.line)}
+      {#each graph.edges as e (e.key)}
         <path
           d={path(e)}
           class="edge"
@@ -193,7 +204,7 @@
           <text x={n.w / 2} y="4">{n.label}</text>
         </g>
       {/each}
-      {#each graph.edges as e (e.line + 'l')}
+      {#each graph.edges as e (e.key + 'l')}
         {#if selectedLine === e.line || hover === e.line}
           {@const a = graph.nodeById.get(e.from)!}
           {@const b = graph.nodeById.get(e.to)!}

@@ -190,7 +190,7 @@
     target: '',
     replacement: '',
     contexts: [{ left: '', right: '' }],
-    exception: null,
+    exceptions: [],
     comment: ''
   })
   let lastField = $state<HTMLInputElement | null>(null)
@@ -209,7 +209,7 @@
       target: r.target,
       replacement: r.replacement,
       contexts: r.contexts.map((c) => ({ ...c })),
-      exception: r.exception ? { ...r.exception } : null,
+      exceptions: r.exceptions.map((c) => ({ ...c })),
       comment: r.comment
     }
     if (draft.contexts.length === 0) draft.contexts = [{ left: '', right: '' }]
@@ -227,7 +227,7 @@
       target: '',
       replacement: '',
       contexts: [{ left: '', right: '' }],
-      exception: null,
+      exceptions: [],
       comment: ''
     }
   }
@@ -396,37 +396,37 @@
         <button class="btn ghost sm" onclick={() => draft.contexts.push({ left: '', right: '' })}
           ><Plus size={14} />{t('soundChanges.addContext')}</button
         >
-        {#if !draft.exception}
-          <button class="btn ghost sm" onclick={() => (draft.exception = { left: '', right: '' })}
-            ><Plus size={14} />{t('soundChanges.addException')}</button
-          >
-        {/if}
+        <button class="btn ghost sm" onclick={() => draft.exceptions.push({ left: '', right: '' })}
+          ><Plus size={14} />{t('soundChanges.addException')}</button
+        >
       </div>
     </div>
 
-    {#if draft.exception}
+    {#if draft.exceptions.length}
       <div class="form-block">
         <span class="small muted">{t('soundChanges.exception')}</span>
-        <div class="ctx-row">
-          <input
-            class="input data"
-            placeholder={t('soundChanges.leftEnv')}
-            bind:value={draft.exception.left}
-            onfocus={(e) => (lastField = e.currentTarget)}
-          />
-          <span class="mono">_</span>
-          <input
-            class="input data"
-            placeholder={t('soundChanges.rightEnv')}
-            bind:value={draft.exception.right}
-            onfocus={(e) => (lastField = e.currentTarget)}
-          />
-          <button
-            class="btn ghost icon sm"
-            title={t('common.delete')}
-            onclick={() => (draft.exception = null)}><X size={14} /></button
-          >
-        </div>
+        {#each draft.exceptions as ex, i (i)}
+          <div class="ctx-row">
+            <input
+              class="input data"
+              placeholder={t('soundChanges.leftEnv')}
+              bind:value={ex.left}
+              onfocus={(e) => (lastField = e.currentTarget)}
+            />
+            <span class="mono">_</span>
+            <input
+              class="input data"
+              placeholder={t('soundChanges.rightEnv')}
+              bind:value={ex.right}
+              onfocus={(e) => (lastField = e.currentTarget)}
+            />
+            <button
+              class="btn ghost icon sm"
+              title={t('common.delete')}
+              onclick={() => draft.exceptions.splice(i, 1)}><X size={14} /></button
+            >
+          </div>
+        {/each}
       </div>
     {/if}
 
@@ -721,8 +721,8 @@
                     >
                     <span class="muted">/</span>
                     <span class="ctx">{describeCtx(r)}</span>
-                    {#if r.exception}<span class="muted">−</span><span class="exc"
-                        >{r.exception.left}_{r.exception.right}</span
+                    {#if r.exceptions.length}<span class="muted">−</span><span class="exc"
+                        >{r.exceptions.map((c) => `${c.left}_${c.right}`).join(' , ')}</span
                       >{/if}
                   {/if}
                 </span>

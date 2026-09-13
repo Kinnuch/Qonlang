@@ -173,7 +173,7 @@ function splitAbbr(cell: string): { name: string; abbr: string } | null {
 const p: Project = createProject({
   name: '瑟乌丝林语',
   template: 'blank',
-  appVersion: '0.4.0',
+  appVersion: '0.8.1',
   uiLocale: 'zh'
 })
 p.languages = []
