@@ -12,6 +12,7 @@ import {
 } from 'electron'
 import { join, basename, dirname } from 'path'
 import { promises as fs, existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
+import type { AppUpdater } from 'electron-updater'
 import { spawn } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -254,6 +255,18 @@ function isInstalled(): boolean {
 }
 
 /**
+ * 用到时才加载 electron-updater。打出来的主进程是 CommonJS，electron-updater 的 autoUpdater 是个 getter，
+ * 动态 import 时拿不到这个具名导出，只挂在 default 上（直接解构会是 undefined）。
+ */
+async function loadAutoUpdater(): Promise<AppUpdater> {
+  const mod = await import('electron-updater')
+  return (
+    mod.autoUpdater ??
+    (mod as unknown as { default: { autoUpdater: AppUpdater } }).default.autoUpdater
+  )
+}
+
+/**
  * 增量更新，只用在装过的 Windows 版上：electron-updater 拿上次安装时 NSIS 自己存下的安装包
  * （%LOCALAPPDATA%\<名字>-updater\installer.exe）跟新旧两版的 .blockmap 比对，只下载变了的块，
  * 拼出新的安装包。拼好的整个文件按 latest.yml 里的 sha512 校验，对不上或者中间出任何错，
@@ -264,7 +277,7 @@ function isInstalled(): boolean {
 async function downloadWithUpdater(version: string): Promise<string | null> {
   if (process.platform !== 'win32' || !app.isPackaged || !isInstalled()) return null
   if (!existsSync(join(process.resourcesPath, 'app-update.yml'))) return null
-  const { autoUpdater } = await import('electron-updater')
+  const autoUpdater = await loadAutoUpdater()
   const log: string[] = [`${new Date().toISOString()} ${app.getVersion()} → ${version}`]
   const note = (m: unknown): void => void log.push(String(m))
   autoUpdater.logger = { info: note, warn: note, error: note, debug: () => {} }
