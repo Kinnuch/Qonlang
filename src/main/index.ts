@@ -11,7 +11,7 @@ import {
   type MenuItemConstructorOptions
 } from 'electron'
 import { join, basename, dirname } from 'path'
-import { promises as fs, existsSync, readFileSync, writeFileSync } from 'fs'
+import { promises as fs, existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import { spawn } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -241,9 +241,17 @@ async function checkUpdate(): Promise<UpdateInfo | null> {
 
 const updateDir = (): string => join(app.getPath('temp'), 'qonlang-update')
 
-/** 这份千语集是不是用安装包装的（旁边有卸载程序）；解压直接运行的不算 */
-const isInstalled = (): boolean =>
-  existsSync(join(dirname(process.execPath), `Uninstall ${app.getName()}.exe`))
+/**
+ * 这份千语集是不是用安装包装的（旁边有卸载程序）；解压直接运行的不算。
+ * 卸载程序的名字跟着可执行文件名走（Uninstall Qonlang.exe），不写死，认「Uninstall 开头的 exe」
+ */
+function isInstalled(): boolean {
+  try {
+    return readdirSync(dirname(process.execPath)).some((f) => /^Uninstall .+\.exe$/i.test(f))
+  } catch {
+    return false
+  }
+}
 
 /**
  * 增量更新，只用在装过的 Windows 版上：electron-updater 拿上次安装时 NSIS 自己存下的安装包
