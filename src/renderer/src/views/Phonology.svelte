@@ -35,6 +35,7 @@
     checkWord,
     languageParseOptions,
     phonemeFeatures,
+    phonotacticsFromInventory,
     type Violation
   } from '$lib/engine/phon'
   import { parseRuleText, runRules, type RuleProgram } from '$lib/engine/sca'
@@ -47,6 +48,8 @@
   import { Plus, Trash2, X, Wand2, RefreshCw, Copy, List, Code, Check } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
+  import { sortable } from '$lib/ui/sortable.svelte'
+  import { moveById, moveItem } from '$lib/core/move'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -366,18 +369,47 @@
     lang.phonotactics.weights = w
     touch()
   }
-  function fillFromInventory(): void {
+  /** 按音位表填起首、音节核、尾音：空着的直接填，已经有内容的问过再重填，结果用提示条说清楚 */
+  async function fillFromInventory(): Promise<void> {
     if (!lang) return
-    const cons = lang.phonemes
-      .filter((p) => phonemeFeatures(p).type === 'consonant')
-      .map((p) => p.symbol)
-    const vow = lang.phonemes
-      .filter((p) => phonemeFeatures(p).type === 'vowel')
-      .map((p) => p.symbol)
-    if (!lang.phonotactics.onsets.length) lang.phonotactics.onsets = cons
-    if (!lang.phonotactics.nuclei.length) lang.phonotactics.nuclei = vow
-    if (!lang.phonotactics.codas.length) lang.phonotactics.codas = cons
+    const target = lang
+    const next = phonotacticsFromInventory(target)
+    const pt = target.phonotactics
+    const keys = (['onsets', 'nuclei', 'codas'] as const).filter((k) => next[k].length)
+    if (!keys.length) {
+      ui.toast(t('phonology.fillNone'))
+      return
+    }
+    const sameSet = (a: string[], b: string[]): boolean =>
+      a.length === b.length && new Set([...a, ...b]).size === a.length
+    const changed = keys.filter((k) => !sameSet(pt[k], next[k]))
+    const names = (ks: readonly string[]): string =>
+      ks.map((k) => t(`phonology.${k}`)).join(t('phonology.listSep'))
+    const unknownNote = next.unknown.length
+      ? t('phonology.fillUnknown', { list: next.unknown.join(' ') })
+      : ''
+    if (!changed.length) {
+      ui.toast(t('phonology.fillSame') + unknownNote)
+      return
+    }
+    const overwrite = changed.filter((k) => pt[k].length)
+    if (
+      overwrite.length &&
+      !(await ui.confirm(
+        t('phonology.refillTitle', { lists: names(overwrite) }),
+        t(overwrite.length < changed.length ? 'phonology.refillBodyEmpty' : 'phonology.refillBody'),
+        t('phonology.refillOk')
+      ))
+    )
+      return
+    for (const k of changed) pt[k] = [...next[k]]
     touch()
+    const counts = changed
+      .map((k) => t('phonology.fillCount', { list: t(`phonology.${k}`), n: next[k].length }))
+      .join(t('phonology.listSep'))
+    ui.toast(t('phonology.filled', { lists: counts }) + unknownNote, {
+      timeout: next.unknown.length ? 8000 : 4000
+    })
   }
   /** 词条的读音：主正字法下手填或推导的 IPA，都没有就按主正字法转一遍，再不行用词头 */
   function ipaOf(l: Lexeme, primary: Orthography | undefined): string {
@@ -536,10 +568,13 @@
               <div class="inv-row">
                 <span class="small muted lbl">{t(`phonology.group.${g}`)}</span>
                 <div class="chips">
-                  {#each ps as p (p.id)}
+                  {#each ps as p, pi (p.id)}
                     <button
                       class="chip data"
                       class:active={selectedPhoneme === p.id}
+                      {...sortable(`phonemes-${g}`, pi, (from, to) => {
+                        if (lang && moveById(lang.phonemes, ps[from].id, ps[to].id)) touch()
+                      })}
                       onclick={() => (selectedPhoneme = p.id)}>{p.symbol}</button
                     >
                   {/each}
@@ -698,10 +733,13 @@
   {:else if tab === 'orthography'}
     <div class="scroll ortho">
       <div class="row wrap">
-        {#each lang.orthographies as o (o.id)}
+        {#each lang.orthographies as o, oi (o.id)}
           <button
             class="chip big"
             class:active={ortho?.id === o.id}
+            {...sortable(`orthos-${lang.id}`, oi, (from, to) => {
+              if (lang && moveItem(lang.orthographies, from, to)) touch()
+            })}
             onclick={() => (selectedOrtho = o.id)}
             >{o.name}{#if o.isPrimary}<span class="badge accent">{t('phonology.primary')}</span
               >{/if}</button

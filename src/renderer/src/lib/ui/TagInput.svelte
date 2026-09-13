@@ -1,6 +1,8 @@
 <script lang="ts">
   /** 标签输入：芯片 + 输入框，回车 / 逗号提交，退格删最后一个，带已有标签提示 */
   import { X } from '@lucide/svelte'
+  import { sortable } from '$lib/ui/sortable.svelte'
+  import { moveItem } from '$lib/core/move'
 
   let {
     tags = $bindable<string[]>([]),
@@ -17,6 +19,9 @@
 
   let text = $state('')
   const listId = `tags-${Math.random().toString(36).slice(2, 8)}`
+  function reorder(from: number, to: number): void {
+    if (moveItem(tags, from, to)) onchange?.(tags)
+  }
 
   function commit(): void {
     const parts = text
@@ -45,7 +50,7 @@
 
 <div class="tags input">
   {#each tags as tg, i (tg + i)}
-    <span class="tagchip"
+    <span class="tagchip" {...sortable(listId, i, reorder)}
       >{tg}<button type="button" aria-label="remove" onclick={() => remove(i)}
         ><X size={11} /></button
       ></span

@@ -75,4 +75,22 @@ describe('parentheses right after a part-of-speech marker', () => {
     expect(tiru.senses.map((s) => s.definition.en)).toEqual(['(+ abs.) across', 'very'])
     expect(vena.senses[0].definition.en).toBe('lizard (a small one)')
   })
+
+  it('can be switched off: parentheses then stay in the text and are not listed', () => {
+    const p = blank()
+    const m = mappingFor(p)
+    m.parenMarkers = false
+    expect(findMarkers(rows, m)).toEqual([])
+    m.posMarkers = Object.fromEntries(
+      findPosMarkers(rows, m).map((s) => [s.label, defaultPosRule(s.label, p.posList, 'en')])
+    )
+    // 老预设里留着的同名标记也不再从小括号里认
+    m.senseMarkers = { archaic: { action: 'register', value: 'archaic' } }
+    applyCsvImport(p, rows, m)
+    const sema = p.lexemes[1]
+    expect(sema.senses.map((s) => [s.definition.en, s.registers])).toEqual([
+      ['(slang, vulgar) nose', []],
+      ['(archaic) snout', []]
+    ])
+  })
 })

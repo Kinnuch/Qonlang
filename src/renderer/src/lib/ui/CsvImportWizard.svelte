@@ -281,7 +281,8 @@
       sensePrefixMap: '',
       senseCodes: cleanCodeRules($state.snapshot(mapping.senseCodes)),
       senseMarkers: effectiveMarkers(),
-      posMarkers: effectivePosMarkers()
+      posMarkers: effectivePosMarkers(),
+      parenMarkers: mapping.parenMarkers !== false
     }
     ui.prefs.csvPresets = [...ui.prefs.csvPresets.filter((p) => p.name !== preset.name), preset]
     void ui.savePrefs()
@@ -302,6 +303,7 @@
     }
     mapping.senseMarkers = cleanMarkerRules(p.senseMarkers)
     mapping.posMarkers = cleanPosRules(p.posMarkers)
+    mapping.parenMarkers = p.parenMarkers ?? true
     mapping.columns = mapping.columns.map(
       (_, i) => (p.columns[keyFor(i)] as FieldSpec | undefined) ?? { kind: 'ignore' }
     )
@@ -566,6 +568,21 @@
       <label class="row check"
         ><input type="checkbox" bind:checked={mapping.splitSenses} />{t('csv.splitSenses')}</label
       >
+      {#if mapping.target === 'lexemes'}
+        <!-- 问号放在 label 外面：点它不会顺手勾掉选项 -->
+        <div class="row check-help">
+          <label class="row check"
+            ><input
+              type="checkbox"
+              checked={mapping.parenMarkers !== false}
+              onchange={(e) => {
+                if (mapping) mapping.parenMarkers = (e.currentTarget as HTMLInputElement).checked
+              }}
+            />{t('csv.parenMarkers')}</label
+          >
+          <HelpDot tip={t('csv.parenMarkersHint')} />
+        </div>
+      {/if}
     </div>
 
     {#if codeStats.length}
@@ -830,6 +847,10 @@
   .check {
     gap: 8px;
     padding-bottom: 6px;
+  }
+  .check-help {
+    gap: 2px;
+    align-items: baseline;
   }
   .preset {
     gap: 8px;

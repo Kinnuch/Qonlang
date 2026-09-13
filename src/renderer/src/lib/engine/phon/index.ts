@@ -306,6 +306,9 @@ export function languageParseOptions(
   }
 }
 
+const VOWEL_CLASS = /^(V|Vowel|Vowels|元音|N|Nucleus)$/i
+const CONSONANT_CLASS = /^(C|Consonant|Consonants|辅音)$/i
+
 /** 音位表里可作音节核的音段：syllabic 特征为 yes，或属于名为 V / Vowel / 元音 的音类 */
 export function nucleusSet(lang: Language): Set<string> {
   const s = new Set<string>()
@@ -313,10 +316,52 @@ export function nucleusSet(lang: Language): Set<string> {
     const f = phonemeFeatures(p)
     if (f.syllabic === 'yes' || f.type === 'vowel') s.add(p.symbol)
   }
-  for (const c of lang.classes)
-    if (/^(V|Vowel|Vowels|元音|N|Nucleus)$/i.test(c.name)) for (const m of c.members) s.add(m)
+  for (const c of lang.classes) if (VOWEL_CLASS.test(c.name)) for (const m of c.members) s.add(m)
   for (const n of lang.phonotactics.nuclei) s.add(n)
   return s
+}
+
+const kindOf = (f: Record<string, string>): 'vowel' | 'consonant' | null =>
+  f.syllabic === 'yes' || f.type === 'vowel' ? 'vowel' : f.type === 'consonant' ? 'consonant' : null
+
+/**
+ * 一个音位算元音（能作音节核）还是辅音：手填的特征 > 名为 V / C 的音类 > 按 IPA 表推断 >
+ * 表里没有的多字母写法（ng、aa）逐个字母推断，全是辅音算辅音、全是元音算元音。都看不出时返回 null。
+ */
+export function phonemeKind(lang: Language, p: Phoneme): 'vowel' | 'consonant' | null {
+  const own = kindOf(p.features)
+  if (own) return own
+  for (const c of lang.classes) {
+    if (!c.members.includes(p.symbol)) continue
+    if (VOWEL_CLASS.test(c.name)) return 'vowel'
+    if (CONSONANT_CLASS.test(c.name)) return 'consonant'
+  }
+  const inferred = kindOf(inferFeatures(p.symbol))
+  if (inferred) return inferred
+  const letters = Array.from(p.symbol.normalize('NFD')).filter((ch) => !/[\p{M}\p{Lm}]/u.test(ch))
+  if (letters.length < 2) return null
+  const kinds = new Set(letters.map((ch) => kindOf(inferFeatures(ch))))
+  return kinds.size === 1 ? [...kinds][0] : null
+}
+
+/** 按音位表推出的配列表：辅音作起首与尾音，元音作音节核；分不出的列在 unknown */
+export function phonotacticsFromInventory(lang: Language): {
+  onsets: string[]
+  nuclei: string[]
+  codas: string[]
+  unknown: string[]
+} {
+  const consonants: string[] = []
+  const vowels: string[] = []
+  const unknown: string[] = []
+  for (const p of lang.phonemes) {
+    if (!p.symbol) continue
+    const kind = phonemeKind(lang, p)
+    if (kind === 'vowel') vowels.push(p.symbol)
+    else if (kind === 'consonant') consonants.push(p.symbol)
+    else unknown.push(p.symbol)
+  }
+  return { onsets: consonants, nuclei: vowels, codas: [...consonants], unknown }
 }
 
 /** 用语言设置给一个 IPA 串划音节并标重音 */

@@ -423,6 +423,19 @@ kbd {
   color: var(--accent-text);
   font-weight: 600;
 }
+/* 拖着换顺序（lib/ui/sortable）：被拖的那个变淡，落点描一圈虚线；不插占位，免得挤开后面的来回抖 */
+[data-sort-dragging] {
+  opacity: 0.45;
+}
+[data-sort-over] {
+  outline: 1.5px dashed var(--accent);
+  outline-offset: 1px;
+}
+.booktabs [data-sort-over] {
+  outline-offset: -2px;
+  border-radius: 10px 10px 0 0;
+}
+
 /* 页签上的铅笔：平时不显示，鼠标放到页签上才出现，点了去检视器里改名 */
 .booktabs .tabwrap {
   position: relative;

@@ -915,6 +915,9 @@ const en: Dict = {
     skipEmpty: 'Skip rows with an empty lemma',
     splitArrow: 'When the lemma contains “A > B”, use B as lemma and A as proto-form',
     splitSenses: 'Split definitions into senses on semicolons (; ；)',
+    parenMarkers: 'Parentheses can be register markers too',
+    parenMarkersHint:
+      'When on, the parentheses right after a sense number (1. (arch.) dwelling) or a part-of-speech marker (n. (archaic) snout) are listed in the marker table below, and register-like ones default to registers. When off they always stay in the definition as written; only 【】〔〕[] style brackets count.',
     formatGuide: 'Format guide',
     formatGuideHint: 'Open the CSV column names, conventions and examples on the website',
     markers: 'Markers in words, definitions and notes',
@@ -1049,6 +1052,10 @@ const en: Dict = {
     importFontRun: 'Import glyphs',
     addGlyph: 'Add glyph',
     autoCategorize: 'Auto-categorize',
+    autoCategorized: 'Categorized: {parts}.',
+    autoCategorizedPart: '{cat} {n}',
+    autoCategorizedNone: 'There are no glyphs to categorize yet.',
+    autoCategorizedKept: ' {n} glyphs in categories you named yourself were left as they are.',
     glyph: 'Glyph',
     char: 'Character',
     name: 'Name',
@@ -1264,6 +1271,20 @@ const en: Dict = {
     sampleFromLexicon: 'First entries of the lexicon:',
     phonotactics: 'Phonotactics',
     fillFromInventory: 'Fill from inventory',
+    filled: 'Filled from the inventory: {lists}.',
+    fillCount: '{list} {n}',
+    listSep: ', ',
+    fillSame: 'Onsets, nuclei and codas already match the inventory; nothing changed.',
+    fillNone:
+      'No phoneme in the inventory can be told apart as a consonant or vowel yet. Add a few first.',
+    fillUnknown:
+      ' Could not tell whether {list} are consonants or vowels, so they were left out; set their type in the inventory.',
+    refillTitle: '{lists} already have entries. Refill from the inventory?',
+    refillBody:
+      'Refilling replaces them with every consonant (onsets, codas) and vowel (nuclei) in the inventory, so anything you removed on purpose has to be removed again. You can undo this.',
+    refillBodyEmpty:
+      'Refilling replaces them with every consonant (onsets, codas) and vowel (nuclei) in the inventory, so anything you removed on purpose has to be removed again; the empty lists are filled too. You can undo this.',
+    refillOk: 'Refill',
     onsets: 'Allowed onsets',
     nuclei: 'Allowed nuclei',
     codas: 'Allowed codas',
@@ -1324,6 +1345,17 @@ const en: Dict = {
       beforeLast: 'before the last segment'
     },
     slots: 'Slots',
+    layoutVisual: 'Visual',
+    layoutTable: 'Table',
+    layoutTree: 'Tree',
+    layoutWord:
+      'Cells show what the test bench word "{word}" becomes (pick another word in the test bench); the small print is how the cell is built. Click a cell to edit it in the visual view.',
+    layoutNoWord:
+      'No word in the test bench yet, so cells show how each one is built. Click a cell to edit it in the visual view.',
+    slotOff: 'Off',
+    slotHidden: 'This cell is filtered out by the search box; clear the search first.',
+    onlyStem: 'stem as is',
+    stemRef: '⟨{name}⟩',
     pipeline: 'Pipeline',
     addStep: 'Add step',
     expandAdjust: 'Expand / collapse',
@@ -1373,6 +1405,10 @@ const en: Dict = {
     makeDefault: 'Make default',
     alsoBound: 'also: {list}',
     boundTo: 'bound: {list}',
+    manySlotsTitle: 'That makes {n} slots',
+    manySlotsBody:
+      'More than {limit}. With this many slots the paradigm page, derivation and entry editing slow down, and tables are hard to take in. Add this dimension anyway?',
+    manySlotsOk: 'Add anyway',
     otherwise: 'otherwise',
     appliesToLanguage: 'Language it applies to',
     appliesToAll: 'Applies to all words (initial mutation, sandhi…)',

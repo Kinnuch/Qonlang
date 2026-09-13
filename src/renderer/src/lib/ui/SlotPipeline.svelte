@@ -8,6 +8,8 @@
   import type { Id, MorphStep, MorphStepKind, RuleSet } from '$lib/core/model'
   import { Plus, X, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from '@lucide/svelte'
   import { conditionVariants, hasConditions } from '$lib/engine/morph/conditions'
+  import { sortable } from '$lib/ui/sortable.svelte'
+  import { moveItem } from '$lib/core/move'
 
   let {
     stem = $bindable(),
@@ -33,6 +35,20 @@
   ]
 
   let adding = $state(false)
+  /**
+   * 「增加步骤」的菜单：鼠标移出按钮连同菜单的范围就收起。按钮和菜单之间有 4px 空隙，
+   * 收起前等一小会儿，移到菜单上就取消，免得还没够着菜单它就没了。
+   */
+  let closeTimer: ReturnType<typeof setTimeout> | null = null
+  function keepAdding(): void {
+    if (closeTimer) clearTimeout(closeTimer)
+    closeTimer = null
+  }
+  function closeAddingSoon(): void {
+    keepAdding()
+    closeTimer = setTimeout(() => (adding = false), 250)
+  }
+  $effect(() => keepAdding)
   /** 展开成多行的微调步骤 */
   let expanded = $state<string | null>(null)
 
@@ -65,6 +81,8 @@
     steps.splice(i, 1)
     onchange()
   }
+  /** 拖着换步骤顺序：每份流水线自己一组，不会拖到别的槽位里去 */
+  const sortGroup = `pipe-${newId()}`
   function move(i: number, dir: -1 | 1): void {
     const j = i + dir
     if (j < 0 || j >= steps.length) return
@@ -101,7 +119,12 @@
   </label>
   {#each steps as st, i (st.id)}
     <span class="arrow">→</span>
-    <div class="step">
+    <div
+      class="step"
+      {...sortable(sortGroup, i, (from, to) => {
+        if (moveItem(steps, from, to)) onchange()
+      })}
+    >
       <span class="tag">{t(`paradigms.steps.${st.kind}`)}</span>
       {#if st.kind === 'adjust'}
         {#if expanded === st.id}
@@ -218,7 +241,18 @@
     </div>
   {/each}
   <span class="arrow">→</span>
-  <div class="add">
+  <div
+    class="add"
+    role="presentation"
+    onmouseenter={keepAdding}
+    onmouseleave={closeAddingSoon}
+    onfocusout={(e) => {
+      if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) adding = false
+    }}
+    onkeydown={(e) => {
+      if (e.key === 'Escape') adding = false
+    }}
+  >
     <button class="btn ghost sm" onclick={() => (adding = !adding)}
       ><Plus size={13} />{t('paradigms.addStep')}</button
     >

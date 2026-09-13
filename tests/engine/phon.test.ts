@@ -8,7 +8,8 @@ import {
   checkWord,
   generateWords,
   analyzeWord,
-  nucleusSet
+  nucleusSet,
+  phonotacticsFromInventory
 } from '$lib/engine/phon'
 import { inferFeatures } from '$lib/ipa/features'
 import { createLanguage } from '$lib/core/factory'
@@ -135,5 +136,44 @@ describe('language-level analysis', () => {
       'tsa.ki.ˈta'.replace('ˈta', 'ta').replace('ki', 'ˈki')
     )
     expect(analyzeWord(L, 'tsakita').segments).toEqual(['ts', 'a', 'k', 'i', 't', 'a'])
+  })
+})
+
+describe('phonotacticsFromInventory', () => {
+  const ph = (symbol: string, features: Record<string, string> = {}) => ({
+    id: symbol,
+    symbol,
+    features,
+    graphemes: {},
+    notes: ''
+  })
+
+  it('splits the inventory into consonants and vowels, including symbols the IPA chart lacks', () => {
+    const L = createLanguage({ name: 'x' })
+    L.phonemes = [
+      ph('p', { type: 'consonant' }),
+      ph('a'),
+      ph('ö'),
+      ph('n̩'),
+      ph('ng'),
+      ph('aa'),
+      ph('wa'),
+      ph('★'),
+      ph('Q')
+    ]
+    L.classes = [{ id: 'c', name: 'V', members: ['Q'], featureQuery: null }]
+    const r = phonotacticsFromInventory(L)
+    expect(r.onsets).toEqual(['p', 'ng'])
+    expect(r.codas).toEqual(['p', 'ng'])
+    expect(r.nuclei).toEqual(['a', 'ö', 'n̩', 'aa', 'Q'])
+    expect(r.unknown).toEqual(['wa', '★'])
+  })
+
+  it('lets hand-set features win over the chart', () => {
+    const L = createLanguage({ name: 'x' })
+    L.phonemes = [ph('j', { type: 'vowel' }), ph('i', { type: 'consonant' })]
+    const r = phonotacticsFromInventory(L)
+    expect(r.nuclei).toEqual(['j'])
+    expect(r.onsets).toEqual(['i'])
   })
 })

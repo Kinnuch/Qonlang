@@ -41,6 +41,8 @@
     Pencil
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import { sortable } from '$lib/ui/sortable.svelte'
+  import { moveItem } from '$lib/core/move'
   let evolveOpen = $state(false)
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -312,8 +314,13 @@
     <h1>{t('soundChanges.title')}</h1>
     <GuideLink section="soundChanges" />
     <div class="booktabs grow">
-      {#each project.ruleSets as rs (rs.id)}
-        <span class="tabwrap">
+      {#each project.ruleSets as rs, ri (rs.id)}
+        <span
+          class="tabwrap"
+          {...sortable('ruleset-tabs', ri, (from, to) => {
+            if (moveItem(project.ruleSets, from, to)) projectState.touch()
+          })}
+        >
           <button class="tab" class:active={active?.id === rs.id} onclick={() => (activeId = rs.id)}
             >{rs.name || t('soundChanges.untitledSet')}</button
           >

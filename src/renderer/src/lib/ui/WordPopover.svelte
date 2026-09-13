@@ -24,6 +24,18 @@
       : null
   )
   const glossLangs = $derived(project?.settings.glossLanguages ?? [])
+  /** 卡片最初打开的那个（切分那一行按它算，悬浮到其中一块时不跟着换） */
+  const baseItem = $derived.by(() => {
+    if (!project) return null
+    const b = wordHover.base
+    return (
+      (b.lexemeId ? project.lexemes.find((l) => l.id === b.lexemeId) : null) ??
+      (b.morphemeId ? project.morphemes.find((m) => m.id === b.morphemeId) : null) ??
+      lexeme ??
+      morpheme ??
+      null
+    )
+  })
 
   interface Part {
     label: string
@@ -35,7 +47,7 @@
   /** 组成部分：语料里已确认的切分优先，其次才是词源里的来源 */
   const parts = $derived.by((): Part[] => {
     if (wordHover.parts.length) return wordHover.parts
-    const ety = lexeme?.etymology ?? morpheme?.etymology
+    const ety = baseItem?.etymology
     if (!project || !ety) return []
     const out: Part[] = []
     for (const s of ety.sources) {
@@ -242,7 +254,9 @@
             class="chip"
             class:plain={!p.lexemeId && !p.morphemeId && !p.missing}
             class:missing={p.missing}
-            class:on={wordHover.missing?.index === i}
+            class:on={wordHover.missing?.index === i ||
+              (!!p.lexemeId && p.lexemeId === wordHover.lexemeId) ||
+              (!!p.morphemeId && p.morphemeId === wordHover.morphemeId)}
             title={p.missing ? t('corpus.partMissing') : (p.gloss ?? '')}
             onmouseenter={() => (p.lexemeId || p.morphemeId) && wordHover.swap(p)}
             onclick={() =>

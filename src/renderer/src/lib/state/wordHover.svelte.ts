@@ -31,6 +31,14 @@ class WordHover {
   /** 调用方给的切分（优先于卡片自己按词源推的） */
   parts = $state<HoverPart[]>([])
   /**
+   * 卡片最初打开的是哪个词条 / 语素。悬浮到切分里的某一块时卡片换成那一块（swap），
+   * 但切分那一行照这个算，不跟着换——不然换过去的词自己没有来源，那一行一消失整张卡就跳一下。
+   */
+  base = $state<{ lexemeId: Id | null; morphemeId: Id | null }>({
+    lexemeId: null,
+    morphemeId: null
+  })
+  /**
    * 钉住：点过卡片里的成分之后，卡片高度会变，鼠标很容易落到卡片外面，
    * 这时候再按「鼠标离开就收」处理就会闪没。钉住后只有点别处或按 Esc 才关。
    */
@@ -55,6 +63,7 @@ class WordHover {
       this.lexemeId = null
       this.morphemeId = null
       fill()
+      this.base = { lexemeId: this.lexemeId, morphemeId: this.morphemeId }
     }, 280)
   }
   show(

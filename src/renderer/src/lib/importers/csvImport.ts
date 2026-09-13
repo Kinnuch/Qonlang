@@ -180,6 +180,11 @@ export interface CsvMapping {
    * 一个词类标记管到同一格里下一个词类标记为止。词类列里整格是这种写法的也按这张表。没列出的原样留着。
    */
   posMarkers?: Record<string, PosRule>
+  /**
+   * 小括号（圆括号）算不算标记：默认算——序号后面（1、（古）…）、词类标记后面（n. (archaic) …）的那组小括号
+   * 列进标记表、可以设成语域；关掉时小括号一律原样留在文字里，只认方括号这类。
+   */
+  parenMarkers?: boolean
 }
 
 export interface ImportReport {
@@ -213,7 +218,8 @@ export function defaultMapping(languageId: Id, columnCount: number): CsvMapping 
     sensePrefixMap: '',
     senseCodes: {},
     senseMarkers: {},
-    posMarkers: {}
+    posMarkers: {},
+    parenMarkers: true
   }
 }
 
@@ -638,12 +644,15 @@ const bracketGroups = (pairs: string[]): string =>
 /** 能当标记的括号：【专】〔古〕〖神〗［文］[arch.]〈口〉 */
 const MARKER_RE = new RegExp(bracketGroups(BRACKET_PAIRS), 'gu')
 /** 序号（1、 2. 3)）后面紧跟的第一组括号，圆括号也算；序号前面不能紧挨字母或数字（第2、 不算） */
-const NUMBERED_RE = new RegExp(
-  `(?<![\\p{L}\\p{N}])\\d{1,3}\\s*[、.．)）]\\s*(?:${bracketGroups([...ROUND_PAIRS, ...BRACKET_PAIRS])})`,
-  'gu'
-)
+const numberedRe = (pairs: string[]): RegExp =>
+  new RegExp(`(?<![\\p{L}\\p{N}])\\d{1,3}\\s*[、.．)）]\\s*(?:${bracketGroups(pairs)})`, 'gu')
 /** 开头的数字编码已经拿掉时（1、（古）离开 → （古）离开），开头这组括号也算序号后的 */
-const LEADING_RE = new RegExp(`^\\s*(?:${bracketGroups([...ROUND_PAIRS, ...BRACKET_PAIRS])})`, 'u')
+const leadingRe = (pairs: string[]): RegExp => new RegExp(`^\\s*(?:${bracketGroups(pairs)})`, 'u')
+const NUMBERED_RE = numberedRe([...ROUND_PAIRS, ...BRACKET_PAIRS])
+const LEADING_RE = leadingRe([...ROUND_PAIRS, ...BRACKET_PAIRS])
+/** 不认小括号时用的：只有方括号这类 */
+const NUMBERED_SQUARE_RE = numberedRe(BRACKET_PAIRS)
+const LEADING_SQUARE_RE = leadingRe(BRACKET_PAIRS)
 const EDGE_SEPARATORS = /^[\s，,、:：]+|[\s，,、:：]+$/g
 
 /** 拿掉标记后两边的文字接起来：接缝两边都是空白时只留一个 */
@@ -670,12 +679,14 @@ interface MarkerHit {
  * 方括号 [] 前面不能紧挨拉丁字母或数字（colo[u]r 不算）。给了 rules 时只要其中处理方式不是 keep 的。
  * leadingIsNumbered：开头原本是个数字编码（已经拿掉了），开头那组括号按序号后的算。
  * afterPos：这段归词类标记管（开头有 n. 这类，或者同一格前面出现过），词类标记后面紧跟的第一组圆括号也算，括号里可以是几个词。
+ * parens：小括号算不算标记（导入时的开关，默认算）；不算时上面两种情况也只认方括号这类。
  */
 function scanMarkers(
   text: string,
   rules?: Record<string, MarkerRule>,
   leadingIsNumbered = false,
-  afterPos = false
+  afterPos = false,
+  parens = true
 ): MarkerHit[] {
   const hits: MarkerHit[] = []
   const labelOf = (m: RegExpMatchArray): string => m.slice(1).find((x) => x !== undefined) ?? ''
@@ -690,17 +701,17 @@ function scanMarkers(
     if (!hits.some((h) => h.at === at) && accept(label, end)) hits.push({ cut, at, end, label })
   }
   if (leadingIsNumbered) {
-    const m = text.match(LEADING_RE)
+    const m = text.match(parens ? LEADING_RE : LEADING_SQUARE_RE)
     if (m) push(0, m[0].length, labelOf(m))
   }
-  if (afterPos) {
+  if (afterPos && parens) {
     // 词类标记（已经拿掉了的也算）后面紧跟的第一组圆括号：n. (archaic) …、adj. (slang, vulgar) …
     const lead = POS_LEAD_RE.exec(text)?.[0].length ?? 0
     const from = lead + (POS_CHAIN_RE.exec(text.slice(lead))?.[0].length ?? 0)
     const m = POS_PAREN_RE.exec(text.slice(from))
     if (m) push(0, from + m[0].length, labelOf(m))
   }
-  for (const m of text.matchAll(NUMBERED_RE)) {
+  for (const m of text.matchAll(parens ? NUMBERED_RE : NUMBERED_SQUARE_RE)) {
     const cut = m.index ?? 0
     push(cut, cut + m[0].length, labelOf(m))
   }
@@ -713,8 +724,10 @@ function scanMarkers(
 }
 
 /** 一段文字里的标记（括号里的字），分号两边各算各的 */
-export function markerLabels(text: string): string[] {
-  return text.split(/[;；]/).flatMap((part) => scanMarkers(part).map((m) => m.label))
+export function markerLabels(text: string, parens = true): string[] {
+  return text
+    .split(/[;；]/)
+    .flatMap((part) => scanMarkers(part, undefined, false, false, parens).map((m) => m.label))
 }
 
 /**
@@ -725,13 +738,14 @@ export function splitByMarkers(
   text: string,
   rules: Record<string, MarkerRule>,
   leadingIsNumbered = false,
-  afterPos = false
+  afterPos = false,
+  parens = true
 ): MarkedSegment[] {
   const out: MarkedSegment[] = []
   let markers: string[] = []
   let buf = ''
   let last = 0
-  for (const m of scanMarkers(text, rules, leadingIsNumbered, afterPos)) {
+  for (const m of scanMarkers(text, rules, leadingIsNumbered, afterPos, parens)) {
     const cut = Math.max(last, m.cut)
     buf = joinGap(buf, text.slice(last, cut))
     const before = buf.replace(EDGE_SEPARATORS, '')
@@ -753,12 +767,13 @@ export function removeMarkers(
   text: string,
   rules: Record<string, MarkerRule>,
   leadingIsNumbered = false,
-  afterPos = false
+  afterPos = false,
+  parens = true
 ): MarkedSegment {
   let out = ''
   let last = 0
   const markers: string[] = []
-  for (const m of scanMarkers(text, rules, leadingIsNumbered, afterPos)) {
+  for (const m of scanMarkers(text, rules, leadingIsNumbered, afterPos, parens)) {
     out = joinGap(out, text.slice(last, Math.max(last, m.at)))
     markers.push(m.label)
     last = m.end
@@ -814,6 +829,7 @@ export function findMarkers(rows: string[][], mapping: CsvMapping): MarkerStat[]
     c.kind === 'lemma' || c.kind === 'definition' || c.kind === 'notes' ? [i] : []
   )
   if (!cols.length) return []
+  const parens = mapping.parenMarkers !== false
   const stats = new Map<string, MarkerStat>()
   for (const row of mapping.hasHeader ? rows.slice(1) : rows)
     for (const ci of cols) {
@@ -822,7 +838,7 @@ export function findMarkers(rows: string[][], mapping: CsvMapping): MarkerStat[]
       let posSeen = false
       for (const part of (row[ci] ?? '').split(/[;；]/)) {
         if (isDef && scanPos(part).length) posSeen = true
-        for (const m of scanMarkers(part, undefined, false, posSeen)) {
+        for (const m of scanMarkers(part, undefined, false, posSeen, parens)) {
           const st = stats.get(m.label)
           if (!st) {
             stats.set(m.label, {
@@ -949,6 +965,7 @@ export function findPosMarkers(rows: string[][], mapping: CsvMapping): PosStat[]
     c.kind === 'definition' || c.kind === 'pos' ? [i] : []
   )
   if (!cols.length) return []
+  const parens = mapping.parenMarkers !== false
   const stats = new Map<string, PosStat>()
   const note = (tok: PosToken, ci: number, sample: string): void => {
     const st = stats.get(tok.label)
@@ -970,7 +987,10 @@ export function findPosMarkers(rows: string[][], mapping: CsvMapping): PosStat[]
       for (const part of mapping.splitSenses ? cell.split(/[;；]/) : [cell]) {
         const seen = new Set<number>()
         // 义项开头，以及每个方括号标记后面（标记切出来的一段也可以有自己的词类）
-        for (const start of [0, ...scanMarkers(part).map((m) => m.end)])
+        for (const start of [
+          0,
+          ...scanMarkers(part, undefined, false, false, parens).map((m) => m.end)
+        ])
           for (const tok of scanPos(part.slice(start))) {
             if (seen.has(start + tok.at)) continue
             seen.add(start + tok.at)
@@ -1044,6 +1064,7 @@ export function applyCsvImport(
   }
   const markerRules = mapping.senseMarkers ?? {}
   const hasMarkers = Object.values(markerRules).some((r) => r.action !== 'keep')
+  const parens = mapping.parenMarkers !== false
   const defSpec = mapping.columns.find(
     (c): c is Extract<FieldSpec, { kind: 'definition' }> => c.kind === 'definition'
   )
@@ -1144,7 +1165,7 @@ export function applyCsvImport(
     // 单词前的标记管整个词条（语素照旧）
     let entryMarkers: string[] = []
     if (mapping.target === 'lexemes' && hasMarkers) {
-      const r = removeMarkers(key, markerRules)
+      const r = removeMarkers(key, markerRules, false, false, parens)
       key = r.text
       entryMarkers = r.markers
     }
@@ -1213,8 +1234,8 @@ export function applyCsvImport(
               const segs: MarkedSegment[] = !hasMarkers
                 ? [{ text: head.text, markers: [] }]
                 : mapping.splitSenses
-                  ? splitByMarkers(head.text, markerRules, numbered, posSeen)
-                  : [removeMarkers(head.text, markerRules, numbered, posSeen)]
+                  ? splitByMarkers(head.text, markerRules, numbered, posSeen, parens)
+                  : [removeMarkers(head.text, markerRules, numbered, posSeen, parens)]
               segs.forEach((seg, k) => {
                 let text = seg.text
                 // 标记切出来的一段开头也可以有自己的词类标记
@@ -1249,7 +1270,7 @@ export function applyCsvImport(
               const rest: string[] = []
               let touched = false
               for (const part of raw.split(/[;；]/))
-                for (const seg of splitByMarkers(part.trim(), markerRules)) {
+                for (const seg of splitByMarkers(part.trim(), markerRules, false, false, parens)) {
                   if (seg.markers.length) touched = true
                   if (!seg.text) continue
                   if (seg.markers.some((mk) => mapsToSense(markerRules[mk])))

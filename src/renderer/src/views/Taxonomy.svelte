@@ -25,6 +25,8 @@
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
+  import { sortable } from '$lib/ui/sortable.svelte'
+  import { moveItem } from '$lib/core/move'
   import {
     Plus,
     Trash2,
@@ -329,9 +331,14 @@
             <div class="stems">
               <span class="small muted">{t('taxonomy.components')}</span>
               <HelpDot tip={t('taxonomy.componentsHint')} />
-              {#each p.components ?? [] as cid (cid)}
+              {#each p.components ?? [] as cid, ci (cid)}
                 {@const c = project.posList.find((x) => x.id === cid)}
-                <span class="part-chip"
+                <span
+                  class="part-chip"
+                  {...sortable(`components-${p.id}`, ci, (from, to) => {
+                    const ids = [...(p.components ?? [])]
+                    if (moveItem(ids, from, to)) setComponents(p, ids)
+                  })}
                   >{c ? pickText(c.name, glossLangs) || c.abbr : '?'}<button
                     class="btn ghost icon sm"
                     title={t('common.delete')}
@@ -433,8 +440,12 @@
               <span class="small muted">{t('taxonomy.catPos')}</span>
               <HelpDot tip={t('taxonomy.catPosHint')} />
               {#if !c.posIds?.length}<span class="small">{t('taxonomy.catPosAll')}</span>{/if}
-              {#each c.posIds ?? [] as pid (pid)}
-                <span class="part-chip"
+              {#each c.posIds ?? [] as pid, pi (pid)}
+                <span
+                  class="part-chip"
+                  {...sortable(`catpos-${c.id}`, pi, (from, to) => {
+                    if (c.posIds && moveItem(c.posIds, from, to)) projectState.touch()
+                  })}
                   >{posLabel(pid)}<button
                     class="btn ghost icon sm"
                     title={t('common.delete')}
@@ -597,8 +608,12 @@
               {#if !f.languageIds.length}<span class="small"
                   >{t('taxonomy.customAllLanguages')}</span
                 >{/if}
-              {#each f.languageIds as lid (lid)}
-                <span class="part-chip"
+              {#each f.languageIds as lid, li (lid)}
+                <span
+                  class="part-chip"
+                  {...sortable(`customlang-${f.id}`, li, (from, to) => {
+                    if (moveItem(f.languageIds, from, to)) projectState.touch()
+                  })}
                   >{project.languages.find((x) => x.id === lid)?.name ?? '?'}<button
                     class="btn ghost icon sm"
                     title={t('common.delete')}

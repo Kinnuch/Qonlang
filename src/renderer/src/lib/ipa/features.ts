@@ -28,10 +28,12 @@ export const DEFAULT_DIMENSIONS = [
 const bare = (s: string | null): string => (s ?? '').normalize('NFD').replace(/\p{M}/gu, '')
 
 export function defaultFeatures(symbol: string): Record<string, string> {
+  // 普通键盘的 g 与 IPA 字形 ɡ 算同一个（IPA 两种字形都认）
   const base = symbol
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
     .replace(/[ʰʲʷˠˤː]/g, '')
+    .replace(/g/g, 'ɡ')
   for (let mi = 0; mi < PULMONIC.length; mi++) {
     for (let pi = 0; pi < PULMONIC[mi].length; pi++) {
       const cell = PULMONIC[mi][pi]

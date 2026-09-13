@@ -29,14 +29,41 @@ export function lazy(step = 60): Lazy {
   }
 }
 
-/** 放在列表末尾的哨兵：滚进视野（提前 400px）就再要一批 */
+/** 最近的一层会滚动的祖先（页面里的滚动区）；都不是就返回 null，按整个窗口算 */
+function scrollParent(node: HTMLElement): HTMLElement | null {
+  for (let el = node.parentElement; el; el = el.parentElement) {
+    const oy = getComputedStyle(el).overflowY
+    if (oy === 'auto' || oy === 'scroll') return el
+  }
+  return null
+}
+
+/**
+ * 放在列表末尾的哨兵：滚到离它 400px 以内就再要一批。
+ * 观察的根要用列表所在的滚动区：按整个窗口算的话，提前量管不到里面这层滚动区，
+ * 哨兵又是零高度、贴在滚动区最底边，怎么滚都算不上「看见了」，列表就一直停在第一批。
+ * 画完一批哨兵还在范围里（这一批太矮）就接着要，直到把它推出范围或者全画完。
+ */
 export function lazyMore(node: HTMLElement, l: { grow: () => void }): { destroy(): void } {
+  let raf = 0
   const io = new IntersectionObserver(
     (entries) => {
-      if (entries.some((e) => e.isIntersecting)) l.grow()
+      if (!entries.some((e) => e.isIntersecting)) return
+      l.grow()
+      cancelAnimationFrame(raf)
+      // 重新观察一次会立刻回报当前状态：还在范围里就会再要一批
+      raf = requestAnimationFrame(() => {
+        io.unobserve(node)
+        io.observe(node)
+      })
     },
-    { rootMargin: '400px' }
+    { root: scrollParent(node), rootMargin: '400px' }
   )
   io.observe(node)
-  return { destroy: () => io.disconnect() }
+  return {
+    destroy: () => {
+      cancelAnimationFrame(raf)
+      io.disconnect()
+    }
+  }
 }

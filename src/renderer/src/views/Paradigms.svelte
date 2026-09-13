@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import type { PageView } from '$lib/state/ui.svelte'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
   import { focusField } from '$lib/ui/focus'
@@ -16,7 +17,14 @@
     setDefaultPosParadigm,
     unbindParadigm
   } from '$lib/core/pos'
-  import type { Id, Lexeme, Paradigm, SlotGenerator } from '$lib/core/model'
+  import type {
+    CategoryValue,
+    GrammaticalCategory,
+    Id,
+    Lexeme,
+    Paradigm,
+    SlotGenerator
+  } from '$lib/core/model'
   import {
     paradigmFor,
     paradigmSlots,
@@ -27,6 +35,7 @@
     makeContext,
     type SlotDef,
     type SlotReport,
+    slotKey,
     variantKey
   } from '$lib/engine/morph'
   import Portal from '$lib/ui/Portal.svelte'
@@ -46,9 +55,15 @@
     Check,
     X,
     Minus,
-    Pencil
+    Pencil,
+    List,
+    Table,
+    ListTree,
+    ChevronRight
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import { sortable } from '$lib/ui/sortable.svelte'
+  import { moveItem } from '$lib/core/move'
   import {
     checkConsistency,
     groupIssues,
@@ -68,6 +83,8 @@
       null
   )
 
+  /** 槽位的三种看法：可视化（逐格编辑）、表格（第一、二个维度排成行列，其余维度每种取值一张表）、树形图 */
+  type SlotLayout = 'visual' | 'table' | 'tree'
   /** 回到这一页时接着用上次的构形、视图、一致性检查结果与测试台 */
   const memo = ui.memo<{
     activeId: Id | null
@@ -78,6 +95,7 @@
     testLemma: string
     testLexemeId: Id | null
     editVariantId: Id | null
+    layout: SlotLayout
   }>('paradigms')
   let activeId = $state<Id | null>(memo.activeId ?? null)
   const active = $derived(
@@ -232,34 +250,192 @@
     })
     return hit.slice(0, 12)
   })
+  /** 一个词在一格里的推导结果，和已录入的形式比一比 */
+  function formRow(
+    ctx: ReturnType<typeof makeContext>,
+    lexeme: Lexeme,
+    para: Paradigm,
+    s: SlotDef
+  ): {
+    slot: SlotDef
+    generated: string
+    trace: string[]
+    stored: string
+    status: 'none' | 'missing' | 'same' | 'diff'
+  } {
+    const g = generateForm(ctx, lexeme, para, s, editVariantId)
+    const stored = lexeme.forms[s.label]
+    const status = !g
+      ? 'none'
+      : !stored?.override
+        ? 'missing'
+        : stored.surface
+              .split(/[,，;；/]\s*/)
+              .map((v) => v.trim().replace(/^\*/, ''))
+              .includes(g.surface)
+          ? 'same'
+          : 'diff'
+    return {
+      slot: s,
+      generated: g?.surface ?? '',
+      trace: g?.trace ?? [],
+      stored: stored?.surface ?? '',
+      status
+    }
+  }
   const testRows = $derived.by(() => {
     if (!active || !testLexeme) return []
     const ctx = ctxFor(testLexeme.languageId)
     if (!ctx) return []
+    const para = active
     return slots
-      .filter((s) => !active!.disabledSlots.includes(s.key))
-      .map((s) => {
-        const g = generateForm(ctx, testLexeme, active!, s, editVariantId)
-        const stored = testLexeme.forms[s.label]
-        const status = !g
-          ? 'none'
-          : !stored?.override
-            ? 'missing'
-            : stored.surface
-                  .split(/[,，;；/]\s*/)
-                  .map((v) => v.trim().replace(/^\*/, ''))
-                  .includes(g.surface)
-              ? 'same'
-              : 'diff'
+      .filter((s) => !para.disabledSlots.includes(s.key))
+      .map((s) => formRow(ctx, testLexeme, para, s))
+  })
+
+  // ───── 表格、树形图 ─────
+  let layout = $state<SlotLayout>(memo.layout ?? 'visual')
+  const dims = $derived(
+    (active?.dimensionIds ?? [])
+      .map((id) => project.categories.find((c) => c.id === id))
+      .filter((c): c is GrammaticalCategory => !!c)
+  )
+  const slotByKey = $derived(new Map(allSlots.map((s) => [s.key, s])))
+  /** 顶栏搜索筛剩下的格子；表格、树形图里其余的淡一些 */
+  const shownKeys = $derived(new Set(slots.map((s) => s.key)))
+  const valueName = (v: CategoryValue): string => pickText(v.name, glossLangs) || v.abbr || '?'
+  const catName = (c: GrammaticalCategory): string => pickText(c.name, glossLangs) || '?'
+  /** 表格、树形图里每一格：测试台里那个词的推导结果（只在这两种看法下算） */
+  const cellForms = $derived.by(() => {
+    const out = new Map<string, ReturnType<typeof formRow>>()
+    if (layout === 'visual' || !active || !testLexeme) return out
+    const ctx = ctxFor(testLexeme.languageId)
+    if (!ctx) return out
+    for (const s of allSlots)
+      if (!active.disabledSlots.includes(s.key)) out.set(s.key, formRow(ctx, testLexeme, active, s))
+    return out
+  })
+  /** 一格的写法缩成一行：流水线每一步的词缀、跑哪套音变……（没有测试词时格子里就显示它） */
+  function slotSummary(s: SlotDef): string {
+    if (!active) return ''
+    const g = resolveGenerator(active, s.key, project.paradigms, 0, editVariantId)
+    if (g.kind === 'none') return ''
+    if (g.kind !== 'pipeline') return t(`paradigms.kinds.${g.kind}`)
+    const stem = g.stem.trim() && g.stem.trim() !== 'lemma' ? g.stem.trim() : ''
+    const parts = g.steps.map((st) => {
+      switch (st.kind) {
+        case 'prefix':
+        case 'suffix':
+        case 'infix':
+          return st.text.trim() || t(`paradigms.steps.${st.kind}`)
+        case 'circumfix':
+          return `${st.text.trim()}…${st.text2.trim()}`
+        case 'sca': {
+          const rs = project.ruleSets.find((r) => r.id === st.ruleSetId)
+          return [t('paradigms.steps.sca'), rs?.name].filter(Boolean).join(' ')
+        }
+        case 'pattern':
+          return st.pattern.trim() || t('paradigms.steps.pattern')
+        case 'reduplication':
+          return t('paradigms.steps.reduplication')
+        case 'adjust':
+          return [t('paradigms.steps.adjust'), st.text.split('\n')[0].trim()]
+            .filter(Boolean)
+            .join(' ')
+      }
+    })
+    const stemRef = stem && t('paradigms.stemRef', { name: stem })
+    if (!parts.length) return stemRef || t('paradigms.onlyStem')
+    return [stemRef, ...parts].filter(Boolean).join(' · ')
+  }
+  /** 表格：第三个维度起，每种取值组合一张表 */
+  const tableGroups = $derived.by(() => {
+    if (layout !== 'table' || !dims.length) return []
+    let combos: { categoryId: Id; valueId: Id; label: string }[][] = [[]]
+    for (const d of dims.slice(2))
+      combos = combos.flatMap((c) =>
+        d.values.map((v) => [
+          ...c,
+          { categoryId: d.id, valueId: v.id, label: `${catName(d)} ${valueName(v)}` }
+        ])
+      )
+    return combos.map((extra) => ({
+      key: extra.map((e) => e.valueId).join('|') || '-',
+      caption: extra.map((e) => e.label).join(' · '),
+      extra
+    }))
+  })
+  /** 表格里一格：行是第一个维度、列是第二个维度（只有一个维度时只有一列） */
+  function slotAt(
+    row: CategoryValue,
+    col: CategoryValue | null,
+    extra: { categoryId: Id; valueId: Id }[]
+  ): SlotDef | undefined {
+    const values = [{ categoryId: dims[0].id, valueId: row.id }]
+    if (col && dims[1]) values.push({ categoryId: dims[1].id, valueId: col.id })
+    return slotByKey.get(slotKey([...values, ...extra]))
+  }
+  interface TreeNode {
+    key: string
+    label: string
+    abbr: string
+    children: TreeNode[]
+    slot: SlotDef | null
+  }
+  /** 树形图：第一个维度的取值分叉，往下每个维度再分，叶子是槽位 */
+  const tree = $derived.by((): TreeNode[] => {
+    if (layout !== 'tree' || !dims.length) return []
+    const build = (depth: number, prefix: { categoryId: Id; valueId: Id }[]): TreeNode[] =>
+      dims[depth].values.map((v) => {
+        const values = [...prefix, { categoryId: dims[depth].id, valueId: v.id }]
+        const key = slotKey(values)
+        const leaf = depth === dims.length - 1
         return {
-          slot: s,
-          generated: g?.surface ?? '',
-          trace: g?.trace ?? [],
-          stored: stored?.surface ?? '',
-          status
+          key,
+          label: valueName(v),
+          abbr: v.abbr,
+          children: leaf ? [] : build(depth + 1, values),
+          slot: leaf ? (slotByKey.get(key) ?? null) : null
         }
       })
+    return build(0, [])
   })
+  /** 树形图的分叉点开 / 收起；槽位多（200 个以上）时默认收着，点开哪支画哪支 */
+  let treeToggled = $state<Set<string>>(new Set())
+  const treeBig = $derived(allSlots.length > 200)
+  const treeOpen = (key: string): boolean =>
+    treeBig ? treeToggled.has(key) : !treeToggled.has(key)
+  function toggleTree(key: string): void {
+    const next = new Set(treeToggled)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    treeToggled = next
+  }
+  let treeFor = ''
+  $effect(() => {
+    const id = active?.id ?? ''
+    if (id === treeFor) return
+    treeFor = id
+    treeToggled = new Set()
+  })
+  /** 表格、树形图里点一格：回到可视化，滚到这一格并闪一下 */
+  async function openSlot(key: string): Promise<void> {
+    const idx = slots.findIndex((s) => s.key === key)
+    if (idx < 0) {
+      ui.toast(t('paradigms.slotHidden'))
+      return
+    }
+    layout = 'visual'
+    while (lzSlots.shown <= idx) lzSlots.grow()
+    await tick()
+    const row = document.querySelector<HTMLElement>(`tr[data-slot="${CSS.escape(key)}"]`)
+    if (!row) return
+    row.scrollIntoView({ block: 'center' })
+    row.classList.remove('flash-ok')
+    void row.offsetWidth
+    row.classList.add('flash-ok')
+    setTimeout(() => row.classList.remove('flash-ok'), 900)
+  }
 
   $effect(() => {
     inspectorTitle = active
@@ -281,7 +457,8 @@
       openKinds,
       testLemma,
       testLexemeId,
-      editVariantId
+      editVariantId,
+      layout
     })
   })
   // 槽位多的时候分批画（维度一多就是几百行）
@@ -367,11 +544,28 @@
       }
     })
   }
-  function toggleDimension(id: Id): void {
+  /** 槽位超过这个数先问一句（不拦着）：几百格的构形，编辑、推导、词条录入都会慢下来 */
+  const SLOT_WARN = 500
+  async function toggleDimension(id: Id): Promise<void> {
     if (!active) return
     const i = active.dimensionIds.indexOf(id)
-    if (i >= 0) active.dimensionIds.splice(i, 1)
-    else active.dimensionIds.push(id)
+    if (i >= 0) {
+      active.dimensionIds.splice(i, 1)
+      touch()
+      return
+    }
+    const size = (cid: Id): number =>
+      project.categories.find((c) => c.id === cid)?.values.length ?? 0
+    const next = [...active.dimensionIds, id].reduce((n, cid) => n * size(cid), 1)
+    if (next > SLOT_WARN) {
+      const ok = await ui.confirm(
+        t('paradigms.manySlotsTitle', { n: next }),
+        t('paradigms.manySlotsBody', { n: next, limit: SLOT_WARN }),
+        t('paradigms.manySlotsOk')
+      )
+      if (!ok || !active || active.dimensionIds.includes(id)) return
+    }
+    active.dimensionIds.push(id)
     touch()
   }
   function moveDimension(i: number, dir: -1 | 1): void {
@@ -486,8 +680,13 @@
     <h1>{t('paradigms.title')}</h1>
     <GuideLink section="paradigms" />
     <div class="booktabs grow">
-      {#each project.paradigms as p (p.id)}
-        <span class="tabwrap">
+      {#each project.paradigms as p, pi (p.id)}
+        <span
+          class="tabwrap"
+          {...sortable('paradigm-tabs', pi, (from, to) => {
+            if (moveItem(project.paradigms, from, to)) touch()
+          })}
+        >
           <button
             class="tab"
             class:active={active?.id === p.id}
@@ -619,13 +818,18 @@
     <div class="scroll">
       <section class="block">
         <h3>{t('paradigms.dimensions')} <HelpDot tip={t('paradigms.dimensionsHint')} /></h3>
-        <p class="small muted">
+        <p class="small muted" class:warn-text={slots.length > SLOT_WARN}>
           {t('paradigms.slotsExplain', { n: slots.length, dims: dimSizes })}
         </p>
         <div class="dims">
           {#each active.dimensionIds as id, i (id)}
             {@const c = project.categories.find((x) => x.id === id)}
-            <span class="chip on">
+            <span
+              class="chip on"
+              {...sortable(`dims-${active.id}`, i, (from, to) => {
+                if (active && moveItem(active.dimensionIds, from, to)) touch()
+              })}
+            >
               <b>{i + 1}</b>
               {c ? pickText(c.name, glossLangs) : '?'}
               <button class="x" onclick={() => moveDimension(i, -1)}><ChevronUp size={11} /></button
@@ -649,10 +853,23 @@
       </section>
 
       <section class="block">
-        <h3>
-          {t('paradigms.slots')} <span class="badge">{slots.length}</span>
-          <HelpDot tip={t('paradigms.affixHint')} />
-        </h3>
+        <div class="row slots-head">
+          <h3 class="grow">
+            {t('paradigms.slots')} <span class="badge">{slots.length}</span>
+            <HelpDot tip={t('paradigms.affixHint')} />
+          </h3>
+          <div class="seg">
+            <button class:active={layout === 'visual'} onclick={() => (layout = 'visual')}
+              ><List size={14} />{t('paradigms.layoutVisual')}</button
+            >
+            <button class:active={layout === 'table'} onclick={() => (layout = 'table')}
+              ><Table size={14} />{t('paradigms.layoutTable')}</button
+            >
+            <button class:active={layout === 'tree'} onclick={() => (layout = 'tree')}
+              ><ListTree size={14} />{t('paradigms.layoutTree')}</button
+            >
+          </div>
+        </div>
         <div class="row wrap vbar">
           <span class="small muted">{t('paradigms.variants')}</span>
           <div class="seg">
@@ -694,8 +911,135 @@
           {/if}
           <HelpDot tip={t('paradigms.variantHint')} />
         </div>
+        {#snippet cell(s: SlotDef | undefined)}
+          {#if s}
+            {@const off = active.disabledSlots.includes(s.key)}
+            {@const f = cellForms.get(s.key)}
+            {@const sum = slotSummary(s)}
+            <button
+              class="pcell"
+              class:off
+              class:dim={!shownKeys.has(s.key)}
+              class:bad={f?.status === 'diff'}
+              title={[s.label, sum, ...(f?.trace ?? [])].filter(Boolean).join('\n')}
+              onclick={() => openSlot(s.key)}
+            >
+              {#if off}
+                <span class="small muted">{t('paradigms.slotOff')}</span>
+              {:else}
+                {#if testLexeme}<span class="data form">{f?.generated || '—'}</span>{/if}
+                <span class="sum">{sum || t('paradigms.kinds.none')}</span>
+              {/if}
+            </button>
+          {/if}
+        {/snippet}
+        {#snippet branch(nodes: TreeNode[])}
+          <ul class="ptree">
+            {#each nodes as n (n.key)}
+              <li>
+                {#if n.slot}
+                  {@const s = n.slot}
+                  {@const off = active.disabledSlots.includes(s.key)}
+                  {@const f = cellForms.get(s.key)}
+                  {@const sum = slotSummary(s)}
+                  <button
+                    class="tnode leaf"
+                    class:off
+                    class:dim={!shownKeys.has(s.key)}
+                    class:bad={f?.status === 'diff'}
+                    title={[s.label, ...(f?.trace ?? [])].join('\n')}
+                    onclick={() => openSlot(s.key)}
+                  >
+                    <span>{n.label}</span>
+                    <span class="mono small muted">{s.abbr}</span>
+                    {#if off}
+                      <span class="small muted">{t('paradigms.slotOff')}</span>
+                    {:else}
+                      {#if testLexeme}<span class="data form">{f?.generated || '—'}</span>{/if}
+                      <span class="sum">{sum || t('paradigms.kinds.none')}</span>
+                    {/if}
+                  </button>
+                {:else}
+                  <button class="tnode" onclick={() => toggleTree(n.key)}>
+                    {#if treeOpen(n.key)}<ChevronDown size={12} />{:else}<ChevronRight
+                        size={12}
+                      />{/if}
+                    <span>{n.label}</span>
+                    {#if n.abbr && n.abbr !== n.label}<span class="mono small muted">{n.abbr}</span
+                      >{/if}
+                  </button>
+                  {#if treeOpen(n.key)}{@render branch(n.children)}{/if}
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/snippet}
         {#if slots.length === 0}
           <p class="small muted">{t('paradigms.noSlots')}</p>
+        {:else if layout !== 'visual'}
+          <p class="small muted layout-note">
+            {testLexeme
+              ? t('paradigms.layoutWord', { word: testLexeme.lemma })
+              : t('paradigms.layoutNoWord')}
+          </p>
+          {#if layout === 'table'}
+            <div class="ptables">
+              {#each tableGroups as grp (grp.key)}
+                <div>
+                  {#if grp.caption}<div class="ptable-cap">{grp.caption}</div>{/if}
+                  <div class="table-wrap">
+                    <table class="ptable">
+                      <thead>
+                        <tr>
+                          <th class="corner"
+                            >{catName(dims[0])}{#if dims[1]}
+                              ＼ {catName(dims[1])}{/if}</th
+                          >
+                          {#if dims[1]}
+                            {#each dims[1].values as c (c.id)}<th
+                                >{valueName(c)}
+                                {#if c.abbr && c.abbr !== valueName(c)}<span
+                                    class="mono small muted">{c.abbr}</span
+                                  >{/if}</th
+                              >{/each}
+                          {:else}
+                            <th></th>
+                          {/if}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {#each dims[0].values as r (r.id)}
+                          <tr>
+                            <th
+                              >{valueName(r)}
+                              {#if r.abbr && r.abbr !== valueName(r)}<span class="mono small muted"
+                                  >{r.abbr}</span
+                                >{/if}</th
+                            >
+                            {#if dims[1]}
+                              {#each dims[1].values as c (c.id)}<td
+                                  >{@render cell(slotAt(r, c, grp.extra))}</td
+                                >{/each}
+                            {:else}
+                              <td>{@render cell(slotAt(r, null, grp.extra))}</td>
+                            {/if}
+                          </tr>
+                        {/each}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <div class="ptree-wrap">
+              <div class="ptree-root">
+                {pickText(active.name, glossLangs) || t('paradigms.untitled')}
+                <span class="small muted">{dims.map(catName).join(' → ')}</span>
+              </div>
+              {@render branch(tree)}
+            </div>
+          {/if}
         {:else}
           <table class="tbl slots">
             <thead
@@ -709,7 +1053,7 @@
               {#each slots.slice(0, lzSlots.shown) as s (s.key)}
                 {@const disabled = active.disabledSlots.includes(s.key)}
                 {@const g = active.generators[gkey(s.key)] ?? { kind: 'none' }}
-                <tr class:off={disabled}>
+                <tr class:off={disabled} data-slot={s.key}>
                   <td
                     ><input
                       type="checkbox"
@@ -991,6 +1335,139 @@
     gap: 8px;
     margin-bottom: 6px;
   }
+  .slots-head {
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .layout-note {
+    margin: 2px 0 10px;
+  }
+  /* 表格：第一个维度作行、第二个维度作列 */
+  .ptables {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .ptable-cap {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .ptable {
+    border-collapse: collapse;
+  }
+  .ptable th,
+  .ptable td {
+    border: 1px solid var(--border);
+    padding: 0;
+    vertical-align: top;
+  }
+  .ptable th {
+    padding: 4px 10px;
+    background: var(--bg-sunken);
+    font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .ptable .corner {
+    color: var(--text-3);
+    font-size: 12px;
+  }
+  .pcell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    width: 100%;
+    min-width: 80px;
+    padding: 5px 10px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .pcell:hover,
+  .tnode:hover {
+    background: var(--bg-hover);
+  }
+  .pcell .form,
+  .tnode .form {
+    font-size: 15px;
+  }
+  .pcell .sum,
+  .tnode .sum {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    color: var(--text-3);
+  }
+  .pcell.off,
+  .tnode.off {
+    opacity: 0.5;
+  }
+  .pcell.dim,
+  .tnode.dim {
+    opacity: 0.35;
+  }
+  .pcell.bad .form,
+  .tnode.bad .form {
+    color: var(--danger);
+  }
+  /* 树形图：竖线连着各个分叉 */
+  .ptree-root {
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .ptree {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 12px;
+  }
+  .ptree li {
+    position: relative;
+    padding-left: 18px;
+  }
+  .ptree li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    border-left: 1px solid var(--border-strong);
+  }
+  .ptree li:last-child::before {
+    bottom: auto;
+    height: 15px;
+  }
+  .ptree li::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 15px;
+    width: 14px;
+    border-top: 1px solid var(--border-strong);
+  }
+  .tnode {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 0;
+    padding: 2px 10px 2px 6px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-elev);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .tnode.leaf {
+    padding-left: 10px;
+    border-radius: var(--radius-sm);
+  }
   .page {
     padding: 20px 24px;
     display: flex;
@@ -1013,6 +1490,9 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+  .warn-text {
+    color: var(--warn);
   }
   .dims {
     display: flex;

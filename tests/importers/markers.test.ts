@@ -33,6 +33,7 @@ describe('bracket markers', () => {
 
   it('counts the first bracket right after a sense number, parentheses included', () => {
     expect(markerLabels('1、（古）宅第；2.(n.) house；3）〔方〕玉米')).toEqual(['古', 'n.', '方'])
+    expect(markerLabels('1、（古）宅第；2.(n.) house；3）〔方〕玉米', false)).toEqual(['方'])
     expect(markerLabels('宅第 2、（方）玉米')).toEqual(['方'])
     // 没有序号的圆括号、紧挨着字的数字都不算
     expect(markerLabels('价格（约）十元')).toEqual([])

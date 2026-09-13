@@ -98,6 +98,8 @@ export interface CsvPreset {
   posMarkers?: Record<string, unknown>
   /** 释义开头的数字编码 → 处理方式（{ action, value }），读入时清洗 */
   senseCodes?: Record<string, unknown>
+  /** 小括号算不算标记（没有这一项的老预设按算） */
+  parenMarkers?: boolean
 }
 
 export const DEFAULT_PREFS: Prefs = {

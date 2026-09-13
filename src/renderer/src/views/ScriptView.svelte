@@ -15,7 +15,13 @@
   import { platform } from '$lib/platform'
   import { createScript, newId } from '$lib/core/factory'
   import type { Glyph, Script, ScriptPacking, ScriptType, ParenMode } from '$lib/core/model'
-  import { parseFont, guessCategory } from '$lib/script/fontParse'
+  import { parseFont } from '$lib/script/fontParse'
+  import {
+    BUILTIN_GLYPH_CATEGORIES as BUILTIN_CATS,
+    glyphCategorizer
+  } from '$lib/script/categorize'
+  import { sortable } from '$lib/ui/sortable.svelte'
+  import { moveItem } from '$lib/core/move'
   import {
     ensureScriptFont,
     fontCss,
@@ -71,18 +77,6 @@
     'logographic',
     'featural',
     'mixed',
-    'other'
-  ]
-  const BUILTIN_CATS = [
-    'letter',
-    'vowel',
-    'consonant',
-    'syllable',
-    'mark',
-    'number',
-    'punct',
-    'glyph',
-    'space',
     'other'
   ]
   /** 回到这一页时接着用上次的文字、子页、选中的字形、筛选与预览文本；换了语言就不恢复选中与滚动 */
@@ -377,10 +371,33 @@
     if (selectedGlyph === g.id) selectedGlyph = null
     touch()
   }
+  /** 按转写值（元音 / 辅音 / 音节 / 标点……）和字符本身分类；用户自己起名的分类不动 */
   function autoCategorize(): void {
     if (!script) return
-    for (const g of script.glyphs) if (g.char) g.category = guessCategory(g.char)
-    touch()
+    const categorize = glyphCategorizer(lang, script)
+    const counts = new Map<string, number>()
+    let kept = 0
+    let changed = 0
+    for (const g of script.glyphs) {
+      if (!g.char && !g.value) continue
+      if (g.category && !BUILTIN_CATS.includes(g.category)) {
+        kept++
+        continue
+      }
+      const c = categorize(g)
+      if (g.category !== c) changed++
+      g.category = c
+      counts.set(c, (counts.get(c) ?? 0) + 1)
+    }
+    if (changed) touch()
+    if (catFilter && !script.glyphs.some((g) => g.category === catFilter)) catFilter = ''
+    const parts = BUILTIN_CATS.filter((c) => counts.has(c))
+      .map((c) => t('script.autoCategorizedPart', { cat: catLabel(c), n: counts.get(c) ?? 0 }))
+      .join(t('phonology.listSep'))
+    ui.toast(
+      (parts ? t('script.autoCategorized', { parts }) : t('script.autoCategorizedNone')) +
+        (kept ? t('script.autoCategorizedKept', { n: kept }) : '')
+    )
   }
   /** 合并字形：已有相同字符的不重复加 */
   function mergeGlyphs(
@@ -388,6 +405,7 @@
   ): number {
     if (!script) return 0
     const have = new Set(script.glyphs.map((g) => g.char))
+    const categorize = glyphCategorizer(lang, script)
     let n = 0
     for (const it of items) {
       if (!it.char || have.has(it.char)) continue
@@ -397,7 +415,7 @@
         char: it.char,
         name: it.name ?? '',
         value: it.value ?? '',
-        category: it.category ?? guessCategory(it.char),
+        category: it.category ?? categorize({ char: it.char, value: it.value ?? '' }),
         notes: ''
       })
       n++
@@ -514,8 +532,13 @@
       </div>
     {/if}
     <div class="booktabs grow">
-      {#each lang?.scripts ?? [] as s (s.id)}
-        <span class="tabwrap">
+      {#each lang?.scripts ?? [] as s, si (s.id)}
+        <span
+          class="tabwrap"
+          {...sortable(`script-tabs-${lang?.id}`, si, (from, to) => {
+            if (lang && moveItem(lang.scripts, from, to)) touch()
+          })}
+        >
           <button
             class="tab"
             class:active={script?.id === s.id}

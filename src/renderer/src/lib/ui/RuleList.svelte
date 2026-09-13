@@ -7,6 +7,7 @@
    */
   import { t } from '$lib/i18n/index.svelte'
   import HelpDot from './HelpDot.svelte'
+  import { sortable } from './sortable.svelte'
   import {
     formatRule,
     formatMarker,
@@ -133,6 +134,13 @@
   function gapAt(line: number): boolean {
     return dragLine !== null && dropBefore === line && line !== dragLine && line !== dragLine + 1
   }
+
+  /** 圆框拖到另一个圆框上：这一行挪到那一行的位置（往后拖放在它后面，往前拖放在它前面） */
+  function moveLineOnto(from: number, onto: number): void {
+    if (from === onto) return
+    moveLineBefore(from, from < onto ? onto + 1 : onto)
+  }
+  const chipGroup = `rulechips-${Math.random().toString(36).slice(2, 8)}`
 
   function swapLines(a: number, b: number): void {
     const ls = lines()
@@ -462,12 +470,15 @@
       >
     </div>
     <div class="chips wrap">
-      {#each classLines as l (l.line)}
+      {#each classLines as l, li (l.line)}
         {@const p = parseClassLine(l.raw)}
         {#if p}
           <button
             class="chip cls"
             class:active={editingClass === l.line}
+            {...sortable(`${chipGroup}-classes`, li, (from, to) =>
+              moveLineOnto(classLines[from].line, classLines[to].line)
+            )}
             onclick={() => openClass(l.line)}
           >
             <b>{p.name.length === 1 ? p.name : `{${p.name}}`}</b><span class="data"
@@ -521,12 +532,15 @@
       >
     </div>
     <div class="chips wrap">
-      {#each digraphLines as l (l.line)}
+      {#each digraphLines as l, li (l.line)}
         {@const p = parseReplacementLine(l.raw)}
         {#if p}
           <button
             class="chip cls"
             class:active={editingDigraph === l.line}
+            {...sortable(`${chipGroup}-digraphs`, li, (from, to) =>
+              moveLineOnto(digraphLines[from].line, digraphLines[to].line)
+            )}
             onclick={() => openDigraph(l.line)}
             ><span class="data">{p.from}</span><span class="muted">→</span><span class="data"
               >{p.to}</span
