@@ -19,8 +19,11 @@ jobs:
           - os: windows-latest
             script: build:win
             artifact: windows
+            # latest.yml 与 .blockmap 给应用内的增量更新用：少了就让这一步失败，免得悄悄只剩整包下载
             files: |
               dist/*-setup.exe
+              dist/*-setup.exe.blockmap
+              dist/latest.yml
           - os: macos-latest
             script: build:mac
             artifact: macos

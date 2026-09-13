@@ -65,7 +65,7 @@
     phase = 'downloading'
     received = 0
     total = info.installer.size
-    const r = await platform.downloadUpdate(info.installer.url, info.installer.name)
+    const r = await platform.downloadUpdate(info.installer.url, info.installer.name, info.version)
     if (!r.ok || !r.path) {
       phase = 'failed'
       error = r.error ?? ''

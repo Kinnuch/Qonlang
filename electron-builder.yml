@@ -22,6 +22,15 @@ files:
 asarUnpack:
   - resources/**
 
+# ── 自动更新的元数据 ──
+# 只用来生成 latest.yml、安装包的 .blockmap 和打进包里的 app-update.yml（增量更新靠它们），
+# 打包命令都带 --publish never，上传仍由 .github/workflows/release.yml 做
+publish:
+  provider: github
+  owner: Kinnuch
+  repo: Qonlang
+  releaseType: release
+
 # ── Windows ──
 win:
   executableName: Qonlang

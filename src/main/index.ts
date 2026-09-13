@@ -241,11 +241,63 @@ async function checkUpdate(): Promise<UpdateInfo | null> {
 
 const updateDir = (): string => join(app.getPath('temp'), 'qonlang-update')
 
-/** 把安装包下到临时目录；进度推给渲染层 */
+/** 这份千语集是不是用安装包装的（旁边有卸载程序）；解压直接运行的不算 */
+const isInstalled = (): boolean =>
+  existsSync(join(dirname(process.execPath), `Uninstall ${app.getName()}.exe`))
+
+/**
+ * 增量更新，只用在装过的 Windows 版上：electron-updater 拿上次安装时 NSIS 自己存下的安装包
+ * （%LOCALAPPDATA%\<名字>-updater\installer.exe）跟新旧两版的 .blockmap 比对，只下载变了的块，
+ * 拼出新的安装包。拼好的整个文件按 latest.yml 里的 sha512 校验，对不上或者中间出任何错，
+ * electron-updater 会自己改成整包下载（整包同样校验）——所以最后拿到的安装包一定跟 Release 上的一模一样，
+ * 增量只影响下载了多少。这里只借它下载，安装照旧走 installUpdate。
+ * 返回 null：这台机器、这个版本走不了（开发版、免安装版、Release 上没有 latest.yml、版本对不上……），由调用方整包下载。
+ */
+async function downloadWithUpdater(version: string): Promise<string | null> {
+  if (process.platform !== 'win32' || !app.isPackaged || !isInstalled()) return null
+  if (!existsSync(join(process.resourcesPath, 'app-update.yml'))) return null
+  const { autoUpdater } = await import('electron-updater')
+  const log: string[] = [`${new Date().toISOString()} ${app.getVersion()} → ${version}`]
+  const note = (m: unknown): void => void log.push(String(m))
+  autoUpdater.logger = { info: note, warn: note, error: note, debug: () => {} }
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = false
+  autoUpdater.disableWebInstaller = true
+  autoUpdater.allowDowngrade = false
+  const onProgress = (p: { transferred: number; total: number }): void =>
+    mainWindow?.webContents.send('update:progress', { received: p.transferred, total: p.total })
+  autoUpdater.on('download-progress', onProgress)
+  try {
+    const found = await autoUpdater.checkForUpdates()
+    if (!found?.isUpdateAvailable || found.updateInfo.version !== version) {
+      note(`skip: latest.yml says ${found?.updateInfo.version ?? 'nothing'}`)
+      return null
+    }
+    const files = await autoUpdater.downloadUpdate()
+    const exe = files.find((f) => f.toLowerCase().endsWith('.exe')) ?? null
+    note(`done: ${exe}`)
+    return exe
+  } catch (e) {
+    note(`error: ${e}`)
+    return null
+  } finally {
+    autoUpdater.removeListener('download-progress', onProgress)
+    await fs
+      .writeFile(join(userData(), 'update.log'), log.join('\n') + '\n', 'utf8')
+      .catch(() => {})
+  }
+}
+
+/** 把安装包下到临时目录；进度推给渲染层。装过的 Windows 版先试增量下载，走不了再整包下 */
 async function downloadUpdate(
   url: string,
-  name: string
+  name: string,
+  version?: string
 ): Promise<{ ok: boolean; path?: string; error?: string }> {
+  if (version) {
+    const viaUpdater = await downloadWithUpdater(version)
+    if (viaUpdater) return { ok: true, path: viaUpdater }
+  }
   await fs.mkdir(updateDir(), { recursive: true })
   const dest = join(updateDir(), basename(name))
   try {
@@ -271,8 +323,7 @@ function installUpdate(file: string): void {
     forceClose = true
     dirty = false
     // 装过的（旁边有卸载程序）才静默沿用上次的目录；解压直接运行的弹向导让用户自己选
-    const installed = existsSync(join(dirname(process.execPath), 'Uninstall Qonlang.exe'))
-    const args = installed ? ['--updated', '/S', '--force-run'] : ['--updated']
+    const args = isInstalled() ? ['--updated', '/S', '--force-run'] : ['--updated']
     const child = spawn(file, args, { detached: true, stdio: 'ignore' })
     child.unref()
     app.quit()
@@ -730,7 +781,9 @@ function registerIpc(): void {
   ipcMain.handle('shell:showInFolder', (_e, path: string) => shell.showItemInFolder(path))
   ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
   ipcMain.handle('app:checkUpdate', () => checkUpdate())
-  ipcMain.handle('app:downloadUpdate', (_e, url: string, name: string) => downloadUpdate(url, name))
+  ipcMain.handle('app:downloadUpdate', (_e, url: string, name: string, version?: string) =>
+    downloadUpdate(url, name, version)
+  )
   ipcMain.handle('app:installUpdate', (_e, file: string) => installUpdate(file))
 }
 

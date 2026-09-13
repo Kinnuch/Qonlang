@@ -218,7 +218,12 @@ export interface PlatformAPI {
   /** 查有没有新版本；网页版或离线时返回 null */
   checkUpdate(): Promise<UpdateInfo | null>
   /** 下载安装包到临时目录（桌面版） */
-  downloadUpdate(url: string, name: string): Promise<{ ok: boolean; path?: string; error?: string }>
+  /** version 给了就先试增量下载（装过的 Windows 版），不行再整包下 */
+  downloadUpdate(
+    url: string,
+    name: string,
+    version?: string
+  ): Promise<{ ok: boolean; path?: string; error?: string }>
   onUpdateProgress(cb: (p: { received: number; total: number }) => void): void
   /** 静默安装并重开（Windows）；其他平台打开安装包 */
   installUpdate(path: string): Promise<void>

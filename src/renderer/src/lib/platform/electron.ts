@@ -141,8 +141,8 @@ export const electronPlatform: PlatformAPI = {
   async checkUpdate() {
     return (await bridge().invoke('app:checkUpdate')) as UpdateInfo | null
   },
-  async downloadUpdate(url, name) {
-    return (await bridge().invoke('app:downloadUpdate', url, name)) as {
+  async downloadUpdate(url, name, version) {
+    return (await bridge().invoke('app:downloadUpdate', url, name, version)) as {
       ok: boolean
       path?: string
       error?: string
