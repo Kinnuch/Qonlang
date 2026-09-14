@@ -24,8 +24,10 @@
     ArrowLeft,
     Eye,
     Undo2,
-    Redo2
+    Redo2,
+    RotateCw
   } from '@lucide/svelte'
+  import { refreshPage } from '$lib/ui/refresh'
   import { chars } from '$lib/state/chars.svelte'
   import CharPanel from '$lib/ui/CharPanel.svelte'
   import WordPopover from '$lib/ui/WordPopover.svelte'
@@ -259,6 +261,9 @@
         disabled={!projectState.canRedo}
         onclick={() => projectState.redo()}><Redo2 size={16} /></button
       >
+      <button class="btn ghost icon" title={t('common.refreshPage')} onclick={refreshPage}
+        ><RotateCw size={16} /></button
+      >
       <strong class="pname">{projectState.project?.meta.name || t('app.untitled')}</strong>
       {#if projectState.readOnly}
         <span class="badge ro" title={t('readonly.hint')}
@@ -338,33 +343,36 @@
           </div>
         </div>
       {/snippet}
-      {#if ui.section === 'languages'}
-        <Languages bind:inspectorTitle />
-      {:else if ui.section === 'soundChanges'}
-        <SoundChanges bind:inspectorTitle />
-      {:else if ui.section === 'script'}
-        <ScriptView bind:inspectorTitle bind:inspectorTitleStyle />
-      {:else if ui.section === 'phonology'}
-        <Phonology bind:inspectorTitle />
-      {:else if ui.section === 'paradigms'}
-        <Paradigms bind:inspectorTitle />
-      {:else if ui.section === 'corpus'}
-        <Corpus bind:inspectorTitle />
-      {:else if ui.section === 'phrasebook'}
-        <Phrasebook bind:inspectorTitle />
-      {:else if ui.section === 'docs'}
-        <Docs bind:inspectorTitle />
-      {:else if ui.section === 'morphemes'}
-        <Morphemes bind:inspectorTitle />
-      {:else if ui.section === 'lexicon'}
-        <Lexicon bind:inspectorTitle />
-      {:else if ui.section === 'skin'}
-        <Skin bind:inspectorTitle />
-      {:else if ui.section === 'settings'}
-        <SettingsView bind:inspectorTitle />
-      {:else}
-        <Placeholder section={ui.section} bind:inspectorTitle />
-      {/if}
+      <!-- 刷新当前页：pageNonce 一变整页重新挂 -->
+      {#key ui.pageNonce}
+        {#if ui.section === 'languages'}
+          <Languages bind:inspectorTitle />
+        {:else if ui.section === 'soundChanges'}
+          <SoundChanges bind:inspectorTitle />
+        {:else if ui.section === 'script'}
+          <ScriptView bind:inspectorTitle bind:inspectorTitleStyle />
+        {:else if ui.section === 'phonology'}
+          <Phonology bind:inspectorTitle />
+        {:else if ui.section === 'paradigms'}
+          <Paradigms bind:inspectorTitle />
+        {:else if ui.section === 'corpus'}
+          <Corpus bind:inspectorTitle />
+        {:else if ui.section === 'phrasebook'}
+          <Phrasebook bind:inspectorTitle />
+        {:else if ui.section === 'docs'}
+          <Docs bind:inspectorTitle />
+        {:else if ui.section === 'morphemes'}
+          <Morphemes bind:inspectorTitle />
+        {:else if ui.section === 'lexicon'}
+          <Lexicon bind:inspectorTitle />
+        {:else if ui.section === 'skin'}
+          <Skin bind:inspectorTitle />
+        {:else if ui.section === 'settings'}
+          <SettingsView bind:inspectorTitle />
+        {:else}
+          <Placeholder section={ui.section} bind:inspectorTitle />
+        {/if}
+      {/key}
     </svelte:boundary>
   </main>
 

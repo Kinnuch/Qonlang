@@ -6,6 +6,9 @@ import { parseRuleText, runRulesOnText, type RuleProgram } from '$lib/engine/sca
 import { languageParseOptions } from '$lib/engine/phon'
 
 const cache = new Map<string, { text: string; classes: string; program: RuleProgram }>()
+export function clearPronounceCache(): void {
+  cache.clear()
+}
 
 export function orthoProgram(
   lang: Language,

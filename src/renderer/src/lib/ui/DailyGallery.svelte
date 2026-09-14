@@ -200,8 +200,20 @@
     const a = tk.analyses[tk.chosen]
     return !!a && (!!a.lexemeId || a.morphs.some((m) => m.morphemeId || m.lexemeId))
   }
-  function hoverToken(e: MouseEvent, src: Source, tk: Token): void {
-    const a = tk.analyses[tk.chosen]
+  /** 铅笔：打开那个项目、跳到语料里这一句，在第 at 个词上打开「应该是哪个词」 */
+  async function editInCorpus(
+    src: Source,
+    sentence: Sentence,
+    at: number,
+    index: number | null
+  ): Promise<void> {
+    if (!(await projectState.openRecent(src.entry))) return
+    ui.pendingWordEdit = { sentenceId: sentence.id, at, index }
+    ui.jump('corpus', 'sentence', sentence.id, sentence.languageId)
+  }
+  function hoverToken(e: MouseEvent, src: Source, sentence: Sentence, at: number): void {
+    const tk = sentence.tokens[at]
+    const a = tk?.analyses[tk.chosen]
     if (!a) return
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     const parts: HoverPart[] =
@@ -217,6 +229,7 @@
     const lexemeId = a.lexemeId ?? m?.lexemeId ?? null
     if (!lexemeId && !m?.morphemeId) return
     useSource(src)
+    wordHover.editAt = (index) => void editInCorpus(src, sentence, at, index)
     if (lexemeId) wordHover.show(lexemeId, rect, parts)
     else if (m?.morphemeId) wordHover.showMorpheme(m.morphemeId, rect, parts)
   }
@@ -265,7 +278,7 @@
                     class:link={tokenLinked(tk)}
                     role="link"
                     tabindex="-1"
-                    onmouseenter={(e) => hoverToken(e, src, tk)}
+                    onmouseenter={(e) => hoverToken(e, src, slide.sentence, i)}
                     onmouseleave={() => wordHover.hide()}>{tk.surface}</span
                   >{/each}{:else}{slide.sentence.text}{/if}</span
             >

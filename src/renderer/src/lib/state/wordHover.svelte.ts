@@ -19,6 +19,8 @@ export interface HoverChoice {
 /** 语料里悬浮时带上：没找到的整个词（index 为 null）或切分里的第 index 段可以手动指定 */
 export interface HoverAssign {
   languageId: Id
+  /** 这个词在原文里的写法：卡片上点铅笔改成别的词时，搜索框先填它 */
+  surface?: string
   onAssign: (index: number | null, c: HoverChoice) => void
 }
 
@@ -33,6 +35,11 @@ class WordHover {
    * raw：整个项目很大，不做深层响应式。卡片收起时清掉。
    */
   project = $state.raw<Project | null>(null)
+  /**
+   * 卡片上的铅笔（改成别的词）怎么办：语料页里有 assign，就地换成搜索框；
+   * 开始页的画廊没有打开项目，给这个——先打开那个项目、跳到那一句，再在那里打开搜索框
+   */
+  editAt: ((index: number | null) => void) | null = null
   /** 卡片底部「在词库中查看」怎么打开：开始页要先打开那个项目再跳；不设就直接跳 */
   opener:
     ((target: { lexemeId: Id | null; morphemeId: Id | null; languageId: Id }) => void) | null = null
@@ -53,8 +60,11 @@ class WordHover {
   pinned = $state(false)
   /** 分不出是哪一个时的候选（两个以上才用），挑中一个就交给 onPick */
   candidates = $state<HoverChoice[]>([])
-  /** 没找到：卡片里显示「没有找到」和搜索框；index 为 null 是整个词，否则是切分里的第几段 */
-  missing = $state<{ label: string; index: number | null } | null>(null)
+  /**
+   * 没找到：卡片里显示「没有找到」和搜索框；index 为 null 是整个词，否则是切分里的第几段。
+   * edit：认出来了但认错了，用户点了铅笔——同一个搜索框，标题换成「应该是哪个词」
+   */
+  missing = $state<{ label: string; index: number | null; edit?: boolean } | null>(null)
   /** 能不能手动指定（语料里悬浮才带） */
   assign = $state<HoverAssign | null>(null)
   private onPick: ((c: HoverChoice) => void) | null = null
@@ -116,10 +126,15 @@ class WordHover {
     })
   }
   /** 同时浮出几个候选让用户挑；挑中之后调 onPick（通常是把它写进分析并确认） */
-  showCandidates(cands: HoverChoice[], rect: DOMRect, onPick: (c: HoverChoice) => void): void {
+  showCandidates(
+    cands: HoverChoice[],
+    rect: DOMRect,
+    onPick: (c: HoverChoice) => void,
+    assign: HoverAssign | null = null
+  ): void {
     this.open(() => {
       this.parts = []
-      this.assign = null
+      this.assign = assign
       this.candidates = cands
       this.onPick = onPick
       this.rect = rect
@@ -144,6 +159,35 @@ class WordHover {
           : p
       )
     this.swap(c)
+  }
+  /** 卡片上点了铅笔：换成搜索框挑正确的词；index 为 null 是整个词，否则是切分里的第几段 */
+  startEdit(index: number | null, label: string): void {
+    if (!this.assign) return
+    this.cancel()
+    this.candidates = []
+    this.lexemeId = null
+    this.morphemeId = null
+    this.missing = { label, index, edit: true }
+    this.pinned = true
+  }
+  /** 从别处跳过来直接打开「应该是哪个词」（语料页定位到那个词之后调），不等延时、直接钉住 */
+  showEdit(
+    label: string,
+    index: number | null,
+    rect: DOMRect,
+    parts: HoverPart[],
+    assign: HoverAssign
+  ): void {
+    this.cancel()
+    this.candidates = []
+    this.lexemeId = null
+    this.morphemeId = null
+    this.base = { lexemeId: null, morphemeId: null }
+    this.rect = rect
+    this.parts = parts
+    this.assign = assign
+    this.missing = { label, index, edit: true }
+    this.pinned = true
   }
   /** 卡片里点了没找到的那一段 */
   openMissing(index: number): void {
@@ -184,6 +228,7 @@ class WordHover {
   private clear(): void {
     this.project = null
     this.opener = null
+    this.editAt = null
     this.candidates = []
     this.onPick = null
     this.missing = null

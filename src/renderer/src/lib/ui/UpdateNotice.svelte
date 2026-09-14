@@ -11,7 +11,7 @@
   import { Download, X } from '@lucide/svelte'
 
   let info = $state<UpdateInfo | null>(null)
-  let phase = $state<'idle' | 'downloading' | 'installing' | 'failed'>('idle')
+  let phase = $state<'idle' | 'downloading' | 'installing' | 'manual' | 'failed'>('idle')
   let received = $state(0)
   let total = $state(0)
   let error = $state('')
@@ -19,10 +19,12 @@
   /** 这次运行里点过「稍后再说」的版本：同一个版本不再反复弹，出了更新的版本照样提示 */
   let dismissed = ''
   async function check(): Promise<void> {
-    // 正在提示、下载或安装时不再查
-    if (!ui.prefs.checkUpdates || info || phase !== 'idle') return
+    // 正在下载或安装时不再查；已经在提示了也不再查——除非那时 Release 上还没有本机的安装包（另一个平台的包先传完了），
+    // 再查一次，传上来了就换成能直接装的
+    if (!ui.prefs.checkUpdates || phase !== 'idle' || (info && info.installer)) return
     try {
       const found = await platform.checkUpdate()
+      if (info && found?.version !== info.version) return
       if (found && found.version !== ui.prefs.skippedVersion && found.version !== dismissed)
         info = found
     } catch {
@@ -80,7 +82,11 @@
       }
     }
     phase = 'installing'
-    await platform.installUpdate(r.path)
+    const done = await platform.installUpdate(r.path)
+    if (!done.ok) {
+      phase = 'failed'
+      error = done.error ?? ''
+    } else if (done.manual) phase = 'manual'
   }
   const pct = $derived(total ? Math.min(100, Math.round((received / total) * 100)) : 0)
   const mb = (n: number): string => (n / 1048576).toFixed(1)
@@ -90,7 +96,7 @@
   <div class="wrap card" role="dialog" aria-label={t('update.title')}>
     <div class="row head">
       <strong class="grow">{t('update.title', { version: info.version })}</strong>
-      {#if phase === 'idle' || phase === 'failed'}
+      {#if phase === 'idle' || phase === 'failed' || phase === 'manual'}
         <button class="btn ghost icon sm" onclick={later}><X size={14} /></button>
       {/if}
     </div>
@@ -101,8 +107,16 @@
       <div class="bar"><div class="fill" style:width="{pct}%"></div></div>
     {:else if phase === 'installing'}
       <p class="small muted">{t('update.installing')}</p>
+    {:else if phase === 'manual'}
+      <p class="small">{t('update.manualNext')}</p>
     {:else}
-      <p class="small muted">{info.installer ? t('update.bodyAuto') : t('update.body')}</p>
+      <p class="small muted">
+        {info.installer
+          ? info.installer.auto === false
+            ? t('update.bodyManual')
+            : t('update.bodyAuto')
+          : t('update.body')}
+      </p>
       {#if phase === 'failed'}
         <p class="small bad">{t('update.failed', { err: error })}</p>
       {/if}

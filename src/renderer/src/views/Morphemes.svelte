@@ -1,6 +1,7 @@
 <script lang="ts">
   import { navScroll } from '$lib/ui/navScroll'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
+  import { scrollToItem } from '$lib/ui/reveal'
   import type { PageView } from '$lib/state/ui.svelte'
   import { platform } from '$lib/platform'
   import Menu from '$lib/ui/Menu.svelte'
@@ -260,17 +261,17 @@
     ui.search = ''
     typeFilter = ''
     selectedId = id
+    void scrollToItem('morphemes', `tr[data-id="${id}"]`, () => {
+      const i = list.findIndex((x) => x.id === id)
+      if (i >= 0) lz.ensure(i + 1)
+    }).then(() => flash(id))
+  }
+  /** 滚到了再闪：高亮从头到尾都看得见 */
+  function flash(id: Id): void {
     flashId = id
     setTimeout(() => {
       if (flashId === id) flashId = null
     }, 1800)
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() =>
-        document
-          .querySelector(`tr[data-id="${id}"]`)
-          ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      )
-    )
   }
 
   async function exportCsv(): Promise<void> {

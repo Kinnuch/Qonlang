@@ -11,9 +11,20 @@ import {
   type MenuItemConstructorOptions
 } from 'electron'
 import { join, basename, dirname } from 'path'
-import { promises as fs, existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
+import {
+  promises as fs,
+  accessSync,
+  constants as fsConstants,
+  createReadStream,
+  existsSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync
+} from 'fs'
+import { createHash } from 'crypto'
+import { promisify } from 'util'
 import type { AppUpdater } from 'electron-updater'
-import { spawn } from 'child_process'
+import { execFile, spawn } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import gilatodFont from '../../resources/fonts/Gilatod_unicode.otf?asset'
@@ -24,6 +35,18 @@ import {
   fitWindowState,
   type WindowState
 } from './windowState'
+import {
+  macBundleMovable,
+  macBundlePath,
+  macReplaceScript,
+  newerThan,
+  pickInstaller,
+  type Installer,
+  type InstallerTarget,
+  type ReleaseAsset
+} from './update'
+
+const execFileAsync = promisify(execFile)
 
 const APP_ID = 'io.github.kinnuch.qonlang'
 const GUIDE_URL = 'https://kinnuch.github.io/cerf/qonlang/'
@@ -152,38 +175,23 @@ export interface UpdateInfo {
   url: string
   notes: string
   /** 这台机器能直接装的安装包；没有对应资产时为空，只能去下载页 */
-  installer: { url: string; name: string; size: number } | null
+  installer: Installer | null
 }
 
-/** 从 Release 资产里挑本平台的安装包：Windows 用 -setup.exe，macOS 按芯片挑 dmg，Linux 用 AppImage */
-function pickInstaller(
-  assets: { name?: string; browser_download_url?: string; size?: number }[]
-): UpdateInfo['installer'] {
-  const want = (n: string): boolean => {
-    const l = n.toLowerCase()
-    if (process.platform === 'win32') return l.endsWith('-setup.exe')
-    if (process.platform === 'darwin') {
-      const arch = process.arch === 'arm64' ? 'arm64' : 'x64'
-      return l.endsWith(`-mac-${arch}.dmg`)
-    }
-    return l.endsWith('.appimage')
+/** 上一次问到的 Release 与它的 ETag：下次带上 If-None-Match，没变时 GitHub 回 304，不占匿名接口每小时 60 次的额度 */
+let releaseCache: { etag: string; info: UpdateInfo } | null = null
+
+/** 挑安装包要知道的本机情况 */
+function installerTarget(): InstallerTarget {
+  return {
+    platform: process.platform,
+    // Apple 芯片上用 Rosetta 跑 x64 版时也挑 arm64 版，更新时顺手换成原生的
+    arch: process.arch === 'arm64' || app.runningUnderARM64Translation ? 'arm64' : 'x64',
+    macSelfReplace: canReplaceMacApp()
   }
-  const a = assets.find((x) => x.name && x.browser_download_url && want(x.name))
-  return a ? { url: a.browser_download_url!, name: a.name!, size: a.size ?? 0 } : null
 }
 
-/** 「0.6.1」这类版本号比大小；只比数字段 */
-function newerThan(a: string, b: string): boolean {
-  const pa = a.split(/[.-]/).map((x) => Number(x) || 0)
-  const pb = b.split(/[.-]/).map((x) => Number(x) || 0)
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const d = (pa[i] ?? 0) - (pb[i] ?? 0)
-    if (d) return d > 0
-  }
-  return false
-}
-
-/** 问 GitHub 最新的 Release；离线或出错就当没有更新，不打扰用户 */
+/** 问 GitHub 最新的 Release；离线或出错就当没有更新，不打扰用户（被限流时沿用上一次问到的） */
 function fetchLatestRelease(): Promise<UpdateInfo | null> {
   return new Promise((resolve) => {
     const req = net.request({
@@ -192,14 +200,21 @@ function fetchLatestRelease(): Promise<UpdateInfo | null> {
     })
     req.setHeader('User-Agent', 'Qonlang')
     req.setHeader('Accept', 'application/vnd.github+json')
+    if (releaseCache) req.setHeader('If-None-Match', releaseCache.etag)
     const timer = setTimeout(() => {
       req.abort()
       resolve(null)
     }, 8000)
     req.on('response', (res) => {
+      if (res.statusCode === 304 && releaseCache) {
+        clearTimeout(timer)
+        return resolve(releaseCache.info)
+      }
       if (res.statusCode !== 200) {
         clearTimeout(timer)
-        return resolve(null)
+        return resolve(
+          res.statusCode === 403 || res.statusCode === 429 ? (releaseCache?.info ?? null) : null
+        )
       }
       const chunks: Buffer[] = []
       res.on('data', (c: Buffer) => chunks.push(c))
@@ -210,16 +225,20 @@ function fetchLatestRelease(): Promise<UpdateInfo | null> {
             tag_name?: string
             html_url?: string
             body?: string
-            assets?: { name?: string; browser_download_url?: string; size?: number }[]
+            assets?: ReleaseAsset[]
           }
           const version = (j.tag_name ?? '').replace(/^v/, '')
           if (!version) return resolve(null)
-          resolve({
+          const info: UpdateInfo = {
             version,
             url: j.html_url ?? 'https://github.com/Kinnuch/Qonlang/releases',
             notes: (j.body ?? '').slice(0, 1200),
-            installer: pickInstaller(j.assets ?? [])
-          })
+            installer: pickInstaller(j.assets ?? [], installerTarget())
+          }
+          const etag = res.headers['etag']
+          const tag = Array.isArray(etag) ? etag[0] : etag
+          if (tag) releaseCache = { etag: String(tag), info }
+          resolve(info)
         } catch {
           resolve(null)
         }
@@ -309,7 +328,24 @@ async function downloadWithUpdater(version: string): Promise<string | null> {
   }
 }
 
-/** 把安装包下到临时目录；进度推给渲染层。装过的 Windows 版先试增量下载，走不了再整包下 */
+/** 下好的安装包 → 版本号（macOS 解开之后核对用） */
+const downloadedVersions = new Map<string, string>()
+
+/** 整个文件的 sha256（小写十六进制） */
+function sha256File(file: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256')
+    createReadStream(file)
+      .on('data', (c) => hash.update(c))
+      .on('end', () => resolve(hash.digest('hex')))
+      .on('error', reject)
+  })
+}
+
+/**
+ * 把安装包下到临时目录；进度推给渲染层。装过的 Windows 版先试增量下载，走不了再整包下。
+ * 整包下完按 GitHub 给这个资产算的 sha256 校验（接口没给就只能不校验），对不上算下载失败。
+ */
 async function downloadUpdate(
   url: string,
   name: string,
@@ -325,7 +361,14 @@ async function downloadUpdate(
     await downloadTo(url, dest + '.part', (received, total) =>
       mainWindow?.webContents.send('update:progress', { received, total })
     )
+    const known = releaseCache?.info.installer
+    const expected = known && known.name === name ? known.sha256 : null
+    if (expected) {
+      const got = await sha256File(dest + '.part')
+      if (got !== expected) throw new Error(`sha256 mismatch: ${got}`)
+    }
     await fs.rename(dest + '.part', dest)
+    if (version) downloadedVersions.set(dest, version)
     return { ok: true, path: dest }
   } catch (e) {
     await fs.rm(dest + '.part', { force: true })
@@ -334,12 +377,72 @@ async function downloadUpdate(
 }
 
 /**
+ * macOS：这份千语集能不能自己把新版本换进去——打包好的应用、不是从 dmg 或下载目录直接运行的
+ * （App Translocation 的随机只读路径）、应用和它所在的目录都可写（普通用户往「应用程序」里装的一般可以）。
+ */
+function canReplaceMacApp(): boolean {
+  if (process.platform !== 'darwin' || !app.isPackaged) return false
+  const bundle = macBundlePath(process.execPath)
+  if (!bundle || !macBundleMovable(bundle)) return false
+  try {
+    accessSync(dirname(bundle), fsConstants.W_OK)
+    accessSync(bundle, fsConstants.W_OK)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * macOS 自动更新：解开下好的 zip（ditto，保留应用包里的链接与权限），核对是完整的应用、版本号对得上，
+ * 写好替换脚本交给 bash 在后台跑，然后退出——脚本等这边退出后把新的 .app 换到原来的位置再打开。
+ * 没有签名用不了 Squirrel.Mac，只能自己换；中间任何一步出错都抛出来，由调用方退回手动安装。
+ */
+async function replaceMacApp(zip: string): Promise<void> {
+  const bundle = macBundlePath(process.execPath)
+  if (!bundle) throw new Error('not running from an app bundle')
+  const stage = join(updateDir(), 'stage')
+  await fs.rm(stage, { recursive: true, force: true })
+  await fs.mkdir(stage, { recursive: true })
+  await execFileAsync('/usr/bin/ditto', ['-x', '-k', zip, stage])
+  const name = (await fs.readdir(stage)).find((f) => f.endsWith('.app'))
+  if (!name) throw new Error('no .app in the update')
+  const next = join(stage, name)
+  if (!existsSync(join(next, 'Contents', 'MacOS', basename(process.execPath))))
+    throw new Error('the update app is incomplete')
+  const want = downloadedVersions.get(zip)
+  if (want) {
+    const plist = await fs.readFile(join(next, 'Contents', 'Info.plist'), 'utf8').catch(() => '')
+    const m = /<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/.exec(plist)
+    if (m && m[1].trim() !== want) throw new Error(`the update app is ${m[1]}, expected ${want}`)
+  }
+  const script = join(updateDir(), 'replace-app.sh')
+  await fs.writeFile(script, macReplaceScript(), { mode: 0o755 })
+  const child = spawn(
+    '/bin/bash',
+    [script, String(process.pid), next, bundle, join(userData(), 'update.log')],
+    {
+      detached: true,
+      stdio: 'ignore',
+      env: { ...process.env, PATH: '/usr/bin:/bin:/usr/sbin:/sbin' }
+    }
+  )
+  child.unref()
+  forceClose = true
+  dirty = false
+  app.quit()
+}
+
+/**
  * 装下好的包再重开。
  * Windows：NSIS 静默模式（/S）沿用上次的安装目录与快捷方式选项，--force-run 装完自动拉起；
- * macOS：没有签名做不了静默替换，打开 dmg 让用户拖进 Applications；
+ * macOS：下的是 zip 又能替换时自己换掉旧的应用再打开；换不了（下的是 dmg，或者替换出错）就打开安装包让用户拖进去；
  * Linux：打开所在目录。
+ * manual：没有自动装，界面上要告诉用户接下来自己怎么做。
  */
-function installUpdate(file: string): void {
+async function installUpdate(
+  file: string
+): Promise<{ ok: boolean; manual?: boolean; error?: string }> {
   if (process.platform === 'win32') {
     forceClose = true
     dirty = false
@@ -348,10 +451,23 @@ function installUpdate(file: string): void {
     const child = spawn(file, args, { detached: true, stdio: 'ignore' })
     child.unref()
     app.quit()
-    return
+    return { ok: true }
   }
-  if (process.platform === 'darwin') void shell.openPath(file)
-  else shell.showItemInFolder(file)
+  if (process.platform === 'darwin') {
+    if (file.toLowerCase().endsWith('.zip') && canReplaceMacApp()) {
+      try {
+        await replaceMacApp(file)
+        return { ok: true }
+      } catch (e) {
+        shell.showItemInFolder(file)
+        return { ok: false, manual: true, error: String(e) }
+      }
+    }
+    await shell.openPath(file)
+    return { ok: true, manual: true }
+  }
+  shell.showItemInFolder(file)
+  return { ok: true, manual: true }
 }
 
 async function getPrefs(): Promise<Prefs> {

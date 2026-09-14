@@ -2,6 +2,7 @@
   import { navScroll } from '$lib/ui/navScroll'
   import type { GrammaticalCategory } from '$lib/core/model'
   import { lazyMore } from '$lib/ui/lazy.svelte'
+  import { scrollToItem } from '$lib/ui/reveal'
   import type { PageView } from '$lib/state/ui.svelte'
   import { matchQuery, parseQuery } from '$lib/core/query'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
@@ -108,6 +109,7 @@
     mode: 'entries' | 'taxonomy' | 'stats'
     editMode: boolean
     mainView: 'list' | 'graph'
+    graphMode: 'graph' | 'compare'
     selectedId: Id | null
     sortKey: string | null
     sortDir: 'asc' | 'desc'
@@ -132,6 +134,8 @@
   }
   let editMode = $state(sameLang && (memo.editMode ?? false))
   let mainView = $state<'list' | 'graph'>(sameLang ? (memo.mainView ?? 'list') : 'list')
+  /** 关系图里是图还是对比视图 */
+  let graphMode = $state<'graph' | 'compare'>(sameLang ? (memo.graphMode ?? 'graph') : 'graph')
   let selectedId = $state<Id | null>(sameLang ? (memo.selectedId ?? null) : null)
   const query = $derived(ui.search)
   /** 表头排序：哪一列、什么方向；null = 按字母表；'custom' = 项目里的数组顺序 */
@@ -258,6 +262,7 @@
       mode: mode === 'taxonomy' || mode === 'stats' ? mode : 'entries',
       editMode,
       mainView,
+      graphMode,
       selectedId,
       sortKey,
       sortDir,
@@ -871,19 +876,17 @@
     mainView = 'list'
     selectedId = id
     multiIds = []
+    void scrollToItem('lexicon', `tr[data-id="${id}"]`, () => {
+      const i = list.findIndex((x) => x.id === id)
+      if (i >= limit) limit = i + 50
+    }).then(() => flash(id))
+  }
+  /** 滚到了再闪：高亮从头到尾都看得见 */
+  function flash(id: Id): void {
     flashId = id
     setTimeout(() => {
       if (flashId === id) flashId = null
     }, 1800)
-    requestAnimationFrame(() => {
-      const i = list.findIndex((x) => x.id === id)
-      if (i >= limit) limit = i + 50
-      requestAnimationFrame(() =>
-        document
-          .querySelector(`tr[data-id="${id}"]`)
-          ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      )
-    })
   }
   /** 双击一行：选中这一条，右侧检视器切到录入模式直接改 */
   function editRow(e: MouseEvent, id: Id): void {
@@ -1140,7 +1143,12 @@
     </div>
   {:else if mainView === 'graph' && selected}
     <div class="scroll graph-wrap">
-      <LexemeGraph {project} lexemeId={selected.id} onselect={recenterGraph} />
+      <LexemeGraph
+        {project}
+        lexemeId={selected.id}
+        onselect={recenterGraph}
+        bind:mode={graphMode}
+      />
     </div>
   {:else if !project.languages.length}
     <p class="muted">{t('lexicon.noLanguage')}</p>
@@ -2040,6 +2048,8 @@
   }
   .graph-wrap {
     padding-right: 4px;
+    display: flex;
+    flex-direction: column;
   }
   .tbl {
     border-collapse: collapse;

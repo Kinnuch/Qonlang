@@ -181,16 +181,26 @@ class UiState {
     this.restoreReq = null
     return r
   }
+  /** 每个页面滚动恢复的轮次：跳转定位要自己滚时加一，还在重试的恢复就不再往回拉 */
+  private scrollGen: Partial<Record<Section, number>> = {}
   /** 恢复主列表的滚动：列表可能还在渲染，多试几帧 */
   restoreScroll(section: Section, top: number): void {
+    const gen = (this.scrollGen[section] = (this.scrollGen[section] ?? 0) + 1)
     let tries = 12
     const apply = (): void => {
+      if (this.scrollGen[section] !== gen) return
       const el = document.querySelector<HTMLElement>(`[data-nav-scroll="${section}"]`)
       if (el) el.scrollTop = top
       if ((!el || Math.abs(el.scrollTop - top) > 2) && tries-- > 0) requestAnimationFrame(apply)
     }
     requestAnimationFrame(apply)
   }
+  /** 跳过来定位时调：这一页进来时排队的「恢复上次滚动位置」停手，不跟定位抢 */
+  cancelScrollRestore(section: Section): void {
+    this.scrollGen[section] = (this.scrollGen[section] ?? 0) + 1
+  }
+  /** 刷新当前页：主区按它重新挂一遍（页面状态照旧从记忆里读回来） */
+  pageNonce = $state(0)
   go(s: Section): void {
     if (s === this.section) {
       // 再点一次当前页的导航按钮：皮肤、设置回到上一个页面；语言、词库这些模块停在原地不动
@@ -216,6 +226,8 @@ class UiState {
   pendingLexemeId = $state<string | null>(null)
   /** 命令面板等跳转后要选中的对象：各页面按 kind 取走 */
   pendingSelect = $state<{ kind: string; id: string } | null>(null)
+  /** 跳到语料某一句之后，直接打开第 at 个词的「应该是哪个词」（开始页画廊的铅笔）；index 是切分里的第几段 */
+  pendingWordEdit: { sentenceId: string; at: number; index: number | null } | null = null
   /** 命令面板开关 */
   paletteOpen = $state(false)
   /** 应用内输入框请求（Electron 不支持 window.prompt） */

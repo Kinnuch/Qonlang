@@ -155,6 +155,9 @@ function signature(
 }
 
 const cache = new Map<string, MutationTable[]>()
+export function clearMutationCache(): void {
+  cache.clear()
+}
 
 /** 这门语言所有「作用于所有词」的构形槽位各自的对照表 */
 export function mutationTables(project: Project, languageId: Id): MutationTable[] {

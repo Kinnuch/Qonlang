@@ -1,5 +1,6 @@
 <script lang="ts">
   import { navScroll } from '$lib/ui/navScroll'
+  import { scrollToItem } from '$lib/ui/reveal'
   import type { PageView } from '$lib/state/ui.svelte'
   import { platform } from '$lib/platform'
   import Menu from '$lib/ui/Menu.svelte'
@@ -166,17 +167,14 @@
     category = ''
     ui.search = ''
     selectedId = id
+    void scrollToItem('phrasebook', `.item[data-id="${id}"]`).then(() => flash(id))
+  }
+  /** 滚到了再闪：高亮从头到尾都看得见 */
+  function flash(id: Id): void {
     flashId = id
     setTimeout(() => {
       if (flashId === id) flashId = null
     }, 1800)
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() =>
-        document
-          .querySelector(`.item[data-id="${id}"]`)
-          ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      )
-    )
   }
 
   function touch(): void {

@@ -45,6 +45,9 @@
   import { interlinear } from '$lib/engine/gloss'
   import { ensureScriptFont, fontFamilyCss } from '$lib/script/fonts'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import LexemeCard from '$lib/ui/LexemeCard.svelte'
+  import { createLexeme } from '$lib/core/factory'
+  import type { Lexeme, Project } from '$lib/core/model'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
   $effect(() => {
@@ -272,6 +275,7 @@
     order.splice(at < 0 ? order.length : at, 0, from as CardBlock)
     ui.prefs.cardOrder = order
     void ui.savePrefs()
+    pulseBlock(from)
   }
   function resetCard(): void {
     ui.prefs.cardOrder = []
@@ -289,6 +293,69 @@
   }
   /** 这次按下去是不是按在字号滑块上：是的话这一行不跟着拖去排序 */
   let onSlider = false
+  /** 预览里描边的那一块：悬停左边哪一行就是哪一块；拖完顺序那一块描一会儿 */
+  let cardHover = $state('')
+  let cardPulse = $state('')
+  let pulseTimer: ReturnType<typeof setTimeout> | null = null
+  function pulseBlock(key: string): void {
+    cardPulse = key
+    if (pulseTimer) clearTimeout(pulseTimer)
+    pulseTimer = setTimeout(() => (cardPulse = ''), 1200)
+  }
+  let entryPreview = $state<HTMLElement | null>(null)
+  /** 动手调词条卡时把右边的预览卡滚进视野 */
+  function showEntryPreview(): void {
+    entryPreview?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
+  /**
+   * 词条卡预览用的词：当前语言里内容最全的一条（义项、标签、词源、词干与屈折形、关系、派生词、备注各算一分），
+   * 这样调哪一块都看得见。词头至少两个字母；屈折形一长串的（超过 12 行）扣半分，免得预览卡太长。
+   * 项目里还没有词条就用内置的示例。
+   */
+  const cardSample = $derived.by((): Lexeme | null => {
+    const p = projectState.project
+    if (!p) return null
+    const usedAsSource = new Set<string>()
+    for (const l of p.lexemes)
+      for (const s of l.etymology.sources) if (s.kind === 'lexeme') usedAsSource.add(s.id)
+    const lid = projectState.currentLanguageId
+    const pool = p.lexemes.some((l) => l.languageId === lid && l.lemma)
+      ? p.lexemes.filter((l) => l.languageId === lid)
+      : p.lexemes
+    let best: Lexeme | null = null
+    let bestScore = -1
+    for (const l of pool) {
+      if (!/\p{L}.*\p{L}/u.test(l.lemma)) continue
+      const formRows =
+        Object.values(l.stems).filter((v) => v.trim()).length +
+        Object.values(l.forms).filter((f) => f.surface.trim()).length
+      const score =
+        (l.senses.some((s) => Object.values(s.definition).some(Boolean)) ? 2 : 0) +
+        (l.tags.length ? 1 : 0) +
+        (l.etymology.sources.length || l.etymology.stages.length ? 1 : 0) +
+        (formRows ? (formRows > 12 ? 0.5 : 1) : 0) +
+        (l.relations.length ? 1 : 0) +
+        (usedAsSource.has(l.id) ? 1 : 0) +
+        (l.notes.trim() ? 1 : 0)
+      if (score > bestScore) {
+        best = l
+        bestScore = score
+      }
+    }
+    return best ?? sampleLexeme(p)
+  })
+  function sampleLexeme(p: Project): Lexeme {
+    const l = createLexeme(projectState.currentLanguageId ?? p.languages[0]?.id ?? '', 'lorem')
+    const g = p.settings.glossLanguages[0] ?? i18n.locale
+    l.senses[0].definition = { [g]: zh ? '词条释义示例' : 'sample definition' }
+    l.tags = [zh ? '标签' : 'tag']
+    l.etymology.sources = [{ kind: 'external', language: '', form: '*lorem', meaning: '' }]
+    l.forms = {
+      [zh ? '复数' : 'plural']: { surface: 'loremi', derived: false, override: false, trace: [] }
+    }
+    l.notes = zh ? '备注示例' : 'sample note'
+    return l
+  }
 
   const previewLexeme = $derived(projectState.project?.lexemes.find((l) => l.lemma) ?? null)
   /** 预览用的例句：当前语言里第一句每个词都分析过的，没有就第一句有原文的；项目里没有例句时用内置示例 */
@@ -499,8 +566,13 @@
           <span class="small px" class:changed={n !== CARD_BASE_PX}>{n}px</span>
         {/snippet}
         <span class="small muted">{t('skin.cardOrder')}</span>
-        <div class="blocks">
-          <div class="blk fixed">
+        <div class="blocks" role="list" onpointerdown={showEntryPreview}>
+          <div
+            class="blk fixed"
+            role="listitem"
+            onmouseenter={() => (cardHover = 'header')}
+            onmouseleave={() => (cardHover = '')}
+          >
             <span class="grow">{t('skin.cardBlocks.header')}</span>
             {@render sizeCtl('header')}
           </div>
@@ -510,6 +582,8 @@
               class:over={dragOver === b}
               draggable="true"
               role="listitem"
+              onmouseenter={() => (cardHover = b)}
+              onmouseleave={() => (cardHover = '')}
               onpointerdown={(e) => (onSlider = !!(e.target as HTMLElement).closest('.bsz'))}
               ondragstart={(e) => {
                 // 按在字号滑块上拖动的是滑块，这一行不跟着去排序
@@ -678,6 +752,17 @@
           : 'ᛁᛚᛖᚾᛚᛖᚱ ᚲᚨᛊᛟᛞᚨ ᛃᚨᛏᛞᚢ'}
       </div>
     </div>
+    <!-- 词条卡：用项目里内容最全的一个词，皮肤里调的字号、顺序马上反映在这里；悬停左边哪一行描出哪一块 -->
+    {#if cardSample && projectState.project}
+      <div class="pv card pv-entry" bind:this={entryPreview}>
+        <div class="pv-ui">{t('skin.card')}</div>
+        <LexemeCard
+          lexeme={cardSample}
+          project={projectState.project}
+          highlight={cardHover || cardPulse}
+        />
+      </div>
+    {/if}
     <div class="row wrap pv-row">
       <button class="btn primary sm" use:pvMark={pvp('--accent')} title={varLabel('--accent')}
         >{t('common.save')}</button
@@ -994,6 +1079,9 @@ a > e / _i</span
     font-family: var(--font-ui);
     font-size: 12px;
     color: var(--text-2);
+  }
+  .pv-entry {
+    gap: 8px;
   }
   .pv-t2 {
     color: var(--text-2);

@@ -143,8 +143,8 @@ export interface UpdateInfo {
   version: string
   url: string
   notes: string
-  /** 本机能直接装的安装包；为空只能去下载页 */
-  installer: { url: string; name: string; size: number } | null
+  /** 本机能直接装的安装包；为空只能去下载页。auto：下好能自动装好并重开（false 是打开安装包让用户自己装） */
+  installer: { url: string; name: string; size: number; auto?: boolean } | null
 }
 
 export interface AppInfo {
@@ -227,6 +227,9 @@ export interface PlatformAPI {
     version?: string
   ): Promise<{ ok: boolean; path?: string; error?: string }>
   onUpdateProgress(cb: (p: { received: number; total: number }) => void): void
-  /** 静默安装并重开（Windows）；其他平台打开安装包 */
-  installUpdate(path: string): Promise<void>
+  /**
+   * 装好并重开（Windows 静默安装；macOS 能替换时换掉旧的应用）；做不到时打开安装包，返回 manual。
+   * ok 为 false 是替换出了错（error 里写原因），这时也会在访达里标出安装包。
+   */
+  installUpdate(path: string): Promise<{ ok: boolean; manual?: boolean; error?: string }>
 }

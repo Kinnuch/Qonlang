@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { parseProject } from '$lib/core/serialize'
+import { compareContext, compareGroups, soundPathOfWord, wordPath } from '$lib/core/compare'
 import { parseRuleText, runRules } from '$lib/engine/sca'
 import { languageParseOptions } from '$lib/engine/phon'
 
@@ -14,8 +15,8 @@ const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'
 describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', () => {
   it('Aelith loads and its vowel-harmony rules resolve suffix archiphonemes', () => {
     const p = load('Aelith.laim.json')
-    // 祖语 + 现代语；词条、语素、构形都要够示范用
-    expect(p.languages).toHaveLength(2)
+    // 祖语 + 现代语 + 姊妹语；词条、语素、构形都要够示范用
+    expect(p.languages).toHaveLength(3)
     expect(p.lexemes.length).toBeGreaterThan(20)
     expect(p.morphemes.some((m) => m.type === 'clitic')).toBe(true)
     expect(p.morphemes.some((m) => m.type === 'circumfix')).toBe(true)
@@ -102,6 +103,36 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     const rules = proto.steps.filter((s) => s.kind === 'rule')
     expect(rules.some((r) => r.kind === 'rule' && r.branches)).toBe(true)
     expect(rules.some((r) => r.kind === 'rule' && r.exceptions.length === 2)).toBe(true)
+  })
+
+  it('Aelith 的姊妹语 Merun：同一个词根的同源词能在关系图里对比', () => {
+    const p = load('Aelith.laim.json')
+    const merunRs = p.ruleSets.find((r) => r.name === 'Proto → Merun')!
+    const prog = parseRuleText(merunRs.text)
+    expect(prog.diagnostics.filter((d) => d.severity === 'error')).toEqual([])
+    const merun = p.languages.find((l) => l.name === 'Merun')!
+    const words = p.lexemes.filter((l) => l.languageId === merun.id)
+    // 词库里的 Merun 词都是这套规则从祖语词根推出来的
+    for (const w of words) {
+      const src = w.etymology.sources[0]
+      const root = p.morphemes.find((m) => src.kind === 'morpheme' && m.id === src.id)!
+      expect(runRules(prog, root.form).output).toBe(w.lemma.replace(/-$/, ''))
+    }
+    const kaso = p.lexemes.find((l) => l.lemma === 'kaso')!
+    const ctx = compareContext(p, p.settings.glossLanguages)
+    const groups = compareGroups(ctx, kaso)
+    const cognates = groups[0]
+    expect(cognates.languageCount).toBeGreaterThan(1)
+    expect(cognates.lexemes.map((l) => l.lemma)).toEqual(
+      expect.arrayContaining(['kaso', 'hasu', 'kasolu', 'telikaso'])
+    )
+    const hasu = cognates.lexemes.find((l) => l.lemma === 'hasu')!
+    const sound = soundPathOfWord(ctx, new Map(), hasu, wordPath(ctx, hasu, cognates.root.key))
+    expect(sound?.path.ruleSetName).toBe('Proto → Merun')
+    expect(sound?.path.matches).toBe(true)
+    // 同一语言里由 kaso 派生、复合的词自成一组，构成各不相同
+    const derived = groups.find((g) => g.root.key === `l:${kaso.id}`)!
+    expect(derived.lexemes.map((l) => l.lemma).sort()).toEqual(['kasolu', 'telikaso'])
   })
 
   it('Tsahun loads with tones, two orthographies, packing and reduplication', () => {

@@ -2,8 +2,9 @@
   import { navScroll } from '$lib/ui/navScroll'
   import { morphJoiner } from '$lib/engine/gloss'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
+  import { scrollToItem } from '$lib/ui/reveal'
   import type { PageView } from '$lib/state/ui.svelte'
-  import { untrack } from 'svelte'
+  import { tick, untrack } from 'svelte'
   import { platform } from '$lib/platform'
   import Menu from '$lib/ui/Menu.svelte'
   import TableImportDialog from '$lib/ui/TableImportDialog.svelte'
@@ -232,17 +233,36 @@
     mode = 'entries'
     collapsedId = null
     selectedId = id
+    void scrollToItem('corpus', `.item[data-id="${id}"]`, () => {
+      const i = list.findIndex((x) => x.id === id)
+      if (i >= 0) lz.ensure(i + 1)
+    }).then(() => {
+      flash(id)
+      const edit = ui.pendingWordEdit
+      if (edit?.sentenceId === id) {
+        ui.pendingWordEdit = null
+        void openWordEdit(s, edit.at, edit.index)
+      }
+    })
+  }
+  /** 开始页画廊的悬浮卡上点了铅笔：跳到这一句之后，把编辑器里那个词滚进来，直接打开「应该是哪个词」 */
+  async function openWordEdit(s: Sentence, at: number, index: number | null): Promise<void> {
+    await tick()
+    const tk = s.tokens[at]
+    const el = document.querySelectorAll('.card.editor .tok')[at]?.querySelector('.surface')
+    if (!tk || !el) return
+    el.scrollIntoView({ block: 'center' })
+    await new Promise<void>((r) => requestAnimationFrame(() => r()))
+    const parts = hoverParts(tk)
+    const label = index !== null ? (parts[index]?.label ?? tk.surface) : tk.surface
+    wordHover.showEdit(label, index, el.getBoundingClientRect(), parts, assignOf(tk, s))
+  }
+  /** 滚到了再闪：高亮从头到尾都看得见 */
+  function flash(id: Id): void {
     flashId = id
     setTimeout(() => {
       if (flashId === id) flashId = null
     }, 1800)
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() =>
-        document
-          .querySelector(`.item[data-id="${id}"]`)
-          ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      )
-    )
   }
   // 选中尚未分析的句子时自动分析
   $effect(() => {
@@ -665,6 +685,7 @@
     const surface = tk.surface
     return {
       languageId: s.languageId,
+      surface,
       onAssign: (index, c) => assignWord(sid, at, surface, index, c)
     }
   }
@@ -675,7 +696,12 @@
       const at = s.tokens.indexOf(tk)
       const sid = s.id
       const surface = tk.surface
-      wordHover.showCandidates(cands, rect, (c) => pickCandidate(sid, at, surface, c))
+      wordHover.showCandidates(
+        cands,
+        rect,
+        (c) => pickCandidate(sid, at, surface, c),
+        assignOf(tk, s)
+      )
       return
     }
     const parts = hoverParts(tk)

@@ -12,7 +12,7 @@
   import { etymologyText, morphemeLabel } from '$lib/core/etymology'
   import { posText, sensePos } from '$lib/core/pos'
   import type { Id } from '$lib/core/model'
-  import { BookOpen, Blocks, X, TriangleAlert, SearchX } from '@lucide/svelte'
+  import { BookOpen, Blocks, X, TriangleAlert, SearchX, Pencil } from '@lucide/svelte'
 
   // 开始页的画廊没打开项目：用悬浮时带来的那个项目查词
   const project = $derived(wordHover.project ?? projectState.project)
@@ -75,8 +75,10 @@
   )
   const posAbbr = (id: Id | null): string => project?.posList.find((p) => p.id === id)?.abbr ?? ''
 
-  /** 「没有找到」时的搜索框：换了要指定的词就重新填上那个词本身（去掉两头的连字符、撇号） */
-  let assignQuery = $derived((wordHover.missing?.label ?? '').replace(/^[-=·'’]+|[-=·'’]+$/g, ''))
+  /** 「没有找到」时的搜索框：换了要指定的词就重新填上那个词本身（去掉两头的连字符、撇号、叹号这些符号） */
+  let assignQuery = $derived(
+    (wordHover.missing?.label ?? '').replace(/^[\p{P}\p{S}]+|[\p{P}\p{S}]+$/gu, '')
+  )
   const fold = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
   interface AssignHit {
     key: string
@@ -173,6 +175,37 @@
     }
   })
 
+  /** 铅笔能不能点：语料页里能就地改（assign），开始页画廊能跳过去改（editAt） */
+  const canEdit = $derived(!!wordHover.assign || !!wordHover.editAt)
+  /**
+   * 点了铅笔：卡片上正显示的这个词认错了——切分里正好是它的那一段（词条或语素对得上）就只改那一段，
+   * 对不上任何一段（整词、没有切分）就改整个词。语料页里就地换成搜索框；开始页画廊先打开项目跳到那一句再改。
+   */
+  function editWord(): void {
+    const i = wordHover.parts.findIndex(
+      (p) =>
+        (!!p.lexemeId && p.lexemeId === wordHover.lexemeId) ||
+        (!!p.morphemeId && p.morphemeId === wordHover.morphemeId)
+    )
+    const index = i >= 0 ? i : null
+    if (wordHover.assign) {
+      const label =
+        index !== null
+          ? wordHover.parts[index].label
+          : (wordHover.assign.surface ?? lexeme?.lemma ?? morphemeLabel(morpheme))
+      wordHover.startEdit(index, label)
+      return
+    }
+    const go = wordHover.editAt
+    wordHover.hide(true)
+    go?.(index)
+  }
+  /** 几个候选都不对：换成搜索框自己找 */
+  function noneOfThese(): void {
+    const surface = wordHover.assign?.surface
+    if (surface) wordHover.startEdit(null, surface)
+  }
+
   function openInLexicon(): void {
     const target = lexeme
       ? { lexemeId: lexeme.id, morphemeId: null, languageId: lexeme.languageId }
@@ -201,7 +234,14 @@
     onmouseleave={() => wordHover.hide()}
   >
     <div class="cands-head">
-      <TriangleAlert size={14} />{t('corpus.pickCandidate', { n: cands.length })}
+      <TriangleAlert size={14} /><span class="grow"
+        >{t('corpus.pickCandidate', { n: cands.length })}</span
+      >
+      {#if wordHover.assign?.surface}
+        <button class="btn ghost sm" onclick={noneOfThese}
+          ><Pencil size={13} />{t('corpus.noneOfThese')}</button
+        >
+      {/if}
     </div>
     <div class="cands">
       {#each cands as x, i (i)}
@@ -277,11 +317,15 @@
       {#if wordHover.missing}
         {@const miss = wordHover.missing}
         <div class="missing">
-          <div class="miss-head">
-            <SearchX size={15} />{t('corpus.notFound', { w: miss.label })}
+          <div class="miss-head" class:edit={miss.edit}>
+            {#if miss.edit}<Pencil size={15} />{t('corpus.editWordHead', {
+                w: miss.label
+              })}{:else}<SearchX size={15} />{t('corpus.notFound', { w: miss.label })}{/if}
           </div>
           {#if wordHover.assign}
-            <p class="small muted">{t('corpus.notFoundHint')}</p>
+            <p class="small muted">
+              {miss.edit ? t('corpus.editWordHint') : t('corpus.notFoundHint')}
+            </p>
             <input
               class="input"
               placeholder={t('corpus.assignSearch')}
@@ -327,6 +371,11 @@
             ? t('corpus.openInMorphemes')
             : t('corpus.openInLexicon')}</button
         >
+        {#if canEdit}
+          <button class="btn sm" title={t('corpus.editWordTitle')} onclick={editWord}
+            ><Pencil size={14} />{t('corpus.editWord')}</button
+          >
+        {/if}
       </div>
     {/if}
   </div>
@@ -480,6 +529,9 @@
     color: var(--warn);
     font-size: 14px;
     font-weight: 600;
+  }
+  .miss-head.edit {
+    color: var(--accent-text);
   }
   .missing p {
     margin: 0;

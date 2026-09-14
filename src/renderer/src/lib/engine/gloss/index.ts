@@ -594,7 +594,10 @@ export interface Interlinear {
 }
 
 /** 语素 id → 类型；整批导出时每个语素只查一次（项目一改就重建） */
-const typeCache = new WeakMap<Project, { stamp: string; types: Map<Id, string> }>()
+let typeCache = new WeakMap<Project, { stamp: string; types: Map<Id, string> }>()
+export function clearGlossCaches(): void {
+  typeCache = new WeakMap()
+}
 function morphemeType(project: Project, id: Id): string | undefined {
   const stamp = `${project.meta.updatedAt}|${project.morphemes.length}`
   let c = typeCache.get(project)

@@ -8,15 +8,22 @@
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { lexemeScript } from '$lib/script/render'
-  import { fontCss } from '$lib/script/fonts'
+  import { ensureScriptFont, fontCss } from '$lib/script/fonts'
   import { registerShort } from '$lib/core/register'
   import { posText, sensePos } from '$lib/core/pos'
 
   let {
     lexeme,
     project,
-    onselect
-  }: { lexeme: Lexeme; project: Project; onselect?: (id: Id) => void } = $props()
+    onselect,
+    highlight = ''
+  }: {
+    lexeme: Lexeme
+    project: Project
+    onselect?: (id: Id) => void
+    /** 皮肤页预览：描边标出正在调的那一块（header 或 cardBlocks 里的键） */
+    highlight?: string
+  } = $props()
 
   const l = $derived(lexeme)
   const glossLangs = $derived(project.settings.glossLanguages)
@@ -63,6 +70,15 @@
       ? lang.scripts.map((sc) => ({ sc, text: lexemeScript(lang!, sc, l) })).filter((x) => x.text)
       : []
   )
+
+  // 文字行、检视器模块用到的内嵌字体自己注册：开始页画廊悬浮时那个项目没打开，没人替它注册，文字行就是方框
+  $effect(() => {
+    for (const x of scripts) ensureScriptFont(x.sc)
+    for (const f of customFieldsFor(project, l.languageId)) {
+      const sc = customFieldScript(project, f)
+      if (sc) ensureScriptFont(sc)
+    }
+  })
 
   /** 检视器模块：这门语言用得上、又填了内容的，带上字体 */
   const customs = $derived(
@@ -124,7 +140,7 @@
       title={l.images[0].caption}
     />
   {/if}
-  <header style:font-size={px('header')}>
+  <header style:font-size={px('header')} data-block="header" class:hl={highlight === 'header'}>
     <h2 class="lemma data">{l.lemma || '—'}</h2>
     {#each scripts as x (x.sc.id)}<div
         class="scr"
@@ -292,7 +308,7 @@
   <!-- 各块按皮肤页里排好的顺序画 -->
   {#each blocks as b (b)}
     <!-- display:contents：不占布局，只把这一块的字号传给里面 -->
-    <div class="blk-scale" style:font-size={px(b)}>
+    <div class="blk-scale" style:font-size={px(b)} data-block={b} class:hl={highlight === b}>
       {#if b === 'senses'}{@render blockSenses()}{:else if b === 'tags'}{@render blockTags()}{:else if b === 'etymology'}{@render blockEtymology()}{:else if b === 'forms'}{@render blockForms()}{:else if b === 'relations'}{@render blockRelations()}{:else if b === 'derived'}{@render blockDerived()}{:else}{@render blockNotes()}{/if}
     </div>
   {/each}
@@ -310,6 +326,13 @@
   }
   .blk-scale {
     display: contents;
+  }
+  /* 皮肤页里正在调的那一块 */
+  header.hl,
+  .blk-scale.hl > :global(*) {
+    outline: 2px dashed var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px;
   }
   .hero {
     position: absolute;

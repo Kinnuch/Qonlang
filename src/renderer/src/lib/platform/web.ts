@@ -383,7 +383,8 @@ export const webPlatform: PlatformAPI = {
     /* 网页版没有安装包 */
   },
   async installUpdate() {
-    /* 网页版没有安装包 */
+    // 网页版没有安装包
+    return { ok: false, error: 'web' }
   }
 }
 

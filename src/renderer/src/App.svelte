@@ -13,6 +13,7 @@
   import Toasts from '$lib/ui/Toasts.svelte'
   import ProgressOverlay from '$lib/ui/ProgressOverlay.svelte'
   import UpdateNotice from '$lib/ui/UpdateNotice.svelte'
+  import { refreshPage } from '$lib/ui/refresh'
 
   let ready = $state(false)
   let snapshot = $state<string | null>(null)
@@ -93,6 +94,11 @@
   }
   function onKeydown(e: KeyboardEvent): void {
     const mod = e.ctrlKey || e.metaKey
+    if (e.key === 'F5' && projectState.project) {
+      e.preventDefault()
+      refreshPage()
+      return
+    }
     if (e.altKey && e.key === 'ArrowLeft' && projectState.project) {
       e.preventDefault()
       ui.back()

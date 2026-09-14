@@ -25,6 +25,8 @@ const en: Dict = {
     collapse: 'Collapse',
     redo: 'Redo',
     backPage: 'Back (Alt+←)',
+    refreshPage: 'Reload this page (F5)',
+    refreshed: 'Reloaded {page}',
     guide: 'User guide',
     guideTitle: 'Open the guide for “{name}” (author’s website)',
     add: 'Add',
@@ -100,7 +102,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: proto-to-modern family (with inside/outside if-else sound changes), vowel harmony, all eight pipeline steps, variants and inheritance, several paradigms per part of speech, letters that change by gender, sandhi undone in the corpus, compound parts of speech, inspector modules, etymology chains and the relation graph, glossed corpus, runic script.',
+        'Agglutinative a priori language: proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, vowel harmony, all eight pipeline steps, variants and inheritance, several paradigms per part of speech, letters that change by gender, sandhi undone in the corpus, compound parts of speech, inspector modules, etymology chains, glossed corpus, runic script.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies, syllabary packing and vertical layout, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font.'
     },
@@ -334,7 +336,11 @@ const en: Dict = {
     body: 'Download the installer and install over the current one; your project files are untouched.',
     download: 'Download',
     bodyAuto:
-      '“Download & install” fetches the installer in the background, saves the current project, then installs silently with your previous options and reopens the app. Project files are untouched.',
+      '“Download & install” fetches the new version in the background, saves the current project, then installs it and reopens the app. Your project files are not touched.',
+    bodyManual:
+      '“Download & install” fetches the installer in the background and opens it: drag Qonlang into Applications to replace the old one, then reopen it. Your project files are not touched.',
+    manualNext:
+      'The installer is open: drag Qonlang into Applications to replace the old one, then reopen it.',
     install: 'Download & install',
     page: 'Release page',
     downloading: 'Downloading {pct}% ({done} / {total} MB)',
@@ -777,6 +783,49 @@ const en: Dict = {
     },
     noGraph:
       'This word has no connections yet: no sources, derivatives, cognates or marked relations.',
+    graphHint:
+      'Drag empty space to pan, Ctrl + wheel to zoom; right-click a node to expand or collapse its neighbours',
+    graphExpand: 'Expand around this node',
+    graphCollapse: 'Collapse around this node',
+    graphRecenter: 'Center on this',
+    graphCollapseAll: 'Collapse all',
+    graphZoomIn: 'Zoom in',
+    graphZoomOut: 'Zoom out',
+    graphReset: 'Back to center',
+    compare: 'Compare',
+    compareTitle: 'Compare words that come from the same root as this one',
+    compareBack: 'Back to graph',
+    compareHint:
+      'Shared meaning pieces are shaded; parts only some words have and values that differ are highlighted',
+    compareRoot: 'Root',
+    compareLangs: '{n} languages',
+    compareSameLang: 'same language',
+    compareWords: '{n} words',
+    compareMore: '{n} more not listed',
+    comparePickHint: 'Tick the words to compare (up to {n})',
+    compareRows: {
+      pron: 'Pronunciation',
+      meaning: 'Meaning',
+      origin: 'Origin',
+      parts: 'Parts',
+      sound: 'Sound changes',
+      pos: 'Part of speech',
+      registers: 'Registers',
+      tags: 'Tags',
+      dialects: 'Dialects'
+    },
+    comparePiece: 'piece',
+    compareSoundBy: '{n} rules from “{set}”',
+    compareSoundVia: ' (via {w})',
+    compareMismatch: 'The rules give {form}, which differs from the lexicon',
+    compareShowRules: 'Rules applied',
+    compareRuleDiff: 'Sound-change differences',
+    compareRuleDiffHint: 'Changes in “{set}” that only some of the words went through',
+    compareAllRules: 'Show all',
+    compareRuleSame: 'These words went through exactly the same changes',
+    compareCorr: 'Sound correspondences',
+    compareCorrHint:
+      'What each sound of the root became in each word (changed ones only; ∅ = lost)',
     derivedWords: 'Derived words',
     formsDerived: 'derived',
     formsOverride: 'overridden',
@@ -1459,6 +1508,11 @@ const en: Dict = {
     notFoundHint: 'Search for an entry or morpheme to assign.',
     assignSearch: 'Search lexemes or morphemes…',
     assignNone: 'No matching lexeme or morpheme — try another spelling or meaning',
+    editWord: 'Fix',
+    editWordTitle: 'Wrong match? Change it to another lexeme or morpheme',
+    editWordHead: 'Which word is “{w}”?',
+    editWordHint: 'Search by spelling or meaning; click one to use it and confirm.',
+    noneOfThese: 'None of these — search',
     partMissing: 'This part was not found — click to assign it',
     title: 'Corpus',
     sentence: 'Sentence',

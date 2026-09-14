@@ -12,6 +12,8 @@ export interface Lazy {
   readonly shown: number
   grow(): void
   reset(): void
+  /** 至少画出前 n 条（跳过来定位时用）：按一批的量往上取整 */
+  ensure(n: number): void
 }
 
 export function lazy(step = 60): Lazy {
@@ -25,6 +27,9 @@ export function lazy(step = 60): Lazy {
     },
     reset() {
       shown = step
+    },
+    ensure(n) {
+      if (shown < n) shown = Math.ceil(n / step) * step
     }
   }
 }

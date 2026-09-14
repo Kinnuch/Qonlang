@@ -165,7 +165,7 @@ function makeAelith(): void {
   const p = createProject({
     name: 'Aelith',
     template: 'family',
-    appVersion: '0.8.1',
+    appVersion: '0.8.3',
     uiLocale: 'zh'
   })
   p.meta.author = '千语集示例'
@@ -180,7 +180,12 @@ function makeAelith(): void {
     .split(' ')
     .map((s) => ({ id: newId(), symbol: s, features: inferFeatures(s), graphemes: {}, notes: '' }))
   const L = createLanguage({ name: 'Aelith', abbr: 'ae', color: '#0e9f8a', parentId: P.id })
-  p.languages.push(P, L)
+  // 姊妹语：跟 Aelith 同出一个祖语，词库关系图里的「对比」拿两边的同源词比音变、语音对应和意思
+  const S = createLanguage({ name: 'Merun', abbr: 'mr', color: '#d97706', parentId: P.id })
+  S.notes =
+    '跟 Aelith 同出 Proto-Aelith 的姊妹语：词首的 k 弱化成 h，辅音后面的词尾 i 脱落；有几个词的意思走偏了（kasu 在这里是帐篷）。'
+  S.alphabet = 'a e h i k l m n o p r s t u w'.split(' ')
+  p.languages.push(P, L, S)
   p.settings.defaultLanguageId = L.id
   L.notes =
     '黏着语：前后元音和谐；名词 词根-数-格，动词 词根-否定-时-人称。\n方言：标准语与北方话（北方话 ö → o）。'
@@ -721,6 +726,44 @@ function makeAelith(): void {
   protoRs.testWords = 'kasu\nteli\nnol\nkel\nsor\nkara\nθura\nmetha\ntaku'
   protoRs.stageLanguages = { 祖语: P.id, 现代语: L.id }
   p.ruleSets.push(protoRs)
+  // 姊妹语 Merun：同一个祖语词根走了另一套音变，词库里 kaso 与 hasu、teli 与 tel 点「对比」就能并排看
+  const merunRs = createRuleSet(
+    'Proto → Merun',
+    [
+      '; 祖语到姊妹语 Merun：词首的 k 弱化成 h；辅音后面的词尾 i 脱落',
+      'C=ptkbdgmnsvrljwh',
+      'V=aeiou',
+      '-* 祖语',
+      'k > h / #_',
+      'i > / C_#',
+      '-* 现代语'
+    ].join('\n')
+  )
+  merunRs.notes = '跟「Proto → Aelith」从同一个祖语出发，推到姊妹语 Merun。'
+  merunRs.testWords = 'kasu\nteli\nkara\nnol\nilen\nkel'
+  merunRs.stageLanguages = { 祖语: P.id, 现代语: S.id }
+  p.ruleSets.push(merunRs)
+  const merunWords: [string, PartOfSpeech, string, string, string][] = [
+    ['hasu', N, '帐篷', 'tent', 'kasu'],
+    ['tel', N, '雨', 'rain', 'teli'],
+    ['hara', A, '夜里的，黑暗的', 'nightly, dark', 'kara'],
+    ['nol', N, '白天', 'daytime', 'nol'],
+    ['ilen', N, '孩子', 'child', 'ilen'],
+    ['hel-', V, '去', 'go', 'kel']
+  ]
+  for (const [lemma, ps, zh, en, proto] of merunWords) {
+    const lx = createLexeme(S.id, lemma)
+    lx.posId = ps.id
+    lx.senses[0].definition = { zh, en }
+    lx.stems = { 词干: lemma.replace(/-$/, '') }
+    lx.etymology = {
+      type: 'soundChange',
+      sources: [{ kind: 'morpheme', id: protoRoots.get(proto)!.id }],
+      stages: [{ id: newId(), form: '*' + proto, type: '', notes: '祖语形' }],
+      notes: '经规则集「Proto → Merun」推出'
+    }
+    p.lexemes.push(lx)
+  }
 
   // ── 构形：流水线的八种步骤各露一次脸 ──
   const sca = (): MorphStep =>
@@ -1054,12 +1097,13 @@ function makeAelith(): void {
     '',
     'Aelith 是虚构的黏着语，用来把千语集每个模块的功能摆一遍（数据都是编的，不对应任何真实语言）：',
     '',
-    '- **语言**：语系树（Proto-Aelith → Aelith）、方言、字母表',
+    '- **语言**：语系树（Proto-Aelith → Aelith 与姊妹语 Merun）、方言、字母表',
     '- **音系**：音位与特征、由特征生成的音类、多合字母、两套正字法、音节与重音、配列与造词',
     '- **文字**：卢恩刻文、映射规则、手填的文字写法',
-    '- **音变**：两套规则集，阶段绑定语言，测试台词表；「Proto → Aelith」里有满足 / 不满足环境两路的规则（`θ > t?s / #_`：词首变 t、别处变 s）和带两个排除的规则（`u > o / _# - k_ , g_`），整库演化推出来的正是词库里的 kaso、nöl、sör-',
+    '- **音变**：三套规则集（元音和谐、Proto → Aelith、Proto → Merun），阶段绑定语言，测试台词表；「Proto → Aelith」里有满足 / 不满足环境两路的规则（`θ > t?s / #_`：词首变 t、别处变 s）和带两个排除的规则（`u > o / _# - k_ , g_`），整库演化推出来的正是词库里的 kaso、nöl、sör-',
     '- **语素**：词根 / 前缀 / 后缀 / 中缀 / 环缀 / 附着词 / 小品词，异体形环境，词源',
     '- **词库**：多义项、一个义项几个语域（dünar）、方言、标签、维度、复合词类与义项自己的词类（kara）、词干槽、词源链（词根 / 复合 / 派生 / 音变 / 借词 / 自己写的类别「仿译」）、自定义关系种类（押韵）、配图、手改发音',
+    '- **关系图**：kaso 的关系图里按住空白处拖动画布，右键节点展开或收起；右上角「对比」把同一个词根 *kasu 的 kaso（Aelith）、hasu（Merun，意思变成帐篷）、kasolu、telikaso 并排：各自经过的音变、k : h 的语音对应、意思与构成的差别',
     '- **检视器模块**：「词类与维度」最下面定义的「文化注释」与「刻文异体」（用刻文的字体显示），打开 kaso、nöl、sepe 看',
     '- **构形**：流水线的八种步骤（前缀、后缀、中缀、环缀、音变、模板、重叠、微调）、变体（基础那套改名叫「书面」）、继承、屏蔽槽位、手填表、作用于所有词的「连读浊化」（ve 后面 tovar → dovar）、一个词类绑几个构形（「动词」默认变位法一，tur-、sal- 在词条里挑了变位法二，ol- 用不规则）、按条件换字母（名词与格只写一条 ¢{阴:g|k}A：阴性的 sila、vene 是 silaga、venege，其余是 kasoka 这样）',
     '- **语料**：已 gloss 并确认的例句、其他正字法、手填的文字写法、自由行、出处与标签；dovar 靠「连读浊化」反推认出；人名 Mira 故意没进词库，悬浮时是「没有找到」',
@@ -1149,7 +1193,7 @@ function makeTsahun(): void {
   const p = createProject({
     name: 'Tsahun',
     template: 'blank',
-    appVersion: '0.8.1',
+    appVersion: '0.8.3',
     uiLocale: 'zh'
   })
   p.meta.author = '千语集示例'
