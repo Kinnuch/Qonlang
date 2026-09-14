@@ -285,7 +285,7 @@
     color: #fbbf24;
   }
   :global([data-theme='dark']) .hl :global(.r) {
-    color: #5eead4;
+    color: #8fd3c6;
   }
   :global([data-theme='dark']) .hl :global(.x) {
     color: #93c5fd;

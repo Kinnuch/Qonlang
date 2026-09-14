@@ -530,7 +530,8 @@
   <div class="page-head row">
     <h1>{t('nav.phonology')}</h1>
     <GuideLink section="phonology" />
-    {#if lang}<span class="badge" style:background={lang.color} style:color="#fff">{lang.name}</span
+    {#if lang}<span class="badge lang-badge" style:background-color={lang.color} style:color="#fff"
+        >{lang.name}</span
       >{/if}
     <div class="seg">
       {#each TABS as tb (tb)}

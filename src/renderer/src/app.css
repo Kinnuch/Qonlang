@@ -38,6 +38,8 @@
   color-scheme: light;
 }
 
+/* 深色：强调色比浅色压暗、降饱和——近黑的底上亮青绿太扎眼，主按钮上的白字也看不清（原来 2.3:1，现在 4.5:1）；
+   弱文字提亮一点，面板上的小字够 4.5:1 */
 [data-theme='dark'] {
   --bg: #161715;
   --bg-elev: #1e1f1c;
@@ -47,11 +49,11 @@
   --border-strong: #3e3f3a;
   --text: #ecece7;
   --text-2: #a9a9a2;
-  --text-3: #7a7a74;
-  --accent: #2fbfa8;
-  --accent-hover: #4acdb8;
-  --accent-soft: #173630;
-  --accent-text: #5fd6c2;
+  --text-3: #8a8a83;
+  --accent: #358275;
+  --accent-hover: #3e9084;
+  --accent-soft: #1c312c;
+  --accent-text: #86c7bb;
   --danger: #e06060;
   --danger-soft: #3a1f1f;
   --warn: #e0b040;
@@ -271,6 +273,10 @@ button {
   background: var(--accent-soft);
   color: var(--accent-text);
 }
+/* 用语言自己的颜色填底的徽章：深色下蒙一层黑，不压暗的话亮色块在近黑的底上太跳（白字也更清楚） */
+[data-theme='dark'] .lang-badge {
+  background-image: linear-gradient(rgb(0 0 0 / 0.28), rgb(0 0 0 / 0.28));
+}
 
 kbd {
   font-family: var(--font-mono);
@@ -300,14 +306,14 @@ kbd {
 /* ── 动作反馈 ── */
 @keyframes flash-ok {
   0% {
-    box-shadow: 0 0 0 0 rgba(14, 159, 138, 0.55);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
     background-color: var(--accent-soft);
   }
   60% {
-    box-shadow: 0 0 0 6px rgba(14, 159, 138, 0);
+    box-shadow: 0 0 0 6px transparent;
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(14, 159, 138, 0);
+    box-shadow: 0 0 0 0 transparent;
   }
 }
 .flash-ok {

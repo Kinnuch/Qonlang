@@ -279,6 +279,9 @@
     background: #e9faf6;
     border-color: #e9faf6;
   }
+  :global([data-theme='dark']) .bubble.card :global(.btn.primary) {
+    color: color-mix(in srgb, var(--accent) 70%, #000);
+  }
   .head {
     gap: 8px;
   }

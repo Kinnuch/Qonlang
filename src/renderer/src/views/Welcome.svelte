@@ -78,7 +78,8 @@
         { name: 'sgiofh' },
         { name: '夏穆' },
         { name: 'Kyiexitah' },
-        { name: 'Sicusa' }
+        { name: 'Sicusa' },
+        { name: 'Ethan Delanche' }
       ]
     },
     { role: 'other', names: [{ name: '老婆大人' }] }
@@ -643,7 +644,8 @@
   .main {
     padding: 40px clamp(20px, 4vw, 48px);
     overflow: auto;
-    max-width: 880px;
+    /* 底部那排按钮在英文界面里要 860px 左右：880px 减去两边留白放不下，怎么拉宽窗口都会挤出一个到第二行 */
+    max-width: 1000px;
     min-width: 0;
   }
   .restore {
@@ -742,7 +744,7 @@
     border-top: 1px solid var(--border);
   }
   .footer-bar {
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
   }
   .footer .btn.active {
@@ -790,10 +792,6 @@
   }
   .md :global(p) {
     font-size: 13px;
-  }
-  .md {
-    max-height: 320px;
-    overflow: auto;
   }
   .dev {
     display: flex;

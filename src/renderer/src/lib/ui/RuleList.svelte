@@ -904,6 +904,9 @@
     color: #8b5cf6;
     font-family: var(--font-mono);
   }
+  :global([data-theme='dark']) .chip.cls b {
+    color: #c4b5fd;
+  }
   .mini-form {
     display: flex;
     flex-wrap: wrap;
@@ -1041,7 +1044,7 @@
     color: #fbbf24;
   }
   :global([data-theme='dark']) .rp {
-    color: #5eead4;
+    color: #8fd3c6;
   }
   :global([data-theme='dark']) .ctx {
     color: #93c5fd;

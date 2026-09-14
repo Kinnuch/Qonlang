@@ -50,6 +50,8 @@ const execFileAsync = promisify(execFile)
 
 const APP_ID = 'io.github.kinnuch.qonlang'
 const GUIDE_URL = 'https://kinnuch.github.io/cerf/qonlang/'
+/** 使用指南：中文界面打开中文版，其余打开英文版 */
+const guideUrlFor = (locale: string): string => GUIDE_URL + (locale.startsWith('zh') ? '' : 'en/')
 const RECENT_MAX = 10
 
 interface Prefs {
@@ -682,7 +684,10 @@ function createWindow(): void {
         },
         { label: L('保存', 'Save'), accelerator: 'CmdOrCtrl+S', click: send('save') },
         { type: 'separator' },
-        { label: L('使用指南', 'User guide'), click: () => void shell.openExternal(GUIDE_URL) }
+        {
+          label: L('使用指南', 'User guide'),
+          click: () => void shell.openExternal(guideUrlFor(prefs.locale))
+        }
       )
       Menu.buildFromTemplate(items).popup({ window: mainWindow! })
     })()
@@ -1001,7 +1006,10 @@ function buildMenu(): void {
     {
       label: '帮助 / Help',
       submenu: [
-        { label: '使用指南 / User guide', click: () => void shell.openExternal(GUIDE_URL) },
+        {
+          label: '使用指南 / User guide',
+          click: () => void getPrefs().then((p) => shell.openExternal(guideUrlFor(p.locale)))
+        },
         {
           label: 'GitHub',
           click: () => void shell.openExternal('https://github.com/Kinnuch/Qonlang')

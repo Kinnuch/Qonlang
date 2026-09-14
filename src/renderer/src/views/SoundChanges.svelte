@@ -715,13 +715,14 @@
   .results tbody tr {
     cursor: pointer;
   }
-  .results tbody tr:nth-child(even) {
+  /* 底色画在格子上：第一列是 sticky 的实底，画在行上会被它盖住，深色下隔行就成了半截黑条 */
+  .results tbody tr:nth-child(even) td {
     background: var(--bg-sunken);
   }
-  .results tbody tr:hover {
+  .results tbody tr:hover td {
     background: var(--bg-hover);
   }
-  .results tbody tr.sel {
+  .results tbody tr.sel td {
     background: var(--accent-soft);
   }
   .results .upto {

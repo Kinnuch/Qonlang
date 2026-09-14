@@ -179,7 +179,7 @@
     let h = 0
     for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0
     const [a, b] = GRADIENTS[h % GRADIENTS.length]
-    return `background: linear-gradient(115deg, color-mix(in srgb, ${a} 30%, var(--bg-elev)), color-mix(in srgb, ${b} 26%, var(--bg-elev)))`
+    return `background: linear-gradient(115deg, color-mix(in srgb, ${a} var(--tint-a), var(--bg-elev)), color-mix(in srgb, ${b} var(--tint-b), var(--bg-elev)))`
   }
 
   // ───── 悬浮词卡：用读进来的项目查，底部按钮先打开那个项目 ─────
@@ -334,11 +334,20 @@
     position: relative;
     width: 100%;
     height: 84px;
+    /* 开始页主栏是纵向 flex：内容比窗口高时（有恢复提示条、英文模板说明更长）会把这个 overflow:hidden 的块压扁 */
+    flex-shrink: 0;
     margin-bottom: 24px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow: hidden;
     background: var(--bg-elev);
+    /* 渐变里混进多少颜色（gradientOf）；深色底上同样的比例显得又闷又艳，少混一点 */
+    --tint-a: 30%;
+    --tint-b: 26%;
+  }
+  :global([data-theme='dark']) .gallery {
+    --tint-a: 18%;
+    --tint-b: 16%;
   }
   .slide {
     position: absolute;

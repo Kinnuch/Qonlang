@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { matchQuery, parseQuery } from '$lib/core/query'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
   import { projectState } from '$lib/state/project.svelte'
@@ -64,9 +65,21 @@
     // 初次进入时选中当前语言
     if (!selectedId && projectState.currentLanguageId) selectedId = projectState.currentLanguageId
   })
+  // 顶栏换了当前语言：树里也选中它（跟下面的 pick 是一来一回）
+  $effect(() => {
+    const cur = projectState.currentLanguageId
+    untrack(() => {
+      if (cur && cur !== selectedId && project.languages.some((l) => l.id === cur)) selectedId = cur
+    })
+  })
+  /** 在树里、谱系里点一门语言（或者从别处跳过来）：选中它，顶栏右上角的「当前语言」也换成它 */
+  function pick(id: Id): void {
+    selectedId = id
+    if (projectState.currentLanguageId !== id) projectState.currentLanguageId = id
+  }
   $effect(() => {
     const id = ui.takePending('language')
-    if (id) selectedId = id
+    if (id) pick(id)
   })
   // 「返回」用：报上当前位置，返回时原样恢复
   $effect(() => {
@@ -164,7 +177,7 @@
           {children}
           {selectedId}
           defaultId={project.settings.defaultLanguageId}
-          onselect={(id) => (selectedId = id)}
+          onselect={pick}
           onaddchild={(id) => add(id)}
         />
       {/each}
@@ -308,7 +321,7 @@
         <div class="lineage">
           {#each languageLineage(project.languages, lang.id) as a, i (a.id)}
             {#if i > 0}<span class="muted">›</span>{/if}
-            <button class="link" onclick={() => (selectedId = a.id)}>{a.name}</button>
+            <button class="link" onclick={() => pick(a.id)}>{a.name}</button>
           {/each}
         </div>
       </div>

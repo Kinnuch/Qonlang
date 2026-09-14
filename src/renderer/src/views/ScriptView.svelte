@@ -522,7 +522,8 @@
   <div class="page-head row tabbed">
     <h1>{t('script.title')}</h1>
     <GuideLink section="script" />
-    {#if lang}<span class="badge" style:background={lang.color} style:color="#fff">{lang.name}</span
+    {#if lang}<span class="badge lang-badge" style:background-color={lang.color} style:color="#fff"
+        >{lang.name}</span
       >{/if}
     {#if script}
       <div class="seg">
