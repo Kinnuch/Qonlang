@@ -87,6 +87,9 @@ export default {
     examplesHint: '两个虚构示例项目，打开随便改，原文件不会被覆盖。',
     openExample: '打开',
     exampleOpened: '已打开示例工程「{name}」',
+    galleryLabel: '最近项目里的例句、短语与配图',
+    galleryPrev: '上一张',
+    galleryNext: '下一张',
     exampleDesc: {
       aelith:
         '黏着先验语：祖语→现代语的语系（含满足 / 不满足环境两路的音变规则）、元音和谐、流水线构形的八种步骤、变体与继承、一个词类几个构形、按阴阳换字母、连读浊化反推、复合词类、检视器模块、词源链与关系图、已 gloss 的语料、卢恩刻文。',
@@ -1091,6 +1094,8 @@ export default {
     text: '原文',
     category: '分类',
     derivePron: '按规则标音',
+    pronKept: '有 {n} 个发音是手改的（不规则），没有动。',
+    pronOverwrite: '也按规则重算',
     variants: '变体',
     variantText: '变体写法',
     variantNote: '说明（语域、场合）'

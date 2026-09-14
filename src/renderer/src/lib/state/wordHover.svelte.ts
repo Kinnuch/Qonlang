@@ -1,4 +1,4 @@
-import type { Id } from '$lib/core/model'
+import type { Id, Project } from '$lib/core/model'
 
 /** 悬浮卡底部可以点开的组成部分：语料里已确认的切分、词源里的来源等 */
 export interface HoverPart {
@@ -28,6 +28,14 @@ class WordHover {
   /** 悬浮的是语素时用这个（与 lexemeId 二选一） */
   morphemeId = $state<Id | null>(null)
   rect = $state<DOMRect | null>(null)
+  /**
+   * 卡片查词用的项目：平时是打开着的项目；开始页的画廊没打开项目，悬浮时把读进来的那个放这里。
+   * raw：整个项目很大，不做深层响应式。卡片收起时清掉。
+   */
+  project = $state.raw<Project | null>(null)
+  /** 卡片底部「在词库中查看」怎么打开：开始页要先打开那个项目再跳；不设就直接跳 */
+  opener:
+    ((target: { lexemeId: Id | null; morphemeId: Id | null; languageId: Id }) => void) | null = null
   /** 调用方给的切分（优先于卡片自己按词源推的） */
   parts = $state<HoverPart[]>([])
   /**
@@ -174,6 +182,8 @@ class WordHover {
     this.hideTimer = setTimeout(() => this.clear(), 220)
   }
   private clear(): void {
+    this.project = null
+    this.opener = null
     this.candidates = []
     this.onPick = null
     this.missing = null

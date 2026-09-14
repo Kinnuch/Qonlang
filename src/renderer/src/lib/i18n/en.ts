@@ -95,6 +95,9 @@ const en: Dict = {
       'Two fictional sample projects. Change anything; the originals are never overwritten.',
     openExample: 'Open',
     exampleOpened: 'Opened the example project “{name}”',
+    galleryLabel: 'Sentences, phrases and pictures from recent projects',
+    galleryPrev: 'Previous',
+    galleryNext: 'Next',
     exampleDesc: {
       aelith:
         'Agglutinative a priori language: proto-to-modern family (with inside/outside if-else sound changes), vowel harmony, all eight pipeline steps, variants and inheritance, several paradigms per part of speech, letters that change by gender, sandhi undone in the corpus, compound parts of speech, inspector modules, etymology chains and the relation graph, glossed corpus, runic script.',
@@ -1124,6 +1127,8 @@ const en: Dict = {
     text: 'Text',
     category: 'Category',
     derivePron: 'Derive pronunciation',
+    pronKept: '{n} hand-edited pronunciations (irregular) were left as they are.',
+    pronOverwrite: 'Recompute them too',
     variants: 'Variants',
     variantText: 'Variant text',
     variantNote: 'Note (register, situation)'

@@ -83,6 +83,8 @@
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
+  import { sortable } from '$lib/ui/sortable.svelte'
+  import { moveById } from '$lib/core/move'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -1179,7 +1181,7 @@
         <p class="muted">{t('corpus.empty')}</p>
       {:else}
         <div class="list">
-          {#each list.slice(0, lz.shown) as s (s.id)}
+          {#each list.slice(0, lz.shown) as s, si (s.id)}
             {#if selectedId === s.id && collapsedId !== s.id}{@render editorPanel(s)}{/if}
             {@const c = coverage(s)}
             {@const done = fullyConfirmed(s)}
@@ -1191,6 +1193,9 @@
               use:flashOn={justConfirmed === s.id}
               role="button"
               tabindex="0"
+              {...sortable('sentences', si, (from, to) => {
+                if (moveById(project.sentences, list[from].id, list[to].id)) touch()
+              })}
               onclick={() => pick(s.id)}
               onkeydown={(e) => e.key === 'Enter' && pick(s.id)}
             >

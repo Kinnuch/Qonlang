@@ -9,12 +9,13 @@
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { wordHover } from '$lib/state/wordHover.svelte'
   import LexemeCard from './LexemeCard.svelte'
-  import { etymologyText } from '$lib/core/etymology'
+  import { etymologyText, morphemeLabel } from '$lib/core/etymology'
   import { posText, sensePos } from '$lib/core/pos'
   import type { Id } from '$lib/core/model'
   import { BookOpen, Blocks, X, TriangleAlert, SearchX } from '@lucide/svelte'
 
-  const project = $derived(projectState.project)
+  // 开始页的画廊没打开项目：用悬浮时带来的那个项目查词
+  const project = $derived(wordHover.project ?? projectState.project)
   const lexeme = $derived(
     project && wordHover.lexemeId ? project.lexemes.find((l) => l.id === wordHover.lexemeId) : null
   )
@@ -56,7 +57,8 @@
         if (x) out.push({ label: x.lemma, lexemeId: x.id })
       } else if (s.kind === 'morpheme') {
         const m = project.morphemes.find((y) => y.id === s.id)
-        if (m) out.push({ label: (ety.type === 'root' ? '*' : '') + m.form, morphemeId: m.id })
+        if (m)
+          out.push({ label: (ety.type === 'root' ? '*' : '') + morphemeLabel(m), morphemeId: m.id })
       }
     }
     return out
@@ -172,17 +174,19 @@
   })
 
   function openInLexicon(): void {
-    if (lexeme) {
-      const id = lexeme.id
-      const langId = lexeme.languageId
-      wordHover.hide(true)
-      ui.jump('lexicon', 'lexeme', id, langId)
-    } else if (morpheme) {
-      const id = morpheme.id
-      const langId = morpheme.languageId
-      wordHover.hide(true)
-      ui.jump('morphemes', 'morpheme', id, langId)
-    }
+    const target = lexeme
+      ? { lexemeId: lexeme.id, morphemeId: null, languageId: lexeme.languageId }
+      : morpheme
+        ? { lexemeId: null, morphemeId: morpheme.id, languageId: morpheme.languageId }
+        : null
+    if (!target) return
+    // 收起卡片会清掉 opener，先拿到手
+    const opener = wordHover.opener
+    wordHover.hide(true)
+    if (opener) opener(target)
+    else if (target.lexemeId) ui.jump('lexicon', 'lexeme', target.lexemeId, target.languageId)
+    else if (target.morphemeId)
+      ui.jump('morphemes', 'morpheme', target.morphemeId, target.languageId)
   }
 </script>
 
@@ -219,7 +223,7 @@
               {/each}
             </ol>
           {:else if x.morpheme}
-            <strong class="data cand-lemma">{x.morpheme.form}</strong>
+            <strong class="data cand-lemma">{morphemeLabel(x.morpheme)}</strong>
             <p class="small">{x.morpheme.gloss} {pickText(x.morpheme.meaning, glossLangs)}</p>
           {/if}
           <button class="btn sm pick" onclick={() => wordHover.pick(x.c)}
@@ -302,14 +306,14 @@
       {:else if morpheme}
         <div class="mor">
           <div class="row">
-            <strong class="data big">{morpheme.form}</strong>
+            <strong class="data big">{morphemeLabel(morpheme)}</strong>
             <span class="badge">{t(`morphemes.types.${morpheme.type}`)}</span>
             {#if morpheme.gloss}<span class="badge mono">{morpheme.gloss}</span>{/if}
           </div>
           <p>{pickText(morpheme.meaning, glossLangs)}</p>
           {#if morpheme.etymology.sources.length}
             <p class="small muted data">
-              {etymologyText(project!, morpheme.etymology, morpheme.form)}
+              {etymologyText(project!, morpheme.etymology, morphemeLabel(morpheme))}
             </p>
           {/if}
           {#if morpheme.notes}<p class="small muted">{morpheme.notes}</p>{/if}

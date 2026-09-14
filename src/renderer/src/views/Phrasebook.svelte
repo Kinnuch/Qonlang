@@ -35,6 +35,8 @@
   import { Plus, Trash2, X, Wand2, Upload, Download } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
+  import { sortable } from '$lib/ui/sortable.svelte'
+  import { moveById } from '$lib/core/move'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -205,13 +207,36 @@
       }
     })
   }
-  function derivePron(p: Phrase): void {
+  /**
+   * 按规则标音：手改过（不规则）的默认不动；有没动的，提示条里可以一并按规则重算（force）。
+   */
+  function derivePron(p: Phrase, force = false): void {
     if (!language) return
+    let kept = 0
     for (const o of language.orthographies) {
       const ipa = transcribe(language, o, p.text)
-      if (ipa != null && !p.pronunciations[o.id]?.irregular)
-        p.pronunciations[o.id] = { ipa, irregular: false }
+      if (ipa == null) continue
+      const cur = p.pronunciations[o.id]
+      if (cur?.irregular && !force) {
+        if (cur.ipa !== ipa) kept++
+        continue
+      }
+      p.pronunciations[o.id] = { ipa, irregular: false }
     }
+    touch()
+    if (kept)
+      ui.toast(t('phrasebook.pronKept', { n: kept }), {
+        action: { label: t('phrasebook.pronOverwrite'), run: () => derivePron(p, true) }
+      })
+  }
+  /** 勾掉「不规则」：这一套正字法马上按规则重算 */
+  function setIrregular(p: Phrase, orthoId: string, on: boolean): void {
+    const o = language?.orthographies.find((x) => x.id === orthoId)
+    if (!language || !o) return
+    const cur = p.pronunciations[orthoId]?.ipa ?? ''
+    p.pronunciations[orthoId] = on
+      ? { ipa: cur, irregular: true }
+      : { ipa: transcribe(language, o, p.text) ?? cur, irregular: false }
     touch()
   }
   /** 导出当前列表里的短语（跟着当前语言、分类与搜索走） */
@@ -323,7 +348,7 @@
           <p class="muted">{t('phrasebook.empty')}</p>
         {:else}
           <div class="list">
-            {#each list as p (p.id)}
+            {#each list as p, pi (p.id)}
               <div
                 class="card item"
                 data-id={p.id}
@@ -331,6 +356,9 @@
                 class:flash={flashId === p.id}
                 role="button"
                 tabindex="0"
+                {...sortable('phrases', pi, (from, to) => {
+                  if (moveById(project.phrasebook, list[from].id, list[to].id)) touch()
+                })}
                 onclick={() => (selectedId = p.id)}
                 onkeydown={(e) => e.key === 'Enter' && (selectedId = p.id)}
               >
@@ -423,6 +451,13 @@
               touch()
             }}
           />
+          <label class="row small" title={t('lexicon.irregular')}
+            ><input
+              type="checkbox"
+              checked={p.pronunciations[o.id]?.irregular ?? false}
+              onchange={(e) => setIrregular(p, o.id, (e.currentTarget as HTMLInputElement).checked)}
+            />!</label
+          >
         </div>
       {/each}
     </div>

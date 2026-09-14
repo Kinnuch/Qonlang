@@ -1,5 +1,7 @@
 <script lang="ts">
   import RuleSyntax from '$lib/ui/RuleSyntax.svelte'
+  import DailyGallery from '$lib/ui/DailyGallery.svelte'
+  import WordPopover from '$lib/ui/WordPopover.svelte'
   import GuideTour from '$lib/ui/GuideTour.svelte'
   import { tour } from '$lib/state/tour.svelte'
   import { onMount } from 'svelte'
@@ -305,6 +307,9 @@
       <span class="banner-link">wiki.gilatod.art <ExternalLink size={13} /></span>
     </button>
 
+    <!-- 从最近打开的项目里抽例句、短语、带配图的词；都抽不到就不显示 -->
+    <DailyGallery {recent} />
+
     <h2>{t('welcome.templates.title')}</h2>
     <div class="templates">
       {#each templates as tp (tp.id)}
@@ -493,6 +498,8 @@
 </div>
 
 <GuideTour />
+<!-- 开始页自己挂一个悬浮词卡：画廊里的词悬浮时用（项目里的那个在 Shell 里） -->
+<WordPopover />
 
 <style>
   .welcome {
