@@ -13,8 +13,8 @@ import type {
   Project,
   SlotGenerator
 } from '$lib/core/model'
-import { parseRuleText, runRules, type RuleProgram } from '../sca'
-import { languageParseOptions, nucleusSet, segment } from '../phon'
+import { parseRuleText, runRules, stripStress, type RuleProgram } from '../sca'
+import { languageParseOptions, segment, spellingUnits } from '../phon'
 import { transcribe } from '$lib/core/pronounce'
 import { posParadigmId } from '$lib/core/pos'
 import { activeValues, conditionVariants, resolveConditions } from './conditions'
@@ -394,7 +394,7 @@ function insertInfix(
   stem: string,
   infix: string,
   at: string,
-  nuclei: Set<string>,
+  isVowel: (s: string) => boolean,
   inventory: string[]
 ): string {
   const segs = segment(stem, inventory)
@@ -414,7 +414,7 @@ function insertInfix(
   } else if (cv) {
     const wantVowel = cv[1].toUpperCase() === 'V'
     const idx: number[] = []
-    for (let i = 0; i < segs.length; i++) if (nuclei.has(segs[i]) === wantVowel) idx.push(i)
+    for (let i = 0; i < segs.length; i++) if (isVowel(segs[i]) === wantVowel) idx.push(i)
     const n = cv[2] ? Number(cv[2]) : 1
     // 正数从头数，负数从末尾数：C-1 就是最后一个辅音
     const target = n > 0 ? idx[n - 1] : idx[idx.length + n]
@@ -427,12 +427,12 @@ function insertInfix(
 function applyPattern(
   stem: string,
   pattern: string,
-  nuclei: Set<string>,
+  isVowel: (s: string) => boolean,
   inventory: string[]
 ): string {
   const segs = segment(stem, inventory)
-  const cons = segs.filter((s) => !nuclei.has(s))
-  const vows = segs.filter((s) => nuclei.has(s))
+  const cons = segs.filter((s) => !isVowel(s))
+  const vows = segs.filter((s) => isVowel(s))
   let ci = 0
   let vi = 0
   let out = ''
@@ -525,8 +525,8 @@ function runStep(
   trace: string[],
   pick: (text: string) => string = (x) => x
 ): string {
-  const nuclei = nucleusSet(ctx.language)
-  const inventory = ctx.language.phonemes.map((p) => p.symbol)
+  // 按音段数的地方用拼写单位：设了正字法时 th、eu 这类写法是一个音
+  const { units: inventory, isVowel } = spellingUnits(ctx.language)
   switch (step.kind) {
     case 'prefix': {
       const text = pick(step.text)
@@ -558,12 +558,12 @@ function runStep(
     case 'infix': {
       const text = pick(step.text)
       const a = resolveAffix(ctx, text, surface, 'prefix')
-      surface = insertInfix(surface, trimHyphens(a.form), step.at, nuclei, inventory)
+      surface = insertInfix(surface, trimHyphens(a.form), step.at, isVowel, inventory)
       trace.push(`中缀 ${shown(step.text, text)} @ ${step.at || 'V1'}: ${surface}`)
       return surface
     }
     case 'pattern': {
-      surface = applyPattern(surface, step.pattern, nuclei, inventory)
+      surface = applyPattern(surface, step.pattern, isVowel, inventory)
       trace.push(`模板 ${step.pattern}: ${surface}`)
       return surface
     }
@@ -593,7 +593,8 @@ function runStep(
         trace.push(
           `${e.before} → ${e.after} (${e.target || '∅'} → ${e.replacement || '∅'}, L${e.line})`
         )
-      return r.output
+      // 构形出来的是拼写：规则集里标的重音记号不留在词形里
+      return prog.hasStress ? stripStress(r.output) : r.output
     }
     default:
       return surface
@@ -689,8 +690,7 @@ export function generateForm(
     noteUnknown()
     return { surface: out, trace }
   }
-  const nuclei = nucleusSet(ctx.language)
-  const inventory = ctx.language.phonemes.map((p) => p.symbol)
+  const { units: inventory, isVowel } = spellingUnits(ctx.language)
   let surface = stem.value
   if (g.kind === 'affix' || g.kind === 'affix-sca') {
     const pre = resolveAffix(ctx, pick(g.prefix ?? ''), surface, 'prefix')
@@ -698,7 +698,7 @@ export function generateForm(
     if (pre.note) trace.push(pre.note)
     if (suf.note) trace.push(suf.note)
     if (g.kind === 'affix' && g.infix) {
-      surface = insertInfix(surface, trimHyphens(pick(g.infix)), g.infixAt, nuclei, inventory)
+      surface = insertInfix(surface, trimHyphens(pick(g.infix)), g.infixAt, isVowel, inventory)
       trace.push(`中缀 ${g.infix} @ ${g.infixAt || 'V1'}: ${surface}`)
     }
     surface = pre.form + surface + suf.form
@@ -715,12 +715,12 @@ export function generateForm(
           trace.push(
             `${e.before} → ${e.after} (${e.target || '∅'} → ${e.replacement || '∅'}, L${e.line})`
           )
-        surface = r.output
+        surface = prog.hasStress ? stripStress(r.output) : r.output
       } else trace.push('规则集不存在')
     }
   } else if (g.kind === 'pattern') {
     surface = applyAdjust(ctx, surface, g.pre && pick(g.pre), trace, '微调(前)')
-    surface = applyPattern(surface, g.pattern, nuclei, inventory)
+    surface = applyPattern(surface, g.pattern, isVowel, inventory)
     trace.push(`模板 ${g.pattern}: ${surface}`)
   } else if (g.kind === 'reduplication') {
     surface = applyAdjust(ctx, surface, g.pre && pick(g.pre), trace, '微调(前)')

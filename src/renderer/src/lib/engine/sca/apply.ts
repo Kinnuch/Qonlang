@@ -1,11 +1,13 @@
 import {
   applyReplacements,
+  BOUNDARY,
   revertReplacements,
   type CompiledContext,
   type ParsedRule,
   type RuleBranch,
   type RuleProgram
 } from './parse'
+import { annotate, assignStress, plainAnnotated, type Annotated } from './syllables'
 
 export interface TraceEntry {
   line: number
@@ -15,6 +17,13 @@ export interface TraceEntry {
   after: string
   target: string
   replacement: string
+  /** stress：这一步是重音规则（target 是 ˈ 或 ˌ，replacement 是规则原文） */
+  kind?: 'rule' | 'stress'
+}
+
+/** 去掉重音记号（有重音规则的规则集，输出要当拼写用时） */
+export function stripStress(s: string): string {
+  return s.replace(/[ˈˌ]/g, '')
 }
 
 export interface StageForm {
@@ -32,6 +41,8 @@ export interface RunOptions {
   /** 只应用到该文本行号（含）为止的规则 */
   stopAtLine?: number
   trace?: boolean
+  /** 多合字母里内部符号在这张表里的，输出时不换回写法（正字法转音标：θ 本来就是音标，不该变回 th） */
+  keepUnits?: readonly string[]
 }
 
 export interface RunResult {
@@ -127,7 +138,124 @@ function applyBranches(branches: NonNullable<ParsedRule['branches']>, input: str
   return out + input.slice(pos)
 }
 
-function applyRule(rule: ParsedRule, input: string): string {
+/** 按音节、重音匹配时的一处命中：位置是原词里的，text 去掉了中间的记号 */
+interface Hit {
+  start: number
+  end: number
+  text: string
+  groups: Record<string, string> | undefined
+  /** 命中范围里被跳过的重音记号：[去掉记号后的位置, 记号] */
+  marks: [number, string][]
+}
+
+const MARKS_RE = new RegExp(`[${BOUNDARY}ˈˌ]`, 'g')
+
+function hitsOf(re: RegExp, ann: Annotated, word: string): Hit[] {
+  const out: Hit[] = []
+  let lastEmpty = -1
+  for (const m of ann.text.matchAll(re)) {
+    const a = m.index ?? 0
+    const start = ann.source(a)
+    const end = ann.source(a + m[0].length)
+    let text = ''
+    const marks: [number, string][] = []
+    for (const ch of word.slice(start, end)) {
+      if (ch === 'ˈ' || ch === 'ˌ') marks.push([text.length, ch])
+      else text += ch
+    }
+    // 空的命中（增生）：同一个音前后隔着记号的几个位置只算一次
+    if (start === end) {
+      const plain = start - (word.slice(0, start).match(/[ˈˌ]/g)?.length ?? 0)
+      if (plain === lastEmpty) continue
+      lastEmpty = plain
+    }
+    const groups = m.groups
+      ? Object.fromEntries(
+          Object.entries(m.groups).map(([k, v]) => [k, v?.replace(MARKS_RE, '') ?? v])
+        )
+      : undefined
+    out.push({ start, end, text, groups, marks })
+  }
+  return out
+}
+
+/** 被规则换掉的那段里原来有重音记号的，按原来的位置放回去（规则自己写了 ˈ ˌ 的不放） */
+function keepMarks(out: string, hit: Hit, explicit: boolean): string {
+  if (explicit || !hit.marks.length) return out
+  let res = out
+  hit.marks.forEach(([at, mark], i) => {
+    const pos = Math.min(at, out.length) + i
+    res = res.slice(0, pos) + mark + res.slice(pos)
+  })
+  return res
+}
+
+function applyMarked(rule: ParsedRule, input: string, program: RuleProgram): string {
+  const annotated = (w: string): Annotated =>
+    rule.sigma ? annotate(w, program) : plainAnnotated(w)
+  if (rule.branches) {
+    const b = rule.branches
+    const ann = annotated(input)
+    const spans: { start: number; end: number; out: string }[] = []
+    const free = (start: number, end: number): boolean =>
+      spans.every((x) =>
+        start === end
+          ? !(x.start < start && start < x.end)
+          : x.start === x.end
+            ? !(start < x.start && x.start < end)
+            : end <= x.start || start >= x.end
+      )
+    const take = (branch: RuleBranch, h: Hit): void => {
+      if (!free(h.start, h.end)) return
+      spans.push({
+        start: h.start,
+        end: h.end,
+        out: keepMarks(substitute(branch, h.text, h.groups), h, rule.explicitStress)
+      })
+    }
+    const inContext = (c: CompiledContext): Hit[] => {
+      const ranges = c.excludes.flatMap((re) =>
+        hitsOf(re, ann, input).map((h): [number, number] => [h.start, h.end])
+      )
+      return hitsOf(c.main, ann, input).filter((h) => !excluded(ranges, h.start, h.end))
+    }
+    for (const c of b.then.compiled) for (const h of inContext(c)) take(b.then, h)
+    const inside = new Set<number>()
+    for (const c of b.otherwise.compiled) for (const h of inContext(c)) inside.add(h.start)
+    for (const h of hitsOf(b.otherwise.anywhere, ann, input))
+      if (h.end > h.start && !inside.has(h.start)) take(b.otherwise, h)
+    if (!spans.length) return input
+    spans.sort((x, y) => x.start - y.start || x.end - y.end)
+    let out = ''
+    let pos = 0
+    for (const x of spans) {
+      out += input.slice(pos, x.start) + x.out
+      pos = x.end
+    }
+    return out + input.slice(pos)
+  }
+  let current = input
+  for (const c of rule.compiled) {
+    const ann = annotated(current)
+    const ranges = c.excludes.flatMap((re) =>
+      hitsOf(re, ann, current).map((h): [number, number] => [h.start, h.end])
+    )
+    let out = ''
+    let pos = 0
+    for (const h of hitsOf(c.main, ann, current)) {
+      if (h.start < pos || excluded(ranges, h.start, h.end)) continue
+      out +=
+        current.slice(pos, h.start) +
+        keepMarks(substitute(rule, h.text, h.groups), h, rule.explicitStress)
+      pos = h.end
+    }
+    current = out + current.slice(pos)
+  }
+  return current
+}
+
+function applyRule(rule: ParsedRule, input: string, program: RuleProgram): string {
+  if (rule.marks) return applyMarked(rule, input, program)
   if (rule.branches) return applyBranches(rule.branches, input)
   let current = input
   for (const { main, excludes } of rule.compiled) {
@@ -154,8 +282,11 @@ function applyRule(rule: ParsedRule, input: string): string {
 
 /** 对一个词运行整套规则 */
 export function runRules(program: RuleProgram, word: string, options: RunOptions = {}): RunResult {
-  const { replacements } = program
-  let current = applyReplacements(word, replacements, options.keepDots)
+  const keep = options.keepUnits?.length ? new Set(options.keepUnits) : null
+  const replacements = keep
+    ? program.replacements.filter(([, to]) => !keep.has(to))
+    : program.replacements
+  let current = applyReplacements(word, program.replacements, options.keepDots)
   const stages: StageForm[] = []
   const trace: TraceEntry[] = []
   let stage = ''
@@ -178,17 +309,32 @@ export function runRules(program: RuleProgram, word: string, options: RunOptions
       continue
     }
     if (!active) continue
-    const next = applyRule(step, current)
+    const next =
+      step.kind === 'stress'
+        ? assignStress(step, current, program)
+        : applyRule(step, current, program)
     if (next !== current) {
       if (options.trace !== false) {
-        trace.push({
-          line: step.line,
-          stage,
-          before: current,
-          after: next,
-          target: step.target,
-          replacement: step.replacement
-        })
+        trace.push(
+          step.kind === 'stress'
+            ? {
+                line: step.line,
+                stage,
+                before: current,
+                after: next,
+                target: step.level === 'secondary' ? 'ˌ' : 'ˈ',
+                replacement: step.text,
+                kind: 'stress'
+              }
+            : {
+                line: step.line,
+                stage,
+                before: current,
+                after: next,
+                target: step.target,
+                replacement: step.replacement
+              }
+        )
       }
       current = next
     }
@@ -221,7 +367,7 @@ export function runRulesOnText(
 /** 只应用一条规则（预览用）。输入输出都是书写形式（经多合字母替换与还原）。 */
 export function runSingleRule(program: RuleProgram, rule: ParsedRule, word: string): string {
   const inner = applyReplacements(word, program.replacements)
-  return revertReplacements(applyRule(rule, inner), program.replacements)
+  return revertReplacements(applyRule(rule, inner, program), program.replacements)
 }
 
 /** 规则序号（第 1 条起，不计标记与注释）：文本行号 → 序号 */

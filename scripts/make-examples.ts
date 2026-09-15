@@ -165,7 +165,7 @@ function makeAelith(): void {
   const p = createProject({
     name: 'Aelith',
     template: 'family',
-    appVersion: '0.8.4',
+    appVersion: '0.9.0',
     uiLocale: 'zh'
   })
   p.meta.author = '千语集示例'
@@ -185,6 +185,27 @@ function makeAelith(): void {
   S.notes =
     '跟 Aelith 同出 Proto-Aelith 的姊妹语：词首的 k 弱化成 h，辅音后面的词尾 i 脱落；有几个词的意思走偏了（kasu 在这里是帐篷）。'
   S.alphabet = 'a e h i k l m n o p r s t u w'.split(' ')
+  S.phonemes = S.alphabet.map((s) => ({
+    id: newId(),
+    symbol: s,
+    features: inferFeatures(s),
+    graphemes: {},
+    notes: ''
+  }))
+  S.classes = [
+    { id: newId(), name: 'C', members: 'h k l m n p r s t w'.split(' '), featureQuery: null },
+    { id: newId(), name: 'V', members: 'a e i o u'.split(' '), featureQuery: null }
+  ]
+  // 自定义重音规则：倒数第二个音节后面跟着两个辅音就重读它，否则重读最后一个音节
+  S.syllable = { enabled: true, template: '', strategy: 'maximal-onset' }
+  S.prosody = {
+    type: 'stress',
+    stressPosition: 'custom',
+    stressRule: '-2 / _CC , -1',
+    rules:
+      '重音落在词尾：倒数第二个音节后面接着两个辅音时往前挪一个音节（音系页「音节与韵律」里是自定义重音规则）。',
+    tones: []
+  }
   p.languages.push(P, L, S)
   p.settings.defaultLanguageId = L.id
   L.notes =
@@ -220,7 +241,13 @@ function makeAelith(): void {
   ]
   const rom = L.orthographies[0]
   rom.name = '罗马化'
-  rom.rulesToIpa = ['ng > ŋ', 'ö > ø', 'ü > y'].join('\n')
+  rom.rulesToIpa = [
+    'ng > ŋ',
+    'ö > ø',
+    'ü > y',
+    '; 首音节重读：转出来的音标带上重音记号（音系页「音节与韵律」的测试照记号划）',
+    'ˈ = 1'
+  ].join('\n')
   rom.rulesFromIpa = ['ŋ > ng', 'ø > ö', 'y > ü'].join('\n')
   L.orthographies.push({
     id: newId(),
@@ -667,6 +694,13 @@ function makeAelith(): void {
     notes: '类别写的是「仿译」，内置列表里没有，词条卡原样显示。'
   }
   p.lexemes.push(bilkaso)
+  // 故意没写释义：词库里标红，底栏右边的问题统计里点得到它
+  const vesa = createLexeme(L.id, 'vesa')
+  vesa.posId = N.id
+  vesa.tags = ['待补']
+  vesa.features[harmony.id] = value(harmony, 'B')
+  vesa.stems = { 词干: 'vesa' }
+  p.lexemes.push(vesa)
   // 祖语也有词条：现代词的来源指向它，关系图里可以跨语言跳
   const pKasu = createLexeme(P.id, 'kasu')
   pKasu.posId = N.id
@@ -743,6 +777,29 @@ function makeAelith(): void {
   merunRs.testWords = 'kasu\nteli\nkara\nnol\nilen\nkel'
   merunRs.stageLanguages = { 祖语: P.id, 现代语: S.id }
   p.ruleSets.push(merunRs)
+  // 书面语到口语：特征定义、重音规则、音节边界 σ 各用一次，测试台里看得到重音记号
+  const spokenRs = createRuleSet(
+    '书面语 → 口语',
+    [
+      '; 演示：特征 [+浊]、重音规则 ˈ =、音节边界 σ（几条音变都是编的）',
+      '[+浊] = b d g z v',
+      '[-浊] = p t k s f',
+      'ˈ = 1',
+      '-* 书面语',
+      '; 音节末的浊辅音清化（词尾也算音节末）：biz → bis',
+      '[+浊] > [-浊] / _σ',
+      '; 不重读的 e 弱化成 ə：重读音节（ˈ 开头那个）里的不动',
+      'e > ə / σ(C)(C)_ - ˈ(C)(C)_',
+      '; 特征从定义这一行起有效：鼻音在同一个音节里时 a 鼻化',
+      '[+鼻音] = m n ng',
+      'a > ã / _[+鼻音]σ',
+      '-* 口语'
+    ].join('\n')
+  )
+  spokenRs.notes = '测试台的每一列都带着 ˈ：到「ˈ = 1」那一行时标上，之后的规则照常跨过它匹配。'
+  spokenRs.testWords = 'biz\nsepe\nvene\nilen\nsörmek\ntelikaso\nkamsa'
+  spokenRs.stageLanguages = { 书面语: L.id, 口语: L.id }
+  p.ruleSets.push(spokenRs)
   const merunWords: [string, PartOfSpeech, string, string, string][] = [
     ['hasu', N, '帐篷', 'tent', 'kasu'],
     ['tel', N, '雨', 'rain', 'teli'],
@@ -1150,11 +1207,11 @@ function makeAelith(): void {
     'Aelith 是虚构的黏着语，用来把千语集每个模块的功能摆一遍（数据都是编的，不对应任何真实语言）：',
     '',
     '- **语言**：语系树（Proto-Aelith → Aelith 与姊妹语 Merun）、方言、字母表',
-    '- **音系**：音位与特征、由特征生成的音类、多合字母、两套正字法、音节与重音、配列与造词',
+    '- **音系**：音位与特征、由特征生成的音类、多合字母、两套正字法（罗马化转音标的最后一行 `ˈ = 1` 是重音规则，转出来的音标带重音）、音节与重音、配列与造词；姊妹语 Merun 的「音节与韵律」用的是自定义重音规则 `-2 / _CC , -1`，测试里输入 hasta、hasu 看重音落在哪',
     '- **文字**：卢恩刻文、映射规则、手填的文字写法；「刻痕句读」是在手写板上画的字（打开它点「改手写」看笔画）',
-    '- **音变**：三套规则集（元音和谐、Proto → Aelith、Proto → Merun），阶段绑定语言，测试台词表；「Proto → Aelith」里有满足 / 不满足环境两路的规则（`θ > t?s / #_`：词首变 t、别处变 s）和带两个排除的规则（`u > o / _# - k_ , g_`），整库演化推出来的正是词库里的 kaso、nöl、sör-',
+    '- **音变**：四套规则集（元音和谐、Proto → Aelith、Proto → Merun、书面语 → 口语），阶段绑定语言，测试台词表；「Proto → Aelith」里有满足 / 不满足环境两路的规则（`θ > t?s / #_`：词首变 t、别处变 s）和带两个排除的规则（`u > o / _# - k_ , g_`），整库演化推出来的正是词库里的 kaso、nöl、sör-；「书面语 → 口语」演示特征（`[+浊] = b d g z v`，规则里写 `[+浊] > [-浊] / _σ`）、重音规则（`ˈ = 1`，测试台每一列都带着 ˈ）和音节边界 σ（不重读的 e 弱化：`e > ə / σ(C)(C)_ - ˈ(C)(C)_`）',
     '- **语素**：词根 / 前缀 / 后缀 / 中缀 / 环缀 / 附着词 / 小品词，异体形环境，词源',
-    '- **词库**：多义项、一个义项几个语域（dünar）、方言、标签、维度、复合词类与义项自己的词类（kara）、词干槽、词源链（词根 / 复合 / 派生 / 音变 / 借词 / 自己写的类别「仿译」）、自定义关系种类（押韵）、配图、手改发音；sörmek 是从 sör- 的动名词「生成到词库」的，词源与关系都是自动填的',
+    '- **词库**：多义项、一个义项几个语域（dünar）、方言、标签、维度、复合词类与义项自己的词类（kara）、词干槽、词源链（词根 / 复合 / 派生 / 音变 / 借词 / 自己写的类别「仿译」）、自定义关系种类（押韵）、配图、手改发音；sörmek 是从 sör- 的动名词「生成到词库」的，词源与关系都是自动填的；vesa 故意没写释义，词库里标红，底栏右边的问题统计点开能跳过去',
     '- **关系图**：kaso 的关系图里按住空白处拖动画布，右键节点展开或收起；右上角「对比」把同一个词根 *kasu 的 kaso（Aelith）、hasu（Merun，意思变成帐篷）、kasolu、telikaso 并排：各自经过的音变、k : h 的语音对应、意思与构成的差别',
     '- **检视器模块**：「词类与维度」最下面定义的「文化注释」与「刻文异体」（用刻文的字体显示），打开 kaso、nöl、sepe 看',
     '- **构形**：流水线的八种步骤（前缀、后缀、中缀、环缀、音变、模板、重叠、微调）、变体（基础那套改名叫「书面」）、继承、屏蔽槽位、手填表、作用于所有词的「连读浊化」（ve 后面 tovar → dovar）、一个词类绑几个构形（「动词」默认变位法一，tur-、sal- 在词条里挑了变位法二，ol- 用不规则）、按条件换字母（名词与格只写一条 ¢{阴:g|k}A：阴性的 sila、vene 是 silaga、venege，其余是 kasoka 这样）、构形套构形（「动名词」加 -mAk 之后套进「名词」的格：sörmek、sörmekde）、一个词条几个构形（sör- 既变位又有动名词）；测试台切到「自由」随便写一个形式看它变成什么',
@@ -1245,7 +1302,7 @@ function makeTsahun(): void {
   const p = createProject({
     name: 'Tsahun',
     template: 'blank',
-    appVersion: '0.8.4',
+    appVersion: '0.9.0',
     uiLocale: 'zh'
   })
   p.meta.author = '千语集示例'
@@ -1331,6 +1388,9 @@ function makeTsahun(): void {
     notes: ''
   }))
   L.digraphs = [{ from: 'ng', to: 'ŋ' }]
+  // 各音位在罗马化里怎么写：音节与韵律的测试按拼写输入时 ts、ng 各算一个音，构形的重叠也按它数
+  for (const ph of L.phonemes)
+    ph.graphemes[rom.id] = ph.symbol === 't͡s' ? 'ts' : ph.symbol === 'ŋ' ? 'ng' : ph.symbol
   L.classes = [
     { id: newId(), name: 'C', members: 'p t k ts m n ng s h l w j'.split(' '), featureQuery: null },
     { id: newId(), name: 'V', members: 'a i u e o'.split(' '), featureQuery: null },
@@ -1395,6 +1455,7 @@ function makeTsahun(): void {
     ['pak51', A, '大', 'big', ['尺寸']],
     ['sin35', A, '小', 'small', ['尺寸']],
     ['hok33', A, '红', 'red', ['颜色']],
+    ['tsing55', A, '尖', 'sharp', ['形状']],
     // 同形词：跟上面的「红」同音同调，语料里按译文挑
     ['hok33', V, '学；学习', 'learn; study', ['认知']],
     ['ngo21', PRO, '我', 'I', []],
@@ -1658,7 +1719,7 @@ function makeTsahun(): void {
     'Tsahun 是虚构的孤立声调语，与另一个示例 **Aelith** 互补，专门展示这些功能：',
     '',
     '- **声调**：韵律类型选「声调」，五个调各有调符与数字；罗马化转 IPA 的第一条是连读变调 `35 > ˧?˧˥ / _C , _V`（满足 / 不满足环境两路），叠词 lun35lun35 读 lun˧lun˧˥',
-    '- **双正字法**：罗马化（数字标调）与西里尔正字，例句可以并列两种写法',
+    '- **双正字法**：罗马化（数字标调）与西里尔正字，例句可以并列两种写法；音位表里填了每个音位在罗马化里的写法，「音节与韵律」的测试按拼写输入 tsang55 时 ts、ng 各算一个音，形容词强调重叠 tsing55 得 tsitsing55（按字母数会是 tstsing55）',
     '- **文字**：音节文字的**拼合**（辅音+元音自动拼格，尾辅音用消音符）与**竖排显示**',
     '- **构形**：孤立语也有构形——重叠出复数与强调；代词复数后面空一格接 `@tui55`（语素表里没有就引用同名词条），推出带空格的 `ngo21 tui55`',
     '- **语料**：重叠形也能被自动 gloss 认出来（`lun35lun35`），带空格的 `ngo21 tui55` 并成一个词认；`hok33 lo21` 里的同形词故意没确认，悬浮时并排给候选',

@@ -40,7 +40,7 @@
     if (!program) return null
     const ordinals = ruleOrdinals(program)
     const columns: string[] = []
-    const hasPre = program.steps.length > 0 && program.steps[0].kind === 'rule'
+    const hasPre = program.steps.length > 0 && program.steps[0].kind !== 'marker'
     if (hasPre) columns.push(t('soundChanges.input'))
     for (const m of program.markers) columns.push(m)
     const last = program.steps[program.steps.length - 1]
@@ -75,7 +75,8 @@
         col++
         continue
       }
-      if (col < 0) continue
+      // 重音规则不改音，图上不画
+      if (col < 0 || step.kind !== 'rule') continue
       const paths = step.branches
         ? [
             { key: `${step.line}:then`, ...step.branches.then },

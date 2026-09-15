@@ -38,12 +38,21 @@
     phonotacticsFromInventory,
     type Violation
   } from '$lib/engine/phon'
-  import { parseRuleText, runRules, type RuleProgram } from '$lib/engine/sca'
+  import { parseRuleText, runRules, stripStress, type RuleProgram } from '$lib/engine/sca'
   import { generateNaturalWords, MIN_LEXICON, type LexiconWord } from '$lib/engine/phon/wordgen'
-  import { deriveAll, transcribe } from '$lib/core/pronounce'
+  import {
+    customStressProgram,
+    deriveAll,
+    ipaUnits,
+    spellToIpa,
+    stressWord,
+    transcribe
+  } from '$lib/core/pronounce'
   import Portal from '$lib/ui/Portal.svelte'
   import RuleList from '$lib/ui/RuleList.svelte'
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
+  import StressRuleEditor from '$lib/ui/StressRuleEditor.svelte'
+  import StressText from '$lib/ui/StressText.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import { Plus, Trash2, X, Wand2, RefreshCw, Copy, List, Code, Check } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
@@ -73,6 +82,7 @@
     orthoView: 'list' | 'source'
     orthoTest: string
     syllTest: string
+    syllInput: 'spelling' | 'ipa'
     queryDim: string
     queryVal: string
     genCount: number
@@ -282,7 +292,12 @@
       .split(/[\s,，、]+/)
       .filter(Boolean)
       .map((w) => {
-        const r = runRules(orthoProgram!, w)
+        // 转成音标时 θ 这类内部符号本来就是音标，不换回写法
+        const r = runRules(
+          orthoProgram!,
+          w,
+          orthoDir === 'toIpa' ? { keepUnits: ipaUnits(lang!) } : {}
+        )
         return { w, out: r.output, stages: r.stages }
       })
   })
@@ -314,27 +329,33 @@
 
   // ───── 音节与韵律 ─────
   let syllTest = $state(memo.syllTest ?? '')
+  /** 测试输入按拼写（先按基准正字法转成音标）还是直接按 IPA */
+  let syllInput = $state<'spelling' | 'ipa'>(memo.syllInput ?? 'spelling')
+  const primaryOrtho = $derived(lang?.orthographies.find((o) => o.isPrimary) ?? null)
+  /** 划音节、标重音：选了自定义重音的先按重音规则标上（音标里已经带 ˈ 的不动） */
+  const analyze = (ipa: string): string =>
+    lang ? analyzeWord(lang, stressWord(lang, ipa)).text : ipa
   const syllResults = $derived.by(() => {
     if (!lang) return []
     return syllTest
       .split(/[\s,，、]+/)
       .filter(Boolean)
-      .map((w) => ({ w, out: analyzeWord(lang!, w).text }))
+      .map((w) => {
+        const ipa = syllInput === 'spelling' ? spellToIpa(lang!, primaryOrtho, w) : w
+        return { w, ipa, out: analyze(ipa) }
+      })
   })
   const sampleAnalyses = $derived.by(() => {
     if (!lang) return []
-    const primary = lang.orthographies.find((o) => o.isPrimary)
     return project.lexemes
       .filter((l) => l.languageId === lang!.id)
       .slice(0, 12)
       .map((l) => {
-        const ipa =
-          (primary && l.pronunciations[primary.id]?.ipa) ||
-          (primary ? transcribe(lang!, primary, l.lemma) : null) ||
-          l.lemma
-        return { lemma: l.lemma, ipa, out: analyzeWord(lang!, ipa).text }
+        const ipa = ipaOf(l, primaryOrtho ?? undefined)
+        return { lemma: l.lemma, ipa, out: analyze(ipa) }
       })
   })
+  const stressDiagnostics = $derived(lang ? (customStressProgram(lang)?.diagnostics ?? []) : [])
   const STRESS: StressPosition[] = [
     'initial',
     'second',
@@ -342,7 +363,8 @@
     'penult',
     'antepenult',
     'weight',
-    'manual'
+    'manual',
+    'custom'
   ]
 
   // ───── 配列与造词 ─────
@@ -411,13 +433,18 @@
       timeout: next.unknown.length ? 8000 : 4000
     })
   }
-  /** 词条的读音：主正字法下手填或推导的 IPA，都没有就按主正字法转一遍，再不行用词头 */
+  /**
+   * 词条的读音：手标为不规则的照用；其余按主正字法现转一遍（存着的推导读音可能是改规则前的），
+   * 没有转音标规则时用存着的，再不行按各音位的写法换，最后用词头。
+   */
   function ipaOf(l: Lexeme, primary: Orthography | undefined): string {
     if (!lang) return l.lemma
+    const stored = primary ? l.pronunciations[primary.id] : undefined
+    if (stored?.irregular && stored.ipa) return stored.ipa
     return (
-      (primary && l.pronunciations[primary.id]?.ipa) ||
       (primary ? transcribe(lang, primary, l.lemma) : null) ||
-      l.lemma
+      stored?.ipa ||
+      (primary ? spellToIpa(lang, primary, l.lemma) : l.lemma)
     )
   }
   let violations = $state<{ lemma: string; ipa: string; v: Violation[] }[] | null>(null)
@@ -449,6 +476,7 @@
       orthoView,
       orthoTest,
       syllTest,
+      syllInput,
       queryDim,
       queryVal,
       genCount,
@@ -483,7 +511,11 @@
     generated = words
       .map((w) => ({
         ipa: w.ipa,
-        spelt: fromIpa ? runRules(fromIpa, w.ipa).output : null,
+        spelt: fromIpa
+          ? fromIpa.hasStress
+            ? stripStress(runRules(fromIpa, w.ipa).output)
+            : runRules(fromIpa, w.ipa).output
+          : null,
         like: w.like
       }))
       .filter((g) => !existing.has(g.spelt ?? g.ipa))
@@ -850,6 +882,27 @@
             >
           {/if}
         </div>
+        {#if (lang.prosody.type === 'stress' || lang.prosody.type === 'pitch') && lang.prosody.stressPosition === 'custom'}
+          <div class="field custom-stress">
+            <span class="row"
+              >{t('phonology.customStress')}<HelpDot tip={t('phonology.customStressHint')} /></span
+            >
+            <StressRuleEditor
+              value={lang.prosody.stressRule ?? ''}
+              onchange={(text) => {
+                lang!.prosody.stressRule = text
+                touch()
+              }}
+            />
+            {#each stressDiagnostics as d, di (di)}<p
+                class="small"
+                class:err={d.severity === 'error'}
+                class:warn-text={d.severity === 'warning'}
+              >
+                {d.message}
+              </p>{/each}
+          </div>
+        {/if}
         {#if lang.prosody.type === 'tone'}
           <div class="tones">
             <div class="row">
@@ -903,7 +956,19 @@
         >
       </section>
       <section class="block">
-        <h3>{t('phonology.test')}</h3>
+        <div class="row">
+          <h3 class="grow">{t('phonology.test')}</h3>
+          <span class="small muted">{t('phonology.testAs')}</span>
+          <div class="seg">
+            <button class:active={syllInput === 'spelling'} onclick={() => (syllInput = 'spelling')}
+              >{t('phonology.testSpelling')}</button
+            >
+            <button class:active={syllInput === 'ipa'} onclick={() => (syllInput = 'ipa')}
+              >IPA</button
+            >
+          </div>
+          <HelpDot tip={t('phonology.testAsHint')} />
+        </div>
         <input
           class="input data"
           placeholder={t('phonology.testPlaceholder')}
@@ -913,7 +978,9 @@
           <table class="res">
             <tbody
               >{#each syllResults as r, ri (ri)}<tr
-                  ><td class="data">{r.w}</td><td class="data out">{r.out}</td></tr
+                  ><td class="data">{r.w}</td>{#if syllInput === 'spelling'}<td class="data muted"
+                      >{#if r.ipa !== r.w}<StressText text={r.ipa} />{/if}</td
+                    >{/if}<td class="data out"><StressText text={r.out} /></td></tr
                 >{/each}</tbody
             >
           </table>
@@ -923,9 +990,9 @@
           <table class="res">
             <tbody
               >{#each sampleAnalyses as r, ri (ri)}<tr
-                  ><td class="data">{r.lemma}</td><td class="data muted">{r.ipa}</td><td
-                    class="data out">{r.out}</td
-                  ></tr
+                  ><td class="data">{r.lemma}</td><td class="data muted"
+                    ><StressText text={r.ipa} /></td
+                  ><td class="data out"><StressText text={r.out} /></td></tr
                 >{/each}</tbody
             >
           </table>
@@ -1208,7 +1275,7 @@
       ></textarea>
       {#if orthoResults.length}
         {@const stageNames = orthoProgram?.markers ?? []}
-        <table class="res">
+        <table class="res stages">
           {#if stageNames.length}
             <thead
               ><tr
@@ -1221,8 +1288,8 @@
           <tbody
             >{#each orthoResults as r, ri (ri)}<tr
                 ><td class="data">{r.w}</td>{#each stageNames as sn (sn)}<td class="data muted"
-                    >{r.stages.find((x) => x.name === sn)?.form ?? ''}</td
-                  >{/each}<td class="data out">{r.out}</td></tr
+                    ><StressText text={r.stages.find((x) => x.name === sn)?.form ?? ''} /></td
+                  >{/each}<td class="data out"><StressText text={r.out} /></td></tr
               >{/each}</tbody
           >
         </table>
@@ -1446,6 +1513,29 @@
   }
   .res .out {
     color: var(--accent-text);
+  }
+  /* 检视器里按阶段分列的测试表：表头和各格都居中 */
+  .res.stages {
+    width: 100%;
+  }
+  .res.stages th,
+  .res.stages td {
+    text-align: center;
+    padding: 2px 6px;
+  }
+  .custom-stress {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .custom-stress .err {
+    color: var(--danger);
+    margin: 0;
+  }
+  .custom-stress .warn-text {
+    color: var(--warn);
+    margin: 0;
   }
   .badge.warn {
     background: var(--warn-soft);

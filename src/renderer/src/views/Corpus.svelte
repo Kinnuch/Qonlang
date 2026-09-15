@@ -77,6 +77,7 @@
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { sortable } from '$lib/ui/sortable.svelte'
   import { moveById } from '$lib/core/move'
+  import { fiveRows } from '$lib/ui/fiveRows'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -849,7 +850,7 @@
           <h3>
             {t('corpus.stats.unresolved')} <span class="badge">{st.unresolved.length}</span>
           </h3>
-          <div class="chips">
+          <div class="chips" use:fiveRows>
             {#each st.unresolved as w (w)}<button
                 class="chip data warn"
                 onclick={() => filterFromStats(w)}>{w}</button

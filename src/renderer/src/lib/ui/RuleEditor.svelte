@@ -30,6 +30,22 @@
   function esc(s: string): string {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   }
+  /** σ（没被反斜杠转义的）和重音记号单独上色 */
+  function sigma(html: string): string {
+    return html.replace(/(?<!\\)σ|[ˈˌ]/g, (m) => `<span class="s">${m}</span>`)
+  }
+
+  /** 第一个不在方括号、花括号、圆括号里的 -（[-送气] 里的不算排除） */
+  function topDash(s: string): number {
+    let depth = 0
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i]
+      if (c === '[' || c === '{' || c === '(') depth++
+      else if ((c === ']' || c === '}' || c === ')') && depth > 0) depth--
+      else if (c === '-' && depth === 0) return i
+    }
+    return -1
+  }
 
   /** 单行高亮：返回 HTML */
   function highlight(raw: string): string {
@@ -45,6 +61,10 @@
     if (trimmed.startsWith('#')) return `<span class="c">${esc(raw)}</span>`
     if (trimmed.startsWith('-*'))
       return `<span class="m">${esc(code)}</span><span class="c">${esc(comment)}</span>`
+    // 重音规则 ˈ = …、特征 [+送气] = …
+    const head = /^(\s*)([ˈˌ']\s*=|\[\s*[+-][^\]]*\]\s*=)(.*)$/su.exec(code)
+    if (head)
+      return `${head[1]}<span class="${head[2].startsWith('[') ? 'f' : 's'}">${esc(head[2])}</span><span class="v">${sigma(esc(head[3]))}</span><span class="c">${esc(comment)}</span>`
     const cls = /^(\s*)(\{[^}]+\}|[A-Z])(\s*=)(.*)$/.exec(code)
     if (cls)
       return `${cls[1]}<span class="k">${esc(cls[2])}</span><span class="o">${cls[3]}</span><span class="v">${esc(cls[4])}</span><span class="c">${esc(comment)}</span>`
@@ -63,14 +83,14 @@
     if (slash >= 0) {
       let ctx = code.slice(slash + 1)
       let exc = ''
-      const dash = ctx.indexOf('-')
+      const dash = topDash(ctx)
       if (dash >= 0) {
         exc = ctx.slice(dash + 1)
         ctx = ctx.slice(0, dash)
       }
-      out += `<span class="o">/</span><span class="x">${esc(ctx).replace(/_/g, '<b>_</b>')}</span>`
+      out += `<span class="o">/</span><span class="x">${sigma(esc(ctx)).replace(/_/g, '<b>_</b>')}</span>`
       if (dash >= 0)
-        out += `<span class="o">-</span><span class="n">${esc(exc).replace(/_/g, '<b>_</b>')}</span>`
+        out += `<span class="o">-</span><span class="n">${sigma(esc(exc)).replace(/_/g, '<b>_</b>')}</span>`
     }
     return out + `<span class="c">${esc(comment)}</span>`
   }
@@ -238,8 +258,10 @@
   textarea::placeholder {
     color: var(--text-3);
   }
+  /* 选中时文字仍是下面高亮层画的：底色得半透明，不然把字盖住 */
   textarea::selection {
-    background: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 28%, transparent);
+    color: transparent;
   }
   .hl :global(.c) {
     color: var(--text-3);
@@ -277,6 +299,20 @@
   .hl :global(b) {
     font-weight: 700;
     color: var(--text);
+  }
+  .hl :global(.s) {
+    color: #c2410c;
+    font-weight: 700;
+  }
+  .hl :global(.f) {
+    color: #be185d;
+    font-weight: 600;
+  }
+  :global([data-theme='dark']) .hl :global(.s) {
+    color: #fdba74;
+  }
+  :global([data-theme='dark']) .hl :global(.f) {
+    color: #f9a8d4;
   }
   :global([data-theme='dark']) .hl :global(.k) {
     color: #c4b5fd;

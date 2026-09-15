@@ -24,6 +24,7 @@
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
   import RuleList from '$lib/ui/RuleList.svelte'
   import RuleChainGraph from '$lib/ui/RuleChainGraph.svelte'
+  import StressText from '$lib/ui/StressText.svelte'
   import Menu from '$lib/ui/Menu.svelte'
   import EvolvePanel from '$lib/ui/EvolvePanel.svelte'
   import { languageParseOptions } from '$lib/engine/phon'
@@ -539,11 +540,11 @@
                 class:changed
                 onclick={() => (selectedWord = r.input)}
               >
-                <td class="data">{cs[0]}</td>
+                <td class="data"><StressText text={cs[0]} /></td>
                 {#if upTo && selectedOrdinal != null}<td class="data upto" class:hit={changed}
-                    >{upTo[ri]?.output ?? ''}</td
+                    ><StressText text={upTo[ri]?.output ?? ''} /></td
                   >{/if}
-                {#each cs.slice(1) as c, i (i)}<td class="data">{c}</td>{/each}
+                {#each cs.slice(1) as c, i (i)}<td class="data"><StressText text={c} /></td>{/each}
               </tr>
             {/each}
           </tbody>
@@ -564,13 +565,18 @@
               <button
                 class="link mono"
                 title={t('soundChanges.lineN', { n: e.line })}
-                onclick={() => (selectedLine = e.line)}>{ordinals.get(e.line) ?? e.line}</button
+                onclick={() => (selectedLine = e.line)}
+                >{e.kind === 'stress' ? e.target : (ordinals.get(e.line) ?? e.line)}</button
               >
-              <span class="data">{e.before}</span>
+              <span class="data"><StressText text={e.before} /></span>
               <span class="muted">→</span>
-              <span class="data">{e.after}</span>
+              <span class="data"><StressText text={e.after} /></span>
               <span class="small muted rule"
-                >{e.target || '∅'} → {e.replacement || '∅'}{e.stage ? ` · ${e.stage}` : ''}</span
+                >{e.kind === 'stress'
+                  ? `${e.target} = ${e.replacement}`
+                  : `${e.target || '∅'} → ${e.replacement || '∅'}`}{e.stage
+                  ? ` · ${e.stage}`
+                  : ''}</span
               >
             </li>
           {/each}

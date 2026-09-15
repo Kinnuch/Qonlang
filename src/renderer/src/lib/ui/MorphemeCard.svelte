@@ -4,6 +4,7 @@
   import { etymologyText } from '$lib/core/etymology'
   import type { Id, Morpheme, Project } from '$lib/core/model'
   import { etymologyTypeLabel } from '$lib/ui/labels'
+  import { fiveRows } from '$lib/ui/fiveRows'
 
   let {
     morpheme,
@@ -86,7 +87,7 @@
   {#if usedBy.length}
     <section>
       <h4>{t('morphemes.usedBy')}</h4>
-      <div class="chips">
+      <div class="chips" use:fiveRows>
         {#each usedBy.slice(0, 40) as l (l.id)}
           <button class="chip data" onclick={() => onselect?.(l.id)}>{l.lemma}</button>
         {/each}

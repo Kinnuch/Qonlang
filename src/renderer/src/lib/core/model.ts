@@ -251,7 +251,7 @@ export interface SyllableSettings {
 export type ProsodyType = 'none' | 'stress' | 'pitch' | 'tone'
 
 export type StressPosition =
-  'initial' | 'second' | 'final' | 'penult' | 'antepenult' | 'weight' | 'manual'
+  'initial' | 'second' | 'final' | 'penult' | 'antepenult' | 'weight' | 'manual' | 'custom'
 
 export interface ProsodySettings {
   type: ProsodyType
@@ -259,6 +259,8 @@ export interface ProsodySettings {
   stressPosition: StressPosition
   /** 重音 / 音高的补充说明或例外表 */
   rules: string
+  /** stressPosition 为 custom 时的重音规则（规则语法「重音规则」里 = 后面那一截） */
+  stressRule?: string
   /** 声调：声调清单（名称、标记、数字） */
   tones: Tone[]
 }

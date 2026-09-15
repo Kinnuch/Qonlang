@@ -3,7 +3,7 @@
  * 全部由语言自己的数据驱动（音位表、音类、模板、配列表），不预设任何语言。
  */
 import type { Language, Phoneme, Phonotactics, Project, StressPosition } from '$lib/core/model'
-import type { ParseOptions } from '../sca/parse'
+import type { ParseOptions, SyllableScheme } from '../sca/parse'
 import { inferFeatures } from '$lib/ipa/features'
 
 /** 音位的特征；没填过的按 IPA 表推断 */
@@ -57,6 +57,53 @@ export function segment(text: string, inventory: string[]): string[] {
   return out
 }
 
+/** 重音记号：ˈ 主重音、ˌ 次重音 */
+export const STRESS_MARKS = new Set(['ˈ', 'ˌ'])
+
+/** 把一个词隔成几块的符号：音节不跨过它们（复合词的中点、连字符、连音符、韵律边界） */
+export const WORD_SEPARATORS = new Set(['·', '‧', '-', '‿', '=', '|', '‖'])
+
+/** 不算音、也不隔开音节的记号：音节点、声调字母、升降调箭头 */
+const SKIPPED = new Set(['.', '˥', '˦', '˧', '˨', '˩', '↗', '↘'])
+
+export interface WordToken {
+  text: string
+  /** seg 音段；mark 重音记号；sep 分隔符；space 空白；skip 不算音也不隔开的记号（音节点、标点、声调字母） */
+  kind: 'seg' | 'mark' | 'sep' | 'space' | 'skip'
+}
+
+/**
+ * 按单位表最长匹配切词：重音记号、分隔符、空白、标点各自成块；
+ * 组合附标与 ː ʰ ʲ 这类修饰字母附着在前一个音段上（表里没有 aː 也认成一个音段）。
+ */
+export function tokenizeWord(text: string, units: ReadonlySet<string>): WordToken[] {
+  let maxLen = 1
+  for (const u of units) maxLen = Math.max(maxLen, Array.from(u).length)
+  const chars = Array.from(text)
+  const out: WordToken[] = []
+  let i = 0
+  while (i < chars.length) {
+    const c = chars[i]
+    const prev = out[out.length - 1]
+    if (STRESS_MARKS.has(c)) out.push({ text: c, kind: 'mark' })
+    else if (WORD_SEPARATORS.has(c)) out.push({ text: c, kind: 'sep' })
+    else if (/\s/u.test(c)) out.push({ text: c, kind: 'space' })
+    else if (SKIPPED.has(c) || /\p{P}/u.test(c)) out.push({ text: c, kind: 'skip' })
+    else {
+      let len = Math.min(maxLen, chars.length - i)
+      for (; len > 1; len--) if (units.has(chars.slice(i, i + len).join(''))) break
+      const piece = chars.slice(i, i + len).join('')
+      if (len === 1 && !units.has(piece) && prev?.kind === 'seg' && /[\p{M}\p{Lm}]/u.test(piece))
+        prev.text += piece
+      else out.push({ text: piece, kind: 'seg' })
+      i += len
+      continue
+    }
+    i++
+  }
+  return out
+}
+
 // ───────────────────────── 音节划分 ─────────────────────────
 
 export interface SyllableOptions {
@@ -88,54 +135,76 @@ export function parseTemplate(template: string): { maxOnset: number; maxCoda: nu
   return { maxOnset: count(t.slice(0, vIdx)), maxCoda: count(after) }
 }
 
+/** 一个音节在音段序列里的范围：[start, end)，音节核是 [nucleusStart, nucleusEnd) */
+export interface SyllableSpan {
+  start: number
+  nucleusStart: number
+  nucleusEnd: number
+  end: number
+}
+
 /**
  * 最大起首原则：每个核之前尽可能多地把辅音划给起首，受 onsets 表（若给）和 maxOnset 限制，
- * 其余留给上一个音节的尾音。
+ * 其余留给上一个音节的尾音。相邻的核合并成一个（双元音）；一个核都没有时整串算一个音节。
  */
-export function syllabify(segments: string[], opts: SyllableOptions): Syllable[] {
-  const isN = (s: string): boolean => opts.nuclei.has(s) || opts.nuclei.has(stripMarks(s))
-  const segs = segments.filter((s) => !opts.ignore?.has(s))
+export function syllableSpans(
+  segs: string[],
+  isNucleus: (s: string) => boolean,
+  opts: Pick<SyllableOptions, 'onsets' | 'maxOnset' | 'maxCoda'> = {}
+): SyllableSpan[] {
   const nucleusIdx: number[] = []
   segs.forEach((s, i) => {
-    if (isN(s)) nucleusIdx.push(i)
+    if (isNucleus(s)) nucleusIdx.push(i)
   })
-  if (!nucleusIdx.length) return [{ onset: segs, nucleus: [], coda: [] }]
-  // 相邻核合并为双元音（连续的核视作一个核）
+  if (!nucleusIdx.length)
+    return [{ start: 0, nucleusStart: segs.length, nucleusEnd: segs.length, end: segs.length }]
   const groups: [number, number][] = []
   for (const i of nucleusIdx) {
     const last = groups[groups.length - 1]
     if (last && last[1] === i - 1) last[1] = i
     else groups.push([i, i])
   }
-  const sylls: Syllable[] = []
+  const spans: SyllableSpan[] = []
   let prevEnd = -1
   groups.forEach(([start, end], gi) => {
-    const cluster = segs.slice(prevEnd + 1, start)
-    let onsetLen = cluster.length
-    const maxOnset = opts.maxOnset ?? Infinity
-    if (gi === 0) onsetLen = cluster.length
-    else {
-      onsetLen = Math.min(cluster.length, maxOnset)
+    const clusterLen = start - prevEnd - 1
+    let onsetLen = clusterLen
+    if (gi > 0) {
+      onsetLen = Math.min(clusterLen, opts.maxOnset ?? Infinity)
       // 受允许起首表限制：从最长往下找一个合法的
       if (opts.onsets && opts.onsets.size) {
-        while (onsetLen > 0 && !opts.onsets.has(cluster.slice(cluster.length - onsetLen).join('')))
+        while (onsetLen > 0 && !opts.onsets.has(segs.slice(start - onsetLen, start).join('')))
           onsetLen--
       }
       // 尾音上限
       const maxCoda = opts.maxCoda ?? Infinity
-      if (cluster.length - onsetLen > maxCoda) onsetLen = Math.max(0, cluster.length - maxCoda)
+      if (clusterLen - onsetLen > maxCoda) onsetLen = Math.max(0, clusterLen - maxCoda)
     }
-    const onset = cluster.slice(cluster.length - onsetLen)
-    const coda = cluster.slice(0, cluster.length - onsetLen)
-    if (sylls.length) sylls[sylls.length - 1].coda = coda
-    sylls.push({ onset, nucleus: segs.slice(start, end + 1), coda: [] })
+    const onsetStart = start - onsetLen
+    if (spans.length) spans[spans.length - 1].end = onsetStart
+    spans.push({
+      start: gi === 0 ? 0 : onsetStart,
+      nucleusStart: start,
+      nucleusEnd: end + 1,
+      end: end + 1
+    })
     prevEnd = end
   })
-  sylls[sylls.length - 1].coda = segs.slice(prevEnd + 1)
-  return sylls
+  spans[spans.length - 1].end = segs.length
+  return spans
 }
 
-function stripMarks(s: string): string {
+export function syllabify(segments: string[], opts: SyllableOptions): Syllable[] {
+  const isN = (s: string): boolean => opts.nuclei.has(s) || opts.nuclei.has(stripMarks(s))
+  const segs = segments.filter((s) => !opts.ignore?.has(s))
+  return syllableSpans(segs, isN, opts).map((sp) => ({
+    onset: segs.slice(sp.start, sp.nucleusStart),
+    nucleus: segs.slice(sp.nucleusStart, sp.nucleusEnd),
+    coda: segs.slice(sp.nucleusEnd, sp.end)
+  }))
+}
+
+export function stripMarks(s: string): string {
   return s.normalize('NFD').replace(/\p{M}/gu, '')
 }
 
@@ -150,10 +219,10 @@ export function isHeavy(s: Syllable): boolean {
   return s.coda.length > 0 || s.nucleus.length > 1 || s.nucleus.some((n) => /ː/.test(n))
 }
 
-/** 返回主重音所在音节的下标；manual 或无音节返回 -1 */
+/** 返回主重音所在音节的下标；manual、custom（按重音规则另外标）或无音节返回 -1 */
 export function stressIndex(sylls: Syllable[], position: StressPosition): number {
   const n = sylls.length
-  if (n === 0 || position === 'manual') return -1
+  if (n === 0 || position === 'manual' || position === 'custom') return -1
   switch (position) {
     case 'initial':
       return 0
@@ -171,9 +240,15 @@ export function stressIndex(sylls: Syllable[], position: StressPosition): number
   }
 }
 
-/** 把音节拼回带音节点和重音符的 IPA */
-export function renderSyllables(sylls: Syllable[], stressAt = -1): string {
-  return sylls.map((s, i) => (i === stressAt ? 'ˈ' : '') + syllableText(s)).join('.')
+/** 把音节拼回带音节点和重音符的 IPA；secondary 是带次重音的音节 */
+export function renderSyllables(
+  sylls: Syllable[],
+  stressAt = -1,
+  secondary: ReadonlySet<number> = new Set()
+): string {
+  return sylls
+    .map((s, i) => (i === stressAt ? 'ˈ' : secondary.has(i) ? 'ˌ' : '') + syllableText(s))
+    .join('.')
 }
 
 // ───────────────────────── 配列检查 ─────────────────────────
@@ -297,12 +372,66 @@ export function languageParseOptions(
         if (key && !morphemes[key]) morphemes[key] = forms
     }
   }
+  const replacements = lang.digraphs
+    .filter((d) => d.from && d.to)
+    .map((d) => [d.from, d.to] as [string, string])
+  return { classes, replacements, morphemes, syllables: syllableScheme(lang, replacements) }
+}
+
+/** 规则里切音节（σ、重音规则）用的设置：音位表、音节核、确定是辅音的音、起首表与模板 */
+function syllableScheme(lang: Language, replacements: [string, string][]): SyllableScheme {
+  const nuclei = nucleusSet(lang)
+  const consonants = new Set<string>()
+  for (const p of lang.phonemes) if (phonemeKind(lang, p) === 'consonant') consonants.add(p.symbol)
+  for (const c of lang.classes)
+    if (CONSONANT_CLASS.test(c.name)) for (const m of c.members) consonants.add(m)
+  const units = new Set<string>(lang.phonemes.map((p) => p.symbol))
+  for (const [, to] of replacements) units.add(to)
+  for (const c of lang.classes)
+    for (const m of c.members) if (Array.from(m).length > 1) units.add(m)
+  const tpl =
+    lang.syllable.strategy === 'template' && lang.syllable.template
+      ? parseTemplate(lang.syllable.template)
+      : null
   return {
-    classes,
-    replacements: lang.digraphs
-      .filter((d) => d.from && d.to)
-      .map((d) => [d.from, d.to] as [string, string]),
-    morphemes
+    units: [...units].filter(Boolean),
+    nuclei: [...nuclei],
+    consonants: [...consonants].filter((c) => !nuclei.has(c)),
+    onsets: [...lang.phonotactics.onsets],
+    maxOnset: tpl ? tpl.maxOnset : null,
+    maxCoda: tpl ? tpl.maxCoda : null
+  }
+}
+
+/**
+ * 拼写切分用的单位：音位符号、主正字法里各音位的写法（th、eu）、多合字母的写法；
+ * isVowel 认音节核：本身是音节核，或是某个元音音位的写法。构形里按音段数的地方（中缀位置、模板、重叠）用它，
+ * 拼写里的 th 就是一个音，不会被拆成 t、h。
+ */
+export function spellingUnits(lang: Language): {
+  units: string[]
+  isVowel: (s: string) => boolean
+} {
+  const ortho = lang.orthographies.find((o) => o.isPrimary) ?? lang.orthographies[0]
+  const nuclei = nucleusSet(lang)
+  const units = new Set<string>(lang.phonemes.map((p) => p.symbol))
+  const vowels = new Set<string>()
+  for (const p of lang.phonemes) {
+    const written = ortho ? (p.graphemes[ortho.id] ?? '') : ''
+    const vowel = nuclei.has(p.symbol) || phonemeKind(lang, p) === 'vowel'
+    for (const g of written.split(/[\s,，、/]+/).filter(Boolean)) {
+      units.add(g)
+      if (vowel) vowels.add(g)
+    }
+  }
+  for (const d of lang.digraphs) {
+    if (!d.from) continue
+    units.add(d.from)
+    if (nuclei.has(d.to)) vowels.add(d.from)
+  }
+  return {
+    units: [...units].filter(Boolean),
+    isVowel: (s) => nuclei.has(s) || vowels.has(s)
   }
 }
 
@@ -364,36 +493,82 @@ export function phonotacticsFromInventory(lang: Language): {
   return { onsets: consonants, nuclei: vowels, codas: [...consonants], unknown }
 }
 
-/** 用语言设置给一个 IPA 串划音节并标重音 */
+/**
+ * 用语言设置给一个 IPA 串划音节并标重音。串里已经有 ˈ ˌ 的按记号来（正字法里的重音规则、手填的读音）；
+ * 分隔符（· - ‿ 这些）隔开的几块各自划音节，音节不跨过它们，显示时照原样留着。
+ */
 export function analyzeWord(
   lang: Language,
   ipa: string
 ): { segments: string[]; syllables: Syllable[]; stress: number; text: string } {
-  const inventory = lang.phonemes.map((p) => p.symbol)
-  const segments = segment(ipa, inventory).filter((s) => !SUPRASEGMENTAL_IGNORE.has(s))
+  const inventory = new Set(lang.phonemes.map((p) => p.symbol))
+  const nuclei = nucleusSet(lang)
+  const isN = (s: string): boolean => nuclei.has(s) || nuclei.has(stripMarks(s))
   const tpl =
     lang.syllable.strategy === 'template' && lang.syllable.template
       ? parseTemplate(lang.syllable.template)
       : { maxOnset: Infinity, maxCoda: Infinity }
-  const syllables = lang.syllable.enabled
-    ? syllabify(segments, {
-        nuclei: nucleusSet(lang),
-        onsets: lang.phonotactics.onsets.length ? new Set(lang.phonotactics.onsets) : undefined,
-        maxOnset: tpl.maxOnset,
-        maxCoda: tpl.maxCoda,
-        ignore: SUPRASEGMENTAL_IGNORE
-      })
-    : [{ onset: [], nucleus: segments, coda: [] }]
-  const stress =
-    lang.prosody.type === 'stress' || lang.prosody.type === 'pitch'
+  const opts = {
+    onsets: lang.phonotactics.onsets.length ? new Set(lang.phonotactics.onsets) : undefined,
+    maxOnset: tpl.maxOnset,
+    maxCoda: tpl.maxCoda
+  }
+  const segments: string[] = []
+  const syllables: Syllable[] = []
+  const chunks: { from: number; to: number; sep: string }[] = []
+  let primary = -1
+  const secondary = new Set<number>()
+  let segs: string[] = []
+  let marks: [number, string][] = []
+  const flush = (sep: string): void => {
+    const from = syllables.length
+    if (segs.length) {
+      const spans = lang.syllable.enabled
+        ? syllableSpans(segs, isN, opts)
+        : [{ start: 0, nucleusStart: 0, nucleusEnd: segs.length, end: segs.length }]
+      for (const sp of spans)
+        syllables.push({
+          onset: segs.slice(sp.start, sp.nucleusStart),
+          nucleus: segs.slice(sp.nucleusStart, sp.nucleusEnd),
+          coda: segs.slice(sp.nucleusEnd, sp.end)
+        })
+      for (const [at, mark] of marks) {
+        const k = spans.findIndex((sp) => at < sp.end)
+        const idx = from + (k < 0 ? spans.length - 1 : k)
+        if (mark === 'ˈ') {
+          if (primary < 0) primary = idx
+        } else secondary.add(idx)
+      }
+      segments.push(...segs)
+    }
+    chunks.push({ from, to: syllables.length, sep })
+    segs = []
+    marks = []
+  }
+  for (const tk of tokenizeWord(ipa, inventory)) {
+    if (tk.kind === 'seg') segs.push(tk.text)
+    else if (tk.kind === 'mark') marks.push([segs.length, tk.text])
+    else if (tk.kind === 'sep' || tk.kind === 'space') flush(tk.text)
+  }
+  flush('')
+  if (
+    primary < 0 &&
+    !secondary.size &&
+    (lang.prosody.type === 'stress' || lang.prosody.type === 'pitch')
+  )
+    primary = syllables.some((s) => s.nucleus.length)
       ? stressIndex(syllables, lang.prosody.stressPosition)
       : -1
-  return {
-    segments,
-    syllables,
-    stress,
-    text: lang.syllable.enabled ? renderSyllables(syllables, stress) : ipa
-  }
+  if (!lang.syllable.enabled) return { segments, syllables, stress: primary, text: ipa }
+  const text = chunks
+    .map((c) => {
+      const second = new Set(
+        [...secondary].filter((i) => i >= c.from && i < c.to).map((i) => i - c.from)
+      )
+      return renderSyllables(syllables.slice(c.from, c.to), primary - c.from, second) + c.sep
+    })
+    .join('')
+  return { segments, syllables, stress: primary, text }
 }
 
 export const SYLLABLE_MARKS = 'OsKU2WC8G'

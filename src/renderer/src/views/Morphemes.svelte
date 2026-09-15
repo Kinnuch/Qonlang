@@ -39,6 +39,7 @@
   import ColHead from '$lib/ui/ColHead.svelte'
   import StatsPanel from '$lib/ui/StatsPanel.svelte'
   import { morphemeStats } from '$lib/engine/stats'
+  import { fiveRows } from '$lib/ui/fiveRows'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -724,7 +725,7 @@
       {#if usedBy.length === 0}
         <span class="small muted">{t('morphemes.unused')}</span>
       {:else}
-        <div class="chips">
+        <div class="chips" use:fiveRows>
           {#each usedBy as l (l.id)}<span class="badge data">{l.lemma}</span>{/each}
         </div>
       {/if}

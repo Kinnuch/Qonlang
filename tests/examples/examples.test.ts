@@ -8,7 +8,9 @@ import { join } from 'path'
 import { parseProject } from '$lib/core/serialize'
 import { compareContext, compareGroups, soundPathOfWord, wordPath } from '$lib/core/compare'
 import { parseRuleText, runRules } from '$lib/engine/sca'
-import { languageParseOptions } from '$lib/engine/phon'
+import { analyzeWord, languageParseOptions } from '$lib/engine/phon'
+import { stressWord, transcribe } from '$lib/core/pronounce'
+import { lexiconIssues } from '$lib/core/lexiconIssues'
 
 const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
@@ -126,6 +128,31 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     expect(rules.some((r) => r.kind === 'rule' && r.exceptions.length === 2)).toBe(true)
   })
 
+  it('Aelith：特征、重音规则、音节边界 σ，正字法转出来的音标带重音，缺释义的词条', () => {
+    const p = load('Aelith.laim.json')
+    const L = p.languages.find((l) => l.name === 'Aelith')!
+    const rs = p.ruleSets.find((r) => r.name === '书面语 → 口语')!
+    const prog = parseRuleText(rs.text, languageParseOptions(L, p))
+    expect(prog.diagnostics).toEqual([])
+    expect(prog.lines.filter((l) => l.kind === 'feature')).toHaveLength(3)
+    expect(prog.hasStress).toBe(true)
+    const run = (w: string) => runRules(prog, w)
+    expect(run('biz').output).toBe('ˈbis')
+    expect(run('sepe').output).toBe('ˈsepə')
+    expect(run('sörmek').stages.map((x) => x.form)).toEqual(['ˈsörmek', 'ˈsörmək'])
+    expect(run('kamsa').output).toBe('ˈkãmsa')
+    expect(transcribe(L, L.orthographies[0], 'sörmek')).toBe('ˈsørmek')
+    expect(analyzeWord(L, 'ˈsørmek').text).toBe('ˈsør.mek')
+    // 姊妹语 Merun 的自定义重音规则
+    const S = p.languages.find((l) => l.name === 'Merun')!
+    expect(S.prosody.stressPosition).toBe('custom')
+    expect(stressWord(S, 'hasta')).toBe('ˈhasta')
+    expect(stressWord(S, 'hasu')).toBe('haˈsu')
+    // vesa 故意没写释义：词库底栏的问题统计里有它
+    const vesa = p.lexemes.find((l) => l.lemma === 'vesa')!
+    expect(lexiconIssues(p.lexemes).some((x) => x.lexemeId === vesa.id)).toBe(true)
+  })
+
   it('Aelith 的姊妹语 Merun：同一个词根的同源词能在关系图里对比', () => {
     const p = load('Aelith.laim.json')
     const merunRs = p.ruleSets.find((r) => r.name === 'Proto → Merun')!
@@ -169,6 +196,9 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     // 重叠构形推出的复数在词条里
     const lun = p.lexemes.find((l) => l.lemma === 'lun35')!
     expect(lun.forms['复数'].surface).toBe('lun35lun35')
+    // 罗马化里 ts、ng 是一个音：强调重叠取头两个音是 tsi，不是 ts
+    const tsing = p.lexemes.find((l) => l.lemma === 'tsing55')!
+    expect(tsing.forms['强调'].surface).toBe('tsitsing55')
     // 只有分不出来的同形词 hok33 留着没确认
     const open = p.sentences.flatMap((s) =>
       s.tokens.filter((t) => !t.confirmed).map((t) => t.surface)

@@ -397,7 +397,7 @@ function programOf(project: Project, cache: ProgramCache, rsId: Id): RuleProgram
   return program
 }
 
-const looseForm = (s: string): string => fold(s.replace(/[-=*·+\s]/g, ''))
+const looseForm = (s: string): string => fold(s.replace(/[-=*·+\sˈˌ]/g, ''))
 
 /**
  * 从 fromLanguage 的形式推到 toLexeme 所在语言：找一个规则集，它有绑定到来源语言的阶段，
@@ -442,7 +442,7 @@ export function soundPath(
     const stopLine = chosen.m.line
     const startLine = markers[iFrom].line
     const rawOf = new Map(
-      program.steps.filter((s) => s.kind === 'rule').map((s) => [s.line, s.raw.trim()])
+      program.steps.filter((s) => s.kind !== 'marker').map((s) => [s.line, s.raw.trim()])
     )
     const back = (x: string): string => revertReplacements(x, program.replacements)
     const output = formAt(chosen.m.name)

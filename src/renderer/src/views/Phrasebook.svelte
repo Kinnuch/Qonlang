@@ -571,6 +571,9 @@
     background: var(--accent-soft);
     color: var(--accent-text);
   }
+  .cat.active .n {
+    color: var(--text-2);
+  }
   .cat .n {
     margin-left: auto;
     font-size: 11px;

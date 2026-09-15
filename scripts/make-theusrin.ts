@@ -173,7 +173,7 @@ function splitAbbr(cell: string): { name: string; abbr: string } | null {
 const p: Project = createProject({
   name: '瑟乌丝林语',
   template: 'blank',
-  appVersion: '0.8.1',
+  appVersion: '0.9.0',
   uiLocale: 'zh'
 })
 p.languages = []
@@ -307,11 +307,17 @@ cls('{响音}', ['l', 'r', 'm', 'n', 'β', 'j'])
 cls('{咝音}', ['s', 'z'])
 cls('{塞音}', ['p', 'b', 't', 'd', 'k', 'g'])
 cls('{鼻音}', ['m', 'n', 'ŋ'])
+// 语法书「重音规则」里用到的两类：双元音；长音节的核（双元音与全长元音，短单元音以外的）
+cls(
+  '{双元音}',
+  DIPH.map((d) => d[0])
+)
+cls('{长元音}', [...DIPH.map((d) => d[0]), 'äː', 'e̞ː', 'iː', 'o̞ː', 'uː'])
 
 Tsr.digraphs = [
   { from: 'th', to: 'θ' },
   { from: 'dh', to: 'ð' },
-  { from: 'ch', to: 'x' },
+  { from: 'ch', to: 'χ' },
   { from: 'rh', to: 'ṙ' },
   { from: 'lh', to: 'ḷ' },
   { from: 'ds', to: 'ʣ' },
@@ -319,8 +325,9 @@ Tsr.digraphs = [
 ]
 
 rom.rulesToIpa = [
-  '; 正字法 → 音位。多合字母已在「音系 → 音类」里声明，这里直接写字母。',
-  '; 合字 x 要先换掉，否则会把 ch 换出来的 x 一起吃掉',
+  '; 正字法 → 音位。th、dh、ch 这类多合字母在语言设置里声明过，匹配时各算一个音。',
+  '; 专名开头的大写字母先换成小写',
+  '[AÁÂBCDEÉÊFGHIÍÎLMNOÓÔPRSTUÚÛWXZ] > [aáâbcdeéêfghiíîlmnoóôprstuúûwxz]',
   'x > kθ',
   'th > θ',
   'dh > ð',
@@ -333,13 +340,21 @@ rom.rulesToIpa = [
   'w > β',
   '; 元音前的 i 是辅音',
   'i > j / _[aeiouáéíóúâêîôû]',
+  '; 短元音先换：双元音按换过的写，免得 aɪ̯ 里的 a 再被换一遍',
+  'a > ä',
+  'e > e̞',
+  'o > o̞',
   '; 双元音',
-  'ai > aɪ̯',
-  'ae > aɛ̯',
-  'au > aʊ̯',
-  'ei > eɪ̯',
-  'oe > oɛ̯',
-  'eu > ɛʊ̯',
+  'äi > aɪ̯',
+  'äe̞ > aɛ̯',
+  'äu > aʊ̯',
+  'e̞i > eɪ̯',
+  'o̞e̞ > oɛ̯',
+  'e̞u > ɛʊ̯',
+  '; 重音（语法书「重音规则」）：标了半长元音的音节 > 双音节词第二音节有双元音 > 双音节词第一音节 >',
+  '; 倒数第二音节是长音节（核是双元音或全长元音，或后面接着两个辅音，下一音节的起首也算）> 倒数第三音节；',
+  '; 复合词按 · 分开各算，主重音在最后一个词上。放在半长、全长元音换掉之前，锐音符还认得出来',
+  'ˈ = * [áéíóú] , (2) -1 {双元音} , (2) 1 , -2 {长元音} , -2 / _CC , -3 | · -1',
   '; 半长（锐音符）：标准语里与短元音等长，只标重音',
   'á > ä',
   'é > e̞',
@@ -351,11 +366,7 @@ rom.rulesToIpa = [
   'ê > e̞ː',
   'î > iː',
   'ô > o̞ː',
-  'û > uː',
-  '; 短元音',
-  'a > ä',
-  'e > e̞',
-  'o > o̞'
+  'û > uː'
 ].join('\n')
 rom.rulesFromIpa = [
   '; 音位 → 正字法（造词时把生成的音串拼回拼写）',
@@ -389,7 +400,9 @@ rom.rulesFromIpa = [
 Tsr.syllable = { enabled: true, template: '(C)(C)V(C)(C)', strategy: 'maximal-onset' }
 Tsr.prosody = {
   type: 'stress',
-  stressPosition: 'weight',
+  // 音标里没有重音记号时（手填的读音、测试里直接写 IPA）按这条规则标；拼写转来的音标已经由正字法规则标好
+  stressPosition: 'custom',
+  stressRule: '(2) -1 {双元音} , (2) 1 , -2 {长元音} , -2 / _CC , -3 | · -1',
   rules: [
     '; 短音节＝短元音且其后至多一个辅音；其余为长音节。下一音节的音节首辅音参与计算但不属于该音节。',
     '; 1 单音节词自动重读',

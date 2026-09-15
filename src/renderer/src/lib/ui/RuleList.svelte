@@ -7,22 +7,30 @@
    */
   import { t } from '$lib/i18n/index.svelte'
   import HelpDot from './HelpDot.svelte'
+  import StressRuleEditor from './StressRuleEditor.svelte'
+  import { describeClause, describeSplit } from './stressSummary'
   import { sortable } from './sortable.svelte'
+  import { fiveRows } from './fiveRows'
   import {
     formatRule,
     formatMarker,
     formatClassLine,
     formatReplacementLine,
+    formatFeatureLine,
+    formatStressLine,
     parseClassLine,
     parseReplacementLine,
+    parseStressText,
     ruleOrdinals,
     runSingleRule,
     sampleForRule,
     diffSpan,
+    type FeatureLine,
     type ParsedLine,
     type ParsedRule,
     type RuleDraft,
-    type RuleProgram
+    type RuleProgram,
+    type StressLine
   } from '$lib/engine/sca'
   import {
     Plus,
@@ -183,6 +191,16 @@
     program ? program.lines.filter((l) => l.kind === 'replacement' && lineHit(l.raw)) : []
   )
   const classNames = $derived(program ? [...new Set(program.classes.keys())] : [])
+  /** 规则里定义过的特征（插入时写成 [+名]、[-名]） */
+  const featureNames = $derived(
+    program
+      ? [
+          ...new Set(
+            program.lines.filter((l): l is FeatureLine => l.kind === 'feature').map((l) => l.name)
+          )
+        ]
+      : []
+  )
 
   // ───── 编辑状态 ─────
   let editingLine = $state<number | null>(null)
@@ -200,6 +218,10 @@
   let classDraft = $state({ name: '', members: '' })
   let editingDigraph = $state<number | null | 'new'>(null)
   let digraphDraft = $state({ from: '', to: '' })
+  let editingStress = $state<number | null>(null)
+  let stressDraft = $state({ level: 'primary' as 'primary' | 'secondary', text: '', comment: '' })
+  let editingFeature = $state<number | null>(null)
+  let featureDraft = $state({ sign: '+' as '+' | '-', name: '', members: '', comment: '' })
   let replayKey = $state(0)
 
   function openRule(r: ParsedRule): void {
@@ -236,6 +258,45 @@
     editingMarker = l
     markerDraft = t('soundChanges.unnamedStage')
   }
+  function openStress(st: StressLine): void {
+    editingStress = st.line
+    stressDraft = { level: st.level, text: st.text, comment: st.comment }
+  }
+  function addStressAfter(line: number): void {
+    const text = '-2 , -3'
+    const l = insertAfter(line, formatStressLine('primary', parseStressText(text)))
+    editingStress = l
+    stressDraft = { level: 'primary', text, comment: '' }
+  }
+  function saveStress(): void {
+    if (editingStress == null) return
+    const d = parseStressText(stressDraft.text)
+    replaceLine(editingStress, formatStressLine(stressDraft.level, d, stressDraft.comment))
+    editingStress = null
+  }
+  function openFeature(f: FeatureLine): void {
+    editingFeature = f.line
+    featureDraft = { sign: f.sign, name: f.name, members: f.members.join(' '), comment: f.comment }
+  }
+  function addFeatureAfter(line: number): void {
+    const name = t('stressRule.newFeature')
+    const l = insertAfter(line, formatFeatureLine('+', name, []))
+    editingFeature = l
+    featureDraft = { sign: '+', name, members: '', comment: '' }
+  }
+  function saveFeature(): void {
+    if (editingFeature == null || !featureDraft.name.trim()) return
+    replaceLine(
+      editingFeature,
+      formatFeatureLine(
+        featureDraft.sign,
+        featureDraft.name.replace(/[\s[\]+=-]/g, ''),
+        featureDraft.members.split(/[\s,，、]+/),
+        featureDraft.comment
+      )
+    )
+    editingFeature = null
+  }
   function removeRule(line: number): void {
     if (editingLine === line) editingLine = null
     if (selectedLine === line) selectedLine = null
@@ -253,7 +314,9 @@
     if (selectedLine === line) selectedLine = other
   }
   function insertClassName(name: string): void {
-    const token = name.length === 1 ? name : `{${name}}`
+    insertToken(name.length === 1 ? name : `{${name}}`)
+  }
+  function insertToken(token: string): void {
     const el = lastField
     if (!el) return
     const s = el.selectionStart ?? el.value.length
@@ -333,6 +396,109 @@
 
   const lastLine = $derived(program ? Math.max(0, ...program.lines.map((l) => l.line)) : 0)
 </script>
+
+{#snippet insertChips()}
+  <div class="chips insert" use:fiveRows>
+    <span class="small muted">{t('soundChanges.insertClass')}</span>
+    <button class="chip sym" title={t('stressRule.sigmaTip')} onclick={() => insertToken('σ')}
+      >σ</button
+    >
+    <button class="chip sym" title={t('stressRule.stressTip')} onclick={() => insertToken('ˈ')}
+      >ˈ</button
+    >
+    {#each featureNames as f (f)}
+      <button class="chip feat" onclick={() => insertToken(`[+${f}]`)}>[+{f}]</button>
+      <button class="chip feat" onclick={() => insertToken(`[-${f}]`)}>[-{f}]</button>
+    {/each}
+    {#each classNames as c (c)}
+      <button class="chip" onclick={() => insertClassName(c.replace(/^\{|\}$/g, ''))}>{c}</button>
+    {/each}
+  </div>
+{/snippet}
+
+{#snippet stressForm(line: number)}
+  <div class="form card">
+    <div class="form-row">
+      <label class="f">
+        <span>{t('stressRule.level')}</span>
+        <select class="select" bind:value={stressDraft.level}>
+          <option value="primary">{t('stressRule.primary')}</option>
+          <option value="secondary">{t('stressRule.secondary')}</option>
+        </select>
+      </label>
+      <HelpDot tip={t('stressRule.hint')} />
+    </div>
+    <StressRuleEditor
+      value={stressDraft.text}
+      onchange={(text) => (stressDraft.text = text)}
+      onfocusfield={(el) => (lastField = el)}
+    />
+    <label class="f">
+      <span>{t('soundChanges.comment')}</span>
+      <input class="input" bind:value={stressDraft.comment} />
+    </label>
+    {@render insertChips()}
+    <div class="row">
+      <button class="btn primary sm" onclick={saveStress}
+        ><Check size={14} />{t('soundChanges.done')}</button
+      >
+      <button class="btn ghost sm" onclick={() => (editingStress = null)}
+        >{t('common.cancel')}</button
+      >
+      <span class="grow"></span>
+      <button
+        class="btn ghost sm danger"
+        onclick={() => {
+          editingStress = null
+          removeRule(line)
+        }}><Trash2 size={14} />{t('soundChanges.deleteRule')}</button
+      >
+    </div>
+  </div>
+{/snippet}
+
+{#snippet featureForm(line: number)}
+  <div class="form card">
+    <div class="form-row">
+      <label class="f">
+        <span>{t('stressRule.featureSign')}</span>
+        <select class="select" bind:value={featureDraft.sign}>
+          <option value="+">{t('stressRule.featurePlus')}</option>
+          <option value="-">{t('stressRule.featureMinus')}</option>
+        </select>
+      </label>
+      <label class="f">
+        <span>{t('stressRule.featureName')}</span>
+        <input class="input" bind:value={featureDraft.name} />
+      </label>
+      <label class="f grow">
+        <span>{t('stressRule.featureMembers')}</span>
+        <input class="input data" bind:value={featureDraft.members} placeholder="ph th kh" />
+      </label>
+      <HelpDot tip={t('stressRule.featureHint')} />
+    </div>
+    <label class="f">
+      <span>{t('soundChanges.comment')}</span>
+      <input class="input" bind:value={featureDraft.comment} />
+    </label>
+    <div class="row">
+      <button class="btn primary sm" onclick={saveFeature}
+        ><Check size={14} />{t('soundChanges.done')}</button
+      >
+      <button class="btn ghost sm" onclick={() => (editingFeature = null)}
+        >{t('common.cancel')}</button
+      >
+      <span class="grow"></span>
+      <button
+        class="btn ghost sm danger"
+        onclick={() => {
+          editingFeature = null
+          removeRule(line)
+        }}><Trash2 size={14} />{t('soundChanges.deleteRule')}</button
+      >
+    </div>
+  </div>
+{/snippet}
 
 {#snippet ruleForm(line: number)}
   <div class="form card">
@@ -435,16 +601,7 @@
       <input class="input" bind:value={draft.comment} />
     </label>
 
-    {#if classNames.length}
-      <div class="chips">
-        <span class="small muted">{t('soundChanges.insertClass')}</span>
-        {#each classNames as c (c)}
-          <button class="chip" onclick={() => insertClassName(c.replace(/^\{|\}$/g, ''))}
-            >{c}</button
-          >
-        {/each}
-      </div>
-    {/if}
+    {@render insertChips()}
     <div class="row">
       <button class="btn primary sm" onclick={saveRule}
         ><Check size={14} />{t('soundChanges.done')}</button
@@ -469,7 +626,7 @@
         ><Plus size={14} />{t('soundChanges.addClass')}</button
       >
     </div>
-    <div class="chips wrap">
+    <div class="chips wrap" use:fiveRows>
       {#each classLines as l, li (l.line)}
         {@const p = parseClassLine(l.raw)}
         {#if p}
@@ -531,7 +688,7 @@
         ><Plus size={14} />{t('soundChanges.addDigraph')}</button
       >
     </div>
-    <div class="chips wrap">
+    <div class="chips wrap" use:fiveRows>
       {#each digraphLines as l, li (l.line)}
         {@const p = parseReplacementLine(l.raw)}
         {#if p}
@@ -807,6 +964,157 @@
               {/if}
             </div>
           {/if}
+        {:else if item.kind === 'stress'}
+          {@const st = item}
+          {#if editingStress === st.line}
+            {@render stressForm(st.line)}
+          {:else}
+            <div
+              class="rule card special"
+              data-line={st.line}
+              class:dragging={dragLine === st.line}
+              role="button"
+              tabindex="0"
+              draggable="true"
+              ondragstart={(e) => {
+                dragLine = st.line
+                e.dataTransfer?.setData('text/plain', String(st.line))
+              }}
+              ondragend={() => {
+                dragLine = null
+                dropStage = null
+                dropBefore = null
+              }}
+              ondblclick={() => openStress(st)}
+              onkeydown={(e) => e.key === 'Enter' && openStress(st)}
+            >
+              <div class="rule-main row">
+                <span class="kind stress" title={t('stressRule.title')}
+                  >{st.level === 'secondary' ? 'ˌ' : 'ˈ'}</span
+                >
+                <span class="rule-body">
+                  <b class="small"
+                    >{t(st.level === 'secondary' ? 'stressRule.secondary' : 'stressRule.title')}</b
+                  >
+                  {#each st.clauses as c, ci (ci)}
+                    {#if ci}<span class="muted small">{t('stressRule.otherwise')}</span>{/if}
+                    <span class="clause-chip data">{describeClause(c)}</span>
+                  {:else}
+                    <span class="muted small">{t('stressRule.none')}</span>
+                  {/each}
+                  {#if st.split}<span class="muted small">{describeSplit(st.split, st.head)}</span
+                    >{/if}
+                </span>
+                {#if st.comment}<span class="small muted comment">{st.comment}</span>{/if}
+                {#if hits.get(st.line)}<span class="badge accent"
+                    >{t('soundChanges.hits', { n: hits.get(st.line)! })}</span
+                  >{/if}
+                <span class="actions">
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('soundChanges.editRule')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      openStress(st)
+                    }}><Pencil size={14} /></button
+                  >
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('soundChanges.moveUp')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      moveRule(st.line, -1)
+                    }}><ChevronUp size={14} /></button
+                  >
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('soundChanges.moveDown')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      moveRule(st.line, 1)
+                    }}><ChevronDown size={14} /></button
+                  >
+                  <button
+                    class="btn ghost icon sm danger"
+                    title={t('soundChanges.deleteRule')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      removeRule(st.line)
+                    }}><Trash2 size={14} /></button
+                  >
+                </span>
+              </div>
+            </div>
+          {/if}
+        {:else if item.kind === 'feature'}
+          {@const f = item}
+          {#if editingFeature === f.line}
+            {@render featureForm(f.line)}
+          {:else}
+            <div
+              class="rule card special"
+              data-line={f.line}
+              class:dragging={dragLine === f.line}
+              role="button"
+              tabindex="0"
+              draggable="true"
+              ondragstart={(e) => {
+                dragLine = f.line
+                e.dataTransfer?.setData('text/plain', String(f.line))
+              }}
+              ondragend={() => {
+                dragLine = null
+                dropStage = null
+                dropBefore = null
+              }}
+              ondblclick={() => openFeature(f)}
+              onkeydown={(e) => e.key === 'Enter' && openFeature(f)}
+            >
+              <div class="rule-main row">
+                <span class="kind feat" title={t('stressRule.feature')}>±</span>
+                <span class="rule-body data">
+                  <b class="feat-name">[{f.sign}{f.name}]</b>
+                  <span class="muted">=</span>
+                  <span>{f.members.join(' ') || '∅'}</span>
+                </span>
+                {#if f.comment}<span class="small muted comment">{f.comment}</span>{/if}
+                <span class="actions">
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('soundChanges.editRule')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      openFeature(f)
+                    }}><Pencil size={14} /></button
+                  >
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('soundChanges.moveUp')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      moveRule(f.line, -1)
+                    }}><ChevronUp size={14} /></button
+                  >
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('soundChanges.moveDown')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      moveRule(f.line, 1)
+                    }}><ChevronDown size={14} /></button
+                  >
+                  <button
+                    class="btn ghost icon sm danger"
+                    title={t('soundChanges.deleteRule')}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      removeRule(f.line)
+                    }}><Trash2 size={14} /></button
+                  >
+                </span>
+              </div>
+            </div>
+          {/if}
         {:else if item.kind === 'error'}
           <div class="rule card err row">
             <span class="num mono">{item.line}</span>
@@ -836,6 +1144,12 @@
           ><Plus size={14} />{sec.marker
             ? t('soundChanges.addRuleHere')
             : t('soundChanges.addRule')}</button
+        >
+        <button class="btn ghost sm" onclick={() => addStressAfter(sec.endLine)}
+          ><Plus size={14} />{t('stressRule.add')}</button
+        >
+        <button class="btn ghost sm" onclick={() => addFeatureAfter(sec.endLine)}
+          ><Plus size={14} />{t('stressRule.addFeature')}</button
         >
         <button class="btn ghost sm" onclick={() => addStageAfter(sec.endLine)}
           ><Plus size={14} />{t('soundChanges.addStage')}</button
@@ -883,6 +1197,61 @@
   }
   .chips.wrap {
     flex-wrap: wrap;
+  }
+  .chip.sym {
+    font-family: var(--font-data);
+    min-width: 28px;
+    justify-content: center;
+    font-weight: 600;
+  }
+  .chip.feat {
+    font-family: var(--font-mono);
+    color: #be185d;
+  }
+  :global([data-theme='dark']) .chip.feat {
+    color: #f9a8d4;
+  }
+  .kind {
+    min-width: 24px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+  }
+  .kind.stress {
+    font-size: 18px;
+    line-height: 1;
+    padding-top: 4px;
+    background: var(--accent-soft);
+    color: var(--accent-text);
+  }
+  .kind.feat {
+    background: color-mix(in srgb, #be185d 14%, transparent);
+    color: #be185d;
+  }
+  :global([data-theme='dark']) .kind.feat {
+    color: #f9a8d4;
+  }
+  .rule.special {
+    background: var(--bg-sunken);
+  }
+  .clause-chip {
+    padding: 0 6px;
+    border-radius: 4px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .feat-name {
+    color: #be185d;
+    font-family: var(--font-mono);
+  }
+  :global([data-theme='dark']) .feat-name {
+    color: #f9a8d4;
   }
   .chip {
     display: inline-flex;

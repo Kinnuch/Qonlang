@@ -357,7 +357,7 @@
   }
   .tag {
     font-size: 11px;
-    color: var(--text-3);
+    color: var(--text-2);
     white-space: nowrap;
   }
   .arrow {

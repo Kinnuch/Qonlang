@@ -101,6 +101,7 @@
   import ColHead from '$lib/ui/ColHead.svelte'
   import StatsPanel from '$lib/ui/StatsPanel.svelte'
   import { lexiconStats } from '$lib/engine/stats'
+  import { fiveRows } from '$lib/ui/fiveRows'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -1606,7 +1607,7 @@
     {#if selLang && selLang.dialects.length}
       <div class="field">
         <span class="small muted">{t('lexicon.dialects')}</span>
-        <div class="chips">
+        <div class="chips" use:fiveRows>
           {#each selLang.dialects as d (d.id)}
             <label class="chip-check"
               ><input
@@ -2207,6 +2208,10 @@
     background: var(--danger-soft);
     color: var(--danger);
     cursor: default;
+  }
+  /* 深色下红字压在暗红底上不够清楚 */
+  :global([data-theme='dark']) .lex-status .badge.err {
+    color: #ef8b8b;
   }
   .lex-status .badge.warnb {
     background: var(--warn-soft);

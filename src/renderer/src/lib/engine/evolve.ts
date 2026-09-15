@@ -5,7 +5,7 @@
 import type { Id, Lexeme, Morpheme, Project, RuleSet } from '$lib/core/model'
 import { createLexeme, now } from '$lib/core/factory'
 import { lexemePosIds } from '$lib/core/pos'
-import { runRulesOnText, type RuleProgram } from '$lib/engine/sca'
+import { runRulesOnText, stripStress, type RuleProgram } from '$lib/engine/sca'
 
 export interface EvolveOptions {
   ruleSet: RuleSet
@@ -69,6 +69,8 @@ export function planEvolution(project: Project, o: EvolveOptions): EvolveRow[] {
         startAt: o.startAt || undefined,
         stopAt: o.stopAt || undefined
       })
+      // 写进词库的是拼写：规则集里标的重音记号不带过去
+      if (o.program.hasStress) output = stripStress(output)
     } catch {
       output = ''
     }
