@@ -82,3 +82,15 @@ describe('文档：常见写法', () => {
     expect(run('p > b?f / V_V', 'papa')).toBe('faba')
   })
 })
+
+describe('文档：重音规则里的词类、不重读、词条的特殊重音', () => {
+  const withWord = (rules: string, word: string, info: object): string =>
+    runRules(parseRuleText(`${V}\n${rules}`), word, { word: info }).output
+  it('想要的重音里新加的三行', () => {
+    expect(withWord('ˈ = <动词> -1 , -2', 'katala', { pos: ['动词'] })).toBe('kataˈla')
+    expect(withWord('ˈ = <动词> -1 , -2', 'katala', { pos: ['名词'] })).toBe('kaˈtala')
+    expect(withWord('ˈ = <代词|小品词> 0 , 1', 'kata', { pos: ['小品词'] })).toBe('kata')
+    expect(withWord('ˈ = @ , -2', 'katala', { stress: 1 })).toBe('ˈkatala')
+    expect(withWord('ˈ = @ , -2', 'katala', {})).toBe('kaˈtala')
+  })
+})

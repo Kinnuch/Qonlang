@@ -11,7 +11,8 @@
     type Lexeme,
     type LocalizedText,
     type Morpheme,
-    type Project
+    type Project,
+    type StressSettings
   } from '$lib/core/model'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { ui } from '$lib/state/ui.svelte'
@@ -134,6 +135,29 @@
           : e.type
     return [type, chain, e.notes].filter(Boolean).join(' · ')
   }
+  /** 对重音影响：传递词性、特殊重音落在第几个音节 */
+  function stressText(p: Project, s: StressSettings | undefined): string {
+    if (!s?.affects) return ''
+    const parts: string[] = []
+    if (s.passPos) {
+      const pos = s.posId ? p.posList.find((x) => x.id === s.posId) : undefined
+      parts.push(
+        t('stressSettings.passPos') +
+          (pos ? ` · ${t('stressSettings.countAs')} ${pickText(pos.name, langs) || pos.abbr}` : '')
+      )
+    }
+    if (s.passSpecial)
+      parts.push(
+        `${t('stressSettings.passSpecial')} · ${
+          s.special === 0
+            ? t('stressRule.posNone')
+            : s.special > 0
+              ? t('stressRule.sumFront', { n: s.special })
+              : t('stressRule.sumBack', { n: -s.special })
+        }`
+      )
+    return parts.join('；')
+  }
   function lexemeFacts(p: Project, l: Lexeme): Fact[] {
     return facts([
       [
@@ -161,6 +185,7 @@
           .join(' · ')
       ],
       [t('lexicon.features'), featureText(p, l.features)],
+      [t('stressSettings.affects'), stressText(p, l.stress)],
       [t('common.notes'), l.notes],
       // 检视器模块：标题 · 内容
       ...(p.customFields ?? []).map((f): [string, string] => [
@@ -181,6 +206,7 @@
       [t('lexicon.etymology'), etymologyText(p, m.etymology)],
       [t('lexicon.colTags'), m.tags.join(', ')],
       [t('lexicon.features'), featureText(p, m.features)],
+      [t('stressSettings.affects'), stressText(p, m.stress)],
       [t('common.notes'), m.notes]
     ])
   }

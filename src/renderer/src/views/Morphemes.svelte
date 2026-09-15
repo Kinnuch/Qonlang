@@ -40,6 +40,7 @@
   import StatsPanel from '$lib/ui/StatsPanel.svelte'
   import { morphemeStats } from '$lib/engine/stats'
   import { fiveRows } from '$lib/ui/fiveRows'
+  import StressSettingsEditor from '$lib/ui/StressSettingsEditor.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -285,7 +286,8 @@
   async function exportCsv(): Promise<void> {
     const rows = morphemesToRows(
       project.morphemes.filter((m) => !langId || m.languageId === langId),
-      project.settings.glossLanguages
+      project.settings.glossLanguages,
+      project.posList
     )
     const name = projectState.currentLanguage?.name ?? project.meta.name
     await platform.saveTextFile(`${name}-morphemes.csv`, '\ufeff' + toCsv(rows))
@@ -698,6 +700,17 @@
         onchange={() => projectState.touch()}
       />
     </div>
+    <StressSettingsEditor
+      value={m.stress}
+      posChoices={project.posList.map((p) => ({
+        id: p.id,
+        label: pickText(p.name, glossLangs) || p.abbr
+      }))}
+      onchange={(v) => {
+        m.stress = v
+        projectState.touch()
+      }}
+    />
     <div class="field">
       <div class="row">
         <span class="small muted">{t('lexicon.etymology')}</span><HelpDot key="etymology" />

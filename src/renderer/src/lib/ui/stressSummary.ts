@@ -6,6 +6,10 @@ import type { StressClause } from '$lib/engine/sca'
 
 export function describeClause(c: StressClause): string {
   const parts: string[] = []
+  if (c.pos)
+    parts.push(
+      t(c.pos.negate ? 'stressRule.sumPosNot' : 'stressRule.sumPos', { x: c.pos.names.join('、') })
+    )
   if (c.count !== null)
     parts.push(t(c.orMore ? 'stressRule.sumCountMore' : 'stressRule.sumCount', { n: c.count }))
   const where =
@@ -13,9 +17,11 @@ export function describeClause(c: StressClause): string {
       ? t('stressRule.posFirst')
       : c.position === 'last'
         ? t('stressRule.posLast')
-        : c.position > 0
-          ? t('stressRule.sumFront', { n: c.position })
-          : t('stressRule.sumBack', { n: -c.position })
+        : c.position === 0
+          ? t('stressRule.posNone')
+          : c.position > 0
+            ? t('stressRule.sumFront', { n: c.position })
+            : t('stressRule.sumBack', { n: -c.position })
   const cond: string[] = []
   if (c.target) cond.push(t('stressRule.sumNucleus', { x: c.target }))
   if (c.context.left || c.context.right)

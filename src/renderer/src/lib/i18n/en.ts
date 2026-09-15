@@ -298,7 +298,28 @@ const en: Dict = {
     featureName: 'Feature name',
     featureMembers: 'Members (space-separated)',
     featureHint:
-      'From this line on, rules can write [+name] or [-name]; [-name] without its own member list means every other sound. You can redefine it further down.'
+      'From this line on, rules can write [+name] or [-name]; [-name] without its own member list means every other sound. You can redefine it further down.',
+    special: "Use the entry's special stress first (@)",
+    specialTip:
+      'When an entry or morpheme has "Affects stress → Pass special stress" ticked, the whole word is stressed on the syllable set there and the entries below are skipped',
+    pos: 'Part of speech',
+    posAny: 'any',
+    posTip:
+      'Only for these parts of speech, separated by |; a leading ! means "not these". It only matches entries and morphemes with "Affects stress → Pass part of speech" ticked',
+    posNone: 'Unstressed',
+    sumPos: 'part of speech {x}',
+    sumPosNot: 'not {x}',
+    sumSpecial: "the entry's special stress"
+  },
+  stressSettings: {
+    affects: 'Affects stress',
+    hint: 'When ticked, stress rules in sound changes and orthographies can use this word: entries written <part of speech> choose by part of speech, and a rule with @ uses the special stress set here.',
+    morphemeHint:
+      'Morphemes have no part of speech: their type (root, suffix…) is passed instead, and you can pick a part of speech it counts as. Lexicon evolution treats it as a word; added to a word in a paradigm, its special stress moves the stress onto this affix, and a chosen part of speech makes the whole word count as that part of speech.',
+    passPos: 'Pass part of speech',
+    passSpecial: 'Pass special stress',
+    countAs: 'Counts as',
+    typeOnly: '(morpheme type only)'
   },
   chars: {
     title: 'Characters',
@@ -1067,7 +1088,8 @@ const en: Dict = {
       paradigm: 'Paradigm',
       paradigmVariant: 'Paradigm variant',
       form2: 'Second form',
-      allomorphs: 'Allomorphs'
+      allomorphs: 'Allomorphs',
+      stress: 'Affects stress'
     },
     lang: 'Language',
     stemName: 'Stem name',
@@ -1534,6 +1556,8 @@ const en: Dict = {
     layoutVisual: 'Visual',
     layoutTable: 'Table',
     layoutTree: 'Tree',
+    collapseAll: 'Collapse all',
+    expandAll: 'Expand all',
     layoutWord:
       'Cells show what the test bench word "{word}" becomes (pick another word in the test bench); the small print is how the cell is built. Click a cell to edit it in the visual view.',
     layoutNoWord:

@@ -28,6 +28,7 @@ import { inferFeatures } from '$lib/ipa/features'
 import { analyzeSentence } from '$lib/engine/gloss'
 import { homographIds, piecesOf, rankHomographs } from '$lib/engine/gloss/candidates'
 import { makeContext, deriveLexemeForms } from '$lib/engine/morph'
+import { deriveAll as derivePronunciationsOf } from '$lib/core/pronounce'
 import { createDerivedLexeme } from '$lib/core/derivedEntry'
 import type {
   GrammaticalCategory,
@@ -196,14 +197,14 @@ function makeAelith(): void {
     { id: newId(), name: 'C', members: 'h k l m n p r s t w'.split(' '), featureQuery: null },
     { id: newId(), name: 'V', members: 'a e i o u'.split(' '), featureQuery: null }
   ]
-  // 自定义重音规则：倒数第二个音节后面跟着两个辅音就重读它，否则重读最后一个音节
+  // 自定义重音规则：词条标了特殊重音的按它；倒数第二个音节后面跟着两个辅音就重读它，否则重读最后一个音节
   S.syllable = { enabled: true, template: '', strategy: 'maximal-onset' }
   S.prosody = {
     type: 'stress',
     stressPosition: 'custom',
-    stressRule: '-2 / _CC , -1',
+    stressRule: '@ , -2 / _CC , -1',
     rules:
-      '重音落在词尾：倒数第二个音节后面接着两个辅音时往前挪一个音节（音系页「音节与韵律」里是自定义重音规则）。',
+      '重音落在词尾：倒数第二个音节后面接着两个辅音时往前挪一个音节（音系页「音节与韵律」里是自定义重音规则）。hara 例外，重读第一个音节（词条里勾了「对重音影响」）。',
     tones: []
   }
   p.languages.push(P, L, S)
@@ -246,7 +247,8 @@ function makeAelith(): void {
     'ö > ø',
     'ü > y',
     '; 首音节重读：转出来的音标带上重音记号（音系页「音节与韵律」的测试照记号划）',
-    'ˈ = 1'
+    '; 词条勾了「对重音影响」的：标了特殊重音的按它（telikaso），代词、小品词不重读',
+    'ˈ = @ , <代词|小品词> 0 , 1'
   ].join('\n')
   rom.rulesFromIpa = ['ŋ > ng', 'ø > ö', 'y > ü'].join('\n')
   L.orthographies.push({
@@ -503,21 +505,25 @@ function makeAelith(): void {
     ],
     tags: ['派生']
   })
-  morph('prefix', 'be-', 'PRIV', '无…的', 'privative (without)', {
+  const priv = morph('prefix', 'be-', 'PRIV', '无…的', 'privative (without)', {
     tags: ['派生'],
-    notes: '构形流水线里写 @PRIV 就能引用它。'
+    notes:
+      '构形流水线里写 @PRIV 就能引用它。加上它的词算作形容词（「对重音影响 → 传递词性 → 算作」）。'
   })
+  priv.stress = { affects: true, passPos: true, passSpecial: false, special: 1, posId: A.id }
   morph('infix', '-in-', 'DIM', '小称', 'diminutive', {
     tags: ['派生'],
     notes: '插在第一个元音之后：kara → kainra'
   })
   morph('circumfix', 'en-', 'SUP', '最高级', 'superlative', { form2: '-ik', tags: ['形容词'] })
-  morph('clitic', '=mU', 'Q', '疑问', 'question', {
+  const question = morph('clitic', '=mU', 'Q', '疑问', 'question', {
     allo: [
       ['=mu', backEnv],
       ['=mü', frontEnv]
-    ]
+    ],
+    notes: '附着词不重读：勾了「对重音影响 → 传递特殊重音」，选的是不重读。'
   })
+  question.stress = { affects: true, passPos: false, passSpecial: true, special: 0 }
   morph('particle', 've', 'and', '和', 'and')
 
   // ── 词条 ──
@@ -648,6 +654,9 @@ function makeAelith(): void {
   kaso.relations.push({ kind: 'derivation', lexemeId: kasolu.id })
   p.lexemes.push(kasolu)
   lex.set('kasolu', kasolu)
+  // 对重音影响：代词、小品词把词类交给重音规则（罗马化与「书面语 → 口语」里写着 <代词|小品词> 0，不重读）
+  for (const w of ['men', 'sen', 'o', 'biz', 've', 'mü'])
+    lex.get(w)!.stress = { affects: true, passPos: true, passSpecial: false, special: 1 }
   const telikaso = createLexeme(L.id, 'telikaso')
   telikaso.posId = N.id
   telikaso.senses[0].definition = { zh: '磨坊（字面：水屋）', en: 'mill (lit. water-house)' }
@@ -663,6 +672,9 @@ function makeAelith(): void {
     stages: [{ id: newId(), form: 'teli-kaso', type: '', notes: '早期仍分写' }],
     notes: ''
   }
+  // 复合词的重音落在后一个成分上：倒数第二个音节 ka
+  telikaso.stress = { affects: true, passPos: false, passSpecial: true, special: -2 }
+  telikaso.notes = '重音特殊，落在 ka 上（勾了「对重音影响 → 传递特殊重音」，倒数第 2 个音节）。'
   p.lexemes.push(telikaso)
   const sawa = createLexeme(L.id, 'sawa')
   sawa.posId = N.id
@@ -784,7 +796,8 @@ function makeAelith(): void {
       '; 演示：特征 [+浊]、重音规则 ˈ =、音节边界 σ（几条音变都是编的）',
       '[+浊] = b d g z v',
       '[-浊] = p t k s f',
-      'ˈ = 1',
+      '; 重音：词条标了特殊重音的按它，代词、小品词不重读，其余首音节',
+      'ˈ = @ , <代词|小品词> 0 , 1',
       '-* 书面语',
       '; 音节末的浊辅音清化（词尾也算音节末）：biz → bis',
       '[+浊] > [-浊] / _σ',
@@ -796,8 +809,9 @@ function makeAelith(): void {
       '-* 口语'
     ].join('\n')
   )
-  spokenRs.notes = '测试台的每一列都带着 ˈ：到「ˈ = 1」那一行时标上，之后的规则照常跨过它匹配。'
-  spokenRs.testWords = 'biz\nsepe\nvene\nilen\nsörmek\ntelikaso\nkamsa'
+  spokenRs.notes =
+    '测试台的每一列都带着 ˈ：到重音规则那一行时标上，之后的规则照常跨过它匹配。敲的词对上词库里勾了「对重音影响」的词条时带上它的词类与特殊重音：biz、sen 是代词，不重读，e 也跟着弱化；telikaso 重读 ka。'
+  spokenRs.testWords = 'biz\nsen\nsepe\nvene\nilen\nsörmek\ntelikaso\nkamsa'
   spokenRs.stageLanguages = { 书面语: L.id, 口语: L.id }
   p.ruleSets.push(spokenRs)
   const merunWords: [string, PartOfSpeech, string, string, string][] = [
@@ -818,6 +832,10 @@ function makeAelith(): void {
       sources: [{ kind: 'morpheme', id: protoRoots.get(proto)!.id }],
       stages: [{ id: newId(), form: '*' + proto, type: '', notes: '祖语形' }],
       notes: '经规则集「Proto → Merun」推出'
+    }
+    if (lemma === 'hara') {
+      lx.stress = { affects: true, passPos: false, passSpecial: true, special: 1 }
+      lx.notes = '重音例外，落在第一个音节（勾了「对重音影响 → 传递特殊重音」）。'
     }
     p.lexemes.push(lx)
   }
@@ -1207,11 +1225,11 @@ function makeAelith(): void {
     'Aelith 是虚构的黏着语，用来把千语集每个模块的功能摆一遍（数据都是编的，不对应任何真实语言）：',
     '',
     '- **语言**：语系树（Proto-Aelith → Aelith 与姊妹语 Merun）、方言、字母表',
-    '- **音系**：音位与特征、由特征生成的音类、多合字母、两套正字法（罗马化转音标的最后一行 `ˈ = 1` 是重音规则，转出来的音标带重音）、音节与重音、配列与造词；姊妹语 Merun 的「音节与韵律」用的是自定义重音规则 `-2 / _CC , -1`，测试里输入 hasta、hasu 看重音落在哪',
+    '- **音系**：音位与特征、由特征生成的音类、多合字母、两套正字法（罗马化转音标的最后一行 `ˈ = @ , <代词|小品词> 0 , 1` 是重音规则，转出来的音标带重音：telikaso 按词条标的特殊重音读 teliˈkaso，men、biz 这些代词不重读）、音节与重音、配列与造词；姊妹语 Merun 的「音节与韵律」用的是自定义重音规则 `@ , -2 / _CC , -1`，测试里输入 hasta、hasu 看重音落在哪，hara 在词条里标了特殊重音，重读第一个音节',
     '- **文字**：卢恩刻文、映射规则、手填的文字写法；「刻痕句读」是在手写板上画的字（打开它点「改手写」看笔画）',
-    '- **音变**：四套规则集（元音和谐、Proto → Aelith、Proto → Merun、书面语 → 口语），阶段绑定语言，测试台词表；「Proto → Aelith」里有满足 / 不满足环境两路的规则（`θ > t?s / #_`：词首变 t、别处变 s）和带两个排除的规则（`u > o / _# - k_ , g_`），整库演化推出来的正是词库里的 kaso、nöl、sör-；「书面语 → 口语」演示特征（`[+浊] = b d g z v`，规则里写 `[+浊] > [-浊] / _σ`）、重音规则（`ˈ = 1`，测试台每一列都带着 ˈ）和音节边界 σ（不重读的 e 弱化：`e > ə / σ(C)(C)_ - ˈ(C)(C)_`）',
-    '- **语素**：词根 / 前缀 / 后缀 / 中缀 / 环缀 / 附着词 / 小品词，异体形环境，词源',
-    '- **词库**：多义项、一个义项几个语域（dünar）、方言、标签、维度、复合词类与义项自己的词类（kara）、词干槽、词源链（词根 / 复合 / 派生 / 音变 / 借词 / 自己写的类别「仿译」）、自定义关系种类（押韵）、配图、手改发音；sörmek 是从 sör- 的动名词「生成到词库」的，词源与关系都是自动填的；vesa 故意没写释义，词库里标红，底栏右边的问题统计点开能跳过去',
+    '- **音变**：四套规则集（元音和谐、Proto → Aelith、Proto → Merun、书面语 → 口语），阶段绑定语言，测试台词表；「Proto → Aelith」里有满足 / 不满足环境两路的规则（`θ > t?s / #_`：词首变 t、别处变 s）和带两个排除的规则（`u > o / _# - k_ , g_`），整库演化推出来的正是词库里的 kaso、nöl、sör-；「书面语 → 口语」演示特征（`[+浊] = b d g z v`，规则里写 `[+浊] > [-浊] / _σ`）、重音规则（`ˈ = @ , <代词|小品词> 0 , 1`，测试台每一列都带着 ˈ；biz、sen 是代词不重读，telikaso 重读 ka）和音节边界 σ（不重读的 e 弱化：`e > ə / σ(C)(C)_ - ˈ(C)(C)_`，sen → sən）',
+    '- **语素**：词根 / 前缀 / 后缀 / 中缀 / 环缀 / 附着词 / 小品词，异体形环境，词源；「对重音影响」：附着词 =mU 不重读，前缀 be- 算作形容词',
+    '- **词库**：多义项、一个义项几个语域（dünar）、方言、标签、维度、复合词类与义项自己的词类（kara）、词干槽、词源链（词根 / 复合 / 派生 / 音变 / 借词 / 自己写的类别「仿译」）、自定义关系种类（押韵）、配图、手改发音、「对重音影响」（代词与小品词传递词性、telikaso 传递特殊重音）；sörmek 是从 sör- 的动名词「生成到词库」的，词源与关系都是自动填的；vesa 故意没写释义，词库里标红，底栏右边的问题统计点开能跳过去',
     '- **关系图**：kaso 的关系图里按住空白处拖动画布，右键节点展开或收起；右上角「对比」把同一个词根 *kasu 的 kaso（Aelith）、hasu（Merun，意思变成帐篷）、kasolu、telikaso 并排：各自经过的音变、k : h 的语音对应、意思与构成的差别',
     '- **检视器模块**：「词类与维度」最下面定义的「文化注释」与「刻文异体」（用刻文的字体显示），打开 kaso、nöl、sepe 看',
     '- **构形**：流水线的八种步骤（前缀、后缀、中缀、环缀、音变、模板、重叠、微调）、变体（基础那套改名叫「书面」）、继承、屏蔽槽位、手填表、作用于所有词的「连读浊化」（ve 后面 tovar → dovar）、一个词类绑几个构形（「动词」默认变位法一，tur-、sal- 在词条里挑了变位法二，ol- 用不规则）、按条件换字母（名词与格只写一条 ¢{阴:g|k}A：阴性的 sila、vene 是 silaga、venege，其余是 kasoka 这样）、构形套构形（「动名词」加 -mAk 之后套进「名词」的格：sörmek、sörmekde）、一个词条几个构形（sör- 既变位又有动名词）；测试台切到「自由」随便写一个形式看它变成什么',
@@ -1294,6 +1312,8 @@ function makeAelith(): void {
     }
   )
   p.settings.lexiconColumns = ['pos', 'def:zh', 'def:en', 'tags']
+  // 自动标音：词库里的发音按罗马化推出来，勾了「对重音影响」的词带着词类与特殊重音
+  derivePronunciationsOf(p, L)
   save('Aelith.laim.json', p)
 }
 

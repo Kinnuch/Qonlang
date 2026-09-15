@@ -11,6 +11,7 @@ import { parseRuleText, runRules } from '$lib/engine/sca'
 import { analyzeWord, languageParseOptions } from '$lib/engine/phon'
 import { stressWord, transcribe } from '$lib/core/pronounce'
 import { lexiconIssues } from '$lib/core/lexiconIssues'
+import { lexemeStress, morphemeStress, stressForWord } from '$lib/core/stressInfo'
 
 const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
@@ -143,11 +144,30 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     expect(run('kamsa').output).toBe('ˈkãmsa')
     expect(transcribe(L, L.orthographies[0], 'sörmek')).toBe('ˈsørmek')
     expect(analyzeWord(L, 'ˈsørmek').text).toBe('ˈsør.mek')
+    // 对重音影响：测试台敲的词对上词条时带上词类与特殊重音——代词不重读，telikaso 重读 ka
+    const bench = (w: string) => runRules(prog, w, { word: stressForWord(p, L.id, w) }).output
+    expect(bench('biz')).toBe('bis')
+    expect(bench('sen')).toBe('sən')
+    expect(bench('telikaso')).toBe('təliˈkaso')
+    const pron = (w: string) =>
+      p.lexemes.find((x) => x.lemma === w)!.pronunciations[L.orthographies[0].id]?.ipa
+    expect(pron('men')).toBe('men')
+    expect(pron('telikaso')).toBe('teliˈkaso')
+    expect(pron('sepe')).toBe('ˈsepe')
+    expect(
+      morphemeStress(
+        p,
+        p.morphemes.find((m) => m.form === '=mU')!
+      )
+    ).toEqual({ stress: 0 })
     // 姊妹语 Merun 的自定义重音规则
     const S = p.languages.find((l) => l.name === 'Merun')!
     expect(S.prosody.stressPosition).toBe('custom')
     expect(stressWord(S, 'hasta')).toBe('ˈhasta')
     expect(stressWord(S, 'hasu')).toBe('haˈsu')
+    const hara = p.lexemes.find((l) => l.lemma === 'hara')!
+    expect(stressWord(S, 'hara')).toBe('haˈra')
+    expect(stressWord(S, 'hara', lexemeStress(p, hara))).toBe('ˈhara')
     // vesa 故意没写释义：词库底栏的问题统计里有它
     const vesa = p.lexemes.find((l) => l.lemma === 'vesa')!
     expect(lexiconIssues(p.lexemes).some((x) => x.lexemeId === vesa.id)).toBe(true)

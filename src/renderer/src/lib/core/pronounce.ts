@@ -2,9 +2,10 @@
  * 正字法 → IPA 的自动标音。规则文本按正字法解析并缓存；不规则发音不覆盖。
  */
 import type { Language, Lexeme, Orthography, Project } from './model'
-import { parseRuleText, runRulesOnText, type RuleProgram } from '$lib/engine/sca'
+import { parseRuleText, runRulesOnText, type RuleProgram, type WordStress } from '$lib/engine/sca'
 import { languageParseOptions, segment } from '$lib/engine/phon'
 import { inferFeatures } from '$lib/ipa/features'
+import { lexemeStress } from './stressInfo'
 
 const cache = new Map<string, { text: string; classes: string; program: RuleProgram }>()
 export function clearPronounceCache(): void {
@@ -45,10 +46,15 @@ export function ipaUnits(lang: Language): string[] {
 }
 
 /** 按空白分词逐个转写：`A B` 里 A 的末尾同样算词尾（`_#` 的规则对每个词都生效） */
-export function transcribe(lang: Language, ortho: Orthography, text: string): string | null {
+export function transcribe(
+  lang: Language,
+  ortho: Orthography,
+  text: string,
+  word?: WordStress
+): string | null {
   const p = orthoProgram(lang, ortho, 'toIpa')
   if (!p) return null
-  return runRulesOnText(p, text, { keepUnits: ipaUnits(lang) })
+  return runRulesOnText(p, text, { keepUnits: ipaUnits(lang), word })
 }
 
 /**
@@ -92,17 +98,19 @@ export function customStressProgram(lang: Language): RuleProgram | null {
 }
 
 /** 选了自定义重音时按那里的重音规则给音标标上重音；已经带 ˈ ˌ 的（正字法里标过、手填的）不动 */
-export function stressWord(lang: Language, ipa: string): string {
+export function stressWord(lang: Language, ipa: string, word?: WordStress): string {
   if (/[ˈˌ]/.test(ipa)) return ipa
   const program = customStressProgram(lang)
-  return program ? runRulesOnText(program, ipa, { keepUnits: ipaUnits(lang) }) : ipa
+  return program ? runRulesOnText(program, ipa, { keepUnits: ipaUnits(lang), word }) : ipa
 }
 
 /** 给一个词位按各正字法重算发音（不规则的保留）。返回是否有变化。 */
-export function derivePronunciations(lang: Language, lexeme: Lexeme): boolean {
+export function derivePronunciations(lang: Language, lexeme: Lexeme, project?: Project): boolean {
+  // 勾了「对重音影响」的词条：词类与特殊重音交给正字法里的重音规则
+  const word = project ? lexemeStress(project, lexeme) : undefined
   let changed = false
   for (const o of lang.orthographies) {
-    const ipa = transcribe(lang, o, lexeme.lemma)
+    const ipa = transcribe(lang, o, lexeme.lemma, word)
     if (ipa == null) continue
     const cur = lexeme.pronunciations[o.id]
     if (cur?.irregular) continue
@@ -118,6 +126,6 @@ export function derivePronunciations(lang: Language, lexeme: Lexeme): boolean {
 export function deriveAll(project: Project, lang: Language): number {
   let n = 0
   for (const l of project.lexemes)
-    if (l.languageId === lang.id && derivePronunciations(lang, l)) n++
+    if (l.languageId === lang.id && derivePronunciations(lang, l, project)) n++
   return n
 }

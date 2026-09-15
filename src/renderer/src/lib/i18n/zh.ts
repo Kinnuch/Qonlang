@@ -286,7 +286,28 @@ export default {
     featureName: '特征名',
     featureMembers: '成员（空格隔开）',
     featureHint:
-      '从这一行起，规则里可以写 [+名] 或 [-名]；[-名] 没单独列成员时指其余的音。后面可以重新定义。'
+      '从这一行起，规则里可以写 [+名] 或 [-名]；[-名] 没单独列成员时指其余的音。后面可以重新定义。',
+    special: '先看词条标的特殊重音（@）',
+    specialTip:
+      '词条、语素勾了「对重音影响 → 传递特殊重音」时，整个词按那里标的音节，下面的条目都不看',
+    pos: '词类',
+    posAny: '不限',
+    posTip:
+      '只对这些词类生效，几个用 | 隔开，开头写 ! 是「不是这些」；词条、语素勾了「对重音影响 → 传递词性」才对得上',
+    posNone: '不重读',
+    sumPos: '词类是 {x}',
+    sumPosNot: '词类不是 {x}',
+    sumSpecial: '词条标的特殊重音'
+  },
+  stressSettings: {
+    affects: '对重音影响',
+    hint: '勾上后，音变、正字法里的重音规则能用到这个词：条目写了 <词类> 的按词性挑，规则写了 @ 的按这里标的特殊重音。',
+    morphemeHint:
+      '语素没有词类：传的是它的类型（词根、后缀……），另外可以选算作哪个词类。整库演化把它当一个词；在构形里加到词上时，特殊重音改落到这个词缀上，选了词类的整个词算作那个词类。',
+    passPos: '传递词性',
+    passSpecial: '传递特殊重音',
+    countAs: '算作',
+    typeOnly: '（只传语素类型）'
   },
   chars: {
     title: '字符',
@@ -1033,7 +1054,8 @@ export default {
       paradigm: '构形',
       paradigmVariant: '构形变体',
       form2: '第二形式',
-      allomorphs: '异体形'
+      allomorphs: '异体形',
+      stress: '对重音影响'
     },
     lang: '语言',
     stemName: '词干名',
@@ -1483,6 +1505,8 @@ export default {
     layoutVisual: '可视化',
     layoutTable: '表格',
     layoutTree: '树形图',
+    collapseAll: '全部收起',
+    expandAll: '全部展开',
     layoutWord:
       '格子里是测试台上「{word}」的推导形式（在右侧测试台换词），小字是这一格的写法；点一格回到可视化改它。',
     layoutNoWord: '测试台上还没有词，格子里先列出每一格的写法；点一格回到可视化改它。',

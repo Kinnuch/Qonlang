@@ -63,6 +63,8 @@
     Table,
     ListTree,
     ChevronRight,
+    ChevronsDownUp,
+    ChevronsUpDown,
     FilePlus2,
     CornerDownRight
   } from '@lucide/svelte'
@@ -77,6 +79,12 @@
     type IssueGroup
   } from '$lib/engine/consistency'
   import HelpDot from '$lib/ui/HelpDot.svelte'
+  import {
+    forgetSectionsWithPrefix,
+    sectionCollapsed,
+    setSectionsCollapsed,
+    toggleSection
+  } from '$lib/ui/section.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -479,6 +487,17 @@
     treeFor = id
     treeToggled = new Set()
   })
+  /** 可视化里每个槽位各自能收起，记在本机（按构形与槽位记，变体之间共用） */
+  const foldId = (key: string): string => `pd.slot:${active?.id ?? ''}:${key}`
+  const allSlotsFolded = $derived(
+    slots.length > 0 && slots.every((s) => sectionCollapsed(foldId(s.key)))
+  )
+  /** 收起时这一行写什么：生成器是流水线就把各步连起来，否则写生成器的种类 */
+  function foldedSummary(s: SlotDef): string {
+    const g = active?.generators[gkey(s.key)] ?? { kind: 'none' }
+    return slotSummary(s) || t(`paradigms.kinds.${g.kind}`)
+  }
+
   /** 表格、树形图里点一格：回到可视化，滚到这一格并闪一下 */
   async function openSlot(key: string): Promise<void> {
     const idx = slots.findIndex((s) => s.key === key)
@@ -486,6 +505,7 @@
       ui.toast(t('paradigms.slotHidden'))
       return
     }
+    if (sectionCollapsed(foldId(key))) setSectionsCollapsed([foldId(key)], false)
     layout = 'visual'
     while (lzSlots.shown <= idx) lzSlots.grow()
     await tick()
@@ -600,6 +620,7 @@
     const snap = $state.snapshot(p) as Paradigm
     project.paradigms.splice(idx, 1)
     unbindParadigm(project, p.id)
+    forgetSectionsWithPrefix(`pd.slot:${p.id}:`)
     activeId = project.paradigms[0]?.id ?? null
     touch()
     ui.toast(t('paradigms.deleted', { name: pickText(snap.name, glossLangs) }), {
@@ -940,6 +961,19 @@
             {t('paradigms.slots')} <span class="badge">{slots.length}</span>
             <HelpDot tip={t('paradigms.affixHint')} />
           </h3>
+          {#if layout === 'visual' && slots.length > 1}
+            <button
+              class="btn ghost sm fold-all"
+              onclick={() =>
+                setSectionsCollapsed(
+                  slots.map((s) => foldId(s.key)),
+                  !allSlotsFolded
+                )}
+              >{#if allSlotsFolded}<ChevronsUpDown size={14} />{t(
+                  'paradigms.expandAll'
+                )}{:else}<ChevronsDownUp size={14} />{t('paradigms.collapseAll')}{/if}</button
+            >
+          {/if}
           <div class="seg">
             <button class:active={layout === 'visual'} onclick={() => (layout = 'visual')}
               ><List size={14} />{t('paradigms.layoutVisual')}</button
@@ -1135,48 +1169,69 @@
               {#each slots.slice(0, lzSlots.shown) as s (s.key)}
                 {@const disabled = active.disabledSlots.includes(s.key)}
                 {@const g = active.generators[gkey(s.key)] ?? { kind: 'none' }}
-                <tr class:off={disabled} data-slot={s.key}>
-                  <td
-                    ><input
-                      type="checkbox"
-                      checked={!disabled}
-                      title={t('paradigms.enabled')}
-                      onchange={() => toggleSlot(s.key)}
-                    /></td
+                {@const folded = sectionCollapsed(foldId(s.key))}
+                <tr class:off={disabled} class:folded data-slot={s.key}>
+                  <td class="lead"
+                    ><span class="lead-in"
+                      ><button
+                        class="fold-btn"
+                        title={folded ? t('common.expand') : t('common.collapse')}
+                        aria-expanded={!folded}
+                        onclick={() => toggleSection(foldId(s.key))}
+                        >{#if folded}<ChevronRight size={15} />{:else}<ChevronDown
+                            size={15}
+                          />{/if}</button
+                      ><input
+                        type="checkbox"
+                        checked={!disabled}
+                        title={t('paradigms.enabled')}
+                        onchange={() => toggleSlot(s.key)}
+                      /></span
+                    ></td
                   >
                   <td class="label">{s.label}</td>
                   <td class="mono small muted">{s.abbr}</td>
-                  <td>
-                    <select
-                      class="select kind"
-                      value={g.kind}
-                      onchange={(e) =>
-                        setKind(
-                          gkey(s.key),
-                          (e.currentTarget as HTMLSelectElement).value as SlotGenerator['kind']
-                        )}
-                    >
-                      {#each ['none', 'table', 'pipeline'] as k (k)}<option value={k}
-                          >{t(`paradigms.kinds.${k}`)}</option
-                        >{/each}
-                    </select>
-                    {#if isInherited(gkey(s.key))}<span class="badge"
-                        >{t('paradigms.inherited')}</span
-                      >{/if}
-                  </td>
-                  <td colspan="2">
-                    {#if g.kind === 'pipeline'}
-                      <SlotPipeline
-                        bind:stem={g.stem}
-                        bind:steps={g.steps}
-                        ruleSets={project.ruleSets}
-                        paradigms={nestChoices}
-                        onchange={touch}
-                      />
-                    {:else if g.kind === 'table'}
-                      <span class="small muted">{t('paradigms.kinds.table')}</span>
-                    {/if}
-                  </td>
+                  {#if folded}
+                    <td colspan="3" class="fold-cell">
+                      <button class="fold-sum" onclick={() => toggleSection(foldId(s.key))}
+                        >{foldedSummary(s)}</button
+                      >{#if isInherited(gkey(s.key))}<span class="badge"
+                          >{t('paradigms.inherited')}</span
+                        >{/if}
+                    </td>
+                  {:else}
+                    <td>
+                      <select
+                        class="select kind"
+                        value={g.kind}
+                        onchange={(e) =>
+                          setKind(
+                            gkey(s.key),
+                            (e.currentTarget as HTMLSelectElement).value as SlotGenerator['kind']
+                          )}
+                      >
+                        {#each ['none', 'table', 'pipeline'] as k (k)}<option value={k}
+                            >{t(`paradigms.kinds.${k}`)}</option
+                          >{/each}
+                      </select>
+                      {#if isInherited(gkey(s.key))}<span class="badge"
+                          >{t('paradigms.inherited')}</span
+                        >{/if}
+                    </td>
+                    <td colspan="2">
+                      {#if g.kind === 'pipeline'}
+                        <SlotPipeline
+                          bind:stem={g.stem}
+                          bind:steps={g.steps}
+                          ruleSets={project.ruleSets}
+                          paradigms={nestChoices}
+                          onchange={touch}
+                        />
+                      {:else if g.kind === 'table'}
+                        <span class="small muted">{t('paradigms.kinds.table')}</span>
+                      {/if}
+                    </td>
+                  {/if}
                 </tr>
               {/each}
             </tbody>
@@ -1722,11 +1777,55 @@
   .slots td:first-child {
     padding-top: 22px;
   }
+  .lead-in {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .fold-btn {
+    display: inline-flex;
+    border: 0;
+    background: none;
+    padding: 0;
+    color: var(--text-3);
+    cursor: pointer;
+  }
+  .fold-btn:hover {
+    color: var(--text);
+  }
+  /* 收起的一行：各格上下留得少，写法挤成一行，放不下的省略 */
+  .slots tr.folded td {
+    padding-top: 6px;
+    padding-bottom: 6px;
+    vertical-align: middle;
+  }
+  .fold-cell .badge {
+    margin-left: 8px;
+  }
+  .fold-sum {
+    max-width: min(60vw, 760px);
+    border: 0;
+    background: none;
+    padding: 0;
+    color: var(--text-2);
+    font: inherit;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+    cursor: pointer;
+  }
+  .fold-sum:hover {
+    color: var(--text);
+  }
   .slots .kind {
     margin-top: 13px;
   }
-  .slots td.label,
-  .slots td.mono {
+  .slots tr:not(.folded) td.label,
+  .slots tr:not(.folded) td.mono {
     padding-top: 22px;
   }
   .slots tbody tr:nth-child(even) {

@@ -105,18 +105,22 @@ A line `ˈ = entry , entry , …` is a stress rule: when a word reaches it, one 
 | `ˌ = …` | secondary stress; primary stress stays, and a syllable that already has it is skipped |
 | `ˈ =` | nothing after `=`: remove stress; later rules see no marks |
 
-**Entries** are tried from left to right; the first that fits wins. An entry is `(syllables) position nucleus / environment - exclusion`, where everything but the position may be left out:
+**Entries** are tried from left to right; the first that fits wins. An entry is `<part of speech> (syllables) position nucleus / environment - exclusion`, where everything but the position may be left out:
 
 | Part | Notation | Meaning |
 |---|---|---|
+| part of speech | `<noun>`, `<noun\|adjective>`, `<!verb>` | only for words of these parts of speech (a leading `!` means "not these"); only entries and morphemes with "Affects stress → Pass part of speech" ticked carry a part of speech, and the entry is skipped for words without one |
 | syllables | `(2)`, `(3+)` | only for words of exactly 2 / at least 3 syllables |
 | position | `1`, `2`, `-1`, `-2`, `-3` | the 1st, 2nd syllable; the last, second-to-last, third-to-last |
+| | `0` | unstressed |
 | | `*`, `-*` | the first syllable from the start / from the end that fits the conditions |
 | nucleus | `{diph}`, `[áéí]`, `Vː` | the syllable's nucleus contains it (the nucleus is the run of adjacent vowels: ái contains á) |
 | environment | `/ _CC`, `/ σC_` | `_` is the nucleus; `_CC` is a nucleus followed by two consonants (across the syllable boundary too) |
 | exclusion | `- #_` | not when the exclusion matches |
 
 - An entry without conditions falls back to the nearest end in short words: the "third-to-last syllable" of a monosyllable is that syllable. An entry with conditions is skipped when the word has no such position.
+- A lone `@` entry (usually first): for words whose entry or morpheme has "Affects stress → Pass special stress" ticked, the whole word is stressed on the syllable set there (or left unstressed), and the other entries are skipped; words without it go on to the next entries.
+- An entry's part of speech and special stress go along in automatic pronunciation, lexicon evolution and the sound-change step of paradigms (when an affix is added, the special stress moves with it, and a stressed affix takes the stress); a word typed into the Sound changes test bench carries them too when it matches an entry or morpheme of this language with "Affects stress" ticked (compared without hyphens).
 - End the rule with `| separators part` to split the word at those separators, stress each part on its own, and put the primary stress on the given part (`1` the first, `-1` the last); the other parts get secondary stress. `| · -1` means "each word of a compound on its own, main stress on the last word".
 
 | Stress wanted | Rule |
@@ -129,6 +133,9 @@ A line `ˈ = entry , entry , …` is a stress rule: when a word reaches it, one 
 | syllables with an acute first; in two-syllable words, the second one if it has a diphthong | `ˈ = * [áéíóú] , (2) -1 {diph} , (2) 1 , -3` |
 | each word of a compound on its own, main stress on the last word | `ˈ = -2 , -1 \| · -1` |
 | secondary stress on the first syllable of long words | after the primary rule, a separate line `ˌ = (4+) 1` |
+| verbs stressed on the last syllable, everything else on the penult | `ˈ = <verb> -1 , -2` |
+| pronouns and particles unstressed | `ˈ = <pronoun\|particle> 0 , 1` |
+| a few words with irregular stress | tick "Affects stress → Pass special stress" on the entry and set the syllable, then write `ˈ = @ , -2` |
 
 Using stress in rules: `ˈ` matches the start of the stressed syllable (the mark sits before the syllable's first sound), `ˌ` the secondary one.
 

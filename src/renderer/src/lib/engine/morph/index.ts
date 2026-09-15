@@ -13,7 +13,8 @@ import type {
   Project,
   SlotGenerator
 } from '$lib/core/model'
-import { parseRuleText, runRules, stripStress, type RuleProgram } from '../sca'
+import { parseRuleText, runRules, stripStress, type RuleProgram, type WordStress } from '../sca'
+import { lexemeStress, morphemeStress, posNames } from '$lib/core/stressInfo'
 import { languageParseOptions, segment, spellingUnits } from '../phon'
 import { transcribe } from '$lib/core/pronounce'
 import { posParadigmId } from '$lib/core/pos'
@@ -240,7 +241,7 @@ function resolveAffix(
   text: string,
   stem: string,
   side: 'prefix' | 'suffix'
-): { form: string; note: string } {
+): { form: string; note: string; morpheme?: Morpheme } {
   // 只有全是空白才算没写；写进去的空格、中点这些要原样留着（`ė ` + derg → ė derg）
   if (!text.trim()) return { form: '', note: '' }
   const r = parseAffixRef(text, ctx.project.morphemes, ctx.language.id)
@@ -255,7 +256,61 @@ function resolveAffix(
   }
   const allo = selectAllomorph(ctx, r.morpheme, stem, side)
   // 引用前后写的空格、中点照样拼上（@定指· + derg → sa·derg）
-  return { form: trimHyphens(r.lead + trimHyphens(allo.form) + r.tail), note: allo.note }
+  return {
+    form: trimHyphens(r.lead + trimHyphens(allo.form) + r.tail),
+    note: allo.note,
+    morpheme: r.morpheme
+  }
+}
+
+/** 拼写里有几个音节：按拼写单位数元音，挨着的元音算一个 */
+function syllableCount(text: string, units: string[], isVowel: (s: string) => boolean): number {
+  let n = 0
+  let prev = false
+  for (const s of segment(text, units)) {
+    const v = isVowel(s)
+    if (v && !prev) n++
+    prev = v
+  }
+  return n
+}
+
+/**
+ * 加了词缀之后，交给重音规则的特殊重音跟着挪：从前数的遇到前缀往后挪、从后数的遇到后缀往前挪，
+ * 重音还落在原来那个音节上；词缀自己标了特殊重音（语素里勾了传递）就改成落在词缀上，
+ * 词缀「算作」了哪个词类，词就换成那个词类。
+ */
+function stressAfterAffix(
+  ctx: MorphContext,
+  word: { current?: WordStress },
+  form: string,
+  morpheme: Morpheme | undefined,
+  side: 'prefix' | 'suffix'
+): void {
+  const { units, isVowel } = spellingUnits(ctx.language)
+  const n = syllableCount(form, units, isVowel)
+  const own = morpheme ? morphemeStress(ctx.project, morpheme) : undefined
+  const cur: WordStress = { ...word.current }
+  if (typeof cur.stress === 'number' && cur.stress !== 0) {
+    if (side === 'prefix' && cur.stress > 0) cur.stress += n
+    if (side === 'suffix' && cur.stress < 0) cur.stress -= n
+  }
+  if (own && typeof own.stress === 'number' && own.stress !== 0 && n > 0) {
+    const p = own.stress
+    cur.stress =
+      side === 'suffix'
+        ? p > 0
+          ? -(n - Math.min(p, n) + 1)
+          : Math.max(p, -n)
+        : p > 0
+          ? Math.min(p, n)
+          : n + Math.max(p, -n) + 1
+  }
+  if (morpheme?.stress?.affects && morpheme.stress.passPos && morpheme.stress.posId && own?.pos) {
+    const names = posNames(ctx.project, [morpheme.stress.posId])
+    if (names.length) cur.pos = names
+  }
+  word.current = cur.pos || cur.stress !== undefined ? cur : undefined
 }
 
 /** 这门语言里词头是 name 的词条（去掉两头连字符比） */
@@ -523,7 +578,8 @@ function runStep(
   step: MorphStep,
   surface: string,
   trace: string[],
-  pick: (text: string) => string = (x) => x
+  pick: (text: string) => string = (x) => x,
+  word: { current?: WordStress } = {}
 ): string {
   // 按音段数的地方用拼写单位：设了正字法时 th、eu 这类写法是一个音
   const { units: inventory, isVowel } = spellingUnits(ctx.language)
@@ -532,6 +588,7 @@ function runStep(
       const text = pick(step.text)
       const a = resolveAffix(ctx, text, surface, 'prefix')
       if (a.note) trace.push(a.note)
+      stressAfterAffix(ctx, word, a.form, a.morpheme, 'prefix')
       surface = a.form + surface
       trace.push(`前缀 ${shown(step.text, text)}: ${surface}`)
       return surface
@@ -540,6 +597,7 @@ function runStep(
       const text = pick(step.text)
       const a = resolveAffix(ctx, text, surface, 'suffix')
       if (a.note) trace.push(a.note)
+      stressAfterAffix(ctx, word, a.form, a.morpheme, 'suffix')
       surface = surface + a.form
       trace.push(`后缀 ${shown(step.text, text)}: ${surface}`)
       return surface
@@ -551,6 +609,8 @@ function runStep(
       const b = resolveAffix(ctx, t2, surface, 'suffix')
       if (a.note) trace.push(a.note)
       if (b.note) trace.push(b.note)
+      stressAfterAffix(ctx, word, a.form, a.morpheme, 'prefix')
+      stressAfterAffix(ctx, word, b.form, b.morpheme, 'suffix')
       surface = a.form + surface + b.form
       trace.push(`环缀 ${shown(`${step.text}…${step.text2}`, `${t1}…${t2}`)}: ${surface}`)
       return surface
@@ -587,7 +647,8 @@ function runStep(
       }
       const r = runRules(prog, surface, {
         startAt: step.fromStage || undefined,
-        stopAt: step.toStage || undefined
+        stopAt: step.toStage || undefined,
+        word: word.current
       })
       for (const e of r.trace)
         trace.push(
@@ -680,13 +741,15 @@ export function generateForm(
   const noteUnknown = (): void => {
     if (unknown.size) trace.push(`条件没对上任何取值：${[...unknown].join('、')}`)
   }
+  // 勾了「对重音影响」的词条：词类与特殊重音交给「音变」步骤里的重音规则，加词缀时跟着挪
+  const word: { current?: WordStress } = { current: lexemeStress(ctx.project, lexeme) }
   if (g.kind === 'pipeline') {
     let out = stem.value
     for (const step of g.steps)
       out =
         step.kind === 'paradigm'
           ? nestParadigm(ctx, lexeme, step, out, trace, depth)
-          : runStep(ctx, step, out, trace, pick)
+          : runStep(ctx, step, out, trace, pick, word)
     noteUnknown()
     return { surface: out, trace }
   }
@@ -709,7 +772,8 @@ export function generateForm(
       if (prog) {
         const r = runRules(prog, surface, {
           startAt: g.fromStage || undefined,
-          stopAt: g.toStage || undefined
+          stopAt: g.toStage || undefined,
+          word: word.current
         })
         for (const e of r.trace)
           trace.push(

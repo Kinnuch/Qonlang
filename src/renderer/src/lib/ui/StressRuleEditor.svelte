@@ -25,6 +25,7 @@
   } = $props()
 
   const blank = (): StressClauseDraft => ({
+    pos: '',
     count: null,
     orMore: false,
     position: '-2',
@@ -36,7 +37,12 @@
   })
   const toDraft = (text: string): StressRuleDraft => {
     const d = parseStressText(text)
-    return { clauses: d.clauses.length ? d.clauses : [blank()], split: d.split, head: d.head }
+    return {
+      special: d.special,
+      clauses: d.clauses.length ? d.clauses : [blank()],
+      split: d.split,
+      head: d.head
+    }
   }
 
   // 本地草稿：打字时不回头重新解析（空着的一条也留着）；外面换了文本才重来
@@ -59,19 +65,29 @@
     onchange(text)
   }
 
-  type PosMode = 'front' | 'back' | 'first' | 'last'
+  type PosMode = 'front' | 'back' | 'first' | 'last' | 'none'
   const posMode = (c: StressClauseDraft): PosMode =>
     c.position === '*'
       ? 'first'
       : c.position === '-*'
         ? 'last'
-        : c.position.startsWith('-')
-          ? 'back'
-          : 'front'
+        : c.position === '0'
+          ? 'none'
+          : c.position.startsWith('-')
+            ? 'back'
+            : 'front'
   const posNumber = (c: StressClauseDraft): number => Math.abs(Number(c.position)) || 1
   function setPos(c: StressClauseDraft, mode: PosMode, n = posNumber(c)): void {
     c.position =
-      mode === 'first' ? '*' : mode === 'last' ? '-*' : mode === 'back' ? `-${n}` : `${n}`
+      mode === 'first'
+        ? '*'
+        : mode === 'last'
+          ? '-*'
+          : mode === 'none'
+            ? '0'
+            : mode === 'back'
+              ? `-${n}`
+              : `${n}`
     emit()
   }
   type CountMode = 'any' | 'exact' | 'more'
@@ -94,10 +110,31 @@
 </script>
 
 <div class="stress-editor">
+  <label class="row special" title={t('stressRule.specialTip')}
+    ><input
+      type="checkbox"
+      checked={draft.special}
+      onchange={(e) => {
+        draft.special = (e.currentTarget as HTMLInputElement).checked
+        emit()
+      }}
+    />{t('stressRule.special')}</label
+  >
   <ol class="clauses">
     {#each draft.clauses as c, i (i)}
       <li class="clause">
-        <span class="no">{i === 0 ? t('stressRule.first') : t('stressRule.otherwise')}</span>
+        <span class="no"
+          >{i === 0 && !draft.special ? t('stressRule.first') : t('stressRule.otherwise')}</span
+        >
+        <label class="grp" title={t('stressRule.posTip')}>
+          <span class="muted">{t('stressRule.pos')}</span>
+          <input
+            class="input data env pos-in"
+            placeholder={t('stressRule.posAny')}
+            bind:value={c.pos}
+            oninput={emit}
+          />
+        </label>
         <label class="grp">
           <select
             class="select tiny"
@@ -129,6 +166,7 @@
             <option value="back">{t('stressRule.posBack')}</option>
             <option value="first">{t('stressRule.posFirst')}</option>
             <option value="last">{t('stressRule.posLast')}</option>
+            <option value="none">{t('stressRule.posNone')}</option>
           </select>
           {#if posMode(c) === 'front' || posMode(c) === 'back'}
             <input
@@ -248,6 +286,10 @@
     flex-direction: column;
     gap: 6px;
   }
+  .special {
+    gap: 6px;
+    font-size: 13px;
+  }
   .clauses {
     list-style: none;
     margin: 0;
@@ -294,6 +336,12 @@
     width: 60px;
     padding-top: 2px;
     padding-bottom: 2px;
+  }
+  .pos-in {
+    width: auto;
+    field-sizing: content;
+    min-width: 60px;
+    max-width: 200px;
   }
   .mono {
     font-family: var(--font-mono);

@@ -102,6 +102,7 @@
   import StatsPanel from '$lib/ui/StatsPanel.svelte'
   import { lexiconStats } from '$lib/engine/stats'
   import { fiveRows } from '$lib/ui/fiveRows'
+  import StressSettingsEditor from '$lib/ui/StressSettingsEditor.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -759,7 +760,7 @@
     if (l) {
       l.updatedAt = now()
       const lg = project.languages.find((x) => x.id === l.languageId)
-      if (lg) derivePronunciations(lg, l)
+      if (lg) derivePronunciations(lg, l, project)
     }
     projectState.touch()
   }
@@ -938,7 +939,8 @@
         ? lexemesToRows(project, inLang, glossLangs)
         : morphemesToRows(
             project.morphemes.filter((m) => !langId || m.languageId === langId),
-            glossLangs
+            glossLangs,
+            project.posList
           )
     await platform.saveTextFile(
       `${language?.name ?? project.meta.name}-${kind}.csv`,
@@ -1866,6 +1868,13 @@
           </div>
         {/each}
       </div>
+      <StressSettingsEditor
+        value={l.stress}
+        onchange={(v) => {
+          l.stress = v
+          touch(l)
+        }}
+      />
       {#if selLang.scripts.length}
         <div class="field">
           <span class="small muted">{t('script.override')}</span>

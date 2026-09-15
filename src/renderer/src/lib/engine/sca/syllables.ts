@@ -12,6 +12,7 @@ import {
   type StressClause,
   type StressLine
 } from './parse'
+import type { WordStress } from './apply'
 
 interface Syllabifier {
   units: Set<string>
@@ -177,13 +178,26 @@ function clauseHolds(c: StressClause, text: string, s: AnnotatedSyllable): boole
   return holds(c.match, true) && !(c.except && holds(c.except, false))
 }
 
-/** 按重音规则挑一个音节：从前往后试每一条，第一条对上的算；都不合返回 -1 */
-function chooseSyllable(clauses: StressClause[], text: string, sylls: AnnotatedSyllable[]): number {
+/** 按重音规则挑一个音节：从前往后试每一条，第一条对上的算；都不合、或对上的是「不重读」返回 -1 */
+function chooseSyllable(
+  clauses: StressClause[],
+  text: string,
+  sylls: AnnotatedSyllable[],
+  info: WordStress | undefined
+): number {
   const n = sylls.length
   // 一个元音都没有的词（ng、hm）不标重音
   if (!n || sylls.every((s) => s.nucleusStart >= s.nucleusEnd)) return -1
+  const pos = new Set((info?.pos ?? []).map((p) => p.trim().toLowerCase()))
   for (const c of clauses) {
+    // 限了词类的条目：这个词没传词类就不看
+    if (c.pos) {
+      if (!pos.size) continue
+      const hit = c.pos.names.some((x) => pos.has(x))
+      if (c.pos.negate ? hit : !hit) continue
+    }
     if (c.count !== null && (c.orMore ? n < c.count : n !== c.count)) continue
+    if (c.position === 0) return -1
     const ok = (i: number): boolean => clauseHolds(c, text, sylls[i])
     if (c.position === 'first') {
       for (let i = 0; i < n; i++) if (ok(i)) return i
@@ -208,18 +222,40 @@ function chooseSyllable(clauses: StressClause[], text: string, sylls: AnnotatedS
  * 重音规则：先去掉词里原有的重音记号（次重音规则只去次重音），再按各条挑音节标上。
  * 规则写了分段符号时每段各算一个，主重音落在指定的那段，其余段是次重音。
  */
-export function assignStress(step: StressLine, word: string, program: RuleProgram): string {
+export function assignStress(
+  step: StressLine,
+  word: string,
+  program: RuleProgram,
+  info?: WordStress
+): string {
   const clean = step.level === 'primary' ? word.replace(/[ˈˌ]/g, '') : word.replace(/ˌ/g, '')
-  if (!step.clauses.length) return clean
+  const special = step.special && step.level === 'primary' ? (info?.stress ?? null) : null
+  if (!step.clauses.length && special === null) return clean
   const ann = annotate(clean, program)
   const inserts: [number, string][] = []
+  // 词条自己的特殊重音：整个词按它，第几个音节数的是整个词的（0 不重读）
+  if (special !== null) {
+    for (const w of ann.words) {
+      const sylls = w.chunks.flatMap((ch) => ch.syllables)
+      if (!special || !sylls.length) continue
+      const i = Math.max(
+        0,
+        Math.min(sylls.length - 1, special > 0 ? special - 1 : sylls.length + special)
+      )
+      inserts.push([ann.source(sylls[i].start), 'ˈ'])
+    }
+    inserts.sort((a, b) => b[0] - a[0])
+    let out = clean
+    for (const [pos, mark] of inserts) out = out.slice(0, pos) + mark + out.slice(pos)
+    return out
+  }
   for (const w of ann.words) {
     const parts: AnnotatedSyllable[][] = [[]]
     w.chunks.forEach((ch, i) => {
       parts[parts.length - 1].push(...ch.syllables)
       if (i < w.chunks.length - 1 && ch.sep && step.split.includes(ch.sep)) parts.push([])
     })
-    const chosen = parts.map((p) => chooseSyllable(step.clauses, ann.text, p))
+    const chosen = parts.map((p) => chooseSyllable(step.clauses, ann.text, p, info))
     const at = (pi: number): number => ann.source(parts[pi][chosen[pi]].start)
     if (step.level === 'secondary') {
       chosen.forEach((k, pi) => {

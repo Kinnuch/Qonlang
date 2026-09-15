@@ -31,6 +31,14 @@ export interface StageForm {
   form: string
 }
 
+/** 这个词自己带给重音规则的信息（词库、语素里勾了「对重音影响」时才有） */
+export interface WordStress {
+  /** 词类的各种叫法（名称、缩写，语素还有类型）；重音规则里 <名词> 这样的条目按它对 */
+  pos?: readonly string[]
+  /** 特殊重音：第几个音节（负数从后数，0 不重读）；重音规则写了 @ 时整个词按它 */
+  stress?: number | null
+}
+
 export interface RunOptions {
   /** 输入里的点号按字面保留（文字转写时句号是标点）；默认去掉，点号只用来隔开字母 */
   keepDots?: boolean
@@ -43,6 +51,8 @@ export interface RunOptions {
   trace?: boolean
   /** 多合字母里内部符号在这张表里的，输出时不换回写法（正字法转音标：θ 本来就是音标，不该变回 th） */
   keepUnits?: readonly string[]
+  /** 这个词的词类与特殊重音，交给重音规则 */
+  word?: WordStress
 }
 
 export interface RunResult {
@@ -311,7 +321,7 @@ export function runRules(program: RuleProgram, word: string, options: RunOptions
     if (!active) continue
     const next =
       step.kind === 'stress'
-        ? assignStress(step, current, program)
+        ? assignStress(step, current, program, options.word)
         : applyRule(step, current, program)
     if (next !== current) {
       if (options.trace !== false) {

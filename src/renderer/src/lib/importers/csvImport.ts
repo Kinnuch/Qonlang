@@ -15,7 +15,8 @@ import type {
   MorphemeType,
   PartOfSpeech,
   Project,
-  Sense
+  Sense,
+  StressSettings
 } from '$lib/core/model'
 import {
   createCustomField,
@@ -60,6 +61,8 @@ export type FieldSpec =
   | { kind: 'scriptForm'; script?: string }
   | { kind: 'paradigm' }
   | { kind: 'paradigmVariant' }
+  /** 对重音影响：`词性`、`特殊:-1`（第几个音节，0 不重读）、语素另有 `算作:名词` */
+  | { kind: 'stress' }
   /** name：检视器模块的标题或别名；项目里没有就按这个名字新建 */
   | { kind: 'custom'; name: string }
   // 语素专用
@@ -92,6 +95,7 @@ export const LEXEME_FIELDS: FieldSpec['kind'][] = [
   'paradigm',
   'paradigmVariant',
   'custom',
+  'stress',
   'notes'
 ]
 
@@ -111,6 +115,7 @@ export const MORPHEME_FIELDS: FieldSpec['kind'][] = [
   'protoForm',
   'etymologyStage',
   'etymologyNotes',
+  'stress',
   'notes'
 ]
 
@@ -263,6 +268,7 @@ export function guessMapping(
       return { kind: 'relation', relKind: 'related' }
     if (/^(构形|paradigm)$/.test(k)) return { kind: 'paradigm' }
     if (/^(构形变体|paradigm variant)$/.test(k)) return { kind: 'paradigmVariant' }
+    if (/^(重音|重音影响|对重音影响|stress)$/.test(k)) return { kind: 'stress' }
     if (/^(文字|文字写法|script)$/.test(k)) return { kind: 'scriptForm' }
     if (/^(异体形|allomorphs?)$/.test(k)) return { kind: 'allomorphs' }
     if (/^(form2|第二形式)$/.test(k)) return { kind: 'form2' }
@@ -1347,6 +1353,12 @@ export function applyCsvImport(
           case 'paradigmVariant':
             variantText = raw
             break
+          case 'stress': {
+            const s = parseStressCell(raw, project.posList)
+            if (s) lx.stress = s
+            else warnOnce(`「对重音影响」一格认不出：${raw}`)
+            break
+          }
           case 'language':
             break
           case 'etymologyNotes':
@@ -1466,6 +1478,12 @@ export function applyCsvImport(
           case 'pos':
             m.tags.push(raw)
             break
+          case 'stress': {
+            const s = parseStressCell(raw, project.posList)
+            if (s) m.stress = s
+            else warnOnce(`「对重音影响」一格认不出：${raw}`)
+            break
+          }
           case 'notes': {
             const line = withLabel(spec.label, raw)
             m.notes = m.notes ? `${m.notes}\n${line}` : line
@@ -1603,6 +1621,7 @@ export function lexemesToRows(
     return p ? (Object.values(p.name)[0] ?? '') : ''
   }
   const customs = project.customFields ?? []
+  const anyStress = lexemes.some((l) => l.stress?.affects)
   const header = [
     'lemma',
     'pos',
@@ -1611,7 +1630,8 @@ export function lexemesToRows(
     'proto',
     'notes',
     // 检视器模块各一列，列名写标题：再导入时按标题对上
-    ...customs.map((f) => customFieldTitle(f, glossLanguages) || f.id)
+    ...customs.map((f) => customFieldTitle(f, glossLanguages) || f.id),
+    ...(anyStress ? ['stress'] : [])
   ]
   const rows = lexemes.map((l) => [
     l.lemma,
@@ -1635,19 +1655,26 @@ export function lexemesToRows(
     l.tags.join(','),
     etymologyOrigin(project, l.etymology),
     l.notes,
-    ...customs.map((f) => l.custom?.[f.id] ?? '')
+    ...customs.map((f) => l.custom?.[f.id] ?? ''),
+    ...(anyStress ? [formatStressCell(l.stress, project.posList)] : [])
   ])
   return [header, ...rows]
 }
 
-export function morphemesToRows(morphemes: Morpheme[], glossLanguages: string[]): string[][] {
+export function morphemesToRows(
+  morphemes: Morpheme[],
+  glossLanguages: string[],
+  posList: PartOfSpeech[] = []
+): string[][] {
+  const anyStress = morphemes.some((m) => m.stress?.affects)
   const header = [
     'form',
     'type',
     'gloss',
     ...glossLanguages.map((l) => `meaning_${l}`),
     'tags',
-    'notes'
+    'notes',
+    ...(anyStress ? ['stress'] : [])
   ]
   return [
     header,
@@ -1657,9 +1684,73 @@ export function morphemesToRows(morphemes: Morpheme[], glossLanguages: string[])
       m.gloss,
       ...glossLanguages.map((g) => m.meaning[g] ?? ''),
       m.tags.join(','),
-      m.notes
+      m.notes,
+      ...(anyStress ? [formatStressCell(m.stress, posList)] : [])
     ])
   ]
+}
+
+/**
+ * 「对重音影响」一格：`词性`（传递词性）、`特殊:-1` 或直接写 `-1`、`倒数第1`、`第2`（传递特殊重音，第几个音节）、
+ * `不重读`、语素的 `算作:名词`；英文 `pos`、`special:-1`、`unstressed`、`as:noun` 也认。一个都认不出返回 null。
+ */
+export function parseStressCell(raw: string, posList: PartOfSpeech[] = []): StressSettings | null {
+  const out: StressSettings = { affects: true, passPos: false, passSpecial: false, special: 1 }
+  let hit = false
+  for (const tok of raw.split(/[,，、;；\s]+/).filter(Boolean)) {
+    const t = tok.trim()
+    const kv = /^(?:特殊重音|特殊|重音|special|stress)[:：=](.+)$/i.exec(t)
+    const asPos = /^(?:算作|词类|as|pos)[:：=](.+)$/i.exec(t)
+    const back = /^倒数第(\d+)(?:个音节)?$/.exec(t)
+    const front = /^第(\d+)(?:个音节)?$/.exec(t)
+    if (/^(词性|词类|pos|part of speech)$/i.test(t)) {
+      out.passPos = true
+      hit = true
+    } else if (/^(不重读|unstressed|0)$/i.test(t)) {
+      out.passSpecial = true
+      out.special = 0
+      hit = true
+    } else if (asPos) {
+      const name = asPos[1].trim().toLowerCase()
+      const p = posList.find(
+        (x) =>
+          x.id === asPos[1].trim() ||
+          x.abbr.trim().toLowerCase() === name ||
+          Object.values(x.name).some((n) => n?.trim().toLowerCase() === name)
+      )
+      if (p) {
+        out.passPos = true
+        out.posId = p.id
+        hit = true
+      }
+    } else {
+      const n = kv ? kv[1].trim() : back ? `-${back[1]}` : front ? front[1] : t
+      if (/^-?\d+$/.test(n)) {
+        out.passSpecial = true
+        out.special = /^(不重读|unstressed)$/i.test(n) ? 0 : Number(n)
+        hit = true
+      } else if (kv && /^(不重读|unstressed)$/i.test(n)) {
+        out.passSpecial = true
+        out.special = 0
+        hit = true
+      }
+    }
+  }
+  return hit ? out : null
+}
+
+/** 写回一格：`pos, special:-1, as:名词`（没勾「对重音影响」时是空的） */
+export function formatStressCell(
+  s: StressSettings | undefined,
+  posList: PartOfSpeech[] = []
+): string {
+  if (!s?.affects) return ''
+  const parts: string[] = []
+  if (s.passPos) parts.push('pos')
+  if (s.passSpecial) parts.push(`special:${s.special}`)
+  const p = s.posId ? posList.find((x) => x.id === s.posId) : undefined
+  if (p) parts.push(`as:${Object.values(p.name).find(Boolean) || p.abbr}`)
+  return parts.join(', ')
 }
 
 export { createSense }

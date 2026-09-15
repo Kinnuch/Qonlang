@@ -358,6 +358,22 @@ export interface StemSlot {
 export type MorphemeType =
   'root' | 'prefix' | 'suffix' | 'infix' | 'circumfix' | 'clitic' | 'pattern' | 'particle'
 
+/**
+ * 词条、语素「对重音影响」的设置：勾上以后，音变、正字法里的重音规则能拿到这个词的词类
+ * （条目写 <名词> 只对这个词类生效）和它自己的特殊重音（规则写了 @ 时整个词按它标）。
+ */
+export interface StressSettings {
+  affects: boolean
+  /** 把词类交给重音规则 */
+  passPos: boolean
+  /** 把下面的特殊重音交给重音规则 */
+  passSpecial: boolean
+  /** 特殊重音落在第几个音节：正数从前数、负数从后数，0 不重读 */
+  special: number
+  /** 语素用：算作哪个词类（语素自己没有词类，不选时只传它的类型） */
+  posId?: Id | null
+}
+
 export interface Morpheme {
   id: Id
   languageId: Id
@@ -373,6 +389,8 @@ export interface Morpheme {
   tags: string[]
   notes: string
   etymology: Etymology
+  /** 对重音影响（没勾过就没有这个字段） */
+  stress?: StressSettings
 }
 
 export interface Allomorph {
@@ -420,6 +438,8 @@ export interface Lexeme {
   notes: string
   /** 检视器模块的内容：模块 id → 文字（列表型用顿号隔开）；一个都没填就没有这个字段 */
   custom?: Record<Id, string>
+  /** 对重音影响（没勾过就没有这个字段） */
+  stress?: StressSettings
   createdAt: string
   updatedAt: string
 }

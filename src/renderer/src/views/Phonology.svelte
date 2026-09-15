@@ -38,7 +38,13 @@
     phonotacticsFromInventory,
     type Violation
   } from '$lib/engine/phon'
-  import { parseRuleText, runRules, stripStress, type RuleProgram } from '$lib/engine/sca'
+  import {
+    parseRuleText,
+    runRules,
+    stripStress,
+    type RuleProgram,
+    type WordStress
+  } from '$lib/engine/sca'
   import { generateNaturalWords, MIN_LEXICON, type LexiconWord } from '$lib/engine/phon/wordgen'
   import {
     customStressProgram,
@@ -53,6 +59,7 @@
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
   import StressRuleEditor from '$lib/ui/StressRuleEditor.svelte'
   import StressText from '$lib/ui/StressText.svelte'
+  import { lexemeStress } from '$lib/core/stressInfo'
   import Hint from '$lib/ui/Hint.svelte'
   import { Plus, Trash2, X, Wand2, RefreshCw, Copy, List, Code, Check } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
@@ -333,8 +340,8 @@
   let syllInput = $state<'spelling' | 'ipa'>(memo.syllInput ?? 'spelling')
   const primaryOrtho = $derived(lang?.orthographies.find((o) => o.isPrimary) ?? null)
   /** 划音节、标重音：选了自定义重音的先按重音规则标上（音标里已经带 ˈ 的不动） */
-  const analyze = (ipa: string): string =>
-    lang ? analyzeWord(lang, stressWord(lang, ipa)).text : ipa
+  const analyze = (ipa: string, word?: WordStress): string =>
+    lang ? analyzeWord(lang, stressWord(lang, ipa, word)).text : ipa
   const syllResults = $derived.by(() => {
     if (!lang) return []
     return syllTest
@@ -352,7 +359,7 @@
       .slice(0, 12)
       .map((l) => {
         const ipa = ipaOf(l, primaryOrtho ?? undefined)
-        return { lemma: l.lemma, ipa, out: analyze(ipa) }
+        return { lemma: l.lemma, ipa, out: analyze(ipa, lexemeStress(project, l)) }
       })
   })
   const stressDiagnostics = $derived(lang ? (customStressProgram(lang)?.diagnostics ?? []) : [])
@@ -442,7 +449,7 @@
     const stored = primary ? l.pronunciations[primary.id] : undefined
     if (stored?.irregular && stored.ipa) return stored.ipa
     return (
-      (primary ? transcribe(lang, primary, l.lemma) : null) ||
+      (primary ? transcribe(lang, primary, l.lemma, lexemeStress(project, l)) : null) ||
       stored?.ipa ||
       (primary ? spellToIpa(lang, primary, l.lemma) : l.lemma)
     )

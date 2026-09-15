@@ -6,6 +6,7 @@ import type { Id, Lexeme, Morpheme, Project, RuleSet } from '$lib/core/model'
 import { createLexeme, now } from '$lib/core/factory'
 import { lexemePosIds } from '$lib/core/pos'
 import { runRulesOnText, stripStress, type RuleProgram } from '$lib/engine/sca'
+import { lexemeStress, morphemeStress } from '$lib/core/stressInfo'
 
 export interface EvolveOptions {
   ruleSet: RuleSet
@@ -67,7 +68,11 @@ export function planEvolution(project: Project, o: EvolveOptions): EvolveRow[] {
       // 词头里有空格时每个词各自演化，跟测试台一样：`#` 是每个词自己的词首词尾
       output = runRulesOnText(o.program, input, {
         startAt: o.startAt || undefined,
-        stopAt: o.stopAt || undefined
+        stopAt: o.stopAt || undefined,
+        // 勾了「对重音影响」的词条、语素：词类与特殊重音交给重音规则
+        word: morphemeMode
+          ? morphemeStress(project, l as Morpheme)
+          : lexemeStress(project, l as Lexeme)
       })
       // 写进词库的是拼写：规则集里标的重音记号不带过去
       if (o.program.hasStress) output = stripStress(output)

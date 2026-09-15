@@ -996,11 +996,14 @@
                   <b class="small"
                     >{t(st.level === 'secondary' ? 'stressRule.secondary' : 'stressRule.title')}</b
                   >
+                  {#if st.special}<span class="clause-chip">{t('stressRule.sumSpecial')}</span>{/if}
                   {#each st.clauses as c, ci (ci)}
-                    {#if ci}<span class="muted small">{t('stressRule.otherwise')}</span>{/if}
+                    {#if ci || st.special}<span class="muted small"
+                        >{t('stressRule.otherwise')}</span
+                      >{/if}
                     <span class="clause-chip data">{describeClause(c)}</span>
                   {:else}
-                    <span class="muted small">{t('stressRule.none')}</span>
+                    {#if !st.special}<span class="muted small">{t('stressRule.none')}</span>{/if}
                   {/each}
                   {#if st.split}<span class="muted small">{describeSplit(st.split, st.head)}</span
                     >{/if}

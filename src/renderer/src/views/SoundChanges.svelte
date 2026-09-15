@@ -28,6 +28,7 @@
   import Menu from '$lib/ui/Menu.svelte'
   import EvolvePanel from '$lib/ui/EvolvePanel.svelte'
   import { languageParseOptions } from '$lib/engine/phon'
+  import { stressForWord } from '$lib/core/stressInfo'
   import {
     Plus,
     Trash2,
@@ -119,7 +120,10 @@
   const results = $derived.by((): RunResult[] => {
     if (!program) return []
     try {
-      return words.map((w) => runRules(program!, w))
+      // 敲的词对上这门语言里勾了「对重音影响」的词条、语素时，把它的词类与特殊重音交给重音规则
+      return words.map((w) =>
+        runRules(program!, w, { word: stressForWord(project, baseLanguage?.id, w) })
+      )
     } catch {
       return []
     }
@@ -154,7 +158,12 @@
   const upTo = $derived.by((): RunResult[] | null => {
     if (!program || selectedLine == null) return null
     try {
-      return words.map((w) => runRules(program!, w, { stopAtLine: selectedLine! }))
+      return words.map((w) =>
+        runRules(program!, w, {
+          stopAtLine: selectedLine!,
+          word: stressForWord(project, baseLanguage?.id, w)
+        })
+      )
     } catch {
       return null
     }

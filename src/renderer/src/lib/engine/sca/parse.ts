@@ -128,13 +128,15 @@ export interface ClauseMatcher {
   right: RegExp | null
 }
 
-/** 重音规则里的一条：`(2) -1 {双元音} / _C - ...` */
+/** 重音规则里的一条：`<名词> (2) -1 {双元音} / _C - ...` */
 export interface StressClause {
   raw: string
+  /** 只对这些词类（小写）生效；negate 是「不是这些」；null 不限 */
+  pos: { names: string[]; negate: boolean } | null
   /** 词（这一段）的音节数要恰好是 count，orMore 时至少是 count；null 不限 */
   count: number | null
   orMore: boolean
-  /** 第几个音节：正数从前数、负数从后数；first / last 是从前、从后找第一个符合条件的 */
+  /** 第几个音节：正数从前数、负数从后数，0 不重读；first / last 是从前、从后找第一个符合条件的 */
   position: number | 'first' | 'last'
   /** 条件原文（显示用） */
   target: string
@@ -154,6 +156,8 @@ export interface StressLine {
   level: 'primary' | 'secondary'
   /** = 后面的原文 */
   text: string
+  /** 写了 @：词条标了特殊重音时整个词按它 */
+  special: boolean
   clauses: StressClause[]
   /** 按这些符号把词分成几段各算各的；空表示整个词算一段 */
   split: string
@@ -820,10 +824,12 @@ function splitContext(s: string): Context | null {
 
 /** 重音规则里一条的可编辑表示 */
 export interface StressClauseDraft {
+  /** 只对这些词类生效（语素的类型也算）：`名词|形容词`，开头写 `!` 是「不是这些」；空着不限 */
+  pos: string
   /** 音节数：null 不限 */
   count: number | null
   orMore: boolean
-  /** '1'、'-2'、'*'（从前找第一个符合的）、'-*'（从后找） */
+  /** '1'、'-2'、'0'（不重读）、'*'（从前找第一个符合的）、'-*'（从后找） */
   position: string
   /** 音节核要是什么（空：不限） */
   target: string
@@ -834,6 +840,8 @@ export interface StressClauseDraft {
 }
 
 export interface StressRuleDraft {
+  /** 词条标了特殊重音（并勾了「传递特殊重音」）时整个词按它标，写成开头的 `@` */
+  special: boolean
   clauses: StressClauseDraft[]
   /** 分段符号；空表示不分段 */
   split: string
@@ -841,7 +849,7 @@ export interface StressRuleDraft {
   head: number
 }
 
-const CLAUSE_HEAD = /^\s*(?:\(\s*(\d+)\s*(\+?)\s*\)\s*)?(-?\*|-?\d+)(.*)$/su
+const CLAUSE_HEAD = /^\s*(?:<([^>]*)>\s*)?(?:\(\s*(\d+)\s*(\+?)\s*\)\s*)?(-?\*|-?\d+)(.*)$/su
 const SPLIT_TAIL = /^\s*(\S+)\s+(-?\d+)\s*$/u
 
 /** 把 = 后面那一截拆成几条（不编译；原文里的转义保持原样） */
@@ -851,7 +859,10 @@ export function parseStressText(text: string): StressRuleDraft & { errors: strin
   let body = enc
   let split = ''
   let head = -1
-  const bar = body.lastIndexOf('|')
+  // 分段写在最后一个 | 后面；<名词|形容词> 尖括号里的 | 不算
+  let bar = body.lastIndexOf('|')
+  while (bar >= 0 && body.lastIndexOf('<', bar) > body.lastIndexOf('>', bar))
+    bar = body.lastIndexOf('|', bar - 1)
   if (bar >= 0 && topLevelIndex(body, '|', bar) === bar) {
     const tail = SPLIT_TAIL.exec(body.slice(bar + 1))
     if (tail) {
@@ -861,14 +872,21 @@ export function parseStressText(text: string): StressRuleDraft & { errors: strin
     }
   }
   const clauses: StressClauseDraft[] = []
+  let special = false
   for (const piece of splitTopLevel(body, ',')) {
     if (!piece.trim()) continue
-    const m = CLAUSE_HEAD.exec(piece)
-    if (!m || m[3] === '0' || m[3] === '-0') {
-      errors.push(`「${decodeEscapes(piece.trim())}」要以音节位置开头：1、2、-1、-2、* 或 -*`)
+    if (piece.trim() === '@') {
+      special = true
       continue
     }
-    let rest = m[4]
+    const m = CLAUSE_HEAD.exec(piece)
+    if (!m) {
+      errors.push(
+        `「${decodeEscapes(piece.trim())}」要以音节位置开头：1、2、-1、-2、0、* 或 -*（或者单独一个 @）`
+      )
+      continue
+    }
+    let rest = m[5]
     let target = rest
     let env = ''
     const slash = topLevelIndex(rest, '/')
@@ -890,9 +908,10 @@ export function parseStressText(text: string): StressRuleDraft & { errors: strin
       continue
     }
     clauses.push({
-      count: m[1] ? Number(m[1]) : null,
-      orMore: !!m[2],
-      position: m[3],
+      pos: decodeEscapes((m[1] ?? '').trim()),
+      count: m[2] ? Number(m[2]) : null,
+      orMore: !!m[3],
+      position: m[4] === '-0' ? '0' : m[4],
       target: decodeEscapes(target.trim()),
       left: decodeEscapes(ctx.left),
       right: decodeEscapes(ctx.right),
@@ -900,12 +919,13 @@ export function parseStressText(text: string): StressRuleDraft & { errors: strin
       exceptRight: decodeEscapes(ex.right)
     })
   }
-  return { clauses, split, head, errors }
+  return { special, clauses, split, head, errors }
 }
 
 /** 一条写回文本：`(2) -1 {双元音} / _C - #_` */
 export function formatStressClause(c: StressClauseDraft): string {
-  let out = c.count !== null ? `(${c.count}${c.orMore ? '+' : ''}) ` : ''
+  let out = c.pos.trim() ? `<${c.pos.trim()}> ` : ''
+  if (c.count !== null) out += `(${c.count}${c.orMore ? '+' : ''}) `
   out += c.position.trim() || '1'
   if (c.target.trim()) out += ' ' + c.target.trim()
   const ctx = c.left.trim() || c.right.trim()
@@ -917,7 +937,7 @@ export function formatStressClause(c: StressClauseDraft): string {
 
 /** = 后面那一截：几条用 , 连起来，分段写在 | 后面 */
 export function formatStressText(d: StressRuleDraft): string {
-  const body = d.clauses.map(formatStressClause).join(' , ')
+  const body = [...(d.special ? ['@'] : []), ...d.clauses.map(formatStressClause)].join(' , ')
   return d.split.trim() ? `${body} | ${d.split.trim()} ${d.head || -1}` : body
 }
 
@@ -1121,8 +1141,15 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
           const context = { left: c.left, right: c.right }
           const exception =
             c.exceptLeft || c.exceptRight ? { left: c.exceptLeft, right: c.exceptRight } : null
+          const posRaw = c.pos.trim()
+          const names = posRaw
+            .replace(/^!/, '')
+            .split(/[|、\s]+/)
+            .map((x) => x.trim().toLowerCase())
+            .filter(Boolean)
           clauses.push({
             raw: formatStressClause(c),
+            pos: names.length ? { names, negate: posRaw.startsWith('!') } : null,
             count: c.count,
             orMore: c.orMore,
             position:
@@ -1144,6 +1171,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
         comment,
         level: sm[1] === 'ˌ' ? 'secondary' : 'primary',
         text: decodeEscapes(sm[2]).trim(),
+        special: draft.special,
         clauses,
         split: draft.split,
         head: draft.head

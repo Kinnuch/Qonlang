@@ -22,6 +22,15 @@ export function setSectionsCollapsed(ids: string[], collapsed: boolean): void {
   void ui.savePrefs()
 }
 
+/** 一批以 prefix 开头的记忆 id 都不用再记着（比如删掉的构形的各个槽位） */
+export function forgetSectionsWithPrefix(prefix: string): void {
+  const cur = ui.prefs.collapsedSections ?? []
+  const next = cur.filter((x) => !x.startsWith(prefix))
+  if (next.length === cur.length) return
+  ui.prefs.collapsedSections = next
+  void ui.savePrefs()
+}
+
 /** 条目删掉了，就不用再记着它收没收起 */
 export function forgetSection(id: string): void {
   const cur = ui.prefs.collapsedSections ?? []
