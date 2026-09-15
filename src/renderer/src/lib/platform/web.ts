@@ -359,6 +359,9 @@ export const webPlatform: PlatformAPI = {
   setDirty(d) {
     dirtyFlag = d
   },
+  setReadOnly() {
+    // 网页版没有开发者工具可关
+  },
   onSaveAndClose(cb) {
     saveAndCloseCb = cb
   },

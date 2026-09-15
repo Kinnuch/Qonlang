@@ -395,3 +395,5 @@ export function analyzeWord(
     text: lang.syllable.enabled ? renderSyllables(syllables, stress) : ipa
   }
 }
+
+export const SYLLABLE_MARKS = 'OsKU2WC8G'

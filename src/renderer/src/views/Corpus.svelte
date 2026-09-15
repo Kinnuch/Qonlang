@@ -26,20 +26,13 @@
   import { ui } from '$lib/state/ui.svelte'
   import { i18n, t, pickText } from '$lib/i18n/index.svelte'
   import { createSentence, createLexeme, newId } from '$lib/core/factory'
-  import type { Analysis, Id, Sentence, Token, Lexeme } from '$lib/core/model'
-  import {
-    collectEvidence,
-    homographIds,
-    piecesOf,
-    rankHomographs,
-    surfaceKey,
-    type SurfaceEvidence
-  } from '$lib/engine/gloss/candidates'
+  import type { Analysis, Id, Sentence, Token } from '$lib/core/model'
+  import { collectEvidence, type SurfaceEvidence } from '$lib/engine/gloss/candidates'
+  import { WordResolver } from '$lib/engine/gloss/resolve'
   import {
     analyzeSentence,
     analyzeToken,
     buildIndex,
-    foldDiacritics,
     interlinear,
     toLeipzig,
     toMarkdown,
@@ -61,8 +54,6 @@
     type HoverChoice,
     type HoverPart
   } from '$lib/state/wordHover.svelte'
-  import { paradigmAffixes, reverseDerive } from '$lib/engine/morph/reverse'
-  import { glossHasMeaning, lexemeMatchesGloss } from '$lib/core/glossMatch'
   import { renderScript, sentenceScript } from '$lib/script/render'
   import { dedupeSentences } from '$lib/state/dedupe'
   import StatsPanel from '$lib/ui/StatsPanel.svelte'
@@ -392,178 +383,24 @@
     const c = coverage(s)
     return c.total > 0 && c.confirmed === c.total
   }
-  function lexemeOf(tk: Token): Id | null {
-    return tk.analyses[tk.chosen]?.lexemeId ?? null
+  /** 悬浮认词：跟开始页的画廊共用一套判断（engine/gloss/resolve.ts）；项目一改就换一个新的 */
+  let resolverCache: { key: string; r: WordResolver } | null = null
+  function resolver(): WordResolver {
+    const key = (langId ?? '') + '|' + project.meta.updatedAt
+    if (resolverCache?.key !== key)
+      resolverCache = { key, r: new WordResolver(project, langId, () => surfaceEvidence) }
+    return resolverCache.r
   }
-  /** 这门语言的构形里出现过的词缀，用来反推屈折得厉害的词 */
-  const affixes = $derived(
-    langId ? paradigmAffixes(project, langId) : { prefixes: [], suffixes: [] }
-  )
-  /** 悬浮反推用的索引：第一次悬浮才建，项目改动后作废 */
-  let idxCache: { key: string; idx: ReturnType<typeof buildIndex> } | null = null
-  function hoverIndexOf(): ReturnType<typeof buildIndex> | null {
-    if (!langId) return null
-    const key = langId + '|' + project.meta.updatedAt
-    if (idxCache?.key !== key) idxCache = { key, idx: buildIndex(project, langId) }
-    return idxCache.idx
-  }
-  /** 分析没给出词条时：先查词头/词干/屈折形，再剥一层构形词缀重查 */
-  function resolveWord(tk: Token): { lexemeId?: Id; morphemeId?: Id } | null {
-    // 1. 用户确认过的分析最可信
-    const a = tk.analyses[tk.chosen]
-    if (tk.confirmed && a?.lexemeId) return { lexemeId: a.lexemeId }
-    const idx = hoverIndexOf()
-    // 2. 同一个写法在别处被确认过，照搬那次的结论
-    const elsewhere = idx?.confirmed.get(tk.surface)?.find((x) => x.lexemeId)
-    if (elsewhere?.lexemeId) return { lexemeId: elsewhere.lexemeId }
-    const direct = lexemeOf(tk)
-    if (direct) return { lexemeId: direct }
-    // 3. 确认过的切分里认出的语素
-    const mid =
-      a?.morphs.find((m) => m.morphemeId)?.morphemeId ??
-      elsewhere?.morphs.find((m) => m.morphemeId)?.morphemeId
-    if (idx) {
-      const gloss = a?.morphs.map((m) => m.gloss).join(' ') ?? ''
-      const byForm = lookupByForm(tk.surface, gloss)
-      if (byForm) return { lexemeId: byForm }
-      const rev = reverseDerive(tk.surface, affixes, (form) => lookupByForm(form, gloss))
-      if (rev) return { lexemeId: rev.lexemeId }
-      // 再试剥一个语素前缀 / 后缀（语流前缀、格缀这些都在语素表里）
-      const byAffix = stripMorphemeAffix(tk.surface, gloss)
-      if (byAffix) return { lexemeId: byAffix }
-      // 还不行就逐段试：已确认的切分里，词干那一段往往才是词典里的形式
-      for (const m of a?.morphs ?? []) {
-        // 已经挂着语素的段（感音、式、体这些）不是词典里的词：跳过去，找词干那一段
-        if (m.morphemeId) continue
-        const seg = m.form.replace(/^[-=·']+|[-=·']+$/g, '')
-        if (seg.length < 2) continue
-        const hit =
-          lookupByForm(seg, m.gloss || gloss) ??
-          stripMorphemeAffix(seg, m.gloss || gloss) ??
-          lookupByGlossAndForm(seg, m.gloss || gloss)
-        if (hit) return { lexemeId: hit }
-      }
-      // 词条里找不到就查语素：限定词、小品词这类都在语素表里
-      const key = tk.surface.normalize('NFC').toLowerCase()
-      const mo = idx.morphemes.get(key)?.[0]
-      if (mo) return { morphemeId: mo.id }
-    }
-    return mid ? { morphemeId: mid } : null
-  }
-  /** 剥掉一个已知的语素前缀或后缀再查一次 */
-  function stripMorphemeAffix(surface: string, gloss: string): Id | null {
-    const idx = hoverIndexOf()
-    if (!idx) return null
-    const w = surface.normalize('NFC').toLowerCase()
-    for (const { form } of idx.prefixes)
-      if (form && w.startsWith(form) && w.length - form.length > 1) {
-        const hit = lookupByForm(w.slice(form.length), gloss)
-        if (hit) return hit
-      }
-    for (const { form } of idx.suffixes)
-      if (form && w.endsWith(form) && w.length - form.length > 1) {
-        const hit = lookupByForm(w.slice(0, w.length - form.length), gloss)
-        if (hit) return hit
-      }
-    return null
-  }
-  /**
-   * 按形式查词条：同形的候选还要跟标注的意思对得上才认，
-   * 一个都对不上就宁可不给，免得悬浮出毫不相干的词。
-   */
-  function lookupByForm(form: string, gloss: string): Id | null {
-    const idx = hoverIndexOf()
-    if (!idx) return null
-    const key = form.normalize('NFC').toLowerCase()
-    const folded = foldDiacritics(key)
-    const pool = (k: string): Lexeme[] => [
-      ...(idx.lemma.get(k) ?? []),
-      ...(idx.forms.get(k) ?? []).map((f) => f.lexeme),
-      ...(idx.stems.get(k) ?? [])
-    ]
-    const cands = pool(key).length ? pool(key) : pool(folded)
-    const good = cands.find((l) => lexemeMatchesGloss(l, gloss))
-    return good ? good.id : null
-  }
-  /**
-   * 悬浮卡底部的切分：优先用这个词已确认的分析，
-   * 每一段能对上语素或词条就挂上，点得开。
-   */
-  /**
-   * 形式对不上时宽一点再找：这门语言里释义对得上 gloss 的词条，某个形式（词头、词干、屈折形，去掉附加符与音节点比）
-   * 整个出现在这一段里——带了前缀、重音写法不同的词干也认得出来（wéñgaus 里有 eñgaus）。取包含得最长的那个。
-   * gloss 里没有意思成分（纯缩写）时不猜。
-   */
-  let formCache: { key: string; list: { lexeme: Lexeme; forms: string[] }[] } | null = null
-  const foldForm = (x: string): string =>
-    foldDiacritics(x.normalize('NFC').toLowerCase()).replace(/[.·='’-]/g, '')
-  function lookupByGlossAndForm(form: string, gloss: string): Id | null {
-    if (!langId || !glossHasMeaning(gloss)) return null
-    const key = langId + '|' + project.meta.updatedAt
-    if (formCache?.key !== key)
-      formCache = {
-        key,
-        list: project.lexemes
-          .filter((l) => l.languageId === langId)
-          .map((l) => ({
-            lexeme: l,
-            forms: [
-              ...new Set(
-                [
-                  l.lemma,
-                  ...Object.values(l.stems),
-                  ...Object.values(l.forms).flatMap((f) => f.surface.split(/[,，;；/]\s*/))
-                ]
-                  .map((x) => foldForm(x ?? ''))
-                  .filter((x) => x.length >= 3)
-              )
-            ]
-          }))
-      }
-    const f = foldForm(form)
-    let best: { id: Id; len: number } | null = null
-    for (const c of formCache.list) {
-      const len = Math.max(0, ...c.forms.filter((x) => f.includes(x)).map((x) => x.length))
-      if (len && (!best || len > best.len) && lexemeMatchesGloss(c.lexeme, gloss))
-        best = { id: c.lexeme.id, len }
-    }
-    return best?.id ?? null
-  }
-  function hoverParts(tk: Token): HoverPart[] {
-    const idx = hoverIndexOf()
-    const a =
-      (tk.confirmed ? tk.analyses[tk.chosen] : null) ??
-      idx?.confirmed.get(tk.surface)?.[0] ??
-      tk.analyses[tk.chosen]
-    if (!a || a.morphs.length < 2) return []
-    return a.morphs.map((m) => {
-      if (m.morphemeId) return { label: m.form, gloss: m.gloss, morphemeId: m.morphemeId }
-      if (m.lexemeId) return { label: m.form, gloss: m.gloss, lexemeId: m.lexemeId }
-      const key = m.form
-        .normalize('NFC')
-        .toLowerCase()
-        .replace(/^[-=·']+|[-=·']+$/g, '')
-      const mo = idx?.morphemes.get(key)?.[0]
-      if (mo) return { label: m.form, gloss: m.gloss, morphemeId: mo.id }
-      // 词条：先按形式找；再看整个词分析出来的词条是不是就是这一段（意思对得上）；再按意思 + 形式包含宽一点找
-      const main = a.lexemeId ? lexemeById.get(a.lexemeId) : undefined
-      const lexemeId =
-        lookupByForm(key, m.gloss) ??
-        (main && glossHasMeaning(m.gloss) && lexemeMatchesGloss(main, m.gloss) ? main.id : null) ??
-        lookupByGlossAndForm(key, m.gloss)
-      // 既不是语素也挂不上词条——有没有 gloss 都一样：点开是「没有找到」，要手动指定
-      return { label: m.form, gloss: m.gloss, lexemeId, missing: !lexemeId }
-    })
-  }
+  const resolveWord = (tk: Token): { lexemeId?: Id; morphemeId?: Id } | null =>
+    resolver().resolveWord(tk)
+  const hoverParts = (tk: Token): HoverPart[] => resolver().hoverParts(tk)
   /** 便宜的可点判断：重的反推留到真正悬浮时再做 */
-  function linkable(tk: Token): boolean {
-    return (
-      !!lexemeOf(tk) ||
-      (tk.confirmed && (tk.analyses[tk.chosen]?.morphs.length ?? 0) > 0) ||
-      !!tk.analyses[tk.chosen]?.morphs.some((m) => m.morphemeId)
-    )
-  }
-  const lexemeById = $derived(new Map(project.lexemes.map((l) => [l.id, l])))
+  const linkable = (tk: Token): boolean => resolver().linkable(tk)
+  /** 这个词可能是哪个词条：确认过的就是它；几个同形词条时按意思线索挑，挑不出来就都给 */
+  const candidatesOf = (tk: Token, s: Sentence): { lexemeId?: Id; morphemeId?: Id }[] =>
+    resolver().candidatesOf(tk, s)
+  /** 几个候选分不出来：这个词在列表里用警告色标出来（与悬浮时并排给候选是同一个判断） */
+  const ambiguous = (tk: Token, s: Sentence): boolean => resolver().ambiguous(tk, s)
   /** 当前语言里每个词形的旁证：出现在哪些例句、在哪确认成了哪个词条；例句一改就重算 */
   /** 例句改动后稍等一下再重算旁证：打字时每敲一个键就重排全部候选太慢 */
   let evidenceTick = $state(0)
@@ -583,32 +420,6 @@
       lid ? collectEvidence(project.sentences, lid) : new Map<string, SurfaceEvidence>()
     )
   })
-  function definitionPieces(id: Id): string[] {
-    const l = lexemeById.get(id)
-    return l ? piecesOf(l.senses.flatMap((se) => Object.values(se.definition)).join('；')) : []
-  }
-  function rankOf(tk: Token, s: Sentence, ids: Id[]): Id[] {
-    return rankHomographs(ids, s, surfaceEvidence.get(surfaceKey(tk.surface)), definitionPieces)
-  }
-  /** 这个词可能是哪个词条：确认过的就是它；几个同形词条时按意思线索挑，挑不出来就都给 */
-  function candidatesOf(tk: Token, s: Sentence): { lexemeId?: Id; morphemeId?: Id }[] {
-    const a = tk.analyses[tk.chosen]
-    if (tk.confirmed) {
-      if (a?.lexemeId) return [{ lexemeId: a.lexemeId }]
-      const one = resolveWord(tk)
-      return one ? [one] : []
-    }
-    const ids = homographIds(tk)
-    if (ids.length > 1) return rankOf(tk, s, ids).map((id) => ({ lexemeId: id }))
-    const one = resolveWord(tk)
-    return one ? [one] : ids.map((id) => ({ lexemeId: id }))
-  }
-  /** 几个候选分不出来：这个词在列表里用警告色标出来（与悬浮时并排给候选是同一个判断） */
-  function ambiguous(tk: Token, s: Sentence): boolean {
-    if (tk.confirmed) return false
-    const ids = homographIds(tk)
-    return ids.length > 1 && rankOf(tk, s, ids).length > 1
-  }
   /** 用户挑中一个候选：写进这个词的分析并确认，以后就固定是它 */
   /**
    * 用户挑中一个候选：写进这个词的分析并确认，以后就固定是它。
@@ -852,6 +663,7 @@
     }
   })
   async function copyExport(): Promise<void> {
+    if (projectState.readOnly) return void ui.toast(t('readonly.exportBlocked'))
     await navigator.clipboard.writeText(exportText)
     ui.toast(t('soundChanges.copied'))
   }

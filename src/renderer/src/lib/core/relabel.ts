@@ -129,12 +129,13 @@ function renameReferences(
     }
 }
 
-/** 这个词条的屈折形可能按哪几个构形的槽位名存：指名的、词类默认的、词类另外绑的 */
+/** 这个词条的屈折形可能按哪几个构形的槽位名存：指名的、词类默认的、词类另外绑的、词条另外加的 */
 function paradigmsOf(project: Project, l: Lexeme): Id[] {
   const ids = new Set<Id>()
   const p = paradigmFor(project, l)
   if (p) ids.add(p.id)
   for (const id of posParadigmIds(project, l.posId)) ids.add(id)
+  for (const x of l.extraParadigms ?? []) ids.add(x.paradigmId)
   return [...ids]
 }
 
@@ -163,8 +164,19 @@ export function followSlotLabels(project: Project, before: SlotLabels): number {
   for (const l of project.lexemes) {
     if (!Object.keys(l.forms).length) continue
     const m = new Map<string, string | null>()
-    for (const pid of paradigmsOf(project, l))
-      for (const [from, to] of perParadigm.get(pid) ?? []) addRename(m, from, to)
+    for (const pid of paradigmsOf(project, l)) {
+      // 后加的构形跟前面撞名的槽位，键前面带「构形名·」
+      const para = project.paradigms.find((x) => x.id === pid)
+      const name = para
+        ? (project.settings.glossLanguages.map((g) => para.name[g]).find(Boolean) ??
+          Object.values(para.name).find(Boolean) ??
+          '')
+        : ''
+      for (const [from, to] of perParadigm.get(pid) ?? []) {
+        addRename(m, from, to)
+        if (name && `${name}·${from}` in l.forms) addRename(m, `${name}·${from}`, `${name}·${to}`)
+      }
+    }
     const next = m.size ? renameKeys(l.forms, definite(m)) : null
     if (!next) continue
     l.forms = next

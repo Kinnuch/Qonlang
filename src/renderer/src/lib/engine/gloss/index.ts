@@ -12,7 +12,7 @@ import type {
   Token,
   TokenizerMode
 } from '$lib/core/model'
-import { paradigmFor, paradigmSlots } from '../morph'
+import { lexemeSlots } from '../morph'
 import { nucleusSet } from '../phon'
 import { mutationTables, type MutationTable } from '../morph/mutation'
 import { sentenceScript } from '$lib/script/render'
@@ -167,11 +167,8 @@ export function buildIndex(project: Project, languageId: Id): GlossIndex {
     for (const k of formKeys(l.lemma, boundaries, prefixForms)) push(idx.lemma, k, l)
     for (const st of Object.values(l.stems))
       for (const k of formKeys(st, boundaries, prefixForms)) push(idx.stems, k, l)
-    const para = paradigmFor(project, l)
     const abbrs = new Map<string, string>()
-    if (para)
-      for (const s of paradigmSlots(para, project.categories, glossLangs))
-        abbrs.set(s.label, s.abbr)
+    for (const s of lexemeSlots(project, l, glossLangs)) abbrs.set(s.key, s.slot.abbr)
     for (const [slot, f] of Object.entries(l.forms)) {
       for (const v of f.surface.split(/[,，;；/]\s*/)) {
         for (const k of formKeys(v.trim().replace(/^\*/, ''), boundaries, prefixForms))

@@ -27,7 +27,8 @@ import { serializeProject } from '$lib/core/serialize'
 import { inferFeatures } from '$lib/ipa/features'
 import { analyzeSentence } from '$lib/engine/gloss'
 import { homographIds, piecesOf, rankHomographs } from '$lib/engine/gloss/candidates'
-import { makeContext, deriveForms, paradigmFor } from '$lib/engine/morph'
+import { makeContext, deriveLexemeForms } from '$lib/engine/morph'
+import { createDerivedLexeme } from '$lib/core/derivedEntry'
 import type {
   GrammaticalCategory,
   Id,
@@ -143,8 +144,7 @@ function deriveAll(p: Project, lang: Language): number {
   let n = 0
   for (const l of p.lexemes) {
     if (l.languageId !== lang.id) continue
-    const para = paradigmFor(p, l)
-    if (para) n += deriveForms(ctx, l, para, undefined, l.paradigmVariantId)
+    n += deriveLexemeForms(ctx, l)
   }
   return n
 }
@@ -165,7 +165,7 @@ function makeAelith(): void {
   const p = createProject({
     name: 'Aelith',
     template: 'family',
-    appVersion: '0.8.3',
+    appVersion: '0.8.4',
     uiLocale: 'zh'
   })
   p.meta.author = '千语集示例'
@@ -923,7 +923,35 @@ function makeAelith(): void {
     '',
     step('adjust', { text: ['p > b / #_', 't > d / #_', 'k > g / #_'].join('\n') })
   )
+  // 构形套构形：「动名词」先加 -mAk，再把整个形式套进「名词」构形单数的同一个格（sörmek、sörmekde……）；
+  // sör- 除了动词的变位，另外加了这个构形——一个词条用几个构形
+  const gerundP = paradigm(p, '动名词', 'gerund', [kase])
+  for (const k of kase.values)
+    gerundP.generators[k.id] = pipeline(
+      '词干',
+      step('suffix', { text: '¢mAk' }),
+      step('paradigm', {
+        paradigmId: nounP.id,
+        slotKey: `${value(num, 'SG')}|${k.id}`,
+        variantId: null
+      })
+    )
+  const sor = lex.get('sör-')!
+  sor.extraParadigms = [{ paradigmId: gerundP.id, variantId: null }]
   console.log(`  Aelith 推导屈折形 ${deriveAll(p, L)} 个`)
+  // 从构形生成的词条：sör- 的动名词主格生成成名词「看；眼光」，词源（派生 ← sör-）和关系按构形填好
+  const sormek = createDerivedLexeme({
+    languageId: L.id,
+    lemma: sor.forms['主格'].surface,
+    base: sor,
+    paradigmName: '动名词',
+    slotLabel: '主格',
+    posId: N.id,
+    definitions: { zh: '看；眼光', en: 'seeing; sight' },
+    tags: ['感知']
+  })
+  p.lexemes.push(sormek)
+  deriveLexemeForms(makeContext(p, L), sormek)
 
   // ── 文字：卢恩区做一套刻文 ──
   const runes = createScript('Aelith 刻文')
@@ -962,6 +990,30 @@ function makeAelith(): void {
     category: 'aeiouöü'.includes(v) ? 'vowel' : 'consonant',
     notes: ''
   }))
+  // 手写的字形：刻文里没有句读，在手写板上画了一个菱形刻痕，转写值是句号（字符是自动分到的私用区码位）
+  runes.glyphs.push({
+    id: newId(),
+    char: '\uF8FE',
+    name: '刻痕句读',
+    value: '.',
+    category: 'punct',
+    notes: '手写板上画的菱形刻痕，句末用',
+    drawing: {
+      advance: 700,
+      strokes: [
+        {
+          width: 60,
+          points: [
+            [350, 440],
+            [490, 300],
+            [350, 160],
+            [210, 300],
+            [350, 440]
+          ]
+        }
+      ]
+    }
+  })
   runes.rules = ['; 双写辅音只刻一次（C1C1：同一个辅音写两遍）', 'C1C1 > C1', '@glyphs'].join('\n')
   runes.notes = '拉丁转写 → 卢恩区字符：规则先合并双辅音，再套字形表。'
   L.scripts.push(runes)
@@ -1099,13 +1151,13 @@ function makeAelith(): void {
     '',
     '- **语言**：语系树（Proto-Aelith → Aelith 与姊妹语 Merun）、方言、字母表',
     '- **音系**：音位与特征、由特征生成的音类、多合字母、两套正字法、音节与重音、配列与造词',
-    '- **文字**：卢恩刻文、映射规则、手填的文字写法',
+    '- **文字**：卢恩刻文、映射规则、手填的文字写法；「刻痕句读」是在手写板上画的字（打开它点「改手写」看笔画）',
     '- **音变**：三套规则集（元音和谐、Proto → Aelith、Proto → Merun），阶段绑定语言，测试台词表；「Proto → Aelith」里有满足 / 不满足环境两路的规则（`θ > t?s / #_`：词首变 t、别处变 s）和带两个排除的规则（`u > o / _# - k_ , g_`），整库演化推出来的正是词库里的 kaso、nöl、sör-',
     '- **语素**：词根 / 前缀 / 后缀 / 中缀 / 环缀 / 附着词 / 小品词，异体形环境，词源',
-    '- **词库**：多义项、一个义项几个语域（dünar）、方言、标签、维度、复合词类与义项自己的词类（kara）、词干槽、词源链（词根 / 复合 / 派生 / 音变 / 借词 / 自己写的类别「仿译」）、自定义关系种类（押韵）、配图、手改发音',
+    '- **词库**：多义项、一个义项几个语域（dünar）、方言、标签、维度、复合词类与义项自己的词类（kara）、词干槽、词源链（词根 / 复合 / 派生 / 音变 / 借词 / 自己写的类别「仿译」）、自定义关系种类（押韵）、配图、手改发音；sörmek 是从 sör- 的动名词「生成到词库」的，词源与关系都是自动填的',
     '- **关系图**：kaso 的关系图里按住空白处拖动画布，右键节点展开或收起；右上角「对比」把同一个词根 *kasu 的 kaso（Aelith）、hasu（Merun，意思变成帐篷）、kasolu、telikaso 并排：各自经过的音变、k : h 的语音对应、意思与构成的差别',
     '- **检视器模块**：「词类与维度」最下面定义的「文化注释」与「刻文异体」（用刻文的字体显示），打开 kaso、nöl、sepe 看',
-    '- **构形**：流水线的八种步骤（前缀、后缀、中缀、环缀、音变、模板、重叠、微调）、变体（基础那套改名叫「书面」）、继承、屏蔽槽位、手填表、作用于所有词的「连读浊化」（ve 后面 tovar → dovar）、一个词类绑几个构形（「动词」默认变位法一，tur-、sal- 在词条里挑了变位法二，ol- 用不规则）、按条件换字母（名词与格只写一条 ¢{阴:g|k}A：阴性的 sila、vene 是 silaga、venege，其余是 kasoka 这样）',
+    '- **构形**：流水线的八种步骤（前缀、后缀、中缀、环缀、音变、模板、重叠、微调）、变体（基础那套改名叫「书面」）、继承、屏蔽槽位、手填表、作用于所有词的「连读浊化」（ve 后面 tovar → dovar）、一个词类绑几个构形（「动词」默认变位法一，tur-、sal- 在词条里挑了变位法二，ol- 用不规则）、按条件换字母（名词与格只写一条 ¢{阴:g|k}A：阴性的 sila、vene 是 silaga、venege，其余是 kasoka 这样）、构形套构形（「动名词」加 -mAk 之后套进「名词」的格：sörmek、sörmekde）、一个词条几个构形（sör- 既变位又有动名词）；测试台切到「自由」随便写一个形式看它变成什么',
     '- **语料**：已 gloss 并确认的例句、其他正字法、手填的文字写法、自由行、出处与标签；dovar 靠「连读浊化」反推认出；人名 Mira 故意没进词库，悬浮时是「没有找到」',
     '- **短语**：分类、变体、发音、方括号占位符',
     '- **文档**：项目级与语言级页面，写 `[[kaso]]` 就能点到词库里的词',
@@ -1193,7 +1245,7 @@ function makeTsahun(): void {
   const p = createProject({
     name: 'Tsahun',
     template: 'blank',
-    appVersion: '0.8.3',
+    appVersion: '0.8.4',
     uiLocale: 'zh'
   })
   p.meta.author = '千语集示例'

@@ -417,7 +417,7 @@
   </main>
 
   {#if footerPanel}
-    <aside class="side-panel" style:--panel-w={`${ui.prefs.inspectorWidth}px`}>
+    <aside class="side-panel">
       <div class="panel-head row">
         <strong class="grow"
           >{t(`welcome.${footerPanel === 'dev' ? 'developer' : footerPanel}`)}</strong

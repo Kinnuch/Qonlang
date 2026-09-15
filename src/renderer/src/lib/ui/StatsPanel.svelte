@@ -88,7 +88,7 @@
 
 {#if facts.length}
   <div class="facts">
-    {#each facts as f (f.label)}
+    {#each facts as f, fi (fi)}
       <div class="fact card">
         <div class="val">{f.value}</div>
         <div class="lbl small muted">{f.label}</div>

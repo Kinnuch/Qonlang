@@ -503,6 +503,8 @@ async function backup(file: string): Promise<void> {
 }
 
 let dirty = false
+/** 开着的是不是纯欣赏项目（渲染层告诉的） */
+let readOnlyOpen = false
 let forceClose = false
 let mainWindow: BrowserWindow | null = null
 let winStateTimer: ReturnType<typeof setTimeout> | null = null
@@ -636,6 +638,10 @@ function createWindow(): void {
   })
 
   // 右键菜单：编辑角色 + 常用命令
+  // 纯欣赏项目开着时（正式包）：开发者工具一打开就关掉
+  mainWindow.webContents.on('devtools-opened', () => {
+    if (readOnlyOpen && app.isPackaged) mainWindow?.webContents.closeDevTools()
+  })
   mainWindow.webContents.on('context-menu', (_e, params) => {
     void (async () => {
       const prefs = await getPrefs()
@@ -683,6 +689,11 @@ function createWindow(): void {
           click: send('chars')
         },
         { label: L('保存', 'Save'), accelerator: 'CmdOrCtrl+S', click: send('save') },
+        {
+          label: L('另存为…', 'Save as…'),
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: send('saveAs')
+        },
         { type: 'separator' },
         {
           label: L('使用指南', 'User guide'),
@@ -714,6 +725,10 @@ function registerIpc(): void {
   }))
   ipcMain.handle('app:setDirty', (_e, d: boolean) => {
     dirty = d
+  })
+  ipcMain.handle('app:setReadOnly', (_e, on: boolean) => {
+    readOnlyOpen = on
+    if (on && app.isPackaged) mainWindow?.webContents.closeDevTools()
   })
   ipcMain.handle('app:closeNow', () => {
     forceClose = true

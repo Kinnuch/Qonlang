@@ -478,17 +478,24 @@
     background: var(--bg-sunken);
     color: var(--text-3);
   }
+  /* 拆解框不用按钮自带的样子：那个底色在深色下是暗灰，没选中的字看不清 */
   .parts .chip {
     cursor: pointer;
     font-family: var(--font-data);
+    padding: 1px 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    background: var(--bg-elev);
+    color: var(--text);
+    line-height: 1.5;
   }
   .parts .chip:hover {
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-text);
   }
   .parts .chip.plain {
     cursor: default;
-    color: var(--text-3);
+    color: var(--text-2);
   }
   .parts .chip.plain:hover {
     border-color: var(--border);
@@ -498,7 +505,7 @@
     margin-left: 4px;
     font-family: var(--font-ui);
     font-size: 11px;
-    color: var(--text-3);
+    color: var(--text-2);
   }
   .pin-close {
     position: absolute;

@@ -38,6 +38,8 @@
   import CommandPalette from '$lib/ui/CommandPalette.svelte'
   import PromptDialog from '$lib/ui/PromptDialog.svelte'
   import ConfirmDialog from '$lib/ui/ConfirmDialog.svelte'
+  import NewLexemeDialog from '$lib/ui/NewLexemeDialog.svelte'
+  import { errorMessage } from '$lib/ui/errorText'
   import GuideTour from '$lib/ui/GuideTour.svelte'
   import SearchBar from '$lib/ui/SearchBar.svelte'
   import RuleSyntax from '$lib/ui/RuleSyntax.svelte'
@@ -106,16 +108,49 @@
       for (const sc of l.scripts) ensureScriptFont(sc)
   })
 
+  /**
+   * 页面出错：底部挂一条红色的条（哪一页、报错信息，手动关），项目退回到上一次操作之前，再把这一页重新画出来。
+   * 退回之后 3 秒内又出错，说明跟刚才的改动无关，不再退、也不再重画，留在出错卡片上（能重试、换页面、保存）
+   */
+  let lastPageError = 0
+  function onPageError(error: unknown, reset: () => void): void {
+    console.error(error)
+    const again = Date.now() - lastPageError < 3000
+    lastPageError = Date.now()
+    const page = t(`nav.${ui.section}`)
+    const msg = errorMessage(error, i18n.locale)
+    if (again) {
+      ui.crash(t('errors.crashTitle', { page }), msg)
+      return
+    }
+    const undone = projectState.recoverFromCrash()
+    ui.crash(
+      t('errors.crashTitle', { page }),
+      msg + '\n' + t(undone ? 'errors.crashUndone' : 'errors.crashReloaded')
+    )
+    setTimeout(reset, 0)
+  }
+
   // 拖动分隔条调整检视器宽度
   const MIN_W = 280
   const MAX_W = 900
+  /** 跟着窗口走时：主区留够 960px（语言、设置这类页面内容的宽度），其余给检视器 */
+  const MAIN_W = 960
+  const NAV_W = 72
+  let windowW = $state(typeof window === 'undefined' ? 1600 : window.innerWidth)
+  const inspectorW = $derived(
+    ui.prefs.inspectorAuto
+      ? Math.round(Math.min(MAX_W, Math.max(360, windowW - NAV_W - MAIN_W)))
+      : ui.prefs.inspectorWidth
+  )
   let dragging = $state(false)
   function startDrag(e: PointerEvent): void {
     e.preventDefault()
     dragging = true
     const startX = e.clientX
-    const startW = ui.prefs.inspectorWidth
+    const startW = inspectorW
     const move = (ev: PointerEvent): void => {
+      ui.prefs.inspectorAuto = false
       ui.prefs.inspectorWidth = Math.min(MAX_W, Math.max(MIN_W, startW + (startX - ev.clientX)))
     }
     const up = (): void => {
@@ -169,7 +204,14 @@
         return name ? `${f.key}（${name}）` : f.key
       })
       .join(zh ? '、' : ', ')
-    return fields ? `${t('search.help')}\n${t('search.fields', { fields })}` : t('search.help')
+    const dims =
+      (ui.section === 'lexicon' || ui.section === 'morphemes') &&
+      projectState.project?.categories.length
+        ? `\n${t('search.dimFields')}`
+        : ''
+    return fields
+      ? `${t('search.help')}\n${t('search.fields', { fields })}${dims}`
+      : t('search.help')
   })
   /** 顶栏「规则语法」：在各模块打开时直接滚到跟这一页相关的那一节 */
   const SYNTAX_ANCHORS: Partial<Record<Section, string>> = {
@@ -185,12 +227,14 @@
   }
 </script>
 
+<svelte:window bind:innerWidth={windowW} />
+
 <div
   class="shell"
   class:no-inspector={!ui.inspectorOpen}
   class:readonly={projectState.readOnly}
   class:dragging
-  style:--inspector-w={`${ui.prefs.inspectorWidth}px`}
+  style:--inspector-w={`${inspectorW}px`}
 >
   <nav class="nav">
     <button class="nav-logo" title={t('nav.home')} onclick={closeProject}>千</button>
@@ -325,7 +369,7 @@
   </header>
 
   <main class="main" use:hwheel>
-    <svelte:boundary onerror={(e) => console.error(e)}>
+    <svelte:boundary onerror={onPageError}>
       {#snippet failed(error, reset)}
         <div class="crash card">
           <strong>{t('errors.pageCrashed')}</strong>
@@ -381,7 +425,12 @@
       class="resizer"
       role="separator"
       aria-orientation="vertical"
+      title={t('topbar.resizerHint')}
       onpointerdown={startDrag}
+      ondblclick={() => {
+        ui.prefs.inspectorAuto = true
+        void ui.savePrefs()
+      }}
     ></div>
     <div class="inspector-head row">
       {#if ui.syntaxOpen}
@@ -410,6 +459,7 @@
 <CommandPalette />
 <PromptDialog />
 <ConfirmDialog />
+<NewLexemeDialog />
 <SentenceMergeDialog />
 
 <style>

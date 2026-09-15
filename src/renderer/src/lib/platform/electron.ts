@@ -123,6 +123,12 @@ export const electronPlatform: PlatformAPI = {
   setDirty(dirty) {
     void bridge().invoke('app:setDirty', dirty)
   },
+  setReadOnly(readOnly) {
+    // 只是个提醒：宿主不认（旧版本的主进程）也不算出错
+    void bridge()
+      .invoke('app:setReadOnly', readOnly)
+      .catch(() => {})
+  },
   onSaveAndClose(cb) {
     bridge().on('app:save-and-close', () => {
       void cb()

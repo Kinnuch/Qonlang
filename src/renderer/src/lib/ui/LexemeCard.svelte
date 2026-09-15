@@ -10,7 +10,7 @@
   import { lexemeScript } from '$lib/script/render'
   import { ensureScriptFont, fontCss } from '$lib/script/fonts'
   import { registerShort } from '$lib/core/register'
-  import { posText, sensePos } from '$lib/core/pos'
+  import { posStemSlotList, posText, sensePos } from '$lib/core/pos'
 
   let {
     lexeme,
@@ -28,7 +28,18 @@
   const l = $derived(lexeme)
   const glossLangs = $derived(project.settings.glossLanguages)
   // 留空的词干与屈折形不占位置
-  const filledStems = $derived(Object.entries(l.stems).filter(([, v]) => v.trim()))
+  const filledStems = $derived.by(() => {
+    const slotNames = posStemSlotList(project, l.posId).map((st) => st.name.trim())
+    const rank = (k: string): number => {
+      const i = slotNames.indexOf(k)
+      return i < 0 ? slotNames.length : i
+    }
+    return Object.entries(l.stems)
+      .filter(([, v]) => v.trim())
+      .map((e, i) => ({ e, i }))
+      .sort((a, b) => rank(a.e[0]) - rank(b.e[0]) || a.i - b.i)
+      .map((x) => x.e)
+  })
   const filledForms = $derived(Object.entries(l.forms).filter(([, f]) => f.surface.trim()))
   /** 词干与屈折形排在一张表里：名字、写法、是不是推导出来的 */
   const formRows = $derived([
@@ -152,7 +163,7 @@
       </div>{/each}
     <div class="row meta">
       {#if pos}<span class="pos">{pos.abbr || pickText(pos.name, glossLangs)}</span>{/if}
-      {#each pron as p (p.name)}<span class="ipa data"
+      {#each pron as p, pi (pi)}<span class="ipa data"
           >{pronText(p.p.ipa)}{#if pron.length > 1}<span class="tiny">{p.name}</span>{/if}</span
         >{/each}
     </div>

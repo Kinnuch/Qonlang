@@ -182,7 +182,7 @@
   const digraphLines = $derived(
     program ? program.lines.filter((l) => l.kind === 'replacement' && lineHit(l.raw)) : []
   )
-  const classNames = $derived(program ? [...program.classes.keys()] : [])
+  const classNames = $derived(program ? [...new Set(program.classes.keys())] : [])
 
   // ───── 编辑状态 ─────
   let editingLine = $state<number | null>(null)

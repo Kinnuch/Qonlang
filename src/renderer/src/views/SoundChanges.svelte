@@ -289,6 +289,7 @@
   }
 
   async function copyResults(): Promise<void> {
+    if (projectState.readOnly) return void ui.toast(t('readonly.exportBlocked'))
     const header = columns.map((c) => c || t('soundChanges.output')).join(' | ')
     const rows = results.map((r) => cells(r).join(' → '))
     await navigator.clipboard.writeText([header, ...rows].join('\n'))
@@ -465,7 +466,7 @@
       </div>
       {#if program && program.diagnostics.length}
         <ul class="diags">
-          {#each program.diagnostics as d (d.line + d.message)}
+          {#each program.diagnostics as d, di (di)}
             <li class:err={d.severity === 'error'}>
               <button class="link" onclick={() => jump(d.line)}
                 >{t('soundChanges.lineN', { n: d.line })}</button

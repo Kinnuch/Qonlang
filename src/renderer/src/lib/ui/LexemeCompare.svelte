@@ -304,7 +304,7 @@
                   {#if c.sound}
                     {@const sp = c.sound.path}
                     <div class="stages data">
-                      {sp.input}{#each sp.stages.filter((st, i) => st.form && st.form !== (i === 0 ? sp.input : sp.stages[i - 1].form)) as st (st.name)}<span
+                      {sp.input}{#each sp.stages.filter((st, i) => st.form && st.form !== (i === 0 ? sp.input : sp.stages[i - 1].form)) as st, sti (sti)}<span
                           class="arrow"
                           title={st.name}>›</span
                         >{st.form}{/each}

@@ -100,6 +100,70 @@ export function resolveGenerator(
   return g ?? { kind: 'none' }
 }
 
+/** 词条用的一个构形 */
+export interface LexemeParadigm {
+  paradigm: Paradigm
+  variantId: Id | null
+  /** 第一个（词条上指名的，或者词类默认的）；其余是另外加的 */
+  primary: boolean
+}
+
+/** 词条用的全部构形：第一个是指名的或词类默认的，后面是另外加的（重复的、作用于所有词的不算） */
+export function paradigmsFor(project: Project, lexeme: Lexeme): LexemeParadigm[] {
+  const out: LexemeParadigm[] = []
+  const first = paradigmFor(project, lexeme)
+  if (first)
+    out.push({ paradigm: first, variantId: lexeme.paradigmVariantId ?? null, primary: true })
+  for (const x of lexeme.extraParadigms ?? []) {
+    const p = project.paradigms.find((y) => y.id === x.paradigmId)
+    if (!p || p.appliesToAll || out.some((o) => o.paradigm.id === p.id)) continue
+    out.push({ paradigm: p, variantId: x.variantId ?? null, primary: false })
+  }
+  return out
+}
+
+export interface LexemeSlot {
+  lp: LexemeParadigm
+  slot: SlotDef
+  /** 这一格的形式存在 forms 的哪个键下 */
+  key: string
+}
+
+/**
+ * 词条用到的全部槽位，以及每一格存在 forms 的哪个键下：第一个构形就是槽位名；
+ * 后加的构形槽位名跟前面撞了，就在前面加「构形名·」，两套形式各存各的
+ */
+export function lexemeSlots(
+  project: Project,
+  lexeme: Lexeme,
+  glossLangs: string[] = project.settings.glossLanguages
+): LexemeSlot[] {
+  const out: LexemeSlot[] = []
+  const used = new Set<string>()
+  for (const lp of paradigmsFor(project, lexeme)) {
+    const name = pick(lp.paradigm.name, glossLangs) || '?'
+    for (const slot of paradigmSlots(lp.paradigm, project.categories, glossLangs)) {
+      const key = !lp.primary && used.has(slot.label) ? `${name}·${slot.label}` : slot.label
+      used.add(key)
+      out.push({ lp, slot, key })
+    }
+  }
+  return out
+}
+
+/** 某个构形的某一格在这个词条里存在哪个键下；词条没用这个构形时就是槽位名 */
+export function formKeyOf(project: Project, lexeme: Lexeme, paradigmId: Id, slot: SlotDef): string {
+  const hit = lexemeSlots(project, lexeme).find(
+    (s) => s.lp.paradigm.id === paradigmId && s.slot.key === slot.key
+  )
+  return hit?.key ?? slot.label
+}
+
+/** 词条在某个构形上选的变体（第一个构形看 paradigmVariantId，后加的看自己那一项） */
+export function lexemeVariantFor(lexeme: Lexeme, project: Project, paradigmId: Id): Id | null {
+  return paradigmsFor(project, lexeme).find((x) => x.paradigm.id === paradigmId)?.variantId ?? null
+}
+
 export function paradigmFor(project: Project, lexeme: Lexeme): Paradigm | null {
   // 词条上指名了就用指名的；作用于所有词的构形（词首音变这类）不往词条里写形式
   if (lexeme.paradigmId) {
@@ -536,12 +600,65 @@ function runStep(
   }
 }
 
+/** 构形最多套几层（也挡住 A 套 B、B 又套 A 这种绕回来的） */
+const MAX_NEST = 4
+
+/**
+ * 流水线里「构形」这一步：把到这一步为止的形式当成词干，套另一个构形的某个槽位。
+ * 那个构形里写的词干槽都回落到这个形式；按条件换字母仍看这个词条自己的语法特征
+ */
+function nestParadigm(
+  ctx: MorphContext,
+  lexeme: Lexeme,
+  step: Extract<MorphStep, { kind: 'paradigm' }>,
+  surface: string,
+  trace: string[],
+  depth: number
+): string {
+  const p = step.paradigmId ? ctx.project.paradigms.find((x) => x.id === step.paradigmId) : null
+  if (!p) {
+    trace.push('构形不存在')
+    return surface
+  }
+  const name = pick(p.name, ctx.project.settings.glossLanguages) || '?'
+  if (depth >= MAX_NEST) {
+    trace.push(`构形 ${name}：套得太深（超过 ${MAX_NEST} 层），停在这里`)
+    return surface
+  }
+  const slot = paradigmSlots(
+    p,
+    ctx.project.categories,
+    ctx.project.settings.glossLanguages,
+    true
+  ).find((s) => s.key === step.slotKey)
+  if (!slot) {
+    trace.push(`构形 ${name}：没选槽位`)
+    return surface
+  }
+  const inner: Lexeme = {
+    ...lexeme,
+    lemma: surface,
+    stems: {},
+    forms: {},
+    paradigmVariantId: step.variantId ?? null
+  }
+  const g = generateForm(ctx, inner, p, slot, step.variantId ?? null, depth + 1)
+  if (!g) {
+    trace.push(`构形 ${name} · ${slot.label}：这一格没有写法`)
+    return surface
+  }
+  for (const line of g.trace) trace.push('  ' + line)
+  trace.push(`构形 ${name} · ${slot.label}: ${g.surface}`)
+  return g.surface
+}
+
 export function generateForm(
   ctx: MorphContext,
   lexeme: Lexeme,
   paradigm: Paradigm,
   slot: SlotDef,
-  variantId?: Id | null
+  variantId?: Id | null,
+  depth = 0
 ): Generated | null {
   const g = resolveGenerator(
     paradigm,
@@ -564,7 +681,11 @@ export function generateForm(
   }
   if (g.kind === 'pipeline') {
     let out = stem.value
-    for (const step of g.steps) out = runStep(ctx, step, out, trace, pick)
+    for (const step of g.steps)
+      out =
+        step.kind === 'paradigm'
+          ? nestParadigm(ctx, lexeme, step, out, trace, depth)
+          : runStep(ctx, step, out, trace, pick)
     noteUnknown()
     return { surface: out, trace }
   }
@@ -625,17 +746,31 @@ export function deriveForms(
 ): number {
   const defs =
     slots ?? paradigmSlots(paradigm, ctx.project.categories, ctx.project.settings.glossLanguages)
+  const keys = new Map(
+    lexemeSlots(ctx.project, lexeme)
+      .filter((s) => s.lp.paradigm.id === paradigm.id)
+      .map((s) => [s.slot.key, s.key])
+  )
   let n = 0
   for (const s of defs) {
-    const cur = lexeme.forms[s.label]
+    const key = keys.get(s.key) ?? s.label
+    const cur = lexeme.forms[key]
     if (cur?.override) continue
     const g = generateForm(ctx, lexeme, paradigm, s, variantId)
     if (!g) continue
     if (!cur || cur.surface !== g.surface || !cur.derived) {
-      lexeme.forms[s.label] = { surface: g.surface, derived: true, override: false, trace: g.trace }
+      lexeme.forms[key] = { surface: g.surface, derived: true, override: false, trace: g.trace }
       n++
     }
   }
+  return n
+}
+
+/** 词条用的每个构形的全部槽位都推一遍（手填的不动），返回改动数 */
+export function deriveLexemeForms(ctx: MorphContext, lexeme: Lexeme): number {
+  let n = 0
+  for (const lp of paradigmsFor(ctx.project, lexeme))
+    n += deriveForms(ctx, lexeme, lp.paradigm, undefined, lp.variantId)
   return n
 }
 
@@ -666,7 +801,7 @@ export function reconcileSlot(
     return rep
   }
   for (const l of lexemes) {
-    const stored = l.forms[slot.label]
+    const stored = l.forms[formKeyOf(ctx.project, l, paradigm.id, slot)]
     const gen = generateForm(ctx, l, paradigm, slot, variantId)
     if (!gen) continue
     // 只与用户录入 / 覆盖的形式比对；推导出来的值不算已录入

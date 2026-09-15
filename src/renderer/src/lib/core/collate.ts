@@ -45,3 +45,5 @@ export function makeCollator(alphabet: string[]): (a: string, b: string) => numb
     return ta.length - tb.length || a.localeCompare(b)
   }
 }
+
+export const COLLATION_TAIL = 'l0F0VPkvV'

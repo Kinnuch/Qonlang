@@ -34,8 +34,15 @@ export interface Prefs {
   backupCount: number
   /** 上次打开的项目，启动时自动恢复 */
   reopenLast: boolean
-  /** 右侧检视器宽度（px） */
+  /** 右侧检视器宽度（px）：拖过分隔条之后才用它 */
   inspectorWidth: number
+  /**
+   * 检视器宽度跟着窗口走（默认）：主区留够 960px（语言、设置这类页面的内容宽），其余给检视器，在 360～900 之间。
+   * 拖了分隔条就改成用 inspectorWidth；双击分隔条回到跟着窗口走
+   */
+  inspectorAuto?: boolean
+  /** 检视器宽度设置的版本：旧版本记下的固定宽度（默认 360）升级时改回跟着窗口走一次 */
+  inspectorWidthV?: number
   /** 字符面板：最近插入的符号 */
   recentSymbols: string[]
   /** 字符面板：用户收藏的符号或组合 */
@@ -109,6 +116,8 @@ export const DEFAULT_PREFS: Prefs = {
   backupCount: 20,
   reopenLast: true,
   inspectorWidth: 360,
+  inspectorAuto: true,
+  inspectorWidthV: 2,
   recentSymbols: [],
   savedSymbols: [],
   csvPresets: [],
@@ -210,6 +219,8 @@ export interface PlatformAPI {
 
   /** 通知宿主当前是否有未保存改动（桌面版用来拦截关窗） */
   setDirty(dirty: boolean): void
+  /** 通知宿主开着的是不是纯欣赏项目（桌面版正式包里这时不让开开发者工具） */
+  setReadOnly(readOnly: boolean): void
   /** 宿主要求「保存后关闭」时回调 */
   onSaveAndClose(cb: () => Promise<void>): void
   /** 保存完毕，允许关闭 */

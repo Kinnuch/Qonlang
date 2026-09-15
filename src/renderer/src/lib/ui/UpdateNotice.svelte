@@ -62,24 +62,39 @@
     if (info) void platform.openExternal(info.url)
     info = null
   }
+  /**
+   * 装之前把项目存好（安装会关掉软件）。存过盘的（有文件位置）直接存；
+   * 没存过的弹另存为，取消了先问一句「更新进度会归零」——确定放弃就不装这次的更新，不放弃就再弹一次另存为
+   */
+  async function saveBeforeInstall(): Promise<boolean> {
+    if (projectState.target) return projectState.save()
+    for (;;) {
+      if (await projectState.save(true)) return true
+      const giveUp = await ui.confirm(
+        t('update.cancelSaveTitle'),
+        t('update.cancelSaveBody'),
+        t('update.cancelSaveOk')
+      )
+      if (giveUp) return false
+    }
+  }
   async function install(): Promise<void> {
     if (!info?.installer) return openPage()
+    // 真正开始下载（增量要先比对出要下多少）之前没有进度，显示「校验中」，进度条等第一次进度来了才出
     phase = 'downloading'
     received = 0
-    total = info.installer.size
+    total = 0
     const r = await platform.downloadUpdate(info.installer.url, info.installer.name, info.version)
     if (!r.ok || !r.path) {
       phase = 'failed'
       error = r.error ?? ''
       return
     }
-    // 没保存的先存：安装会关掉软件
-    if (projectState.dirty) {
-      const saved = await projectState.save()
-      if (!saved) {
-        phase = 'idle'
-        return
-      }
+    if (projectState.dirty && !(await saveBeforeInstall())) {
+      phase = 'idle'
+      received = 0
+      total = 0
+      return
     }
     phase = 'installing'
     const done = await platform.installUpdate(r.path)
@@ -89,6 +104,8 @@
     } else if (done.manual) phase = 'manual'
   }
   const pct = $derived(total ? Math.min(100, Math.round((received / total) * 100)) : 0)
+  /** 还没开始下（增量在比对）、或者下完了在核对 sha：都显示「校验中」 */
+  const verifying = $derived(phase === 'downloading' && (!total || received >= total))
   const mb = (n: number): string => (n / 1048576).toFixed(1)
 </script>
 
@@ -100,7 +117,9 @@
         <button class="btn ghost icon sm" onclick={later}><X size={14} /></button>
       {/if}
     </div>
-    {#if phase === 'downloading'}
+    {#if phase === 'downloading' && verifying}
+      <p class="small muted">{t('update.verifying')}</p>
+    {:else if phase === 'downloading'}
       <p class="small muted">
         {t('update.downloading', { pct, done: mb(received), total: mb(total) })}
       </p>

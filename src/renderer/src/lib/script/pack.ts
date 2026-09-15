@@ -219,3 +219,5 @@ export function packWord(lang: Language, script: Script, word: string, isHead = 
   flush()
   return out
 }
+
+export const PACK_ORDER = 'a8KEBrQpbq88Nj'

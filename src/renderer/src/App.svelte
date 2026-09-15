@@ -3,8 +3,9 @@
   import { platform } from '$lib/platform'
   import { ui } from '$lib/state/ui.svelte'
   import { projectState } from '$lib/state/project.svelte'
-  import { t } from '$lib/i18n/index.svelte'
-  import { parseProject } from '$lib/core/serialize'
+  import { i18n, t } from '$lib/i18n/index.svelte'
+  import { errorMessage } from '$lib/ui/errorText'
+  import { parseProject, readProjectText } from '$lib/core/serialize'
   import { SECTIONS, type Section } from '$lib/state/ui.svelte'
   import { chars } from '$lib/state/chars.svelte'
   import { fontLibrary } from '$lib/state/fonts.svelte'
@@ -19,6 +20,17 @@
   let snapshot = $state<string | null>(null)
 
   onMount(() => {
+    // 页面边界接不到的错（点按钮时的处理函数、异步任务）：也挂一条红条，不让它悄悄没了
+    const shown = (e: unknown): void => {
+      const msg = errorMessage(e, i18n.locale)
+      // 窗口大小变化时浏览器自己报的良性警告，不算出错
+      if (/ResizeObserver loop/i.test(msg)) return
+      ui.crash(t('errors.unexpectedTitle'), msg)
+    }
+    const onError = (e: ErrorEvent): void => shown(e.error ?? e.message)
+    const onRejection = (e: PromiseRejectionEvent): void => shown(e.reason)
+    window.addEventListener('error', onError)
+    window.addEventListener('unhandledrejection', onRejection)
     const stopTheme = ui.watchSystemTheme()
     const stopChars = chars.install()
     platform.onMenu((a) => {
@@ -42,7 +54,7 @@
           const r = await platform.openRecent(recent[0]).catch(() => null)
           if (r) {
             try {
-              projectState.load(parseProject(r.content), r.target)
+              projectState.load(parseProject(await readProjectText(r.content)), r.target)
               const initial = (await platform.info()).initialSection
               if (initial && SECTIONS.includes(initial as Section)) ui.section = initial as Section
             } catch {
@@ -59,6 +71,8 @@
     })
 
     return () => {
+      window.removeEventListener('error', onError)
+      window.removeEventListener('unhandledrejection', onRejection)
       stopTheme()
       stopChars()
     }
@@ -143,12 +157,20 @@
 {:else if projectState.project}
   <Shell />
 {:else}
-  <Welcome
-    {snapshot}
-    onsnapshothandled={() => {
-      snapshot = null
+  <svelte:boundary
+    onerror={(e, reset) => {
+      console.error(e)
+      ui.crash(t('errors.crashTitle', { page: t('nav.welcome') }), errorMessage(e, i18n.locale))
+      setTimeout(reset, 0)
     }}
-  />
+  >
+    <Welcome
+      {snapshot}
+      onsnapshothandled={() => {
+        snapshot = null
+      }}
+    />
+  </svelte:boundary>
 {/if}
 <Toasts />
 <ProgressOverlay />

@@ -9,7 +9,8 @@
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { makeCollator } from '$lib/core/collate'
-  import { newId } from '$lib/core/factory'
+  import { createLexeme, newId } from '$lib/core/factory'
+  import { newLexeme } from '$lib/state/newLexeme.svelte'
   import {
     bindPosParadigm,
     ownParadigmIds,
@@ -26,7 +27,9 @@
     SlotGenerator
   } from '$lib/core/model'
   import {
-    paradigmFor,
+    formKeyOf,
+    lexemeVariantFor,
+    paradigmsFor,
     paradigmSlots,
     resolveGenerator,
     generateForm,
@@ -59,7 +62,9 @@
     List,
     Table,
     ListTree,
-    ChevronRight
+    ChevronRight,
+    FilePlus2,
+    CornerDownRight
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import { sortable } from '$lib/ui/sortable.svelte'
@@ -97,6 +102,8 @@
     testLexemeId: Id | null
     editVariantId: Id | null
     layout: SlotLayout
+    benchMode: 'compare' | 'free'
+    freeInput: string
   }>('paradigms')
   let activeId = $state<Id | null>(memo.activeId ?? null)
   const active = $derived(
@@ -149,6 +156,12 @@
   }
   const issueTotal = $derived(issues ? issues.reduce((a, g) => a + g.issues.length, 0) : 0)
   let testLemma = $state(memo.testLemma ?? '')
+  /**
+   * 测试台两种模式：对比（挑一个词，推出来的形式跟词库里录的比）；
+   * 自由（随便写一个形式，只看它经过这个构形变成什么；结果可以生成词条，也可以接着拿去套别的构形）
+   */
+  let benchMode = $state<'compare' | 'free'>(memo.benchMode ?? 'compare')
+  let freeInput = $state(memo.freeInput ?? '')
 
   const allSlots = $derived(
     active ? paradigmSlots(active, project.categories, glossLangs, true) : []
@@ -168,7 +181,7 @@
   )
   /** 词条眼下用的就是这个构形（词条上指名的，或者词类默认的）排前面 */
   const usesRank = (l: Lexeme): number =>
-    active && paradigmFor(project, l)?.id === active.id ? 0 : 1
+    active && paradigmsFor(project, l).some((x) => x.paradigm.id === active.id) ? 0 : 1
   const paradigmName = (id: Id): string =>
     pickText(project.paradigms.find((x) => x.id === id)?.name ?? {}, glossLangs) ||
     t('paradigms.untitled')
@@ -181,7 +194,7 @@
           ? !language || l.languageId === language.id
           : // 用着这个构形的词，加上词类绑了它、可以改用它的（复合词类没绑时跟着组成词类走）
             !!active &&
-            (paradigmFor(project, l)?.id === active.id ||
+            (paradigmsFor(project, l).some((x) => x.paradigm.id === active.id) ||
               posParadigmIds(project, l.posId).includes(active.id))
       )
       .sort(
@@ -265,7 +278,7 @@
     status: 'none' | 'missing' | 'same' | 'diff'
   } {
     const g = generateForm(ctx, lexeme, para, s, editVariantId)
-    const stored = lexeme.forms[s.label]
+    const stored = lexeme.forms[formKeyOf(project, lexeme, para.id, s)]
     const status = !g
       ? 'none'
       : !stored?.override
@@ -283,6 +296,33 @@
       stored: stored?.surface ?? '',
       status
     }
+  }
+  /** 自由模式：写进去的形式当词头（词干都回落到它），按当前语言推一遍每一格 */
+  const freeRows = $derived.by(() => {
+    const form = freeInput.trim()
+    const lid = language?.id
+    if (benchMode !== 'free' || !active || !form || !lid) return []
+    const ctx = ctxFor(lid)
+    if (!ctx) return []
+    const para = active
+    const pseudo = createLexeme(lid, form)
+    return slots
+      .filter((s) => !para.disabledSlots.includes(s.key))
+      .map((s) => {
+        const g = generateForm(ctx, pseudo, para, s, editVariantId)
+        return { slot: s, generated: g?.surface ?? '', trace: g?.trace ?? [] }
+      })
+  })
+  /** 测试台里某一格推出来的形式：生成成一个新词条（弹出表单，词源、关系按构形填好） */
+  function generateEntry(form: string, slot: SlotDef, base: Lexeme | null, languageId: Id): void {
+    if (!active || !form.trim()) return
+    newLexeme.open({
+      languageId,
+      form: form.trim(),
+      base,
+      paradigmId: active.id,
+      slotLabel: slot.label
+    })
   }
   const testRows = $derived.by(() => {
     if (!active || !testLexeme) return []
@@ -316,6 +356,20 @@
       if (!active.disabledSlots.includes(s.key)) out.set(s.key, formRow(ctx, testLexeme, active, s))
     return out
   })
+  /** 流水线里「构形」这一步能套的：别的构形（作用于所有词的不算），各自的槽位与变体 */
+  const nestChoices = $derived(
+    project.paradigms
+      .filter((p) => p.id !== active?.id && !p.appliesToAll)
+      .map((p) => ({
+        id: p.id,
+        name: pickText(p.name, glossLangs) || t('paradigms.untitled'),
+        slots: paradigmSlots(p, project.categories, glossLangs).map((s) => ({
+          key: s.key,
+          label: s.label
+        })),
+        variants: p.variants.map((v) => ({ id: v.id, name: v.name }))
+      }))
+  )
   /** 一格的写法缩成一行：流水线每一步的词缀、跑哪套音变……（没有测试词时格子里就显示它） */
   function slotSummary(s: SlotDef): string {
     if (!active) return ''
@@ -343,6 +397,12 @@
           return [t('paradigms.steps.adjust'), st.text.split('\n')[0].trim()]
             .filter(Boolean)
             .join(' ')
+        case 'paradigm': {
+          const np = project.paradigms.find((x) => x.id === st.paradigmId)
+          return [t('paradigms.steps.paradigm'), np && pickText(np.name, glossLangs)]
+            .filter(Boolean)
+            .join(' ')
+        }
       }
     })
     const stemRef = stem && t('paradigms.stemRef', { name: stem })
@@ -449,6 +509,12 @@
   }
   /** 正在编辑哪个变体；null 表示通用那一套 */
   let editVariantId = $state<Id | null>(memo.editVariantId ?? null)
+  // 换到别的构形时，原来选着的变体不是这个构形的：回到通用那一套。
+  // 不回的话槽位按「槽位#别人的变体」去找生成器，整页都成了「无」、流水线全空
+  $effect(() => {
+    const vs = active?.variants ?? []
+    if (editVariantId && !vs.some((v) => v.id === editVariantId)) editVariantId = null
+  })
   $effect(() => {
     Object.assign(memo, {
       activeId,
@@ -459,7 +525,9 @@
       testLemma,
       testLexemeId,
       editVariantId,
-      layout
+      layout,
+      benchMode,
+      freeInput
     })
   })
   // 槽位多的时候分批画（维度一多就是几百行）
@@ -620,7 +688,13 @@
     if (!active || !testLexeme) return
     const ctx = ctxFor(testLexeme.languageId)
     if (!ctx) return
-    const n = deriveForms(ctx, testLexeme, active)
+    const n = deriveForms(
+      ctx,
+      testLexeme,
+      active,
+      undefined,
+      lexemeVariantFor(testLexeme, project, active.id)
+    )
     touch()
     derivedFlash++
     ui.toast(t('paradigms.derivedCount', { n, words: 1 }))
@@ -631,7 +705,7 @@
     let n = 0
     await ui.runProgress(t('paradigms.deriveProgress'), boundLexemes, (l) => {
       const ctx = ctxFor(l.languageId)
-      if (ctx) n += deriveForms(ctx, l, para, undefined, l.paradigmVariantId)
+      if (ctx) n += deriveForms(ctx, l, para, undefined, lexemeVariantFor(l, project, para.id))
     })
     touch()
     ui.toast(t('paradigms.derivedCount', { n, words: boundLexemes.length }))
@@ -1096,6 +1170,7 @@
                         bind:stem={g.stem}
                         bind:steps={g.steps}
                         ruleSets={project.ruleSets}
+                        paradigms={nestChoices}
                         onchange={touch}
                       />
                     {:else if g.kind === 'table'}
@@ -1223,61 +1298,123 @@
       <div class="row">
         <span class="small muted">{t('paradigms.testBench')}</span><HelpDot key="testBench" /><span
           class="grow"
-        ></span><span class="small muted">{boundLexemes.length}</span>
-      </div>
-      <input
-        class="input data"
-        placeholder={t('paradigms.pickLexeme')}
-        bind:value={testLemma}
-        oninput={() => (testLexemeId = null)}
-        onfocus={() => (testFocused = true)}
-        onblur={() => setTimeout(() => (testFocused = false), 180)}
-      />
-      {#if testMatches.length}
-        <div class="matches">
-          {#each testMatches as l (l.id)}
-            <button
-              class="match"
-              class:on={testLexeme?.id === l.id}
-              onclick={() => {
-                testLexemeId = l.id
-                testLemma = l.lemma
-              }}
-            >
-              <span class="data">{l.lemma}</span>
-              <span class="small muted">{posName(l.posId)}</span>
-              <span class="small muted grow gloss"
-                >{pickText(l.senses[0]?.definition, glossLangs)}</span
-              >
-            </button>
-          {/each}
+        ></span>
+        <div class="seg">
+          <button
+            class:active={benchMode === 'compare'}
+            title={t('paradigms.benchCompareHint')}
+            onclick={() => (benchMode = 'compare')}>{t('paradigms.benchCompare')}</button
+          >
+          <button
+            class:active={benchMode === 'free'}
+            title={t('paradigms.benchFreeHint')}
+            onclick={() => (benchMode = 'free')}>{t('paradigms.benchFree')}</button
+          >
         </div>
-      {/if}
-      {#if testLexeme}
-        <table class="tbl small test" use:flashOn={derivedFlash}>
-          <tbody>
-            {#each testRows as r (r.slot.key)}
-              <tr title={r.trace.join('\n')}>
-                <td class="muted">{r.slot.label}</td>
-                <td class="data">{r.generated || '—'}</td>
-                <td class="st">
-                  {#if r.status === 'same'}<span class="ok"><Check size={12} /></span>
-                  {:else if r.status === 'diff'}<span class="bad" title={r.stored}
-                      ><X size={12} /> <span class="data small">{r.stored}</span></span
-                    >
-                  {:else if r.status === 'missing'}<span class="muted"><Minus size={12} /></span
-                    >{/if}
-                </td>
-              </tr>
+        {#if benchMode === 'compare'}<span class="small muted">{boundLexemes.length}</span>{/if}
+      </div>
+      {#if benchMode === 'free'}
+        <input
+          class="input data"
+          placeholder={t('paradigms.freePlaceholder')}
+          bind:value={freeInput}
+        />
+        {#if freeRows.length}
+          {@const lid = language?.id ?? ''}
+          {@const base =
+            project.lexemes.find((x) => x.languageId === lid && x.lemma === freeInput.trim()) ??
+            null}
+          <table class="tbl small test">
+            <tbody>
+              {#each freeRows as r (r.slot.key)}
+                <tr title={r.trace.join('\n')}>
+                  <td class="muted">{r.slot.label}</td>
+                  <td class="data">{r.generated || '—'}</td>
+                  <td class="st">
+                    {#if r.generated}
+                      <button
+                        class="btn ghost icon xs"
+                        title={t('paradigms.continueNest')}
+                        onclick={() => (freeInput = r.generated)}
+                        ><CornerDownRight size={12} /></button
+                      >
+                      <button
+                        class="btn ghost icon xs"
+                        title={t('lexicon.generateEntry')}
+                        onclick={() => generateEntry(r.generated, r.slot, base, lid)}
+                        ><FilePlus2 size={12} /></button
+                      >
+                    {/if}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        {/if}
+      {:else}
+        <input
+          class="input data"
+          placeholder={t('paradigms.pickLexeme')}
+          bind:value={testLemma}
+          oninput={() => (testLexemeId = null)}
+          onfocus={() => (testFocused = true)}
+          onblur={() => setTimeout(() => (testFocused = false), 180)}
+        />
+        {#if testMatches.length}
+          <div class="matches">
+            {#each testMatches as l (l.id)}
+              <button
+                class="match"
+                class:on={testLexeme?.id === l.id}
+                onclick={() => {
+                  testLexemeId = l.id
+                  testLemma = l.lemma
+                }}
+              >
+                <span class="data">{l.lemma}</span>
+                <span class="small muted">{posName(l.posId)}</span>
+                <span class="small muted grow gloss"
+                  >{pickText(l.senses[0]?.definition, glossLangs)}</span
+                >
+              </button>
             {/each}
-          </tbody>
-        </table>
-        {#if !p.appliesToAll}
-          <div class="row">
-            <button class="btn sm" onclick={deriveOne}
-              ><Play size={14} />{t('paradigms.deriveOne')}</button
-            >
           </div>
+        {/if}
+        {#if testLexeme}
+          <table class="tbl small test" use:flashOn={derivedFlash}>
+            <tbody>
+              {#each testRows as r (r.slot.key)}
+                <tr title={r.trace.join('\n')}>
+                  <td class="muted">{r.slot.label}</td>
+                  <td class="data">{r.generated || '—'}</td>
+                  <td class="st">
+                    {#if r.status === 'same'}<span class="ok"><Check size={12} /></span>
+                    {:else if r.status === 'diff'}<span class="bad" title={r.stored}
+                        ><X size={12} /> <span class="data small">{r.stored}</span></span
+                      >
+                    {:else if r.status === 'missing'}<span class="muted"><Minus size={12} /></span
+                      >{/if}
+                    {#if r.generated && testLexeme}
+                      {@const tl = testLexeme}
+                      <button
+                        class="btn ghost icon xs"
+                        title={t('lexicon.generateEntry')}
+                        onclick={() => generateEntry(r.generated, r.slot, tl, tl.languageId)}
+                        ><FilePlus2 size={12} /></button
+                      >
+                    {/if}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+          {#if !p.appliesToAll}
+            <div class="row">
+              <button class="btn sm" onclick={deriveOne}
+                ><Play size={14} />{t('paradigms.deriveOne')}</button
+              >
+            </div>
+          {/if}
         {/if}
       {/if}
     </div>

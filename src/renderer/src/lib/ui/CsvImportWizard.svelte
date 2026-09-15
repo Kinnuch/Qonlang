@@ -397,7 +397,7 @@
       <span class="small muted">{t('csv.preset')}</span>
       <select class="select" bind:value={chosenPreset}>
         <option value="">{t('csv.noPreset')}</option>
-        {#each presets as p (p.name)}<option value={p.name}>{p.name}</option>{/each}
+        {#each presets as p, pi (pi)}<option value={p.name}>{p.name}</option>{/each}
       </select>
       <button class="btn sm" disabled={!chosenPreset} onclick={applyPreset}
         >{t('csv.applyPreset')}</button
@@ -654,7 +654,7 @@
             ></thead
           >
           <tbody>
-            {#each posStats as st (st.label)}
+            {#each posStats as st, si (si)}
               {@const rule = posRuleOf(st.label)}
               <tr class:mapped={rule.action !== 'keep'}>
                 <td class="hdr data">{st.raw}</td>
@@ -717,7 +717,7 @@
             ></thead
           >
           <tbody>
-            {#each markerStats as st (st.label)}
+            {#each markerStats as st, si (si)}
               {@const rule = ruleOf(st.label)}
               <tr class:mapped={rule.action !== 'keep'}>
                 <td class="hdr data">{st.raw}</td>

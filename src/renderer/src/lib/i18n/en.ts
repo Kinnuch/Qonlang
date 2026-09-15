@@ -102,7 +102,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, vowel harmony, all eight pipeline steps, variants and inheritance, several paradigms per part of speech, letters that change by gender, sandhi undone in the corpus, compound parts of speech, inspector modules, etymology chains, glossed corpus, runic script.',
+        'Agglutinative a priori language: proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies, syllabary packing and vertical layout, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font.'
     },
@@ -327,9 +327,52 @@ const en: Dict = {
     hint: 'This file was exported for viewing only; edits are not saved',
     blocked: 'Read-only project: changes are not allowed',
     export: 'Export a read-only copy',
-    exportDesc: 'Save a copy marked read-only, so others can browse but not edit it',
+    exportDesc:
+      'Save an encrypted read-only copy: others can only view it in Qonlang (no editing, exporting or copying); other programs just see gibberish',
     exported: 'Read-only copy exported',
+    exportBlocked:
+      'Read-only mode: the content can only be viewed in the app, not exported or copied',
     suffix: 'readonly'
+  },
+  newLexeme: {
+    title: 'Add to lexicon',
+    exists: '“{lemma}” already exists in this language; you can still create another one.',
+    paradigm: 'Paradigm',
+    definition: 'Definition ({lang})',
+    tagsHint: 'comma-separated',
+    etymology: 'Etymology',
+    etymologyValue: 'derived ← {base} ({paradigm} · {slot})',
+    noBase: 'free input',
+    relation: 'Relation',
+    relationValue: 'derivation → {base}',
+    generate: 'Create',
+    bare: 'Only form, etymology and relation',
+    bareHint:
+      'Create the entry without filling anything else (the lexicon will flag the missing definition in red)',
+    done: 'Created entry “{lemma}”',
+    show: 'Open in lexicon'
+  },
+  glyphPad: {
+    title: 'Draw: {name}',
+    pen: 'Pen',
+    select: 'Select',
+    selectHint:
+      'Drag a box around strokes to select them; drag the selection to move it, Delete removes it',
+    erase: 'Eraser',
+    eraseHint: 'Click a stroke to delete it',
+    width: 'Weight',
+    advance: 'Advance',
+    undo: 'Undo (Ctrl+Z)',
+    clear: 'Clear all',
+    save: 'Save',
+    hint: 'Draw inside the body box: the green line is the baseline; the dashed lines from the top are the ascender, cap height and x-height, and the lowest is the descender. Drag the dot under the right edge to change the advance width.',
+    guides: {
+      ascender: 'ascender',
+      capHeight: 'cap height',
+      xHeight: 'x-height',
+      baseline: 'baseline',
+      descender: 'descender'
+    }
   },
   update: {
     title: 'Version {version} is available',
@@ -344,6 +387,11 @@ const en: Dict = {
     install: 'Download & install',
     page: 'Release page',
     downloading: 'Downloading {pct}% ({done} / {total} MB)',
+    verifying: 'Verifying…',
+    cancelSaveTitle: 'This resets the update progress. Continue?',
+    cancelSaveBody:
+      'The project has never been saved, and installing closes the app, so it needs a location first. If you don’t save, the downloaded update won’t be installed this time.',
+    cancelSaveOk: 'Continue (skip this install)',
     installing: 'Installing — the app will reopen shortly…',
     failed: 'Download failed: {err}',
     later: 'Later',
@@ -529,7 +577,8 @@ const en: Dict = {
   },
   search: {
     help: 'Search syntax: plain text searches this page’s usual fields; field=text searches one field (e.g. gloss=PL, word=kam); field==text must match exactly; /regex/ searches with a regular expression; separate conditions with spaces (all must match); put text containing spaces in quotes.',
-    fields: 'Fields on this page: {fields}'
+    fields: 'Fields on this page: {fields}',
+    dimFields: 'Dimension names work as fields too: gender=fem, number=pl'
   },
   tour: {
     title: 'Guided tour',
@@ -707,6 +756,11 @@ const en: Dict = {
     addForm: 'Add form',
     slot: 'Slot',
     duplicate: 'Another entry in this language has the same lemma',
+    noDefinition: 'No definition',
+    issuesNoDef: '{n} without a definition',
+    issuesDup: '{n} duplicate headwords',
+    noIssues: 'No issues',
+    issuesMore: '{n} more…',
     merge: 'Merge duplicates',
     merged: 'Merged {n} entries',
     dupColumns:
@@ -764,6 +818,8 @@ const en: Dict = {
     colPron: 'Pronunciation',
     colUpdated: 'Updated',
     colFeature: 'Dimension',
+    colDialect: 'Dialects',
+    noDialect: '(no dialect)',
     colStem: 'Stem',
     colForm: 'Form',
     relations: 'Relations',
@@ -832,6 +888,12 @@ const en: Dict = {
     resetDerived: 'Restore derived value',
     deriveForms: 'Derive from paradigm',
     paradigmByPos: 'Paradigm: by part of speech',
+    addParadigm: 'Add a paradigm',
+    addParadigmHint:
+      'This word also inflects by another paradigm (e.g. it is both a noun and a verb); slot names that clash get the paradigm name in front',
+    removeParadigm: 'Remove this paradigm',
+    generateEntry:
+      'Create a new entry from this form (etymology and relation filled in from the paradigm)',
     paradigmByPosNamed: 'Paradigm: by part of speech ({name})',
     paradigmsOfPos: 'Paradigms of this part of speech',
     paradigmsOther: 'Other paradigms',
@@ -1137,6 +1199,13 @@ const en: Dict = {
     rulesHint:
       'Same syntax as sound changes; the @glyphs line expands to the glyph table mapping, and rules above it run first.',
     autoRules: 'Automatic mapping (from the glyph table, {n} rules)',
+    drawGlyph: 'Draw a glyph',
+    drawGlyphHint:
+      'Draw a character by hand on the pad; an empty character gets a private-use code point automatically',
+    drawThis: 'Draw this glyph',
+    editDrawing: 'Edit drawing',
+    removeDrawing: 'Remove drawing',
+    untitledGlyph: 'new glyph',
     typeHints: {
       alphabet:
         'One letter per sound: @glyphs is usually enough; give digraph glyphs a longer transliteration value.',
@@ -1423,9 +1492,21 @@ const en: Dict = {
       sca: 'sound change',
       pattern: 'pattern',
       reduplication: 'reduplication',
-      adjust: 'tweak'
+      adjust: 'tweak',
+      paradigm: 'Paradigm'
     },
     adjustPlaceholder: 'at > / _#   or shorthand -at, +u, ^-e, ^+a',
+    nestPick: 'Pick a paradigm',
+    nestHint:
+      'Treat the form so far as a stem and run it through one slot of another paradigm (e.g. decline a gerund)',
+    benchCompare: 'Compare',
+    benchFree: 'Free',
+    benchCompareHint: 'Pick a word and compare the derived forms with those in the lexicon',
+    benchFreeHint:
+      'Type any form and see what this paradigm makes of it; results can become entries or be fed into another paradigm',
+    freePlaceholder: 'Type a form…',
+    continueNest:
+      'Use this form as the input (switch to another paradigm tab to run it through that one)',
     noSlots: 'Pick at least one dimension first.',
     slot: 'Slot',
     gloss: 'gloss',
@@ -1771,16 +1852,23 @@ const en: Dict = {
   topbar: {
     currentLanguage: 'Current language',
     allLanguages: 'All languages',
-    saveShortcut: 'Save (Ctrl+S)'
+    saveShortcut: 'Save (Ctrl+S)',
+    resizerHint: 'Drag to resize the inspector; double-click to follow the window width again'
   },
   errors: {
     pageCrashed: 'This page hit an error; other pages are unaffected.',
     retry: 'Retry',
     goLanguages: 'Go to Languages',
+    crashTitle: 'Error on the {page} page',
+    crashUndone: 'Reverted to before the last change and redrew the page — you can keep working.',
+    crashReloaded: 'The page was redrawn; the project was not changed.',
+    unexpectedTitle: 'Something went wrong',
     invalidJson: 'The file is not valid JSON.',
     notAProject: 'The file is not a Qonlang project.',
     newerSchema: 'This file was created by a newer Qonlang; please update.',
     invalidCsv: 'Could not read the project CSV: {msg}',
+    sealedBroken:
+      'This read-only copy cannot be read (the file was modified, or it was not exported by Qonlang).',
     saveFailed: 'Save failed: {msg}',
     openFailed: 'Open failed: {msg}'
   },

@@ -5,6 +5,36 @@ import type { SearchField } from './query'
 
 const f = (key: string, ...aliases: string[]): SearchField => ({ key, aliases })
 
+interface CategoryLike {
+  id: string
+  name: Record<string, string>
+  abbr?: string
+  values: { id: string; name: Record<string, string>; abbr: string }[]
+}
+
+/** 每个语法维度也能当字段用：维度的名字（各释义语言的写法）、缩写写成 维度=取值，如 性=阴 */
+export function categoryFields(categories: CategoryLike[]): SearchField[] {
+  return categories.map((c) => ({
+    key: `feat:${c.id}`,
+    aliases: [...new Set([...Object.values(c.name), c.abbr ?? ''].filter(Boolean))]
+  }))
+}
+
+/** 取值名：field 为 feat:<维度 id> 时只要这个维度的，为 null 时各维度都要 */
+export function featureValueTexts(
+  categories: CategoryLike[],
+  features: Record<string, string>,
+  categoryId: string | null = null
+): string[] {
+  const out: string[] = []
+  for (const [cid, vid] of Object.entries(features)) {
+    if (categoryId && cid !== categoryId) continue
+    const v = categories.find((c) => c.id === cid)?.values.find((x) => x.id === vid)
+    if (v) out.push(...Object.values(v.name), v.abbr)
+  }
+  return out.filter(Boolean)
+}
+
 export const SEARCH_FIELDS: Record<string, SearchField[]> = {
   lexicon: [
     f('word', 'w', 'lemma', '单词', '词', '词头'),
@@ -17,7 +47,9 @@ export const SEARCH_FIELDS: Record<string, SearchField[]> = {
     f('register', 'reg', '语域'),
     f('etym', 'etymology', '词源'),
     f('note', 'notes', '备注'),
-    f('script', '文字')
+    f('script', '文字'),
+    f('feature', 'feat', 'dim', '维度', '语法维度', '取值'),
+    f('dialect', 'dia', 'lect', '方言')
   ],
   morphemes: [
     f('form', 'word', 'w', '形式', '单词'),
@@ -26,7 +58,8 @@ export const SEARCH_FIELDS: Record<string, SearchField[]> = {
     f('type', '类型'),
     f('allo', 'allomorph', '异体形'),
     f('tag', 'tags', '标签'),
-    f('note', 'notes', '备注')
+    f('note', 'notes', '备注'),
+    f('feature', 'feat', 'dim', '维度', '语法维度', '取值')
   ],
   corpus: [
     f('text', 'word', 'w', '原文', '单词', '词'),

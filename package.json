@@ -56,6 +56,7 @@
     "electron-vite": "^5.0.0",
     "eslint": "^9.39.1",
     "eslint-plugin-svelte": "^3.13.1",
+    "opentype.js": "^2.0.0",
     "prettier": "^3.7.4",
     "prettier-plugin-svelte": "^3.4.0",
     "svelte": "^5.45.6",

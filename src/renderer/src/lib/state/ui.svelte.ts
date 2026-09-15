@@ -40,7 +40,10 @@ export const TOGGLE_BACK_SECTIONS: ReadonlySet<Section> = new Set<Section>(['ski
 export interface Toast {
   id: number
   message: string
-  kind: 'info' | 'error'
+  /** crash：页面出错的红色条，不自动消失，要手动关 */
+  kind: 'info' | 'error' | 'crash'
+  /** 出错条的标题（出错的地方） */
+  title?: string
   action?: { label: string; run: () => void }
   secondary?: { label: string; run: () => void }
   timeout: number
@@ -329,6 +332,13 @@ class UiState {
     this.prefs.skippedVersion ??= ''
     this.prefs.guideTourAlways ??= false
     if (!Array.isArray(this.prefs.seenTours)) this.prefs.seenTours = []
+    // 旧版本的检视器是固定宽度（默认 360，窗口一宽主区里就空出一大块）：升级时改成跟着窗口走一次
+    if ((this.prefs.inspectorWidthV ?? 1) < 2) {
+      this.prefs.inspectorAuto = true
+      this.prefs.inspectorWidthV = 2
+      void this.savePrefs()
+    }
+    this.prefs.inspectorAuto ??= true
     i18n.locale = this.prefs.locale as LocaleCode
     this.prefsLoaded = true
     this.applyTheme()
@@ -404,6 +414,14 @@ class UiState {
 
   error(message: string): number {
     return this.toast(message, { kind: 'error', timeout: 8000 })
+  }
+  /** 页面出错：底部一条红色的条，写明哪里出的错和报错信息；不自动消失。同样的报错已经挂着就不再叠一条 */
+  crash(title: string, message: string): number {
+    const same = this.toasts.find(
+      (x) => x.kind === 'crash' && x.title === title && x.message === message
+    )
+    if (same) return same.id
+    return this.toast(message, { kind: 'crash', title, timeout: 0 })
   }
 
   dismiss(id: number): void {

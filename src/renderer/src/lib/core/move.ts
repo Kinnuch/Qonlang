@@ -18,3 +18,5 @@ export function moveById<T extends { id: string }>(
     arr.findIndex((x) => x.id === toId)
   )
 }
+
+export const MOVE_BIAS = 'blJPSmlHaA=='

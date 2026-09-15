@@ -5,8 +5,12 @@ import {
   ProjectParseError,
   parseProject,
   projectToFolder,
+  readProjectText,
+  serializeForDisk,
   serializeProject
 } from '$lib/core/serialize'
+import { isSealed } from '$lib/core/sealed'
+import { setExportGuard } from '$lib/platform'
 import { isProjectCsv, projectFromCsv, projectToCsv } from '$lib/core/projectCsv'
 import { platform, type RecentEntry, type SaveTarget } from '$lib/platform'
 import { t } from '$lib/i18n/index.svelte'
@@ -26,6 +30,8 @@ class ProjectState {
   private history: string[] = []
   private future: string[] = []
   private commitTimer: ReturnType<typeof setTimeout> | null = null
+  /** 最近一次记进撤销栈的时间：页面出错时判断是不是刚做的那一步惹的 */
+  private lastCommitAt = 0
   canUndo = $state(false)
   canRedo = $state(false)
   /** 撤销次数（供界面在撤销后闪一下） */
@@ -54,6 +60,7 @@ class ProjectState {
     if (this.history.length > 60) this.history.shift()
     this.future = []
     this.committed = now
+    this.lastCommitAt = Date.now()
     this.canUndo = true
     this.canRedo = false
   }
@@ -81,6 +88,34 @@ class ProjectState {
     this.restore(prev)
     this.canUndo = this.history.length > 0
     this.canRedo = true
+  }
+  /**
+   * 页面出错后，把项目退回到上一次操作之前：还没记进撤销栈的改动（400ms 以内的）直接丢掉；
+   * 没有这种改动、而刚记进去的那一步是 3 秒以内的，就撤销那一步。两样都没有就不动（多半跟改动无关，比如换页面时出的错）。
+   * 返回有没有退回。
+   */
+  recoverFromCrash(): boolean {
+    if (!this.project) return false
+    const pending = this.commitTimer !== null
+    if (this.commitTimer) {
+      clearTimeout(this.commitTimer)
+      this.commitTimer = null
+    }
+    let now = ''
+    try {
+      now = this.serializeNow()
+    } catch {
+      now = ''
+    }
+    if (this.committed && (pending || now !== this.committed)) {
+      this.restore(this.committed)
+      return true
+    }
+    if (this.history.length && Date.now() - this.lastCommitAt < 3000) {
+      this.undo()
+      return true
+    }
+    return false
   }
   redo(): void {
     const next = this.future.pop()
@@ -139,6 +174,8 @@ class ProjectState {
   load(p: Project, target: SaveTarget | null): void {
     this.project = p
     this.target = target
+    // 纯欣赏项目开着时，桌面版不让开开发者工具
+    platform.setReadOnly(!!p.meta.readOnly)
     this.currentLanguageId = p.settings.defaultLanguageId ?? p.languages[0]?.id ?? null
     this.lastSavedAt = target ? p.meta.updatedAt : null
     this.markClean()
@@ -153,7 +190,8 @@ class ProjectState {
         'invalid-json': 'invalidJson',
         'not-a-project': 'notAProject',
         'newer-schema': 'newerSchema',
-        'invalid-csv': 'invalidCsv'
+        'invalid-csv': 'invalidCsv',
+        'sealed-broken': 'sealedBroken'
       }[e.code]
       ui.error(t(`errors.${key}`, { msg: e.message }))
     } else {
@@ -173,7 +211,7 @@ class ProjectState {
         ui.toast(t('projectCsv.opened'))
         return true
       }
-      const p = parseProject(r.content)
+      const p = parseProject(await readProjectText(r.content))
       this.load(p, r.target)
       await this.remember()
       return true
@@ -190,7 +228,7 @@ class ProjectState {
         ui.error(t('welcome.recentMissing'))
         return false
       }
-      const p = parseProject(r.content)
+      const p = parseProject(await readProjectText(r.content))
       this.load(p, r.target)
       await this.remember()
       return true
@@ -222,7 +260,7 @@ class ProjectState {
     }
     this.saving = true
     try {
-      const content = serializeProject($state.snapshot(this.project) as Project)
+      const content = await serializeForDisk($state.snapshot(this.project) as Project)
       const target = await platform.saveProject(saveAs ? null : this.target, content, this.fileName)
       if (!target) return false
       this.target = target
@@ -244,13 +282,13 @@ class ProjectState {
     await platform.saveSnapshot(serializeProject($state.snapshot(this.project) as Project))
   }
 
-  /** 纯欣赏模式导出：另存一份带只读标记的项目文件 */
+  /** 纯欣赏模式导出：另存一份带只读标记、加过密的项目文件（别人用千语集打开只能看，拿记事本打开是一串乱码） */
   async exportReadOnly(): Promise<void> {
     if (!this.project) return
     const copy = $state.snapshot(this.project) as Project
     copy.meta = { ...copy.meta, readOnly: true }
     const name = (copy.meta.name || 'qonlang') + '-' + t('readonly.suffix') + PROJECT_EXTENSION
-    const ok = await platform.saveTextFile(name, serializeProject(copy))
+    const ok = await platform.saveTextFile(name, await serializeForDisk(copy))
     if (ok) ui.toast(t('readonly.exported'))
   }
 
@@ -274,6 +312,7 @@ class ProjectState {
   close(): void {
     this.project = null
     this.target = null
+    platform.setReadOnly(false)
     this.currentLanguageId = null
     this.markClean()
   }
@@ -290,6 +329,13 @@ class ProjectState {
 }
 
 export const projectState = new ProjectState()
+// 纯欣赏项目开着时，导出类的操作（另存文本、导出文件夹、PDF）一律不做——内容只能在软件里看；
+// 加过密的纯欣赏副本本身可以照样写出去
+setExportGuard((content) => {
+  if (!projectState.readOnly || (content !== undefined && isSealed(content))) return false
+  ui.toast(t('readonly.exportBlocked'))
+  return true
+})
 // 「返回」要记下与恢复当前语言，还要知道记下的对象还在不在
 ui.navAccess = {
   getLanguage: () => projectState.currentLanguageId,

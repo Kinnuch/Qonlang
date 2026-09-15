@@ -9,12 +9,14 @@
   import { cubicOut } from 'svelte/easing'
   import { ChevronLeft, ChevronRight } from '@lucide/svelte'
   import { platform, type RecentEntry } from '$lib/platform'
-  import { parseProject } from '$lib/core/serialize'
+  import { parseProject, readProjectText } from '$lib/core/serialize'
   import type { Id, Project, Sentence, Token } from '$lib/core/model'
   import { analyzeToken, buildIndex, tokenize, type GlossIndex } from '$lib/engine/gloss'
+  import { WordResolver } from '$lib/engine/gloss/resolve'
+  import { collectEvidence } from '$lib/engine/gloss/candidates'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
-  import { wordHover, type HoverPart } from '$lib/state/wordHover.svelte'
+  import { wordHover } from '$lib/state/wordHover.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
 
   let { recent }: { recent: RecentEntry[] } = $props()
@@ -24,6 +26,8 @@
     project: Project
     /** 语言 id → 分词索引（悬浮短语里的词时才建） */
     indexes: Map<Id, GlossIndex>
+    /** 语言 id → 认词（悬浮例句里的词时才建，跟语料页同一套判断） */
+    resolvers: Map<Id, WordResolver>
   }
   type Slide =
     | { kind: 'sentence'; key: string; source: number; sentence: Sentence; translation: string }
@@ -74,7 +78,13 @@
     for (const entry of entries) {
       try {
         const r = await platform.openRecent(entry)
-        if (r) got.push({ entry, project: parseProject(r.content), indexes: new Map() })
+        if (r)
+          got.push({
+            entry,
+            project: parseProject(await readProjectText(r.content)),
+            indexes: new Map(),
+            resolvers: new Map()
+          })
       } catch {
         // 文件不在了、不是合法的项目：跳过这一个
       }
@@ -196,10 +206,8 @@
     else if (target.morphemeId)
       ui.jump('morphemes', 'morpheme', target.morphemeId, target.languageId)
   }
-  const tokenLinked = (tk: Token): boolean => {
-    const a = tk.analyses[tk.chosen]
-    return !!a && (!!a.lexemeId || a.morphs.some((m) => m.morphemeId || m.lexemeId))
-  }
+  const tokenLinked = (src: Source, sentence: Sentence, tk: Token): boolean =>
+    resolverOf(src, sentence.languageId).linkable(tk)
   /** 铅笔：打开那个项目、跳到语料里这一句，在第 at 个词上打开「应该是哪个词」 */
   async function editInCorpus(
     src: Source,
@@ -211,27 +219,39 @@
     ui.pendingWordEdit = { sentenceId: sentence.id, at, index }
     ui.jump('corpus', 'sentence', sentence.id, sentence.languageId)
   }
+  /** 这个项目、这门语言的认词：第一次悬浮时建，旁证（同形词排序用）一次算好 */
+  function resolverOf(src: Source, languageId: Id): WordResolver {
+    let r = src.resolvers.get(languageId)
+    if (!r) {
+      const evidence = collectEvidence(src.project.sentences, languageId)
+      r = new WordResolver(src.project, languageId, () => evidence)
+      src.resolvers.set(languageId, r)
+    }
+    return r
+  }
+  /**
+   * 悬浮例句里的词：跟语料页一样认——存着的分析没挂上词条时也按词形、构形词缀、切分反查，
+   * 切分里的每一段也挂上，点得开。项目没打开，写不回去：几个候选只是换着看，没找到的点「改」去语料里指定
+   */
   function hoverToken(e: MouseEvent, src: Source, sentence: Sentence, at: number): void {
     const tk = sentence.tokens[at]
-    const a = tk?.analyses[tk.chosen]
-    if (!a) return
+    if (!tk) return
+    const r = resolverOf(src, sentence.languageId)
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const parts: HoverPart[] =
-      a.morphs.length > 1
-        ? a.morphs.map((m) => ({
-            label: m.form,
-            gloss: m.gloss,
-            lexemeId: m.lexemeId ?? null,
-            morphemeId: m.morphemeId
-          }))
-        : []
-    const m = a.morphs.find((x) => x.lexemeId || x.morphemeId)
-    const lexemeId = a.lexemeId ?? m?.lexemeId ?? null
-    if (!lexemeId && !m?.morphemeId) return
     useSource(src)
     wordHover.editAt = (index) => void editInCorpus(src, sentence, at, index)
-    if (lexemeId) wordHover.show(lexemeId, rect, parts)
-    else if (m?.morphemeId) wordHover.showMorpheme(m.morphemeId, rect, parts)
+    const cands = r.candidatesOf(tk, sentence)
+    if (cands.length > 1) {
+      wordHover.showCandidates(cands, rect, () => {})
+      return
+    }
+    const parts = r.hoverParts(tk)
+    const miss = parts.findIndex((p) => p.missing)
+    if (miss >= 0) return wordHover.showMissing(parts[miss].label, miss, rect, parts, null)
+    const target = cands[0]
+    if (!target) return wordHover.showMissing(tk.surface, null, rect, parts, null)
+    if (target.lexemeId) wordHover.show(target.lexemeId, rect, parts)
+    else if (target.morphemeId) wordHover.showMorpheme(target.morphemeId, rect, parts)
   }
   function phraseLexeme(src: Source, languageId: Id, word: string): Id | null {
     const w = tokenize(word)[0]
@@ -275,7 +295,7 @@
             <span class="main data"
               >{#if slide.sentence.tokens.length}{#each slide.sentence.tokens as tk, i (i)}{#if i}{SPACE}{/if}<span
                     class="w"
-                    class:link={tokenLinked(tk)}
+                    class:link={tokenLinked(src, slide.sentence, tk)}
                     role="link"
                     tabindex="-1"
                     onmouseenter={(e) => hoverToken(e, src, slide.sentence, i)}

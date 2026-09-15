@@ -94,7 +94,7 @@ export default {
     galleryNext: '下一张',
     exampleDesc: {
       aelith:
-        '黏着先验语：祖语→现代语的语系与姊妹语（关系图里对比同源词的音变与意思）、满足 / 不满足环境两路的音变规则、元音和谐、流水线构形的八种步骤、变体与继承、一个词类几个构形、按阴阳换字母、连读浊化反推、复合词类、检视器模块、词源链、已 gloss 的语料、卢恩刻文。',
+        '黏着先验语：祖语→现代语的语系与姊妹语（关系图里对比同源词的音变与意思）、满足 / 不满足环境两路的音变规则、元音和谐、流水线构形的九种步骤（含构形套构形）、变体与继承、一个词类几个构形、一个词条几个构形、按阴阳换字母、连读浊化反推、复合词类、检视器模块、词源链、从构形生成的词条、已 gloss 的语料、卢恩刻文与手写字形。',
       tsahun:
         '孤立声调语：五个声调与连读变调、罗马化与西里尔双正字法、音节文字的拼合与竖排、重叠构形、带空格的屈折形、同形词候选、用文字字体显示的异体字模块。'
     },
@@ -314,9 +314,49 @@ export default {
     hint: '这份文件是纯欣赏模式导出的，只能阅览，改动不会保存',
     blocked: '纯欣赏模式：这份项目不能修改',
     export: '导出纯欣赏副本',
-    exportDesc: '另存一份带只读标记的项目文件，别人打开后只能阅览',
+    exportDesc:
+      '另存一份加密的纯欣赏副本：别人用千语集打开只能阅览，不能改、不能导出或复制；拿别的软件打开只是一串乱码',
     exported: '已导出纯欣赏副本',
+    exportBlocked: '纯欣赏模式：内容只能在软件里看，不能导出或复制',
     suffix: '欣赏版'
+  },
+  newLexeme: {
+    title: '生成到词库',
+    exists: '这门语言里已经有「{lemma}」了，照样可以再生成一条。',
+    paradigm: '构形',
+    definition: '释义（{lang}）',
+    tagsHint: '逗号隔开',
+    etymology: '词源',
+    etymologyValue: '派生 ← {base}（{paradigm} · {slot}）',
+    noBase: '自由输入',
+    relation: '关系',
+    relationValue: '派生 → {base}',
+    generate: '生成',
+    bare: '只生成形式、词源和关系',
+    bareHint: '别的都不填，先把词条建出来（词库里会标红提醒缺释义）',
+    done: '已生成词条「{lemma}」',
+    show: '在词库中查看'
+  },
+  glyphPad: {
+    title: '手写：{name}',
+    pen: '画笔',
+    select: '框选',
+    selectHint: '框住笔画选中；按住选框拖着挪，Delete 删掉',
+    erase: '橡皮',
+    eraseHint: '点到哪一笔删哪一笔',
+    width: '粗细',
+    advance: '字宽',
+    undo: '撤销（Ctrl+Z）',
+    clear: '全部清掉',
+    save: '保存',
+    hint: '画在字身框里：绿线是基线，虚线从上往下是上伸线、大写高、x 高，最下面是下伸线；右边竖线下的圆点拖着改字宽。',
+    guides: {
+      ascender: '上伸',
+      capHeight: '大写高',
+      xHeight: 'x 高',
+      baseline: '基线',
+      descender: '下伸'
+    }
   },
   update: {
     title: '有新版本 v{version}',
@@ -330,6 +370,11 @@ export default {
     install: '下载并安装',
     page: '下载页',
     downloading: '下载中 {pct}%（{done} / {total} MB）',
+    verifying: '校验中…',
+    cancelSaveTitle: '这会导致更新进度归零，继续吗？',
+    cancelSaveBody:
+      '项目还没保存过，装新版本前要先存到一个位置（安装会关掉软件）。不保存的话，这次下好的更新就不装了。',
+    cancelSaveOk: '继续（这次不装）',
     installing: '正在安装，软件马上重新打开…',
     failed: '下载失败：{err}',
     later: '稍后再说',
@@ -514,7 +559,8 @@ export default {
   },
   search: {
     help: '搜索写法：直接写文字，在本页常用的字段里找；字段=内容 只找这个字段（如 gloss=PL、word=kam）；字段==内容 要整个相等；/正则/ 按正则找；多个条件用空格隔开，要全部满足；内容里有空格就加引号。',
-    fields: '本页字段：{fields}'
+    fields: '本页字段：{fields}',
+    dimFields: '语法维度的名字也能当字段：性=阴、数=复数'
   },
   tour: {
     title: '图文引导',
@@ -684,6 +730,11 @@ export default {
     addForm: '添加形式',
     slot: '槽位',
     duplicate: '同语言里还有同形词条',
+    noDefinition: '缺少释义',
+    issuesNoDef: '{n} 条缺释义',
+    issuesDup: '{n} 条词头重复',
+    noIssues: '没有问题',
+    issuesMore: '还有 {n} 条……',
     merge: '尝试合并',
     merged: '已合并 {n} 条同形词条',
     dupColumns: '有同名的列：{list}，选列时容易点错，建议在来源处改名',
@@ -739,6 +790,8 @@ export default {
     colPron: '发音',
     colUpdated: '修改时间',
     colFeature: '维度',
+    colDialect: '方言',
+    noDialect: '（没标方言）',
     colStem: '词干',
     colForm: '屈折形',
     relations: '关系',
@@ -803,6 +856,11 @@ export default {
     resetDerived: '恢复推导值',
     deriveForms: '按构形推导',
     paradigmByPos: '构形：按词类',
+    addParadigm: '加一个构形',
+    addParadigmHint:
+      '这个词还按另一个构形变（比如既是名词又是动词）；推出来的形式跟前面的重名时，名字前面加构形名',
+    removeParadigm: '去掉这个构形',
+    generateEntry: '用这个形式生成一个新词条（词源、关系按构形填好）',
     paradigmByPosNamed: '构形：按词类（{name}）',
     paradigmsOfPos: '这个词类的构形',
     paradigmsOther: '其他构形',
@@ -1104,6 +1162,12 @@ export default {
     bulkDeleted: '已删除 {n} 个字形',
     rulesHint: '写法同音变规则；@glyphs 那行展开成字形表的映射，写在它前面的规则先跑。',
     autoRules: '自动映射（由字形表生成，{n} 条）',
+    drawGlyph: '手写字形',
+    drawGlyphHint: '在手写板上现场画一个字；字符空着时自动分一个私用区码位',
+    drawThis: '手写这个字',
+    editDrawing: '改手写',
+    removeDrawing: '去掉手写',
+    untitledGlyph: '新字形',
     typeHints: {
       alphabet: '一字母对一音，通常只需 @glyphs；多合字母给单独字形填更长的转写值即可。',
       abjad: '在 @glyphs 之前删掉不写出的元音，例如 `[aiu] > / C_`。',
@@ -1377,9 +1441,18 @@ export default {
       sca: '音变',
       pattern: '模板',
       reduplication: '重叠',
-      adjust: '微调'
+      adjust: '微调',
+      paradigm: '构形'
     },
     adjustPlaceholder: 'at > / _#   也可以简写 -at、+u、^-e、^+a',
+    nestPick: '选一个构形',
+    nestHint: '把到这一步为止的形式当成词干，套另一个构形的一个槽位（比如动名词再变格）',
+    benchCompare: '对比',
+    benchFree: '自由',
+    benchCompareHint: '挑一个词，推出来的形式跟词库里录的比',
+    benchFreeHint: '随便写一个形式，看它经过这个构形变成什么；结果可以生成词条，也能接着套别的构形',
+    freePlaceholder: '写一个形式……',
+    continueNest: '拿这个形式接着构形（换到别的构形页签就是套那个构形）',
     noSlots: '先选至少一个维度。',
     slot: '槽位',
     gloss: 'gloss',
@@ -1707,16 +1780,22 @@ export default {
   topbar: {
     currentLanguage: '当前语言',
     allLanguages: '全部语言',
-    saveShortcut: '保存 (Ctrl+S)'
+    saveShortcut: '保存 (Ctrl+S)',
+    resizerHint: '拖动调整检视器宽度；双击恢复成跟着窗口宽度走'
   },
   errors: {
     pageCrashed: '这一页出错了，其他页面不受影响。',
     retry: '重试',
     goLanguages: '回到「语言」页',
+    crashTitle: '「{page}」页出错了',
+    crashUndone: '已经退回到上一次操作之前，这一页重新画了一遍；可以接着用。',
+    crashReloaded: '这一页重新画了一遍，项目没有改动。',
+    unexpectedTitle: '出错了',
     invalidJson: '文件不是合法的 JSON。',
     notAProject: '文件不是千语集项目。',
     newerSchema: '此文件由更新版本的千语集创建，请升级软件。',
     invalidCsv: '项目 CSV 读不出来：{msg}',
+    sealedBroken: '纯欣赏副本读不出来（文件被改过，或者不是这个软件导出的）。',
     saveFailed: '保存失败：{msg}',
     openFailed: '打开失败：{msg}'
   },

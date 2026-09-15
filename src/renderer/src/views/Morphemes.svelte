@@ -9,7 +9,7 @@
   import { toCsv } from '$lib/core/csv'
   import { morphemesToRows } from '$lib/importers/csvImport'
   import { matchQuery, parseQuery } from '$lib/core/query'
-  import { SEARCH_FIELDS } from '$lib/core/searchFields'
+  import { SEARCH_FIELDS, categoryFields, featureValueTexts } from '$lib/core/searchFields'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
@@ -131,7 +131,10 @@
   const collator = $derived(makeCollator(projectState.currentLanguage?.alphabet ?? []))
 
   const filtered = $derived.by(() => {
-    const pq = parseQuery(query, SEARCH_FIELDS.morphemes)
+    const pq = parseQuery(query, [
+      ...SEARCH_FIELDS.morphemes,
+      ...categoryFields(project.categories)
+    ])
     return project.morphemes.filter((m) => {
       if (langId && m.languageId !== langId) return false
       if (typeFilter && m.type !== typeFilter) return false
@@ -159,7 +162,11 @@
         return m.tags
       case 'note':
         return [m.notes]
+      case 'feature':
+        return featureValueTexts(project.categories, m.features)
       default:
+        if (field?.startsWith('feat:'))
+          return featureValueTexts(project.categories, m.features, field.slice(5))
         return [m.form, m.gloss, ...meaning]
     }
   }

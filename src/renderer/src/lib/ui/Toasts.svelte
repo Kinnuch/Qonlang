@@ -1,12 +1,25 @@
 <script lang="ts">
   import { ui } from '$lib/state/ui.svelte'
-  import { X } from '@lucide/svelte'
+  import { AlertOctagon, X } from '@lucide/svelte'
 </script>
 
 <div class="toasts" aria-live="polite">
   {#each ui.toasts as toast (toast.id)}
-    <div class="toast card" class:error={toast.kind === 'error'}>
-      <span class="grow">{toast.message}</span>
+    <div
+      class="toast card"
+      class:error={toast.kind === 'error'}
+      class:crash={toast.kind === 'crash'}
+      role={toast.kind === 'crash' ? 'alert' : undefined}
+    >
+      {#if toast.kind === 'crash'}
+        <AlertOctagon size={18} />
+        <div class="grow crash-body">
+          {#if toast.title}<strong>{toast.title}</strong>{/if}
+          <span class="crash-msg">{toast.message}</span>
+        </div>
+      {:else}
+        <span class="grow">{toast.message}</span>
+      {/if}
       {#if toast.action}
         <button
           class="btn sm primary"
@@ -57,6 +70,33 @@
   }
   .toast.error {
     border-color: var(--danger);
+  }
+  /* 页面出错：红色的条，要手动关 */
+  .toast.crash {
+    align-items: flex-start;
+    border-color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 12%, var(--bg-elev));
+    color: var(--text);
+    max-width: 640px;
+  }
+  .toast.crash :global(svg:first-child) {
+    color: var(--danger);
+    flex: none;
+    margin-top: 2px;
+  }
+  .crash-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .crash-body strong {
+    color: var(--danger);
+  }
+  .crash-msg {
+    font-size: 13px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
   @keyframes rise {
     from {

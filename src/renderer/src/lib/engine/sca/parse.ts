@@ -652,6 +652,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
       return
     }
     const warn = (message: string): void => {
+      if (diagnostics.some((d) => d.line === line && d.message === message)) return
       diagnostics.push({ line, severity: 'warning', message })
     }
     const fail = (message: string): void => {

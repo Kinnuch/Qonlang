@@ -1,7 +1,44 @@
 /** 把文字里内嵌的字体注册成 FontFace；返回该文字应使用的 font-family。 */
 import type { Script } from '$lib/core/model'
+import { buildDrawnFont, drawnGlyphs } from './drawnFont'
 
 const registered = new Map<string, string>() // scriptId → dataUrl 已注册
+/** 手写字形做成的字体：scriptId → { 画的内容，已注册的 FontFace } */
+const drawnRegistered = new Map<string, { key: string; face: FontFace | null }>()
+
+/** 手写字形字体的名字（只含这套文字里画过的字，排在字体栈最前面） */
+export function drawnFontFamily(script: Script): string {
+  return `qy-drawn-${script.id}`
+}
+const hasDrawn = (script: Script): boolean => script.glyphs.some((g) => g.drawing?.strokes.length)
+
+/** 手写字形变了就重新做字体、换掉原来注册的那个 */
+export function ensureDrawnFont(script: Script): void {
+  if (typeof document === 'undefined' || !('fonts' in document)) return
+  const drawn = drawnGlyphs(script)
+  const key = JSON.stringify(drawn)
+  const prev = drawnRegistered.get(script.id)
+  if (prev?.key === key) return
+  if (prev?.face) document.fonts.delete(prev.face)
+  if (!drawn.length) {
+    drawnRegistered.set(script.id, { key, face: null })
+    return
+  }
+  try {
+    const buf = buildDrawnFont(script, drawnFontFamily(script))
+    if (!buf) return
+    const face = new FontFace(drawnFontFamily(script), buf)
+    drawnRegistered.set(script.id, { key, face })
+    face
+      .load()
+      .then((f) => {
+        if (drawnRegistered.get(script.id)?.face === f) document.fonts.add(f)
+      })
+      .catch(() => {})
+  } catch {
+    /* 字体做不出来：画的字照旧显示成方框，不影响别的 */
+  }
+}
 
 export function scriptFontFamily(script: Script): string {
   if (script.font.dataUrl) return `qy-script-${script.id}`
@@ -10,6 +47,7 @@ export function scriptFontFamily(script: Script): string {
 
 export function ensureScriptFont(script: Script): void {
   if (typeof document === 'undefined' || !('fonts' in document)) return
+  ensureDrawnFont(script)
   const url = script.font.dataUrl
   if (!url) return
   if (registered.get(script.id) === url) return
@@ -46,7 +84,8 @@ export function scriptFontVar(scriptId: string): string {
 export function fontFamilyCss(script: Script): string {
   const fam = scriptFontFamily(script)
   const own = fam ? `"${fam.replace(/"/g, '')}"` : 'var(--font-script)'
-  return `font-family:var(${scriptFontVar(script.id)}, ${own}),var(--font-script)`
+  const drawn = hasDrawn(script) ? `"${drawnFontFamily(script)}",` : ''
+  return `font-family:${drawn}var(${scriptFontVar(script.id)}, ${own}),var(--font-script)`
 }
 
 /**
@@ -54,9 +93,10 @@ export function fontFamilyCss(script: Script): string {
  * 拉丁字母仍按等宽对齐，文字行也不再是方框。
  */
 export function mixedFontCss(scripts: Script[], base = 'var(--font-mono)'): string {
-  const fams = scripts.map((s) => {
+  const fams = scripts.flatMap((s) => {
     const fam = scriptFontFamily(s).replace(/"/g, '')
-    return `var(${scriptFontVar(s.id)}, ${fam ? `"${fam}"` : 'var(--font-script)'})`
+    const own = `var(${scriptFontVar(s.id)}, ${fam ? `"${fam}"` : 'var(--font-script)'})`
+    return hasDrawn(s) ? [`"${drawnFontFamily(s)}"`, own] : [own]
   })
   return `font-family:${[base, ...fams, 'var(--font-script)'].join(',')}`
 }

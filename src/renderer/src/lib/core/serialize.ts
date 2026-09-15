@@ -1,6 +1,7 @@
 /**
  * 项目文件的读写：JSON 序列化、版本迁移、基本校验、文件夹格式导出。
  */
+import { isSealed, sealText, unsealText } from './sealed'
 import {
   CUSTOM_FIELD_KINDS,
   CUSTOM_FIELD_POSITIONS,
@@ -18,10 +19,27 @@ export const PROJECT_EXTENSION = '.laim.json'
 export class ProjectParseError extends Error {
   constructor(
     message: string,
-    public readonly code: 'invalid-json' | 'not-a-project' | 'newer-schema' | 'invalid-csv'
+    public readonly code:
+      'invalid-json' | 'not-a-project' | 'newer-schema' | 'invalid-csv' | 'sealed-broken'
   ) {
     super(message)
   }
+}
+
+/** 读进来的项目文件文本：纯欣赏副本是加过密的，先还原成 JSON；普通项目原样返回 */
+export async function readProjectText(text: string): Promise<string> {
+  if (!isSealed(text)) return text
+  try {
+    return await unsealText(text)
+  } catch {
+    throw new ProjectParseError('纯欣赏副本读不出来', 'sealed-broken')
+  }
+}
+
+/** 纯欣赏项目写盘（另存为、导出副本）：加密后再写，别人拿到文件也看不到内容 */
+export async function serializeForDisk(p: Project): Promise<string> {
+  const json = serializeProject(p)
+  return p.meta.readOnly ? sealText(json) : json
 }
 
 /**

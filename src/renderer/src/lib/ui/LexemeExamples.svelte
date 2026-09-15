@@ -1,6 +1,6 @@
 <script lang="ts">
   /** 词条下方的例句：默认只列几条，「全部」打开后滚动到底再加载下一批 */
-  import { t } from '$lib/i18n/index.svelte'
+  import { t, pickText } from '$lib/i18n/index.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { findExamples, type ExampleHit } from '$lib/core/examples'
   import type { Lexeme, Project } from '$lib/core/model'
@@ -14,12 +14,14 @@
 
   const perEntry = $derived(Math.max(0, ui.prefs.examplesPerEntry ?? 3))
   /** 预览时只找 n+1 条，多的那条只用来判断要不要显示「全部」 */
-  const preview = $derived(findExamples(project, lexeme, glossLangs, perEntry + 1))
+  const preview = $derived(findExamples(project, lexeme, glossLangs, perEntry + 1, pickText))
 
   let showAll = $state(false)
   let visible = $state(30)
   let query = $state('')
-  const found = $derived(showAll ? findExamples(project, lexeme, glossLangs) : [])
+  const found = $derived(
+    showAll ? findExamples(project, lexeme, glossLangs, Infinity, pickText) : []
+  )
   const all = $derived.by(() => {
     const q = query.trim().toLowerCase()
     if (!q) return found

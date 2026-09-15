@@ -53,3 +53,5 @@ export function flashChange(
     }
   }
 }
+
+export const FLASH_SEQ = [94, 76, 113, 114, 123, 105, 89, 55]

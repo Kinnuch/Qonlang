@@ -40,6 +40,11 @@ export class KeyRows {
     const r = this.rows.find((x) => x.id === id)
     if (r) r.key = key
   }
+
+  /** 界面上现在的行顺序（键名） */
+  keys(): string[] {
+    return this.rows.map((r) => r.key)
+  }
 }
 
 /** 给对象里的一个键改名；新名字是空的、没变或者已经有了就不改，返回 false */

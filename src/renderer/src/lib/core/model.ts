@@ -137,6 +137,14 @@ export interface Glyph {
   /** 分类（字母 / 元音符号 / 附标 / 数字 / 标点……用户可改） */
   category: string
   notes: string
+  /** 手写板上画的字：有它时软件把它做成字体挂在这套文字最前面，字符没填时自动分一个私用区码位 */
+  drawing?: GlyphDrawing
+}
+
+/** 手写的字：笔画是字体单位下的点列（一个 em = 1000，基线 y = 0、向上为正），带笔画粗细；advance 是字宽 */
+export interface GlyphDrawing {
+  strokes: { points: [number, number][]; width: number }[]
+  advance: number
 }
 
 export interface Script {
@@ -382,6 +390,11 @@ export interface Lexeme {
   paradigmId?: Id | null
   /** 用构形的哪个变体 */
   paradigmVariantId?: Id | null
+  /**
+   * 另外还用的构形（一个词既是名词又是动词：一个变格、一个变位）。形式照样存进 forms；
+   * 槽位名跟前面的构形撞了的，键前面加「构形名·」
+   */
+  extraParadigms?: { paradigmId: Id; variantId?: Id | null }[]
   /** 合并同形词条后叠加的其他词类 */
   extraPosIds?: Id[]
   /** 名词类别、动词类别等任意维度：categoryId → valueId */
@@ -571,6 +584,8 @@ export type MorphStep =
   | { id: Id; kind: 'pattern'; pattern: string }
   | { id: Id; kind: 'reduplication'; scope: 'full' | 'initial' | 'final'; length: number }
   | { id: Id; kind: 'adjust'; text: string }
+  /** 构形套构形：把到这一步为止的形式当成词干，套另一个构形的某个槽位 */
+  | { id: Id; kind: 'paradigm'; paradigmId: Id | null; slotKey: string; variantId?: Id | null }
 
 export type MorphStepKind = MorphStep['kind']
 

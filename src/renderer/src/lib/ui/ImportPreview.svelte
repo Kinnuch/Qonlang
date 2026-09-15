@@ -225,7 +225,7 @@
             </li>
           {/each}
         </ol>
-        {#each lexemeFacts(pj, l) as f (f.label)}
+        {#each lexemeFacts(pj, l) as f, fi (fi)}
           <div class="ip-fact" use:flashChange={fx(f.value)}>
             <span class="muted">{f.label}</span>{f.value}
           </div>
@@ -246,7 +246,7 @@
         {#if texts(m.meaning)}<div class="ip-def" use:flashChange={fx(m.meaning)}>
             {texts(m.meaning)}
           </div>{/if}
-        {#each morphemeFacts(pj, m) as f (f.label)}
+        {#each morphemeFacts(pj, m) as f, fi (fi)}
           <div class="ip-fact" use:flashChange={fx(f.value)}>
             <span class="muted">{f.label}</span>{f.value}
           </div>

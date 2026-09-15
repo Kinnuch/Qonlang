@@ -14,7 +14,16 @@
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { platform } from '$lib/platform'
   import { createScript, newId } from '$lib/core/factory'
-  import type { Glyph, Script, ScriptPacking, ScriptType, ParenMode } from '$lib/core/model'
+  import type {
+    Glyph,
+    GlyphDrawing,
+    Script,
+    ScriptPacking,
+    ScriptType,
+    ParenMode
+  } from '$lib/core/model'
+  import GlyphPad from '$lib/ui/GlyphPad.svelte'
+  import { freePrivateChar } from '$lib/script/drawnFont'
   import { parseFont } from '$lib/script/fontParse'
   import {
     BUILTIN_GLYPH_CATEGORIES as BUILTIN_CATS,
@@ -29,7 +38,7 @@
     base64ToBuffer,
     fontFamilyCss
   } from '$lib/script/fonts'
-  import { autoMappingLines, expandRules, renderScript } from '$lib/script/render'
+  import { autoMappingRows, expandRules, renderScript } from '$lib/script/render'
   import { parseRuleText, runRules, type RuleProgram } from '$lib/engine/sca'
   import { languageParseOptions } from '$lib/engine/phon'
   import Portal from '$lib/ui/Portal.svelte'
@@ -48,7 +57,8 @@
     List,
     Code,
     X,
-    Pencil
+    Pencil,
+    PenTool
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
@@ -232,7 +242,7 @@
       languageParseOptions(lang, project)
     )
   })
-  const autoLines = $derived(script ? autoMappingLines(script, lang) : [])
+  const autoLines = $derived(script ? autoMappingRows(script, lang) : [])
   // 字形多的时候分批画
   const lzG = lazy(80)
   let lastGlyphs = -1
@@ -307,6 +317,45 @@
     selectedGlyph = g.id
     touch()
     queueMicrotask(() => document.getElementById('g-char')?.focus())
+  }
+  // ───── 手写板 ─────
+  /** 正在手写板上画的字形 */
+  let padGlyphId = $state<string | null>(null)
+  /** 手写一个新字形：先建一条空字形，再打开手写板 */
+  function drawNewGlyph(): void {
+    addGlyph()
+    padGlyphId = selectedGlyph
+  }
+  /** 内嵌字体里已经有的码位：新画的字不占它们 */
+  function embeddedCodepoints(s: Script): number[] {
+    const url = s.font.dataUrl
+    if (!url) return []
+    try {
+      return parseFont(base64ToBuffer(url.slice(url.indexOf(',') + 1))).glyphs.map(
+        (x) => x.codepoint
+      )
+    } catch {
+      return []
+    }
+  }
+  /** 画完保存：没笔画就去掉手写；字符还空着就分一个私用区码位（项目里别的文字用了的、内嵌字体里有的都跳过） */
+  function saveDrawing(g: Glyph, d: GlyphDrawing): void {
+    padGlyphId = null
+    if (!d.strokes.length) {
+      if (g.drawing) {
+        delete g.drawing
+        touch()
+      }
+      return
+    }
+    g.drawing = JSON.parse(JSON.stringify(d)) as GlyphDrawing
+    if (!g.char && script) {
+      const used = project.languages.flatMap((l) =>
+        l.scripts.flatMap((s) => s.glyphs.map((x) => x.char))
+      )
+      g.char = freePrivateChar(used, embeddedCodepoints(script))
+    }
+    touch()
   }
   function pickGlyph(e: MouseEvent, g: Glyph, i: number): void {
     if (e.shiftKey && lastGlyphIndex >= 0) {
@@ -589,6 +638,9 @@
           ><Wand2 size={14} />{t('script.autoCategorize')}</button
         >
         <span class="grow"></span>
+        <button class="btn sm" title={t('script.drawGlyphHint')} onclick={drawNewGlyph}
+          ><PenTool size={14} />{t('script.drawGlyph')}</button
+        >
         <button class="btn primary sm" onclick={addGlyph}
           ><Plus size={14} />{t('script.addGlyph')}</button
         >
@@ -791,7 +843,12 @@
       <section class="auto">
         <SectionHead id="script.autoRules" title={t('script.autoRules', { n: autoLines.length })} />
         {#if !sectionCollapsed('script.autoRules')}
-          <pre class="mono">{autoLines.join('\n')}</pre>
+          <div class="auto-lines">
+            {#each autoLines as r, i (i)}<div>
+                <span class="mono">{r.from} &gt;</span>
+                <span class="glyph-to" style={fontFamilyCss(script)}>{r.to}</span>
+              </div>{/each}
+          </div>
         {/if}
       </section>
     </div>
@@ -860,6 +917,20 @@
     {:else if tab === 'glyphs' && glyph}
       {@const g = glyph}
       <div class="preview-glyph" style={fontCss(sc)}>{g.char || '·'}</div>
+      <div class="row wrap draw-row">
+        <button class="btn sm" onclick={() => (padGlyphId = g.id)}
+          ><PenTool size={14} />{g.drawing ? t('script.editDrawing') : t('script.drawThis')}</button
+        >
+        {#if g.drawing}
+          <button
+            class="btn ghost sm"
+            onclick={() => {
+              delete g.drawing
+              touch()
+            }}>{t('script.removeDrawing')}</button
+          >
+        {/if}
+      </div>
       <div class="field">
         <label for="g-char">{t('script.char')}</label><input
           id="g-char"
@@ -1038,6 +1109,18 @@
   </Portal>
 {/if}
 
+{#if padGlyphId && script}
+  {@const pg = script.glyphs.find((x) => x.id === padGlyphId)}
+  {#if pg}
+    <GlyphPad
+      drawing={pg.drawing}
+      title={t('glyphPad.title', { name: pg.name || pg.value || t('script.untitledGlyph') })}
+      onsave={(d) => saveDrawing(pg, d)}
+      oncancel={() => (padGlyphId = null)}
+    />
+  {/if}
+{/if}
+
 <style>
   .field.check {
     flex-direction: row;
@@ -1164,7 +1247,7 @@
   .more-mark {
     height: 1px;
   }
-  .auto pre {
+  .auto-lines {
     margin: 6px 0 0;
     padding: 8px 10px;
     background: var(--bg-sunken);
@@ -1172,6 +1255,14 @@
     font-size: 12px;
     max-height: 240px;
     overflow: auto;
+    line-height: 1.7;
+    white-space: pre;
+  }
+  .auto-lines .glyph-to {
+    font-size: 16px;
+  }
+  .draw-row {
+    gap: 6px;
   }
   .mono {
     font-family: var(--font-mono);

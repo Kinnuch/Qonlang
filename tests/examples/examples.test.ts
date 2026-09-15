@@ -1,6 +1,7 @@
 /**
  * 示例项目（examples/*.laim.json）必须能被当前版本读回，且其中的规则集给出预期结果。
  */
+import { buildDrawnFont } from '$lib/script/drawnFont'
 import { describe, it, expect } from 'vitest'
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
@@ -33,6 +34,7 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
       'adjust',
       'circumfix',
       'infix',
+      'paradigm',
       'pattern',
       'prefix',
       'reduplication',
@@ -65,6 +67,25 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     expect(surfaces('tur-')).toContain('turtim')
     expect(surfaces('sör-')).toContain('sördüm')
     // 按条件换字母：与格 ¢{阴:g|k}A，阴性 sila / vene 用 g，阳性 kaso 用 k
+    // 构形套构形 + 一个词条几个构形：sör- 另外加了「动名词」，-mAk 之后套进名词的格
+    const sor = p.lexemes.find((l) => l.lemma === 'sör-')!
+    expect(sor.extraParadigms).toHaveLength(1)
+    expect(surfaces('sör-')).toEqual(expect.arrayContaining(['sörmek', 'sörmekde']))
+    // 从构形生成的词条：词源是派生、来源与关系挂 sör-
+    const sormek = p.lexemes.find((l) => l.lemma === 'sörmek')!
+    expect(sormek.etymology).toMatchObject({
+      type: 'derivation',
+      sources: [{ kind: 'lexeme', id: sor.id }],
+      notes: '动名词 · 主格'
+    })
+    expect(sormek.relations).toEqual([{ kind: 'derivation', lexemeId: sor.id }])
+    // 手写的字形：有笔画，字符是私用区码位，能做成字体
+    const runes = p.languages
+      .flatMap((l) => l.scripts)
+      .find((s) => s.glyphs.some((g) => g.drawing))!
+    const drawn = runes.glyphs.find((g) => g.drawing)!
+    expect(drawn.char.codePointAt(0)).toBeGreaterThanOrEqual(0xe000)
+    expect(buildDrawnFont(runes, 'x')).not.toBeNull()
     expect(surfaces('sila')).toContain('silaga')
     expect(surfaces('sila')).not.toContain('silaka')
     expect(surfaces('vene')).toContain('venege')

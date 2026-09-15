@@ -67,6 +67,7 @@
     if (ok) ui.toast(t('dict.exported'))
   }
   async function copyTemplateOut(): Promise<void> {
+    if (projectState.readOnly) return void ui.toast(t('readonly.exportBlocked'))
     await navigator.clipboard.writeText(
       renderEntries(project, language, templateDraft.template, opts())
     )

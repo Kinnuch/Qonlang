@@ -11,15 +11,25 @@
   import { sortable } from '$lib/ui/sortable.svelte'
   import { moveItem } from '$lib/core/move'
 
+  /** 「构形」这一步能套的构形：名字、各槽位、各变体（不含正在编辑的这个构形） */
+  interface ParadigmChoice {
+    id: Id
+    name: string
+    slots: { key: string; label: string }[]
+    variants: { id: Id; name: string }[]
+  }
+
   let {
     stem = $bindable(),
     steps = $bindable(),
     ruleSets,
+    paradigms = [],
     onchange
   }: {
     stem: string
     steps: MorphStep[]
     ruleSets: RuleSet[]
+    paradigms?: ParadigmChoice[]
     onchange: () => void
   } = $props()
 
@@ -31,7 +41,8 @@
     'sca',
     'pattern',
     'reduplication',
-    'adjust'
+    'adjust',
+    'paradigm'
   ]
 
   let adding = $state(false)
@@ -68,6 +79,14 @@
         return { id, kind, pattern: '' }
       case 'reduplication':
         return { id, kind, scope: 'full', length: 1 }
+      case 'paradigm':
+        return {
+          id,
+          kind,
+          paradigmId: paradigms[0]?.id ?? null,
+          slotKey: paradigms[0]?.slots[0]?.key ?? '',
+          variantId: null
+        }
       default:
         return { id, kind: 'adjust', text: '' }
     }
@@ -228,6 +247,48 @@
         <datalist id={`dl-stages-${st.id}`}
           >{#each stagesOf(st.ruleSetId) as sg (sg)}<option value={sg}></option>{/each}</datalist
         >
+      {:else if st.kind === 'paradigm'}
+        {@const chosen = paradigms.find((p) => p.id === st.paradigmId)}
+        <select
+          class="select"
+          title={t('paradigms.nestHint')}
+          value={st.paradigmId ?? ''}
+          onchange={(e) => {
+            const id = (e.currentTarget as HTMLSelectElement).value || null
+            st.paradigmId = id
+            st.slotKey = paradigms.find((p) => p.id === id)?.slots[0]?.key ?? ''
+            st.variantId = null
+            onchange()
+          }}
+        >
+          <option value="">{t('paradigms.nestPick')}</option>
+          {#each paradigms as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
+        </select>
+        {#if chosen}
+          <select
+            class="select"
+            value={st.slotKey}
+            onchange={(e) => {
+              st.slotKey = (e.currentTarget as HTMLSelectElement).value
+              onchange()
+            }}
+          >
+            {#each chosen.slots as s (s.key)}<option value={s.key}>{s.label}</option>{/each}
+          </select>
+          {#if chosen.variants.length}
+            <select
+              class="select sm"
+              value={st.variantId ?? ''}
+              onchange={(e) => {
+                st.variantId = (e.currentTarget as HTMLSelectElement).value || null
+                onchange()
+              }}
+            >
+              <option value="">{t('paradigms.variantBase')}</option>
+              {#each chosen.variants as v (v.id)}<option value={v.id}>{v.name}</option>{/each}
+            </select>
+          {/if}
+        {/if}
       {/if}
       <button class="btn ghost icon xs" title={t('lexicon.moveUp')} onclick={() => move(i, -1)}
         ><ChevronLeft size={12} /></button

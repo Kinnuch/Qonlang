@@ -116,7 +116,7 @@ class WordHover {
     index: number | null,
     rect: DOMRect,
     parts: HoverPart[],
-    assign: HoverAssign
+    assign: HoverAssign | null
   ): void {
     this.open(() => {
       this.missing = { label, index }
@@ -189,10 +189,10 @@ class WordHover {
     this.missing = { label, index, edit: true }
     this.pinned = true
   }
-  /** 卡片里点了没找到的那一段 */
+  /** 卡片里点了没找到的那一段（开始页画廊里没法就地指定，也照样显示「没有找到」，旁边的「改」去语料里指定） */
   openMissing(index: number): void {
     const p = this.parts[index]
-    if (!p || !this.assign) return
+    if (!p) return
     this.cancel()
     this.candidates = []
     this.lexemeId = null

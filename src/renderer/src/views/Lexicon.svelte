@@ -5,7 +5,7 @@
   import { scrollToItem } from '$lib/ui/reveal'
   import type { PageView } from '$lib/state/ui.svelte'
   import { matchQuery, parseQuery } from '$lib/core/query'
-  import { SEARCH_FIELDS } from '$lib/core/searchFields'
+  import { SEARCH_FIELDS, categoryFields, featureValueTexts } from '$lib/core/searchFields'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { platform } from '$lib/platform'
@@ -36,16 +36,20 @@
   import ImportPreview from '$lib/ui/ImportPreview.svelte'
   import { pronText, relationLabel } from '$lib/ui/labels'
   import { KeyRows, renameObjectKey, type KeyRow } from '$lib/ui/keyRows'
+  import { dragColumn, fitColumns } from '$lib/ui/fitColumns'
+  import { lexiconIssues } from '$lib/core/lexiconIssues'
   import LexemeExamples from '$lib/ui/LexemeExamples.svelte'
   import { lexemeScript } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
   import {
     paradigmFor,
-    paradigmSlots,
-    deriveForms,
+    paradigmsFor,
+    lexemeSlots,
+    deriveLexemeForms,
     makeContext,
-    type SlotDef
+    type LexemeSlot
   } from '$lib/engine/morph'
+  import { newLexeme } from '$lib/state/newLexeme.svelte'
   import {
     ETYMOLOGY_TYPES,
     type CustomFieldPosition,
@@ -77,6 +81,7 @@
     Upload,
     Download,
     AlertTriangle,
+    AlertCircle,
     Eye,
     Pencil,
     Columns3,
@@ -87,6 +92,7 @@
     ChevronUp,
     ChevronDown,
     ImagePlus,
+    FilePlus2,
     Merge,
     ListOrdered
   } from '@lucide/svelte'
@@ -160,6 +166,12 @@
     colFilters = next
   }
   /** 一条词目在某一列上的可筛取值（多个标签就是多个值） */
+  /** 词条标的方言：词条自己的加上各义项的，按语言里定义的顺序 */
+  function dialectsOf(l: Lexeme): { id: Id; name: string; abbr: string }[] {
+    const ids = new Set([...l.dialectIds, ...l.senses.flatMap((s) => s.dialectIds)])
+    const lg = project.languages.find((x) => x.id === l.languageId)
+    return (lg?.dialects ?? []).filter((d) => ids.has(d.id))
+  }
   function filterValues(l: Lexeme, key: string): string[] {
     if (key === 'lemma') return [initialOf(l.lemma)]
     if (key === 'pos') {
@@ -170,6 +182,10 @@
     if (key === 'tags') return l.tags.length ? l.tags : ['']
     if (key === 'language') return [l.languageId]
     if (key.startsWith('feat:')) return [l.features[key.slice(5)] ?? '']
+    if (key === 'dialect') {
+      const ds = dialectsOf(l)
+      return ds.length ? ds.map((d) => d.id) : ['']
+    }
     return [cell(l, key)]
   }
   /** 首字母：按字母表里的多合字母切 */
@@ -196,6 +212,13 @@
         const val = cat?.values.find((x) => x.id === v)
         return val ? pickText(val.name, glossLangs) || val.abbr : '—'
       }
+      if (key === 'dialect') {
+        for (const lg of project.languages) {
+          const d = lg.dialects.find((x) => x.id === v)
+          if (d) return d.name || d.abbr
+        }
+        return t('lexicon.noDialect')
+      }
       return v || '—'
     }
     const out = [...counts].map(([value, count]) => ({ value, label: label(value), count }))
@@ -206,6 +229,7 @@
     key === 'pos' ||
     key === 'tags' ||
     key === 'language' ||
+    key === 'dialect' ||
     key.startsWith('feat:')
   // 先画一屏多一点，滚到底再自动加载下一批（一次画上千行会卡）
   let limit = $state(sameLang ? (memo.limit ?? 150) : 150)
@@ -275,6 +299,13 @@
   if (sameLang && !ui.restoring('lexicon')) ui.restoreScroll('lexicon', ui.lastScroll('lexicon'))
 
   const inLang = $derived(project.lexemes.filter((l) => !langId || l.languageId === langId))
+  /** 要提醒的问题（缺释义标红、词头重复标黄）：列表按它标行，底部右边的状态栏按它计数 */
+  const issues = $derived(lexiconIssues(inLang))
+  const errorIssues = $derived(issues.filter((i) => i.severity === 'error'))
+  const warnIssues = $derived(issues.filter((i) => i.severity === 'warning'))
+  const noDefIds = $derived(new Set(errorIssues.map((i) => i.lexemeId)))
+  /** 状态栏悬浮列表最多列多少条 */
+  const ISSUE_LIST_MAX = 60
   const lemmaCounts = $derived.by(() => {
     const m = new Map<string, number>()
     for (const l of inLang)
@@ -285,6 +316,7 @@
   /** 搜索字段：内置的，再加每个检视器模块（标题或别名写成 标题=内容） */
   const searchFields = $derived([
     ...SEARCH_FIELDS.lexicon,
+    ...categoryFields(project.categories),
     ...project.customFields.map((f) => ({
       key: `custom:${f.id}`,
       aliases: [...Object.values(f.name).filter(Boolean), ...f.aliases]
@@ -356,8 +388,14 @@
         const lg = project.languages.find((x) => x.id === l.languageId)
         return lg ? lg.scripts.map((sc) => lexemeScript(lg, sc, l)) : []
       }
+      case 'feature':
+        return featureValueTexts(project.categories, l.features)
+      case 'dialect':
+        return dialectsOf(l).flatMap((d) => [d.name, d.abbr])
       default:
         if (field?.startsWith('custom:')) return [l.custom?.[field.slice(7)] ?? '']
+        if (field?.startsWith('feat:'))
+          return featureValueTexts(project.categories, l.features, field.slice(5))
         return [
           l.lemma,
           l.notes,
@@ -486,6 +524,8 @@
         key: `feat:${c.id}`,
         label: `${t('lexicon.colFeature')}: ${pickText(c.name, glossLangs)}`
       })
+    if (project.languages.some((lg) => lg.dialects.length))
+      cols.push({ key: 'dialect', label: t('lexicon.colDialect') })
     for (const f of langId ? customFieldsFor(project, langId) : project.customFields)
       cols.push({
         key: `custom:${f.id}`,
@@ -540,48 +580,68 @@
       .filter((k) => cur.includes(k))
     projectState.touch()
   }
-  // ───── 列宽（记忆在用户偏好里） ─────
+  // ───── 列宽（记忆在用户偏好里）：按表格所在区域铺满，见 fitColumns ─────
   const colWidths = $derived(ui.prefs.lexiconColWidths ?? {})
-  const hasWidths = $derived(Object.keys(colWidths).length > 0)
+  let scrollW = $state(0)
   /**
-   * 固定布局要有确定的表格宽度才会照 <col> 分配；
-   * 写 width:max-content 的话浏览器会退回按内容分配，拖了像没反应。
+   * 表格区域能用的宽（不含竖滚动条）：竖滚动条出现 / 消失时元素本身没变大小，bind:clientWidth 收不到，
+   * 这里按内容盒观察，滚动条一变就重新量
    */
-  const tableWidth = $derived.by(() => {
-    if (!hasWidths) return 0
-    const keys = ['lemma', ...activeColumns.map((c) => c.key)]
-    let sum = sort === 'custom' ? 56 : 34
-    for (const k of keys) sum += colWidths[k] ?? 120
-    return sum
-  })
-  const colStyle = (key: string): string => (colWidths[key] ? `width:${colWidths[key]}px` : '')
-  let resizing: { key: string; x: number; w: number } | null = null
+  function innerWidth(node: HTMLElement, set: (w: number) => void): { destroy: () => void } {
+    const ro = new ResizeObserver(() => set(node.clientWidth))
+    ro.observe(node)
+    set(node.clientWidth)
+    return { destroy: () => ro.disconnect() }
+  }
+  /** 没拖过的列按种类给个默认宽：释义宽一些，词类、维度这类窄一些 */
+  function defaultColWidth(key: string): number {
+    if (key === 'lemma') return 150
+    if (key.startsWith('def:')) return 280
+    if (key === 'pos' || key === 'language') return 80
+    if (key.startsWith('feat:')) return 90
+    if (key === 'dialect' || key === 'updated') return 100
+    if (key.startsWith('custom:')) return 180
+    if (key === 'tags' || key === 'proto' || key === 'pron' || key.startsWith('script:')) return 140
+    return 120
+  }
+  function minColWidth(key: string): number {
+    if (key.startsWith('def:')) return 120
+    if (key === 'lemma') return 80
+    return 56
+  }
+  const colKeys = $derived(['lemma', ...activeColumns.map((c) => c.key)])
+  const orderW = $derived(sort === 'custom' ? 56 : 34)
+  const fitted = $derived(
+    fitColumns(
+      colKeys.map((k) => ({ base: colWidths[k] ?? defaultColWidth(k), min: minColWidth(k) })),
+      Math.max(0, scrollW - orderW)
+    )
+  )
+  const tableWidth = $derived(orderW + fitted.reduce((a, b) => a + b, 0))
+  const colStyle = (key: string): string => {
+    const i = colKeys.indexOf(key)
+    return i >= 0 && fitted[i] ? `width:${fitted[i]}px` : ''
+  }
+  /** 拖列宽：从按下时各列的实际宽出发，这一列和右边的邻居一增一减，拖完把每一列的宽都记下来当基准 */
+  let resizing: { index: number; x: number; widths: number[] } | null = null
   function startResize(e: PointerEvent, key: string): void {
     e.preventDefault()
     e.stopPropagation()
-    const th = (e.currentTarget as HTMLElement).parentElement as HTMLElement
-    // 先把每一列此刻的实际宽度都记下来。只给被拖的那列设宽度的话，
-    // 表格一转成固定布局，其余列就会被平均分配。
-    const head = th.parentElement
-    if (head) {
-      // 第一格是自定义顺序按钮，不算列
-      const cells = ([...head.children] as HTMLElement[]).slice(1)
-      const keys = ['lemma', ...activeColumns.map((c) => c.key)]
-      const offset = cells.length - keys.length
-      const widths = { ...ui.prefs.lexiconColWidths }
-      cells.forEach((cell, i) => {
-        const k = keys[i - offset]
-        if (k && !widths[k]) widths[k] = Math.round(cell.getBoundingClientRect().width)
-      })
-      ui.prefs.lexiconColWidths = widths
-    }
-    resizing = { key, x: e.clientX, w: th.getBoundingClientRect().width }
+    resizing = { index: colKeys.indexOf(key), x: e.clientX, widths: fitted.slice() }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
   function moveResize(e: PointerEvent): void {
-    if (!resizing) return
-    const w = Math.max(48, Math.round(resizing.w + e.clientX - resizing.x))
-    ui.prefs.lexiconColWidths = { ...ui.prefs.lexiconColWidths, [resizing.key]: w }
+    if (!resizing || resizing.index < 0) return
+    const next = dragColumn(
+      resizing.widths,
+      colKeys.map(minColWidth),
+      resizing.index,
+      e.clientX - resizing.x
+    )
+    ui.prefs.lexiconColWidths = {
+      ...ui.prefs.lexiconColWidths,
+      ...Object.fromEntries(colKeys.map((k, i) => [k, next[i]]))
+    }
   }
   function endResize(): void {
     if (!resizing) return
@@ -615,6 +675,10 @@
       return parts.map((d, i) => `${i + 1}${sep}${d}`).join(' ')
     }
     if (key === 'tags') return l.tags.join(', ')
+    if (key === 'dialect')
+      return dialectsOf(l)
+        .map((d) => d.name || d.abbr)
+        .join(i18n.locale === 'zh' ? '、' : ', ')
     if (key === 'proto') return etymologyOrigin(project, l.etymology)
     if (key === 'pron')
       return Object.values(l.pronunciations)
@@ -750,16 +814,44 @@
     t('paradigms.untitled')
   /** 词类绑的构形（第一个是默认的）：绑了几个时在下拉里单独列一组 */
   const posParas = (l: Lexeme): string[] => posParadigmIds(project, l.posId)
-  const slotsOf = (l: Lexeme): SlotDef[] => {
-    const p = paradigmFor(project, l)
-    return p ? paradigmSlots(p, project.categories, glossLangs) : []
+  /** 词条用的全部构形的槽位（第一个构形在前，另外加的依次在后），以及每一格存在哪个键下 */
+  const slotsOf = (l: Lexeme): LexemeSlot[] => lexemeSlots(project, l, glossLangs)
+  /** 按构形分组：录入里每个构形一组，组名是构形名 */
+  const slotGroups = (l: Lexeme): { id: Id; name: string; slots: LexemeSlot[] }[] => {
+    const out: { id: Id; name: string; slots: LexemeSlot[] }[] = []
+    for (const s of slotsOf(l)) {
+      const id = s.lp.paradigm.id
+      let g = out.find((x) => x.id === id)
+      if (!g) out.push((g = { id, name: paraName(id), slots: [] }))
+      g.slots.push(s)
+    }
+    return out
   }
   function deriveNow(l: Lexeme): void {
-    const p = paradigmFor(project, l)
     const lg = project.languages.find((x) => x.id === l.languageId)
-    if (!p || !lg) return
-    deriveForms(makeContext(project, lg), l, p, undefined, l.paradigmVariantId)
+    if (!lg || !paradigmsFor(project, l).length) return
+    deriveLexemeForms(makeContext(project, lg), l)
     touch(l)
+  }
+  /** 另外加一个构形：先挑还没用上的第一个 */
+  function addExtraParadigm(l: Lexeme): void {
+    const used = new Set(paradigmsFor(project, l).map((x) => x.paradigm.id))
+    const next = project.paradigms.find((p) => !p.appliesToAll && !used.has(p.id))
+    if (!next) return
+    l.extraParadigms = [...(l.extraParadigms ?? []), { paradigmId: next.id, variantId: null }]
+    rederive(l)
+  }
+  /** 录入里某一格推出来的形式：生成成一个新词条（弹出表单，词源和关系按构形填好） */
+  function generateFromSlot(l: Lexeme, s: LexemeSlot): void {
+    const surface = l.forms[s.key]?.surface?.trim()
+    if (!surface) return
+    newLexeme.open({
+      languageId: l.languageId,
+      form: surface.split(/[,，;；/]/)[0].trim(),
+      base: l,
+      paradigmId: s.lp.paradigm.id,
+      slotLabel: s.slot.label
+    })
   }
   /** 换构形或变体后，推导出来的形式要重算；手填的不动 */
   function rederive(l: Lexeme): void {
@@ -780,6 +872,17 @@
     const name = input.value.trim()
     if (renameObjectKey(obj, row.key, name)) {
       rows.rename(row.id, name)
+      // 状态代理删了键再加回来，键的位置不一定跟着变（先后加 A、B，互相改名后仍是 A 在前）：
+      // 按界面上行的顺序重建对象，词条卡、存盘的顺序才跟录入界面一致
+      const order = rows.keys()
+      const rebuilt = Object.fromEntries([
+        ...Object.keys(obj)
+          .filter((k) => !order.includes(k))
+          .map((k) => [k, obj[k]]),
+        ...order.filter((k) => k in obj).map((k) => [k, obj[k]])
+      ])
+      if (obj === l.stems) l.stems = rebuilt as Lexeme['stems']
+      else if (obj === l.forms) l.forms = rebuilt as Lexeme['forms']
       touch(l)
     } else {
       if (name && name !== row.key) ui.toast(t('lexicon.nameTaken', { name }))
@@ -1175,8 +1278,8 @@
         >
       </div>
     {/if}
-    <div class="scroll" use:navScroll={'lexicon'}>
-      <table class="tbl" class:fixed={hasWidths} style={hasWidths ? `width:${tableWidth}px` : ''}>
+    <div class="scroll" use:navScroll={'lexicon'} use:innerWidth={(w) => (scrollW = w)}>
+      <table class="tbl fixed" style={`width:${tableWidth}px`}>
         <colgroup>
           <col style={sort === 'custom' ? 'width:56px' : 'width:34px'} />
           <col style={colStyle('lemma')} />
@@ -1239,6 +1342,7 @@
               class:sel={selectedId === l.id || multiIds.includes(l.id)}
               class:flash={flashId === l.id}
               class:dup-row={ui.prefs.highlightDuplicates && isDup(l)}
+              class:nodef-row={noDefIds.has(l.id)}
               onclick={(e) => rowClick(e, l, li)}
               ondblclick={(e) => editRow(e, l.id)}
             >
@@ -1263,7 +1367,10 @@
                 {/if}
               </td>
               <td class="lemma data"
-                >{l.lemma || '—'}{#if isDup(l)}<span class="dup" title={t('lexicon.duplicate')}
+                >{l.lemma || '—'}{#if noDefIds.has(l.id)}<span
+                    class="nodef"
+                    title={t('lexicon.noDefinition')}><AlertCircle size={12} /></span
+                  >{/if}{#if isDup(l)}<span class="dup" title={t('lexicon.duplicate')}
                     ><AlertTriangle size={12} /></span
                   >{/if}</td
               >
@@ -1303,6 +1410,42 @@
           >… {list.length - limit}</button
         >
       {/if}
+    </div>
+    <!-- 底部状态栏：红的、黄的各有几条，鼠标放上去列出是哪些，点一下跳过去 -->
+    <div class="lex-status row">
+      <span class="grow"></span>
+      {#snippet issueBadge(list: typeof issues, cls: string, label: string)}
+        <div class="issue-wrap">
+          <span class="badge {cls}" role="button" tabindex="0">{label}</span>
+          <div class="issue-pop card">
+            {#each list.slice(0, ISSUE_LIST_MAX) as it (it.lexemeId)}
+              <button class="issue-item" onclick={() => reveal(it.lexemeId)}
+                ><span class="data">{it.lemma || '—'}</span><span class="small muted"
+                  >{it.kind === 'noDefinition'
+                    ? t('lexicon.noDefinition')
+                    : t('lexicon.duplicate')}</span
+                ></button
+              >
+            {/each}
+            {#if list.length > ISSUE_LIST_MAX}<span class="small muted more-issues"
+                >{t('lexicon.issuesMore', { n: list.length - ISSUE_LIST_MAX })}</span
+              >{/if}
+          </div>
+        </div>
+      {/snippet}
+      {#if errorIssues.length}
+        {@render issueBadge(
+          errorIssues,
+          'err',
+          t('lexicon.issuesNoDef', { n: errorIssues.length })
+        )}
+      {/if}
+      {#if warnIssues.length}
+        {@render issueBadge(warnIssues, 'warnb', t('lexicon.issuesDup', { n: warnIssues.length }))}
+      {/if}
+      {#if !errorIssues.length && !warnIssues.length}<span class="badge"
+          >{t('lexicon.noIssues')}</span
+        >{/if}
     </div>
   {/if}
 </div>
@@ -1798,11 +1941,59 @@
           </select>
         {/if}
       </div>
+      <!-- 另外还用的构形（名词兼动词：一个变格、一个变位） -->
+      {#each l.extraParadigms ?? [] as ep, ei (ei)}
+        {@const epara = project.paradigms.find((pa) => pa.id === ep.paradigmId)}
+        <div class="row two extra-para">
+          <select
+            class="select"
+            value={ep.paradigmId}
+            onchange={(e) => {
+              ep.paradigmId = (e.currentTarget as HTMLSelectElement).value
+              ep.variantId = null
+              rederive(l)
+            }}
+          >
+            {#each project.paradigms.filter((pa) => !pa.appliesToAll) as pa (pa.id)}<option
+                value={pa.id}>{paraName(pa.id)}</option
+              >{/each}
+          </select>
+          {#if (epara?.variants.length ?? 0) > 0}
+            <select
+              class="select"
+              value={ep.variantId ?? ''}
+              onchange={(e) => {
+                ep.variantId = (e.currentTarget as HTMLSelectElement).value || null
+                rederive(l)
+              }}
+            >
+              <option value=""
+                >{epara?.baseVariantName?.trim() || t('paradigms.variantBase')}</option
+              >
+              {#each epara?.variants ?? [] as v (v.id)}<option value={v.id}>{v.name}</option>{/each}
+            </select>
+          {/if}
+          <button
+            class="btn ghost icon sm"
+            title={t('lexicon.removeParadigm')}
+            onclick={() => {
+              l.extraParadigms?.splice(ei, 1)
+              if (!l.extraParadigms?.length) delete l.extraParadigms
+              rederive(l)
+            }}><X size={14} /></button
+          >
+        </div>
+      {/each}
       <div class="row">
         <span class="small muted">{t('lexicon.forms')}</span><HelpDot key="forms" /><span
           class="grow"
         ></span>
-        {#if paradigmOf(l)}<button class="btn ghost sm" onclick={() => deriveNow(l)}
+        {#if project.paradigms.some((pa) => !pa.appliesToAll && !paradigmsFor(project, l).some((x) => x.paradigm.id === pa.id))}<button
+            class="btn ghost sm"
+            title={t('lexicon.addParadigmHint')}
+            onclick={() => addExtraParadigm(l)}><Plus size={14} />{t('lexicon.addParadigm')}</button
+          >{/if}
+        {#if slotsOf(l).length}<button class="btn ghost sm" onclick={() => deriveNow(l)}
             ><Wand2 size={14} />{t('lexicon.deriveForms')}</button
           >{/if}
         <button
@@ -1813,47 +2004,58 @@
           }}><Plus size={14} />{t('lexicon.addForm')}</button
         >
       </div>
-      {#if paradigmOf(l)}
-        {#each slotsOf(l) as s (s.key)}
-          {@const f = l.forms[s.label]}
-          <div class="row kv" title={f?.trace?.join('\n') ?? ''}>
-            <span class="slot small">{s.label}</span>
-            <input
-              class="input data"
-              class:derived={f && !f.override}
-              value={f?.surface ?? ''}
-              placeholder="—"
-              oninput={(e) => {
-                l.forms[s.label] = {
-                  surface: (e.currentTarget as HTMLInputElement).value,
-                  derived: false,
-                  override: true,
-                  trace: []
-                }
-                touch(l)
-              }}
-            />
-            {#if f?.override}
-              <button
-                class="btn ghost icon sm"
-                title={t('lexicon.resetDerived')}
-                onclick={() => {
-                  delete l.forms[s.label]
-                  deriveNow(l)
-                }}><RotateCcw size={13} /></button
-              >
-            {:else if f}
-              <span class="badge">{t('lexicon.formsDerived')}</span>
-            {/if}
-          </div>
+      {#if slotsOf(l).length}
+        {@const groups = slotGroups(l)}
+        {#each groups as grp (grp.id)}
+          {#if groups.length > 1}<div class="small para-head">{grp.name}</div>{/if}
+          {#each grp.slots as s (grp.id + '|' + s.slot.key)}
+            {@const f = l.forms[s.key]}
+            <div class="row kv" title={f?.trace?.join('\n') ?? ''}>
+              <span class="slot small">{s.slot.label}</span>
+              <input
+                class="input data"
+                class:derived={f && !f.override}
+                value={f?.surface ?? ''}
+                placeholder="—"
+                oninput={(e) => {
+                  l.forms[s.key] = {
+                    surface: (e.currentTarget as HTMLInputElement).value,
+                    derived: false,
+                    override: true,
+                    trace: []
+                  }
+                  touch(l)
+                }}
+              />
+              {#if f?.surface?.trim()}
+                <button
+                  class="btn ghost icon sm"
+                  title={t('lexicon.generateEntry')}
+                  onclick={() => generateFromSlot(l, s)}><FilePlus2 size={13} /></button
+                >
+              {/if}
+              {#if f?.override}
+                <button
+                  class="btn ghost icon sm"
+                  title={t('lexicon.resetDerived')}
+                  onclick={() => {
+                    delete l.forms[s.key]
+                    deriveNow(l)
+                  }}><RotateCcw size={13} /></button
+                >
+              {:else if f}
+                <span class="badge">{t('lexicon.formsDerived')}</span>
+              {/if}
+            </div>
+          {/each}
         {/each}
-        {#if Object.keys(l.forms).some((k) => !slotsOf(l).some((s) => s.label === k))}<span
+        {#if Object.keys(l.forms).some((k) => !slotsOf(l).some((s) => s.key === k))}<span
             class="small muted">{t('lexicon.extraForms')}</span
           >{/if}
       {:else if l.posId}
         <span class="hint">{t('lexicon.noParadigm')}</span>
       {/if}
-      {#each formRows.sync( l.id, Object.keys(l.forms).filter((k) => !slotsOf(l).some((s) => s.label === k)) ) as row (row.id)}
+      {#each formRows.sync( l.id, Object.keys(l.forms).filter((k) => !slotsOf(l).some((s) => s.key === k)) ) as row (row.id)}
         <div class="row kv">
           <input
             class="input"
@@ -1979,7 +2181,7 @@
     position: relative;
   }
   .tbl.fixed {
-    /* 宽度由脚本按各列之和给出，见 tableWidth */
+    /* 宽度由脚本按表格所在区域铺满后各列之和给出，见 fitted / tableWidth */
     table-layout: fixed;
   }
   .tbl.fixed td {
@@ -1988,6 +2190,68 @@
   }
   tr.dup-row td {
     background: color-mix(in srgb, var(--warn) 10%, transparent);
+  }
+  tr.nodef-row:not(.sel) td {
+    background: color-mix(in srgb, var(--danger) 8%, transparent);
+  }
+  .nodef {
+    color: var(--danger);
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+  .lex-status {
+    flex: none;
+    gap: 6px;
+  }
+  .lex-status .badge.err {
+    background: var(--danger-soft);
+    color: var(--danger);
+    cursor: default;
+  }
+  .lex-status .badge.warnb {
+    background: var(--warn-soft);
+    color: var(--warn);
+    cursor: default;
+  }
+  .issue-wrap {
+    position: relative;
+  }
+  /* 悬浮列表贴着徽章上沿，鼠标从徽章移上去不会断 */
+  .issue-pop {
+    display: none;
+    position: absolute;
+    right: 0;
+    bottom: 100%;
+    z-index: 30;
+    min-width: 240px;
+    max-height: 320px;
+    overflow: auto;
+    padding: 4px;
+    flex-direction: column;
+    box-shadow: var(--shadow-lg);
+  }
+  .issue-wrap:hover .issue-pop,
+  .issue-wrap:focus-within .issue-pop {
+    display: flex;
+  }
+  .issue-item {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    justify-content: space-between;
+    border: 0;
+    background: none;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: inherit;
+    text-align: left;
+  }
+  .issue-item:hover {
+    background: var(--bg-hover);
+  }
+  .more-issues {
+    padding: 4px 8px;
   }
   tr.flash td {
     animation: flash 1.8s ease-out;
@@ -2205,5 +2469,13 @@
   }
   .actions {
     margin-top: 8px;
+  }
+  .extra-para {
+    margin-top: 4px;
+  }
+  .para-head {
+    margin: 6px 0 2px;
+    color: var(--text-2);
+    font-weight: 600;
   }
 </style>
