@@ -1,7 +1,7 @@
 <script lang="ts">
   import { navScroll } from '$lib/ui/navScroll'
   import type { GrammaticalCategory } from '$lib/core/model'
-  import { lazyMore } from '$lib/ui/lazy.svelte'
+  import { VirtualRows } from '$lib/ui/virtualRows.svelte'
   import { scrollToItem } from '$lib/ui/reveal'
   import type { PageView } from '$lib/state/ui.svelte'
   import { matchQuery, parseQuery } from '$lib/core/query'
@@ -39,7 +39,7 @@
   import { dragColumn, fitColumns } from '$lib/ui/fitColumns'
   import { lexiconIssues } from '$lib/core/lexiconIssues'
   import LexemeExamples from '$lib/ui/LexemeExamples.svelte'
-  import { lexemeScript } from '$lib/script/render'
+  import { lexemeScript, scriptSourceText } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
   import {
     paradigmFor,
@@ -123,7 +123,6 @@
     sortDir: 'asc' | 'desc'
     customOrder: boolean
     colFilters: Record<string, Set<string>>
-    limit: number
   }>('lexicon')
   const sameLang = memo.lang === projectState.currentLanguageId
   let mode = $state<'entries' | 'taxonomy' | 'csv' | 'lexc' | 'export' | 'stats'>(
@@ -233,8 +232,6 @@
     key === 'language' ||
     key === 'dialect' ||
     key.startsWith('feat:')
-  // 先画一屏多一点，滚到底再自动加载下一批（一次画上千行会卡）
-  let limit = $state(sameLang ? (memo.limit ?? 150) : 150)
   /** Ctrl / Shift 多选出来的词条 */
   let multiIds = $state<Id[]>([])
   let lastIndex = $state(-1)
@@ -277,9 +274,6 @@
     if (v.mode === 'entries' || v.mode === 'taxonomy' || v.mode === 'stats') mode = v.mode
     mainView = v.main === 'graph' ? 'graph' : 'list'
     editMode = v.edit === '1'
-    // 选中的那行在分批渲染的范围外时先把范围放大
-    const i = selectedId ? list.findIndex((x) => x.id === selectedId) : -1
-    if (i >= limit) limit = i + 50
     ui.restoreScroll('lexicon', r.scroll)
   })
   $effect(() => {
@@ -293,8 +287,7 @@
       sortKey,
       sortDir,
       customOrder,
-      colFilters: { ...colFilters },
-      limit
+      colFilters: { ...colFilters }
     })
   })
   // 不是「返回」进来的：列表滚回上次离开时的位置
@@ -332,22 +325,36 @@
       if (pq.terms.length && !matchQuery(pq, (f) => lexemeFieldValues(l, f))) return false
       return true
     })
-    if (customOrder) return arr
-    if (!sortKey) arr.sort((a, b) => collator(a.lemma, b.lemma))
-    else {
-      const key = sortKey
-      const dir = sortDir === 'asc' ? 1 : -1
-      const val = (l: Lexeme): string =>
-        key === 'lemma' ? l.lemma : key === 'pos' ? posLabelOf(l) : cell(l, key)
-      arr.sort((a, b) => {
-        const c =
-          key === 'updated' ? a.updatedAt.localeCompare(b.updatedAt) : collator(val(a), val(b))
-        return (c || collator(a.lemma, b.lemma)) * dir
-      })
-    }
     // custom：保持项目里的数组顺序
-    return arr
+    if (customOrder) return arr
+    // 排序键每行只算一次：比较时现算的话，按文字列排一次要转写几万遍
+    const key = sortKey
+    const lemmas = arr.map((l) => l.lemma)
+    const keys =
+      !key || key === 'lemma'
+        ? lemmas
+        : arr.map((l) =>
+            key === 'pos' ? posLabelOf(l) : key === 'updated' ? l.updatedAt : cell(l, key)
+          )
+    const dir = key && sortDir === 'desc' ? -1 : 1
+    const order = arr.map((_, i) => i)
+    order.sort((i, j) => {
+      if (!key) return collator(lemmas[i], lemmas[j])
+      const c =
+        key === 'updated'
+          ? keys[i] < keys[j]
+            ? -1
+            : keys[i] > keys[j]
+              ? 1
+              : 0
+          : collator(keys[i], keys[j])
+      return (c || collator(lemmas[i], lemmas[j])) * dir
+    })
+    return order.map((i) => arr[i])
   })
+  /** 表格只画看得见的那些行（几千条也不卡），滚动位置照旧 */
+  const listIds = $derived(list.map((l) => l.id))
+  const rows = new VirtualRows('lexicon', () => listIds)
   /** 搜索用：词条在某个字段里的文字（field 为 null 时是默认那一组）；只读要找的那个字段 */
   function lexemeFieldValues(l: Lexeme, field: string | null): string[] {
     const defs = (): string[] =>
@@ -983,8 +990,7 @@
     selectedId = id
     multiIds = []
     void scrollToItem('lexicon', `tr[data-id="${id}"]`, () => {
-      const i = list.findIndex((x) => x.id === id)
-      if (i >= limit) limit = i + 50
+      rows.scrollToIndex(list.findIndex((x) => x.id === id))
     }).then(() => flash(id))
   }
   /** 滚到了再闪：高亮从头到尾都看得见 */
@@ -1281,7 +1287,12 @@
         >
       </div>
     {/if}
-    <div class="scroll" use:navScroll={'lexicon'} use:innerWidth={(w) => (scrollW = w)}>
+    <div
+      class="scroll"
+      use:navScroll={'lexicon'}
+      use:innerWidth={(w) => (scrollW = w)}
+      use:rows.box
+    >
       <table class="tbl fixed" style={`width:${tableWidth}px`}>
         <colgroup>
           <col style={sort === 'custom' ? 'width:56px' : 'width:34px'} />
@@ -1339,8 +1350,15 @@
           </tr>
         </thead>
         <tbody>
-          {#each list.slice(0, limit) as l, li (l.id)}
+          {#if rows.range.start > 0}
+            <tr class="vpad" aria-hidden="true"
+              ><td colspan="99" style={`height:${rows.before}px`}></td></tr
+            >
+          {/if}
+          {#each list.slice(rows.range.start, rows.range.end) as l, vi (l.id)}
+            {@const li = rows.range.start + vi}
             <tr
+              use:rows.row
               data-id={l.id}
               class:sel={selectedId === l.id || multiIds.includes(l.id)}
               class:flash={flashId === l.id}
@@ -1405,14 +1423,13 @@
           {:else}
             <tr class="empty"><td colspan="99" class="muted">{t('table.noMatch')}</td></tr>
           {/each}
+          {#if rows.range.end < list.length}
+            <tr class="vpad" aria-hidden="true"
+              ><td colspan="99" style={`height:${rows.after}px`}></td></tr
+            >
+          {/if}
         </tbody>
       </table>
-      {#if list.length > limit}
-        <div class="more-mark" use:lazyMore={{ grow: () => (limit += 200) }}></div>
-        <button class="btn ghost sm more" onclick={() => (limit += 300)}
-          >… {list.length - limit}</button
-        >
-      {/if}
     </div>
     <!-- 底部状态栏：红的、黄的各有几条，鼠标放上去列出是哪些，点一下跳过去 -->
     <div class="lex-status row">
@@ -1886,7 +1903,7 @@
                 style={fontCss(sc)}
                 dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'}
                 value={l.scriptForms?.[sc.id] ?? ''}
-                placeholder={lexemeScript(selLang, sc, l, l.lemma)}
+                placeholder={lexemeScript(selLang, sc, l, scriptSourceText(sc, l))}
                 title={t('script.overrideHint')}
                 oninput={(e) => {
                   if (!l.scriptForms) l.scriptForms = {}
@@ -2382,11 +2399,13 @@
   .tags-cell .badge {
     margin-right: 3px;
   }
-  .more-mark {
-    height: 1px;
+  .tbl tbody tr.vpad {
+    cursor: default;
+    background: none;
   }
-  .more {
-    margin: 8px;
+  .tbl tbody tr.vpad td {
+    padding: 0;
+    border: 0;
   }
   .card-actions {
     margin-bottom: 12px;

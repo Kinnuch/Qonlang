@@ -6,9 +6,10 @@ import {
   parseProject,
   projectToFolder,
   readProjectText,
-  serializeForDisk,
-  serializeProject
+  serializeForDisk
 } from '$lib/core/serialize'
+import { diskTextFromJson } from '$lib/core/diskText'
+import { clearScriptCache, trustScriptCache } from '$lib/script/render'
 import { isSealed } from '$lib/core/sealed'
 import { setExportGuard } from '$lib/platform'
 import { isProjectCsv, projectFromCsv, projectToCsv } from '$lib/core/projectCsv'
@@ -37,8 +38,12 @@ class ProjectState {
   /** 撤销次数（供界面在撤销后闪一下） */
   undoTick = $state(0)
 
+  /**
+   * 整份项目的 JSON。直接对状态代理 stringify：$state.snapshot 会先把整份项目逐个值克隆一遍
+   * （每个字符串、数字都过一次 structuredClone），几 MB 的项目一次要多卡上百毫秒，结果一样
+   */
   private serializeNow(): string {
-    return JSON.stringify($state.snapshot(this.project))
+    return JSON.stringify(this.project)
   }
   private resetHistory(): void {
     this.history = []
@@ -49,7 +54,23 @@ class ProjectState {
   }
   private scheduleCommit(): void {
     if (this.commitTimer) clearTimeout(this.commitTimer)
-    this.commitTimer = setTimeout(() => this.commit(), 400)
+    // 停手 400ms 后、等主线程空下来再记（大项目记一次要几十毫秒，别赶在用户正操作的时候）
+    this.commitTimer = setTimeout(() => {
+      if (typeof requestIdleCallback === 'function')
+        requestIdleCallback(() => this.commitIfPending(), { timeout: 1500 })
+      else this.commit()
+    }, 400)
+  }
+  /** 定时器已经到点、还没记的那一次：空闲回调里真正记 */
+  private commitIfPending(): void {
+    if (this.commitTimer) this.commit()
+  }
+  /** 有还没记进撤销栈的改动就马上记（撤销、写快照、存盘之前） */
+  private flushCommit(): void {
+    if (this.commitTimer) {
+      clearTimeout(this.commitTimer)
+      this.commit()
+    }
   }
   private commit(): void {
     this.commitTimer = null
@@ -65,6 +86,7 @@ class ProjectState {
     this.canRedo = false
   }
   private restore(json: string): void {
+    clearScriptCache()
     const p = parseProject(json)
     const lang = this.currentLanguageId
     this.project = p
@@ -78,10 +100,7 @@ class ProjectState {
     this.undoTick++
   }
   undo(): void {
-    if (this.commitTimer) {
-      clearTimeout(this.commitTimer)
-      this.commit()
-    }
+    this.flushCommit()
     const prev = this.history.pop()
     if (prev === undefined) return
     this.future.push(this.committed)
@@ -147,6 +166,7 @@ class ProjectState {
       return
     }
     this.project.meta.updatedAt = now()
+    clearScriptCache()
     this.scheduleCommit()
     if (!this.dirty) {
       this.dirty = true
@@ -172,6 +192,7 @@ class ProjectState {
   }
 
   load(p: Project, target: SaveTarget | null): void {
+    clearScriptCache()
     this.project = p
     this.target = target
     // 纯欣赏项目开着时，桌面版不让开开发者工具
@@ -260,7 +281,11 @@ class ProjectState {
     }
     this.saving = true
     try {
-      const content = await serializeForDisk($state.snapshot(this.project) as Project)
+      // 存的是这一刻的项目：先记进撤销栈，排版、加密交给后台线程
+      this.flushCommit()
+      const json = this.serializeNow()
+      if (json !== this.committed) this.commit()
+      const content = await diskTextFromJson(json)
       const target = await platform.saveProject(saveAs ? null : this.target, content, this.fileName)
       if (!target) return false
       this.target = target
@@ -277,9 +302,11 @@ class ProjectState {
     }
   }
 
+  /** 崩溃恢复快照：直接用撤销栈里最新那份 JSON，不再把整份项目重新序列化一遍 */
   async snapshot(): Promise<void> {
     if (!this.project || !this.dirty || this.readOnly) return
-    await platform.saveSnapshot(serializeProject($state.snapshot(this.project) as Project))
+    this.flushCommit()
+    await platform.saveSnapshot(this.committed)
   }
 
   /** 纯欣赏模式导出：另存一份带只读标记、加过密的项目文件（别人用千语集打开只能看，拿记事本打开是一串乱码） */
@@ -329,6 +356,8 @@ class ProjectState {
 }
 
 export const projectState = new ProjectState()
+// 改项目都经过 touch / 撤销 / 打开：文字转写的缓存按这几处失效就够了
+trustScriptCache()
 // 纯欣赏项目开着时，导出类的操作（另存文本、导出文件夹、PDF）一律不做——内容只能在软件里看；
 // 加过密的纯欣赏副本本身可以照样写出去
 setExportGuard((content) => {

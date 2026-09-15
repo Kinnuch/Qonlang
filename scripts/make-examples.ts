@@ -1657,6 +1657,55 @@ function makeTsahun(): void {
   lex.get('lo21')!.custom = { [usage.id]: '只放在句末；熟人之间常省掉，短语簿里写成 (lo21)。' }
   lex.get('ta33')!.custom = { [usage.id]: '紧跟在动词后面，中间不插别的词。' }
 
+  // ── 意音文字：字形的转写填字号（k01……），词条的「字号」模块写这个词用哪几个字；
+  //    转写来源选这个模块，词库的文字列、语料与短语的文字行都逐词查词库写出来，没有字号的虚词照原文 ──
+  const codes = createCustomField({ zh: '字号', en: 'Glyph codes' })
+  codes.position = 'end'
+  codes.aliases = ['codes']
+  p.customFields.push(codes)
+  const logo = createScript('Tsahun 刻符')
+  logo.type = 'logographic'
+  logo.from = `custom:${codes.id}`
+  logo.notes =
+    '意音文字：每个字的转写是字号，不是读音。词条「字号」里写这个词用哪几个字（空格隔开），虚词没有字号，照原文写。'
+  const marks: [string, string, string][] = [
+    ['k01', '⽔', '水'],
+    ['k02', '⽕', '火'],
+    ['k03', '⼈', '人'],
+    ['k04', '⼧', '屋顶'],
+    ['k05', '⼭', '山'],
+    ['k06', '⿂', '鱼'],
+    ['k07', '⿃', '鸟'],
+    ['k08', '⽬', '眼'],
+    ['k09', '⼝', '口'],
+    ['k10', '⼤', '大'],
+    ['k11', '⼩', '小'],
+    ['k12', '⼰', '自己'],
+    ['k13', '⾛', '走']
+  ]
+  for (const [value, char, name] of marks)
+    logo.glyphs.push({ id: newId(), char, name, value, category: 'glyph', notes: '' })
+  L.scripts.push(logo)
+  const codeOf: Record<string, string> = {
+    tsa55: 'k01',
+    tsa21: 'k02',
+    lun35: 'k03',
+    wa55: 'k04 k03',
+    mek33: 'k05',
+    sip51: 'k06',
+    nok21: 'k07',
+    hem55: 'k08',
+    kwe51: 'k09',
+    pak51: 'k10',
+    sin35: 'k11',
+    ngo21: 'k12',
+    lai33: 'k13',
+    pun21: 'k13 k05'
+  }
+  for (const [lemma, code] of Object.entries(codeOf))
+    for (const lx of p.lexemes.filter((x) => x.lemma === lemma))
+      lx.custom = { ...lx.custom, [codes.id]: code }
+
   // ── 语料 ──
   const sentences: [string, string, string, string, string[]][] = [
     ['ngo21 kwe51 ta33 sip51', '我吃了鱼。', 'I ate fish.', '语法书 · 体', ['完成体']],
@@ -1745,7 +1794,8 @@ function makeTsahun(): void {
     '- **语料**：重叠形也能被自动 gloss 认出来（`lun35lun35`），带空格的 `ngo21 tui55` 并成一个词认；`hok33 lo21` 里的同形词故意没确认，悬浮时并排给候选',
     '- **词库**：同音异调的最小对、同形词 hok33（红 / 学）、复合词、整套借入的数词、一个义项几个语域（hu35）',
     '- **检视器模块**：「异体字」用音节文字的字体显示在释义上方（wa55），「语用说明」放在最下面（lo21、ta33）',
-    '- **文字的括号设置**：音节文字设成「括号连内容都不写」，短语 `ni33 hem55 (lo21)` 的文字行里没有括号那段'
+    '- **文字的括号设置**：音节文字设成「括号连内容都不写」，短语 `ni33 hem55 (lo21)` 的文字行里没有括号那段',
+    '- **按字号写的意音文字**：「Tsahun 刻符」每个字的转写是字号（k01、k02……），不是读音；词条的检视器模块「字号」写这个词用哪几个字（wa55 是 `k04 k03`），文字页的「转写来源」选了这个模块。词库的文字列、语料与短语的文字行都逐词查词库写出来：`ngo21 kwe51 ta33 sip51` 写成 ⼰ ⼝ ta33 ⿂，没有字号的虚词照原文'
   ].join('\n')
   const doc = createDoc(L.id, 'Tsahun 语法概要')
   doc.markdown = [
@@ -1781,7 +1831,7 @@ function makeTsahun(): void {
     kind: 'gloss',
     template: '{{text}}\n{{gloss}}\n‘{{translation}}’'
   })
-  p.settings.lexiconColumns = ['pos', 'def:zh', 'tags', `script:${syl.id}`]
+  p.settings.lexiconColumns = ['pos', 'def:zh', 'tags', `script:${syl.id}`, `script:${logo.id}`]
   save('Tsahun.laim.json', p)
 }
 

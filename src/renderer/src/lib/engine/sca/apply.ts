@@ -265,6 +265,7 @@ function applyMarked(rule: ParsedRule, input: string, program: RuleProgram): str
 }
 
 function applyRule(rule: ParsedRule, input: string, program: RuleProgram): string {
+  if (rule.literal && !input.includes(rule.literal)) return input
   if (rule.marks) return applyMarked(rule, input, program)
   if (rule.branches) return applyBranches(rule.branches, input)
   let current = input

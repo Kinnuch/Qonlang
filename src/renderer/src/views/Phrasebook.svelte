@@ -25,7 +25,7 @@
   import { createPhrase } from '$lib/core/factory'
   import type { Id, Phrase } from '$lib/core/model'
   import { transcribe } from '$lib/core/pronounce'
-  import { renderScript } from '$lib/script/render'
+  import { textScript } from '$lib/script/lexiconScript'
   import { fontCss } from '$lib/script/fonts'
   import { buildIndex, analyzeToken, tokenize } from '$lib/engine/gloss'
   import { wordHover } from '$lib/state/wordHover.svelte'
@@ -361,7 +361,7 @@
                 onkeydown={(e) => e.key === 'Enter' && (selectedId = p.id)}
               >
                 {#each language.scripts as sc (sc.id)}
-                  {@const st = renderScript(language, sc, p.text)}
+                  {@const st = textScript(project, language, sc, p.text)}
                   {#if st}<div
                       class="scr"
                       style={fontCss(sc)}

@@ -61,6 +61,8 @@ export interface ParsedRule {
   explicitStress: boolean
   /** 规则里引用到的特征成员（给示例用）：方括号里的原文 → 成员 */
   featureMembers?: Record<string, string[]>
+  /** 目标编出来是一串固定的字（没有音类、没有可选、不隔记号）：词里没有这串字，这条规则就不用跑正则 */
+  literal?: string
 }
 
 /** if-else 规则的一路：要改的目标、改成什么，以及编好的匹配 */
@@ -778,6 +780,12 @@ function planNumbered(
   return { left: by(l), target: by(t), right: by(r) }
 }
 
+/** 目标的正则里只有普通字符和转义的标点时，还原成它要找的那串字；否则 undefined */
+function literalOf(re: string): string | undefined {
+  if (!re || !/^(?:[^\\^$.*+?()[\]{}|]|\\[^A-Za-z0-9])*$/u.test(re)) return undefined
+  return re.replace(/\\(.)/gsu, '$1')
+}
+
 function compile(left: string, target: string, right: string): RegExp {
   const src = (left ? `(?<=${left})` : '') + `(${target})` + (right ? `(?=${right})` : '')
   try {
@@ -1338,6 +1346,18 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     if (branching && !elseTarget) return fail('? 后面（不满足环境时）要改的目标不能为空')
 
     const t = firstClassOf(thenTarget)
+    const literal =
+      branching || marks
+        ? undefined
+        : literalOf(
+            expand(thenTarget, classes, {
+              ...common,
+              boundary: null,
+              captureFirst: true,
+              warn: quiet,
+              numbered: planNumbered('', thenTarget, '', classes).target
+            }).re
+          )
     let compiled: CompiledContext[] = []
     let branches: ParsedRule['branches']
     try {
@@ -1407,6 +1427,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
       marks,
       sigma,
       explicitStress: /[ˈˌ]/.test(target),
+      ...(literal ? { literal } : {}),
       ...(branches ? { branches } : {}),
       ...(Object.keys(featureHits).length ? { featureMembers: featureHits } : {})
     }

@@ -38,7 +38,8 @@
     base64ToBuffer,
     fontFamilyCss
   } from '$lib/script/fonts'
-  import { autoMappingRows, expandRules, renderScript } from '$lib/script/render'
+  import { autoMappingRows, expandRules, lexemeScript } from '$lib/script/render'
+  import { sentenceScriptText } from '$lib/script/lexiconScript'
   import { parseRuleText, runRules, type RuleProgram } from '$lib/engine/sca'
   import { languageParseOptions } from '$lib/engine/phon'
   import Portal from '$lib/ui/Portal.svelte'
@@ -868,7 +869,7 @@
                   class="scr"
                   style={fontCss(script)}
                   dir={script.direction === 'rtl' ? 'rtl' : 'ltr'}
-                  >{l.scriptForms?.[script.id] || renderScript(lang, script, l.lemma)}</td
+                  >{lexemeScript(lang, script, l)}</td
                 >
                 <td class="muted small"
                   >{l.senses
@@ -890,7 +891,7 @@
               style={fontCss(script)}
               dir={script.direction === 'rtl' ? 'rtl' : 'ltr'}
             >
-              {renderScript(lang, script, s.text)}
+              {sentenceScriptText(project, lang, script, s)}
             </div>
             <div class="data">{s.text}</div>
             <div class="small muted">{pickText(s.translation, glossLangs)}</div>

@@ -104,7 +104,7 @@ const en: Dict = {
       aelith:
         'Agglutinative a priori language: proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph.',
       tsahun:
-        'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (syllables and sound counts follow the spelling), syllabary packing and vertical layout, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font.'
+        'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (syllables and sound counts follow the spelling), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font.'
     },
     coffee: 'Buy me a coffee',
     changelog: 'Changelog',
@@ -1217,7 +1217,7 @@ const en: Dict = {
       'What to do with parentheses: keep them, merge the letters into the word, or leave them out.',
     from: 'Transcribe from',
     fromHint:
-      'Which field of an entry this script transcribes: the headword by default, or a stem, the pronunciation in one orthography, or an inspector module. Empty fields fall back to the headword.',
+      'Which field of an entry this script transcribes: the headword by default, or a stem, the pronunciation in one orthography, or an inspector module. Empty fields fall back to the headword. With an inspector module (such as a field holding glyph codes for a logographic script), sentences in the corpus and phrasebook are written word by word from the matching entries.',
     fromLemma: 'Headword',
     fromStem: 'Stem: {name}',
     fromPron: 'Pronunciation: {name}',
@@ -1251,7 +1251,8 @@ const en: Dict = {
     char: 'Character',
     name: 'Name',
     value: 'Transliteration',
-    valueHint: 'Spelling in the primary orthography; leave empty to exclude from automatic mapping',
+    valueHint:
+      'What stands for this glyph in the “Transcribe from” field: the spelling by default, or a code such as aa01 for a logographic script; leave empty to exclude from automatic mapping',
     category: 'Category',
     categories: {
       letter: 'Letter',

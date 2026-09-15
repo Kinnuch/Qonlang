@@ -54,7 +54,7 @@
     type HoverChoice,
     type HoverPart
   } from '$lib/state/wordHover.svelte'
-  import { renderScript, sentenceScript } from '$lib/script/render'
+  import { sentenceScriptText, textScript } from '$lib/script/lexiconScript'
   import { dedupeSentences } from '$lib/state/dedupe'
   import StatsPanel from '$lib/ui/StatsPanel.svelte'
   import { corpusStatsFull } from '$lib/engine/stats'
@@ -395,6 +395,8 @@
   const resolveWord = (tk: Token): { lexemeId?: Id; morphemeId?: Id } | null =>
     resolver().resolveWord(tk)
   const hoverParts = (tk: Token): HoverPart[] => resolver().hoverParts(tk)
+  /** 逐词写文字（转写来源是检视器模块的文字）时，没分析出词条的词也按悬浮卡那套认词找 */
+  const lookupWord = (tk: Token): Id | null => resolver().resolveWord(tk)?.lexemeId ?? null
   /** 便宜的可点判断：重的反推留到真正悬浮时再做 */
   const linkable = (tk: Token): boolean => resolver().linkable(tk)
   /** 这个词可能是哪个词条：确认过的就是它；几个同形词条时按意思线索挑，挑不出来就都给 */
@@ -926,7 +928,7 @@
             >
           </div>
           {#each language.scripts as sc (sc.id)}
-            {@const st = sentenceScript(language, sc, s)}
+            {@const st = sentenceScriptText(project, language, sc, s, lookupWord)}
             {#if st}<div
                 class="scr"
                 style={fontCss(sc)}
@@ -1039,7 +1041,7 @@
               onkeydown={(e) => e.key === 'Enter' && pick(s.id)}
             >
               {#each language.scripts as sc (sc.id)}
-                {@const st = sentenceScript(language, sc, s)}
+                {@const st = sentenceScriptText(project, language, sc, s, lookupWord)}
                 {#if st}<div
                     class="scr"
                     style={fontCss(sc)}
@@ -1121,7 +1123,7 @@
               style={fontCss(sc)}
               dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'}
               value={s.scriptForms?.[sc.id] ?? ''}
-              placeholder={renderScript(language, sc, s.text)}
+              placeholder={textScript(project, language, sc, s.text, s.tokens, lookupWord)}
               title={t('script.overrideHint')}
               oninput={(e) => {
                 if (!s.scriptForms) s.scriptForms = {}

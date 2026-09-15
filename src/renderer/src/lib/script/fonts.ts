@@ -1,6 +1,7 @@
 /** 把文字里内嵌的字体注册成 FontFace；返回该文字应使用的 font-family。 */
 import type { Script } from '$lib/core/model'
 import { buildDrawnFont, drawnGlyphs } from './drawnFont'
+import { scriptCacheStamp, scriptCacheValid } from './render'
 
 const registered = new Map<string, string>() // scriptId → dataUrl 已注册
 /** 手写字形做成的字体：scriptId → { 画的内容，已注册的 FontFace } */
@@ -10,7 +11,15 @@ const drawnRegistered = new Map<string, { key: string; face: FontFace | null }>(
 export function drawnFontFamily(script: Script): string {
   return `qy-drawn-${script.id}`
 }
-const hasDrawn = (script: Script): boolean => script.glyphs.some((g) => g.drawing?.strokes.length)
+/** 这套文字里有没有手写的字：字体栈要不要带上手写字体。几千个字形的文字每个格子都要问，项目改动之后才重数 */
+const drawnFlags = new WeakMap<Script, { stamp: number; drawn: boolean }>()
+const hasDrawn = (script: Script): boolean => {
+  const hit = drawnFlags.get(script)
+  if (hit && scriptCacheValid(hit.stamp)) return hit.drawn
+  const drawn = script.glyphs.some((g) => g.drawing?.strokes.length)
+  drawnFlags.set(script, { stamp: scriptCacheStamp(), drawn })
+  return drawn
+}
 
 /** 手写字形变了就重新做字体、换掉原来注册的那个 */
 export function ensureDrawnFont(script: Script): void {

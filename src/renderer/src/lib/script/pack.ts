@@ -130,8 +130,13 @@ function toSegs(word: string, t: PackTables): Seg[] {
  * 把一个词排成读音序列。`isHead` 表示这是中点前的词头，
  * 按不少文字的惯例，词头里的消音符与长元音标记可以省。
  */
-export function packWord(lang: Language, script: Script, word: string, isHead = false): string[] {
-  const t = packTables(lang, script)
+export function packWord(
+  lang: Language,
+  script: Script,
+  word: string,
+  isHead = false,
+  t: PackTables = packTables(lang, script)
+): string[] {
   // 括号、引号这类不在单位表里的符号原样保留：e·(ñ)galan 里的括号不是音
   const segs = toSegs(word, t).filter((x) => t.inventory.includes(x.raw) || x.vowel)
   const out: string[] = []

@@ -12,6 +12,8 @@ import { analyzeWord, languageParseOptions } from '$lib/engine/phon'
 import { stressWord, transcribe } from '$lib/core/pronounce'
 import { lexiconIssues } from '$lib/core/lexiconIssues'
 import { lexemeStress, morphemeStress, stressForWord } from '$lib/core/stressInfo'
+import { lexemeScript } from '$lib/script/render'
+import { sentenceScriptText } from '$lib/script/lexiconScript'
 
 const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
@@ -249,5 +251,17 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     })
     expect(runRules(sandhi, 'lun35').output).toBe('lun˧˥')
     expect(runRules(sandhi, 'lun35lun35').output).toBe('lun˧lun˧˥')
+    // 按字号写的意音文字：词条的「字号」模块逐词写，没有字号的虚词照原文
+    const logo = L.scripts.find((s) => s.name === 'Tsahun 刻符')!
+    expect(logo.from).toMatch(/^custom:/)
+    const first = p.sentences.find((s) => s.text === 'ngo21 kwe51 ta33 sip51')!
+    expect(sentenceScriptText(p, L, logo, first)).toBe('⼰ ⼝ ta33 ⿂')
+    expect(
+      lexemeScript(
+        L,
+        logo,
+        p.lexemes.find((l) => l.lemma === 'wa55')!
+      )
+    ).toBe('⼧ ⼈')
   })
 })
