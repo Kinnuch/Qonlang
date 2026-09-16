@@ -29,9 +29,10 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import gilatodFont from '../../resources/fonts/Gilatod_unicode.otf?asset'
 import {
-  DEFAULT_HEIGHT,
-  DEFAULT_WIDTH,
+  MIN_HEIGHT,
+  MIN_WIDTH,
   WINDOW_STATE_VERSION,
+  defaultWindowSize,
   fitWindowState,
   type WindowState
 } from './windowState'
@@ -526,15 +527,15 @@ const dialogText = {
   }
 }
 
-/** 上次关窗时的大小与位置；读不到就用默认值 */
-function readWindowState(): WindowState {
+/** 上次关窗时的大小与位置；头一次启动或者文件坏了给 null，按屏幕算默认值 */
+function readWindowState(): WindowState | null {
   try {
     const raw = readFileSync(windowFile(), 'utf8')
     const w = JSON.parse(raw) as Partial<WindowState>
     if (typeof w.width === 'number' && typeof w.height === 'number')
       return {
-        width: Math.max(900, Math.round(w.width)),
-        height: Math.max(600, Math.round(w.height)),
+        width: Math.max(MIN_WIDTH, Math.round(w.width)),
+        height: Math.max(MIN_HEIGHT, Math.round(w.height)),
         x: typeof w.x === 'number' ? Math.round(w.x) : undefined,
         y: typeof w.y === 'number' ? Math.round(w.y) : undefined,
         maximized: !!w.maximized,
@@ -543,7 +544,7 @@ function readWindowState(): WindowState {
   } catch {
     // 头一次启动，或者文件坏了，用默认值
   }
-  return { width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT, v: WINDOW_STATE_VERSION }
+  return null
 }
 
 function saveWindowState(): void {
@@ -571,23 +572,34 @@ function onSomeDisplay(x: number, y: number, width: number, height: number): boo
 }
 
 function createWindow(): void {
-  const ws = readWindowState()
-  if (ws.x !== undefined && ws.y !== undefined && !onSomeDisplay(ws.x, ws.y, ws.width, ws.height)) {
-    ws.x = undefined
-    ws.y = undefined
+  const saved = readWindowState()
+  if (
+    saved &&
+    saved.x !== undefined &&
+    saved.y !== undefined &&
+    !onSomeDisplay(saved.x, saved.y, saved.width, saved.height)
+  ) {
+    saved.x = undefined
+    saved.y = undefined
   }
-  // 按记录所在的屏幕放进工作区（旧版记下的窄窗口先放宽一次）
+  // 按记录所在的屏幕（头一次启动就是主屏）算默认大小、放进工作区（旧版记下的窄窗口先放宽一次）
   const display =
-    ws.x !== undefined && ws.y !== undefined
-      ? screen.getDisplayMatching({ x: ws.x, y: ws.y, width: ws.width, height: ws.height })
+    saved && saved.x !== undefined && saved.y !== undefined
+      ? screen.getDisplayMatching({
+          x: saved.x,
+          y: saved.y,
+          width: saved.width,
+          height: saved.height
+        })
       : screen.getPrimaryDisplay()
-  Object.assign(ws, fitWindowState(ws, display.workArea))
+  const def = defaultWindowSize(display.size)
+  const ws = fitWindowState(saved ?? { ...def, v: WINDOW_STATE_VERSION }, display.workArea, def)
   mainWindow = new BrowserWindow({
     width: ws.width,
     height: ws.height,
     ...(ws.x !== undefined && ws.y !== undefined ? { x: ws.x, y: ws.y } : {}),
-    minWidth: 900,
-    minHeight: 600,
+    minWidth: MIN_WIDTH,
+    minHeight: MIN_HEIGHT,
     show: false,
     autoHideMenuBar: true,
     title: '千语集',
