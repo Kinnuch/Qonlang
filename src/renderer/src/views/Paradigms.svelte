@@ -286,7 +286,7 @@
     status: 'none' | 'missing' | 'same' | 'diff'
   } {
     const g = generateForm(ctx, lexeme, para, s, editVariantId)
-    const stored = lexeme.forms[formKeyOf(project, lexeme, para.id, s)]
+    const stored = lexeme.forms[formKeyOf(project, lexeme, para.id, s, editVariantId)]
     const status = !g
       ? 'none'
       : !stored?.override
@@ -576,6 +576,15 @@
     if (!name) return
     const v = { id: newId(), name }
     active.variants = [...active.variants, v]
+    // 新变体先照搬正在看的这一套，改起来省事：只搬这一套自己写了的，继承来的还是继承
+    const from = editVariantId ?? null
+    const all = $state.snapshot(active.generators) as Record<string, SlotGenerator>
+    for (const [key, gen] of Object.entries(all)) {
+      const at = key.lastIndexOf('#')
+      const vid = at < 0 ? null : key.slice(at + 1)
+      if (vid !== from) continue
+      active.generators[variantKey(at < 0 ? key : key.slice(0, at), v.id)] = gen
+    }
     editVariantId = v.id
     touch()
   }

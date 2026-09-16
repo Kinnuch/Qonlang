@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { hintTitles } from '$lib/ui/hintTitles'
   import type { Component } from 'svelte'
   import { ui, SECTIONS, type Section } from '$lib/state/ui.svelte'
   import { projectState } from '$lib/state/project.svelte'
@@ -445,7 +446,7 @@
       {/if}
     </div>
     <!-- 规则语法盖在检视器上面；原来的内容只是藏起来，关掉就回来 -->
-    <div class="inspector-body" id="inspector-slot" hidden={ui.syntaxOpen}></div>
+    <div class="inspector-body" id="inspector-slot" hidden={ui.syntaxOpen} use:hintTitles></div>
     {#if ui.syntaxOpen}
       <div class="inspector-body">
         <RuleSyntax anchor={ui.syntaxAnchor} />

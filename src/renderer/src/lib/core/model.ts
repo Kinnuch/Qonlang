@@ -70,6 +70,8 @@ export interface ProjectSettings {
   tokenizer: TokenizerMode
   /** tokenizer 为 custom 时的分隔符正则（JS 写法，不带两边的斜杠） */
   tokenizerPattern: string
+  /** 算作字母、不当标点剥掉的符号（阿拉伯语转写里的 `'` 这类）；词库里以它开头结尾的词自动算上 */
+  tokenizerLetters?: string
   /** gloss 缩写风格：leipzig = 大写英文缩写；native = 缩写表里的本地名 */
   abbreviationStyle: 'leipzig' | 'native'
   /** 用户自定义导出模板 */

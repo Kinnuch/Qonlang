@@ -1827,6 +1827,10 @@ export default {
     tokenizerHint: '语料的原文怎么切成词。默认按空白；不用空格的表记（汉语式、日语式）选逐字。',
     tokenizerPattern: '分隔符正则',
     tokenizerPatternHint: 'JS 正则，不带两边的斜杠；写错了会退回按空白切。',
+    tokenizerLetters: '算作字母的符号',
+    tokenizerLettersHint:
+      "写在这里的符号不会被当成标点从词两头剥掉（阿拉伯语转写里的 ' 这类）。词库里有词以某个撇号开头或结尾时自动算上，不用再写。",
+    tokenizerLettersPlaceholder: "如 '’",
     morphemeBoundaries: '语素边界符号（空格分隔）',
     dataFont: '语言数据字体（留空用默认）',
     imageSize: '词条配图尺寸（像素，宽 × 高）',

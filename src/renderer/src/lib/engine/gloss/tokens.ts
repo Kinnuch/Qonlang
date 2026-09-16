@@ -3,13 +3,37 @@
  */
 import type { TokenizerMode } from '$lib/core/model'
 
-export const PUNCT =
-  /^[\s.,;:!?…“”"'()[\]«»‹›—–「」『』，。！？；：、]+|[\s.,;:!?…“”"'()[\]«»‹›—–「」『』，。！？；：、]+$/gu
+const PUNCT_CHARS = Array.from('.,;:!?…“”"\'()[]«»‹›—–「」『』，。！？；：、')
+const classOf = (chars: string[]): string =>
+  '\\s' + chars.map((c) => c.replace(/[\\\]^-]/gu, '\\$&')).join('')
+
+/** 词两头要剥掉的标点（`letters` 里的符号算字母，不剥） */
+function edges(letters = ''): { punct: RegExp; lead: RegExp; trail: RegExp } {
+  const hit = edgeCache.get(letters)
+  if (hit) return hit
+  const keep = new Set(Array.from(letters))
+  const cls = classOf(PUNCT_CHARS.filter((c) => !keep.has(c)))
+  const made = {
+    punct: new RegExp(`^[${cls}]+|[${cls}]+$`, 'gu'),
+    lead: new RegExp(`^[${cls}]+`, 'u'),
+    trail: new RegExp(`[${cls}]+$`, 'u')
+  }
+  edgeCache.set(letters, made)
+  return made
+}
+const edgeCache = new Map<string, { punct: RegExp; lead: RegExp; trail: RegExp }>()
+
+export const PUNCT = edges().punct
 
 export interface TokenizeOptions {
   mode?: TokenizerMode
   /** custom 模式的分隔符正则；写错了就退回按空白 */
   pattern?: string
+  /**
+   * 这些符号算字母，不当标点剥掉（阿拉伯语转写里的 `'` 这类）。
+   * 软件里：词库中以它开头或结尾的词头、屈折形自动算上，再加「设置 → 项目 → 算作字母的符号」里写的。
+   */
+  letters?: string
 }
 
 /**
@@ -17,7 +41,8 @@ export interface TokenizeOptions {
  * 或者自己给一个分隔符正则（见「设置 → 项目 → 分词方式」）。
  */
 export function tokenize(text: string, opts: TokenizeOptions = {}): string[] {
-  const clean = (t: string): string => t.replace(PUNCT, '')
+  const punct = edges(opts.letters).punct
+  const clean = (t: string): string => t.replace(punct, '')
   if (opts.mode === 'character')
     return Array.from(text)
       .map(clean)
@@ -33,10 +58,6 @@ export function tokenize(text: string, opts: TokenizeOptions = {}): string[] {
   return text.split(/\s+/).map(clean).filter(Boolean)
 }
 
-/** 词两头能剥掉的标点（跟 PUNCT 同一套） */
-const LEAD = new RegExp(`^(?:${PUNCT.source.split('|')[0].slice(1)})`, 'u')
-const TRAIL = new RegExp(`(?:${PUNCT.source.split('|')[1].slice(0, -1)})$`, 'u')
-
 /** 切出来的一段：word 为 true 的依次就是 tokenize 给出的词，所有段的 text 拼起来是原文 */
 export interface TokenSpan {
   text: string
@@ -44,11 +65,12 @@ export interface TokenSpan {
 }
 
 /** 一块不含分隔符的文字：两头的标点单独成段，中间是词 */
-function chunkSpans(chunk: string, out: TokenSpan[]): void {
+function chunkSpans(chunk: string, out: TokenSpan[], letters?: string): void {
   if (!chunk) return
-  const lead = LEAD.exec(chunk)?.[0] ?? ''
+  const { lead: leadRe, trail: trailRe } = edges(letters)
+  const lead = leadRe.exec(chunk)?.[0] ?? ''
   const rest = chunk.slice(lead.length)
-  const trail = rest ? (TRAIL.exec(rest)?.[0] ?? '') : ''
+  const trail = rest ? (trailRe.exec(rest)?.[0] ?? '') : ''
   const core = rest.slice(0, rest.length - trail.length)
   if (lead) out.push({ text: lead, word: false })
   if (core) out.push({ text: core, word: true })
@@ -62,7 +84,7 @@ function chunkSpans(chunk: string, out: TokenSpan[]): void {
 export function tokenSpans(text: string, opts: TokenizeOptions = {}): TokenSpan[] {
   const out: TokenSpan[] = []
   if (opts.mode === 'character') {
-    for (const c of Array.from(text)) chunkSpans(c, out)
+    for (const c of Array.from(text)) chunkSpans(c, out, opts.letters)
     return out
   }
   let re = /\s+/gu
@@ -77,10 +99,10 @@ export function tokenSpans(text: string, opts: TokenizeOptions = {}): TokenSpan[
   for (const m of text.matchAll(re)) {
     if (!m[0]) continue
     const at = m.index ?? 0
-    chunkSpans(text.slice(last, at), out)
+    chunkSpans(text.slice(last, at), out, opts.letters)
     out.push({ text: m[0], word: false })
     last = at + m[0].length
   }
-  chunkSpans(text.slice(last), out)
+  chunkSpans(text.slice(last), out, opts.letters)
   return out
 }

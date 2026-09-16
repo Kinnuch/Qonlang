@@ -23,6 +23,8 @@ interface LexiconIndex {
   byId: Map<Id, Lexeme>
   /** 语言 id → 写法（小写、去掉两头连字符、括号两种读法、去附加符）→ 词条 */
   byWord: Map<Id, Map<string, Lexeme>>
+  /** 词头两头出现过的撇号一类：切句子时算字母 */
+  letters: string
 }
 const indexes = new WeakMap<Lexeme[], LexiconIndex>()
 
@@ -32,6 +34,8 @@ const fold = (s: string): string =>
     .replace(/\p{M}+/gu, '')
     .normalize('NFC')
 const trimMarks = (s: string): string => s.replace(/^[-=…·.]+|[-=…·.]+$/gu, '')
+/** 可能是字母的符号：词头两头出现过就当字母（跟语料分析一致） */
+const LETTERLIKE = new Set(Array.from("'’‘ʼʻʽ`´ʔʕ"))
 
 /** 词头的几种写法：原样、(le)kùti 去掉括号里的与留下括号里的，各自再去附加符 */
 function wordKeys(lemma: string): string[] {
@@ -50,14 +54,25 @@ function wordKeys(lemma: string): string[] {
 function lexiconIndex(project: Project): LexiconIndex {
   const hit = indexes.get(project.lexemes)
   if (hit && scriptCacheValid(hit.stamp)) return hit
-  const index: LexiconIndex = { stamp: scriptCacheStamp(), byId: new Map(), byWord: new Map() }
+  const index: LexiconIndex = {
+    stamp: scriptCacheStamp(),
+    byId: new Map(),
+    byWord: new Map(),
+    letters: ''
+  }
+  const edge = new Set<string>()
   for (const l of project.lexemes) {
     index.byId.set(l.id, l)
     let words = index.byWord.get(l.languageId)
     if (!words) index.byWord.set(l.languageId, (words = new Map()))
     const forms = [l.lemma, ...Object.values(l.forms ?? {}).map((f) => f.surface)]
-    for (const f of forms) for (const k of wordKeys(f)) if (!words.has(k)) words.set(k, l)
+    for (const f of forms) {
+      const t = f.trim()
+      if (t) for (const c of [t[0], t[t.length - 1]]) if (LETTERLIKE.has(c)) edge.add(c)
+      for (const k of wordKeys(f)) if (!words.has(k)) words.set(k, l)
+    }
   }
+  index.letters = [...edge].join('')
   indexes.set(project.lexemes, index)
   return index
 }
@@ -110,7 +125,8 @@ function viaLexicon(
   const index = lexiconIndex(project)
   const spans = tokenSpans(text, {
     mode: project.settings.tokenizer,
-    pattern: project.settings.tokenizerPattern
+    pattern: project.settings.tokenizerPattern,
+    letters: index.letters + (project.settings.tokenizerLetters ?? '')
   })
   let next = 0
   let out = ''

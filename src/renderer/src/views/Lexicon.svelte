@@ -44,6 +44,7 @@
   import {
     paradigmFor,
     paradigmsFor,
+    lexemeParadigmLabel,
     lexemeSlots,
     deriveLexemeForms,
     makeContext,
@@ -825,13 +826,13 @@
   const posParas = (l: Lexeme): string[] => posParadigmIds(project, l.posId)
   /** 词条用的全部构形的槽位（第一个构形在前，另外加的依次在后），以及每一格存在哪个键下 */
   const slotsOf = (l: Lexeme): LexemeSlot[] => lexemeSlots(project, l, glossLangs)
-  /** 按构形分组：录入里每个构形一组，组名是构形名 */
-  const slotGroups = (l: Lexeme): { id: Id; name: string; slots: LexemeSlot[] }[] => {
-    const out: { id: Id; name: string; slots: LexemeSlot[] }[] = []
+  /** 按构形分组：录入里每一套（构形 + 变体）一组，组名是构形名，挑了变体时带上变体名 */
+  const slotGroups = (l: Lexeme): { id: string; name: string; slots: LexemeSlot[] }[] => {
+    const out: { id: string; name: string; slots: LexemeSlot[] }[] = []
     for (const s of slotsOf(l)) {
-      const id = s.lp.paradigm.id
+      const id = `${s.lp.paradigm.id}#${s.lp.variantId ?? ''}`
       let g = out.find((x) => x.id === id)
-      if (!g) out.push((g = { id, name: paraName(id), slots: [] }))
+      if (!g) out.push((g = { id, name: lexemeParadigmLabel(s.lp, glossLangs), slots: [] }))
       g.slots.push(s)
     }
     return out
@@ -842,12 +843,26 @@
     deriveLexemeForms(makeContext(project, lg), l)
     touch(l)
   }
-  /** 另外加一个构形：先挑还没用上的第一个 */
+  /**
+   * 还能添的一套：先挑整个没用过的构形，都用过了就挑还有变体没用的那个
+   * （同一套构形的两个变体可以一起用：书面一套、口语一套）
+   */
+  function freeParadigm(l: Lexeme): { paradigmId: Id; variantId: Id | null } | null {
+    const used = new Set(
+      paradigmsFor(project, l).map((x) => `${x.paradigm.id}#${x.variantId ?? ''}`)
+    )
+    for (const p of project.paradigms) {
+      if (p.appliesToAll) continue
+      for (const vid of [null, ...p.variants.map((v) => v.id)])
+        if (!used.has(`${p.id}#${vid ?? ''}`)) return { paradigmId: p.id, variantId: vid }
+    }
+    return null
+  }
+  /** 另外加一个构形 */
   function addExtraParadigm(l: Lexeme): void {
-    const used = new Set(paradigmsFor(project, l).map((x) => x.paradigm.id))
-    const next = project.paradigms.find((p) => !p.appliesToAll && !used.has(p.id))
+    const next = freeParadigm(l)
     if (!next) return
-    l.extraParadigms = [...(l.extraParadigms ?? []), { paradigmId: next.id, variantId: null }]
+    l.extraParadigms = [...(l.extraParadigms ?? []), next]
     rederive(l)
   }
   /** 录入里某一格推出来的形式：生成成一个新词条（弹出表单，词源和关系按构形填好） */
@@ -2015,7 +2030,7 @@
         <span class="small muted">{t('lexicon.forms')}</span><HelpDot key="forms" /><span
           class="grow"
         ></span>
-        {#if project.paradigms.some((pa) => !pa.appliesToAll && !paradigmsFor(project, l).some((x) => x.paradigm.id === pa.id))}<button
+        {#if freeParadigm(l)}<button
             class="btn ghost sm"
             title={t('lexicon.addParadigmHint')}
             onclick={() => addExtraParadigm(l)}><Plus size={14} />{t('lexicon.addParadigm')}</button

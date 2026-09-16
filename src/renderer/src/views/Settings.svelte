@@ -340,6 +340,22 @@
         </select>
         <span class="small muted">{t('settings.tokenizerHint')}</span>
       </div>
+      <div class="field">
+        <label for="p-token-letters"
+          >{t('settings.tokenizerLetters')}
+          <HelpDot tip={t('settings.tokenizerLettersHint')} /></label
+        >
+        <input
+          id="p-token-letters"
+          class="input data"
+          value={project.settings.tokenizerLetters ?? ''}
+          placeholder={t('settings.tokenizerLettersPlaceholder')}
+          oninput={(e) => {
+            project.settings.tokenizerLetters = (e.currentTarget as HTMLInputElement).value
+            projectState.touch()
+          }}
+        />
+      </div>
       {#if project.settings.tokenizer === 'custom'}
         <div class="field">
           <label for="p-token-pat">{t('settings.tokenizerPattern')}</label>

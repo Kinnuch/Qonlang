@@ -1898,6 +1898,10 @@ const en: Dict = {
     tokenizerPattern: 'Separator pattern',
     tokenizerPatternHint:
       'A JS regular expression without the slashes; an invalid one falls back to whitespace.',
+    tokenizerLetters: 'Symbols that count as letters',
+    tokenizerLettersHint:
+      'Symbols listed here are never stripped from the edges of a word as punctuation (the apostrophe in Arabic transliteration, for instance). Apostrophes that start or end a word in the lexicon are picked up automatically.',
+    tokenizerLettersPlaceholder: "e.g. '’",
     morphemeBoundaries: 'Morpheme boundary symbols (space-separated)',
     dataFont: 'Font for language data (blank = default)',
     imageSize: 'Entry image size (px, width × height)',

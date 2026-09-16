@@ -109,15 +109,33 @@ export interface LexemeParadigm {
   primary: boolean
 }
 
-/** 词条用的全部构形：第一个是指名的或词类默认的，后面是另外加的（重复的、作用于所有词的不算） */
+/** 这一套（构形 + 变体）的标识：同一个构形的不同变体算两套 */
+const lpKey = (paradigmId: Id, variantId?: Id | null): string => `${paradigmId}#${variantId ?? ''}`
+
+/** 这一套叫什么：构形名，挑了变体时后面带上变体名 */
+export function lexemeParadigmLabel(lp: LexemeParadigm, glossLangs: string[] = []): string {
+  const name = pick(lp.paradigm.name, glossLangs) || '?'
+  const v = lp.variantId ? lp.paradigm.variants.find((x) => x.id === lp.variantId)?.name : ''
+  return v ? `${name}·${v}` : name
+}
+
+/**
+ * 词条用的全部构形：第一个是指名的或词类默认的，后面是另外加的。
+ * 同一个构形的不同变体各算一套（名词兼动词、或者同一套构形的书面 / 口语两个变体都要）；
+ * 完全一样的（同构形同变体）与作用于所有词的不算。
+ */
 export function paradigmsFor(project: Project, lexeme: Lexeme): LexemeParadigm[] {
   const out: LexemeParadigm[] = []
+  const seen = new Set<string>()
   const first = paradigmFor(project, lexeme)
-  if (first)
+  if (first) {
     out.push({ paradigm: first, variantId: lexeme.paradigmVariantId ?? null, primary: true })
+    seen.add(lpKey(first.id, lexeme.paradigmVariantId))
+  }
   for (const x of lexeme.extraParadigms ?? []) {
     const p = project.paradigms.find((y) => y.id === x.paradigmId)
-    if (!p || p.appliesToAll || out.some((o) => o.paradigm.id === p.id)) continue
+    if (!p || p.appliesToAll || seen.has(lpKey(p.id, x.variantId))) continue
+    seen.add(lpKey(p.id, x.variantId))
     out.push({ paradigm: p, variantId: x.variantId ?? null, primary: false })
   }
   return out
@@ -142,9 +160,12 @@ export function lexemeSlots(
   const out: LexemeSlot[] = []
   const used = new Set<string>()
   for (const lp of paradigmsFor(project, lexeme)) {
-    const name = pick(lp.paradigm.name, glossLangs) || '?'
+    const name = lexemeParadigmLabel(lp, glossLangs)
     for (const slot of paradigmSlots(lp.paradigm, project.categories, glossLangs)) {
-      const key = !lp.primary && used.has(slot.label) ? `${name}·${slot.label}` : slot.label
+      // 跟前面重名的槽位，名字前面加这一套的名字；还重名就再加个序号
+      let key = slot.label
+      if (used.has(key)) key = `${name}·${slot.label}`
+      for (let i = 2; used.has(key); i++) key = `${name}·${slot.label}·${i}`
       used.add(key)
       out.push({ lp, slot, key })
     }
@@ -153,10 +174,20 @@ export function lexemeSlots(
 }
 
 /** 某个构形的某一格在这个词条里存在哪个键下；词条没用这个构形时就是槽位名 */
-export function formKeyOf(project: Project, lexeme: Lexeme, paradigmId: Id, slot: SlotDef): string {
-  const hit = lexemeSlots(project, lexeme).find(
+export function formKeyOf(
+  project: Project,
+  lexeme: Lexeme,
+  paradigmId: Id,
+  slot: SlotDef,
+  variantId?: Id | null
+): string {
+  const slots = lexemeSlots(project, lexeme).filter(
     (s) => s.lp.paradigm.id === paradigmId && s.slot.key === slot.key
   )
+  const hit =
+    (variantId === undefined
+      ? slots[0]
+      : slots.find((s) => (s.lp.variantId ?? null) === (variantId ?? null))) ?? slots[0]
   return hit?.key ?? slot.label
 }
 
@@ -812,7 +843,9 @@ export function deriveForms(
     slots ?? paradigmSlots(paradigm, ctx.project.categories, ctx.project.settings.glossLanguages)
   const keys = new Map(
     lexemeSlots(ctx.project, lexeme)
-      .filter((s) => s.lp.paradigm.id === paradigm.id)
+      .filter(
+        (s) => s.lp.paradigm.id === paradigm.id && (s.lp.variantId ?? null) === (variantId ?? null)
+      )
       .map((s) => [s.slot.key, s.key])
   )
   let n = 0

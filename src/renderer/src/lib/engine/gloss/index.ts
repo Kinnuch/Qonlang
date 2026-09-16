@@ -25,6 +25,8 @@ export interface GlossIndex {
   phrases: Set<string>
   /** 带空格的形式最多有几个词 */
   maxPhrase: number
+  /** 这门语言里算字母的符号：词头、屈折形两头出现过的撇号一类（分词时不当标点剥掉） */
+  wordChars: string
 }
 
 import { tokenize } from './tokens'
@@ -91,6 +93,9 @@ function formKeys(raw: string, boundaries: string[], prefixes: string[]): string
 /** 常见拉丁元音：语言没有音系数据时撇号缩略用它 */
 const FALLBACK_VOWELS = 'aeiouyæøœɑɛɔəɪʊɨʉɯ'
 
+/** 可能是字母的符号：转写里常见的几种撇号、送气 / 喉塞记号 */
+const LETTERLIKE = new Set(Array.from("'’‘ʼʻʽ`´ʔʕ"))
+
 export function buildIndex(project: Project, languageId: Id): GlossIndex {
   const glossLangs = project.settings.glossLanguages
   const language = project.languages.find((l) => l.id === languageId)
@@ -114,7 +119,15 @@ export function buildIndex(project: Project, languageId: Id): GlossIndex {
     },
     vowels,
     phrases: new Set(),
-    maxPhrase: 1
+    maxPhrase: 1,
+    wordChars: ''
+  }
+  // 撇号这类符号，词库里有词以它开头或结尾就当字母（阿拉伯语转写的 'llhi）
+  const edgeChars = new Set<string>()
+  const noteEdges = (form: string): void => {
+    const s = form.trim()
+    if (!s) return
+    for (const c of [s[0], s[s.length - 1]]) if (LETTERLIKE.has(c)) edgeChars.add(c)
   }
   const boundaries = project.settings.morphemeBoundaries
   // 本语言（含祖语）的前缀与附着词，用来还原脱落词头的写法
@@ -128,6 +141,7 @@ export function buildIndex(project: Project, languageId: Id): GlossIndex {
   ]
   for (const l of project.lexemes) {
     if (l.languageId !== languageId) continue
+    noteEdges(l.lemma)
     for (const k of formKeys(l.lemma, boundaries, prefixForms)) push(idx.lemma, k, l)
     for (const st of Object.values(l.stems))
       for (const k of formKeys(st, boundaries, prefixForms)) push(idx.stems, k, l)
@@ -135,6 +149,7 @@ export function buildIndex(project: Project, languageId: Id): GlossIndex {
     for (const s of lexemeSlots(project, l, glossLangs)) abbrs.set(s.key, s.slot.abbr)
     for (const [slot, f] of Object.entries(l.forms)) {
       for (const v of f.surface.split(/[,，;；/]\s*/)) {
+        noteEdges(v)
         for (const k of formKeys(v.trim().replace(/^\*/, ''), boundaries, prefixForms))
           push(idx.forms, k, { lexeme: l, slot, abbr: abbrs.get(slot) ?? slot })
       }
@@ -159,6 +174,7 @@ export function buildIndex(project: Project, languageId: Id): GlossIndex {
       if (m.type === 'prefix' || m.type === 'clitic') idx.prefixes.push({ form: f, morpheme: m })
     }
   }
+  idx.wordChars = [...edgeChars].join('')
   // 带空格的形式（ar mae 这种限定词 + 名词分开写的屈折形）
   for (const k of [...idx.lemma.keys(), ...idx.forms.keys(), ...idx.stems.keys()]) {
     if (!k.includes(' ')) continue
@@ -514,7 +530,8 @@ export function analyzeSentence(
     idx,
     tokenize(sentence.text, {
       mode: project.settings.tokenizer,
-      pattern: project.settings.tokenizerPattern
+      pattern: project.settings.tokenizerPattern,
+      letters: idx.wordChars + (project.settings.tokenizerLetters ?? '')
     }),
     (w) => !!old.get(w)?.confirmed && !opts.force
   )
