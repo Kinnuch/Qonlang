@@ -19,6 +19,7 @@ import { languageParseOptions, segment, spellingUnits } from '../phon'
 import { transcribe } from '$lib/core/pronounce'
 import { posParadigmId } from '$lib/core/pos'
 import { activeValues, conditionVariants, resolveConditions } from './conditions'
+import type { LayoutDim } from './layout'
 
 export interface SlotDef {
   key: string
@@ -171,6 +172,51 @@ export function lexemeSlots(
     }
   }
   return out
+}
+
+/** 词条的槽位按「这一套」（构形 + 变体）分组 */
+export interface LexemeSlotGroup {
+  /** 每一套的标识：构形 id + 变体 id */
+  id: string
+  /** 这一套叫什么（构形名，挑了变体时带上变体名） */
+  name: string
+  lp: LexemeParadigm
+  slots: LexemeSlot[]
+}
+
+export function lexemeSlotGroups(
+  project: Project,
+  lexeme: Lexeme,
+  glossLangs: string[] = project.settings.glossLanguages
+): LexemeSlotGroup[] {
+  const out: LexemeSlotGroup[] = []
+  for (const s of lexemeSlots(project, lexeme, glossLangs)) {
+    const id = lpKey(s.lp.paradigm.id, s.lp.variantId)
+    let g = out.find((x) => x.id === id)
+    if (!g) out.push((g = { id, name: lexemeParadigmLabel(s.lp, glossLangs), lp: s.lp, slots: [] }))
+    g.slots.push(s)
+  }
+  return out
+}
+
+/** 一个构形的维度，名字都取好了，给表格 / 树形图排布用（见 layout.ts） */
+export function paradigmDims(
+  p: Paradigm,
+  categories: GrammaticalCategory[],
+  glossLangs: string[]
+): LayoutDim[] {
+  return p.dimensionIds
+    .map((id) => categories.find((c) => c.id === id))
+    .filter((c): c is GrammaticalCategory => !!c)
+    .map((c) => ({
+      id: c.id,
+      name: pick(c.name, glossLangs) || '?',
+      values: c.values.map((v) => ({
+        id: v.id,
+        name: pick(v.name, glossLangs) || v.abbr || '?',
+        abbr: v.abbr
+      }))
+    }))
 }
 
 /** 某个构形的某一格在这个词条里存在哪个键下；词条没用这个构形时就是槽位名 */

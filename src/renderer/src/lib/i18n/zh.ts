@@ -939,6 +939,10 @@ export default {
     paradigmsOfPos: '这个词类的构形',
     paradigmsOther: '其他构形',
     extraForms: '其他形式',
+    formsCount: '{n} 格，填了 {filled}',
+    layoutList: '列表',
+    layoutTable: '表格：维度排成行列',
+    layoutTree: '树形图：按维度分叉',
     noParadigm: '该词类未绑定构形；可在「构形」页绑定。'
   },
   taxonomy: {

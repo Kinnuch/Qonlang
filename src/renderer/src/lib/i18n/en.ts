@@ -972,6 +972,10 @@ const en: Dict = {
     paradigmsOfPos: 'Paradigms of this part of speech',
     paradigmsOther: 'Other paradigms',
     extraForms: 'Other forms',
+    formsCount: '{n} slots, {filled} filled',
+    layoutList: 'List',
+    layoutTable: 'Table: dimensions as rows and columns',
+    layoutTree: 'Tree: branching by dimension',
     noParadigm: 'This part of speech has no paradigm; bind one on the Paradigms page.'
   },
   taxonomy: {

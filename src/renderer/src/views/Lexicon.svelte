@@ -44,12 +44,16 @@
   import {
     paradigmFor,
     paradigmsFor,
-    lexemeParadigmLabel,
     lexemeSlots,
+    lexemeSlotGroups,
+    paradigmDims,
     deriveLexemeForms,
     makeContext,
     type LexemeSlot
   } from '$lib/engine/morph'
+  import FormsView from '$lib/ui/FormsView.svelte'
+  import { sectionCollapsed, toggleSection } from '$lib/ui/section.svelte'
+  import type { FormsLayout } from '$lib/platform/types'
   import { newLexeme } from '$lib/state/newLexeme.svelte'
   import {
     ETYMOLOGY_TYPES,
@@ -92,6 +96,10 @@
     RotateCcw,
     ChevronUp,
     ChevronDown,
+    ChevronRight,
+    List,
+    Table,
+    ListTree,
     ImagePlus,
     FilePlus2,
     Merge,
@@ -827,15 +835,21 @@
   /** 词条用的全部构形的槽位（第一个构形在前，另外加的依次在后），以及每一格存在哪个键下 */
   const slotsOf = (l: Lexeme): LexemeSlot[] => lexemeSlots(project, l, glossLangs)
   /** 按构形分组：录入里每一套（构形 + 变体）一组，组名是构形名，挑了变体时带上变体名 */
-  const slotGroups = (l: Lexeme): { id: string; name: string; slots: LexemeSlot[] }[] => {
-    const out: { id: string; name: string; slots: LexemeSlot[] }[] = []
-    for (const s of slotsOf(l)) {
-      const id = `${s.lp.paradigm.id}#${s.lp.variantId ?? ''}`
-      let g = out.find((x) => x.id === id)
-      if (!g) out.push((g = { id, name: lexemeParadigmLabel(s.lp, glossLangs), slots: [] }))
-      g.slots.push(s)
-    }
-    return out
+  const slotGroups = (l: Lexeme): ReturnType<typeof lexemeSlotGroups> =>
+    lexemeSlotGroups(project, l, glossLangs)
+  /** 录入模式下屈折形那一块收没收起（显示模式那边另记，见 LexemeCard） */
+  const FORMS_FOLD_EDIT = 'lex.forms:edit'
+  const formsFolded = $derived(sectionCollapsed(FORMS_FOLD_EDIT))
+  /** 屈折形怎么排：列表、表格、树形图；跟显示模式共用一个选择，记在本机 */
+  const formsLayout = $derived<FormsLayout>(ui.prefs.formsLayout ?? 'list')
+  const setFormsLayout = (v: FormsLayout): void => {
+    ui.prefs.formsLayout = v
+    void ui.savePrefs()
+  }
+  /** 收起来时那一行写什么：几格、填了几个 */
+  function foldedFormsSummary(l: Lexeme): string {
+    const filled = Object.values(l.forms).filter((f) => f.surface.trim()).length
+    return t('lexicon.formsCount', { n: String(slotsOf(l).length), filled: String(filled) })
   }
   function deriveNow(l: Lexeme): void {
     const lg = project.languages.find((x) => x.id === l.languageId)
@@ -1510,7 +1524,7 @@
         ><Pencil size={14} />{t('lexicon.modeEdit')}</button
       >
     </div>
-    <LexemeCard lexeme={l} {project} onselect={selectFromCard} />
+    <LexemeCard lexeme={l} {project} onselect={selectFromCard} controls />
     <LexemeExamples lexeme={l} {project} {glossLangs} />
   </Portal>
 {/if}
@@ -2026,10 +2040,30 @@
           >
         </div>
       {/each}
-      <div class="row">
-        <span class="small muted">{t('lexicon.forms')}</span><HelpDot key="forms" /><span
-          class="grow"
-        ></span>
+      <div class="row forms-head">
+        <span class="small muted nowrap">{t('lexicon.forms')}</span><HelpDot key="forms" /><button
+          class="fold-btn"
+          class:on={formsFolded}
+          title={formsFolded ? t('common.expand') : t('common.collapse')}
+          aria-expanded={!formsFolded}
+          onclick={() => toggleSection(FORMS_FOLD_EDIT)}
+          >{#if formsFolded}<ChevronRight size={14} />{:else}<ChevronDown size={14} />{/if}</button
+        ><span class="grow"></span>
+        <span class="seg">
+          <button
+            class:active={formsLayout === 'list'}
+            title={t('lexicon.layoutList')}
+            onclick={() => setFormsLayout('list')}><List size={13} /></button
+          ><button
+            class:active={formsLayout === 'table'}
+            title={t('lexicon.layoutTable')}
+            onclick={() => setFormsLayout('table')}><Table size={13} /></button
+          ><button
+            class:active={formsLayout === 'tree'}
+            title={t('lexicon.layoutTree')}
+            onclick={() => setFormsLayout('tree')}><ListTree size={13} /></button
+          >
+        </span>
         {#if freeParadigm(l)}<button
             class="btn ghost sm"
             title={t('lexicon.addParadigmHint')}
@@ -2046,50 +2080,84 @@
           }}><Plus size={14} />{t('lexicon.addForm')}</button
         >
       </div>
-      {#if slotsOf(l).length}
+      {#if formsFolded}
+        <button class="fold-sum small" onclick={() => toggleSection(FORMS_FOLD_EDIT)}
+          >{foldedFormsSummary(l)}</button
+        >
+      {:else if slotsOf(l).length}
         {@const groups = slotGroups(l)}
         {#each groups as grp (grp.id)}
+          {@const dims =
+            formsLayout === 'list'
+              ? []
+              : paradigmDims(grp.lp.paradigm, project.categories, glossLangs)}
           {#if groups.length > 1}<div class="small para-head">{grp.name}</div>{/if}
-          {#each grp.slots as s (grp.id + '|' + s.slot.key)}
-            {@const f = l.forms[s.key]}
-            <div class="row kv" title={f?.trace?.join('\n') ?? ''}>
-              <span class="slot small">{s.slot.label}</span>
-              <input
-                class="input data"
-                class:derived={f && !f.override}
-                value={f?.surface ?? ''}
-                placeholder="—"
-                oninput={(e) => {
-                  l.forms[s.key] = {
-                    surface: (e.currentTarget as HTMLInputElement).value,
-                    derived: false,
-                    override: true,
-                    trace: []
-                  }
-                  touch(l)
-                }}
-              />
-              {#if f?.surface?.trim()}
-                <button
-                  class="btn ghost icon sm"
-                  title={t('lexicon.generateEntry')}
-                  onclick={() => generateFromSlot(l, s)}><FilePlus2 size={13} /></button
-                >
-              {/if}
-              {#if f?.override}
-                <button
-                  class="btn ghost icon sm"
-                  title={t('lexicon.resetDerived')}
-                  onclick={() => {
-                    delete l.forms[s.key]
-                    deriveNow(l)
-                  }}><RotateCcw size={13} /></button
-                >
-              {:else if f}
-                <span class="badge">{t('lexicon.formsDerived')}</span>
-              {/if}
-            </div>
-          {/each}
+          {#if dims.length}
+            <FormsView {dims} slots={grp.slots} layout={formsLayout as 'table' | 'tree'}>
+              {#snippet cell(s: LexemeSlot | null)}
+                {#if s}
+                  {@const f = l.forms[s.key]}
+                  <input
+                    class="input data cell"
+                    class:derived={f && !f.override}
+                    value={f?.surface ?? ''}
+                    placeholder="—"
+                    title={[s.slot.label, ...(f?.trace ?? [])].filter(Boolean).join('\n')}
+                    oninput={(e) => {
+                      l.forms[s.key] = {
+                        surface: (e.currentTarget as HTMLInputElement).value,
+                        derived: false,
+                        override: true,
+                        trace: []
+                      }
+                      touch(l)
+                    }}
+                  />
+                {/if}
+              {/snippet}
+            </FormsView>
+          {:else}
+            {#each grp.slots as s (grp.id + '|' + s.slot.key)}
+              {@const f = l.forms[s.key]}
+              <div class="row kv" title={f?.trace?.join('\n') ?? ''}>
+                <span class="slot small">{s.slot.label}</span>
+                <input
+                  class="input data"
+                  class:derived={f && !f.override}
+                  value={f?.surface ?? ''}
+                  placeholder="—"
+                  oninput={(e) => {
+                    l.forms[s.key] = {
+                      surface: (e.currentTarget as HTMLInputElement).value,
+                      derived: false,
+                      override: true,
+                      trace: []
+                    }
+                    touch(l)
+                  }}
+                />
+                {#if f?.surface?.trim()}
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('lexicon.generateEntry')}
+                    onclick={() => generateFromSlot(l, s)}><FilePlus2 size={13} /></button
+                  >
+                {/if}
+                {#if f?.override}
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('lexicon.resetDerived')}
+                    onclick={() => {
+                      delete l.forms[s.key]
+                      deriveNow(l)
+                    }}><RotateCcw size={13} /></button
+                  >
+                {:else if f}
+                  <span class="badge">{t('lexicon.formsDerived')}</span>
+                {/if}
+              </div>
+            {/each}
+          {/if}
         {/each}
         {#if Object.keys(l.forms).some((k) => !slotsOf(l).some((s) => s.key === k))}<span
             class="small muted">{t('lexicon.extraForms')}</span
@@ -2097,7 +2165,7 @@
       {:else if l.posId}
         <span class="hint">{t('lexicon.noParadigm')}</span>
       {/if}
-      {#each formRows.sync( l.id, Object.keys(l.forms).filter((k) => !slotsOf(l).some((s) => s.key === k)) ) as row (row.id)}
+      {#each formsFolded ? [] : formRows.sync( l.id, Object.keys(l.forms).filter((k) => !slotsOf(l).some((s) => s.key === k)) ) as row (row.id)}
         <div class="row kv">
           <input
             class="input"
@@ -2525,5 +2593,48 @@
     margin: 6px 0 2px;
     color: var(--text-2);
     font-weight: 600;
+  }
+  /* 屈折形那一行：检视器窄的时候按钮换行，别把标题和视图按钮挤扁 */
+  .forms-head {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .forms-head .seg {
+    flex: none;
+  }
+  .nowrap {
+    white-space: nowrap;
+  }
+  /* 屈折形：标题旁收起的三角，收起后那一行小字 */
+  .fold-btn {
+    display: inline-flex;
+    align-items: center;
+    border: 0;
+    background: none;
+    padding: 0 2px;
+    color: var(--text-3);
+    cursor: pointer;
+  }
+  .fold-sum {
+    border: 0;
+    background: none;
+    padding: 2px 0;
+    text-align: left;
+    color: var(--text-3);
+    cursor: pointer;
+  }
+  .fold-sum:hover {
+    color: var(--text-2);
+  }
+  /* 表格、树形图里的格子：输入框铺满一格 */
+  .input.cell {
+    min-width: 90px;
+    width: 100%;
+    border: 0;
+    background: none;
+    padding: 3px 4px;
+  }
+  .input.cell:focus {
+    background: var(--bg-elev);
   }
 </style>

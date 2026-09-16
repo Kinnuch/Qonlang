@@ -327,6 +327,8 @@ class UiState {
     if (this.prefs.pronBrackets !== 'bracket' && this.prefs.pronBrackets !== 'none')
       this.prefs.pronBrackets = 'slash'
     if (!Array.isArray(this.prefs.collapsedSections)) this.prefs.collapsedSections = []
+    if (this.prefs.formsLayout !== 'table' && this.prefs.formsLayout !== 'tree')
+      this.prefs.formsLayout = 'list'
     this.prefs.checkUpdates ??= true
     if (!(Number(this.prefs.updateCheckMinutes) >= 1)) this.prefs.updateCheckMinutes = 5
     this.prefs.skippedVersion ??= ''

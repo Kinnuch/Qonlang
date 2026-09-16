@@ -87,7 +87,12 @@ export interface Prefs {
   pronBrackets: 'slash' | 'bracket' | 'none'
   /** 收起来的板块（SectionHead 的 id） */
   collapsedSections: string[]
+  /** 词库里屈折形怎么排：列表、表格（维度排成行列）、树形图；显示模式与录入模式共用 */
+  formsLayout?: FormsLayout
 }
+
+/** 屈折形的三种看法 */
+export type FormsLayout = 'list' | 'table' | 'tree'
 
 export interface CsvPreset {
   name: string
@@ -145,7 +150,8 @@ export const DEFAULT_PREFS: Prefs = {
   cardOrder: [],
   cardBlockSize: {},
   pronBrackets: 'slash',
-  collapsedSections: []
+  collapsedSections: [],
+  formsLayout: 'list'
 }
 
 export interface UpdateInfo {

@@ -1,6 +1,11 @@
 <script lang="ts">
   /** 显示模式下的词条卡：只读、简约，把录入模式记录的信息排版出来 */
   import type { CustomFieldPosition, Id, Lexeme, Project, Sense } from '$lib/core/model'
+  import type { FormsLayout } from '$lib/platform/types'
+  import { ChevronDown, ChevronRight, List, ListTree, Table } from '@lucide/svelte'
+  import { lexemeSlotGroups, paradigmDims, type LexemeSlot } from '$lib/engine/morph'
+  import { sectionCollapsed, toggleSection } from '$lib/ui/section.svelte'
+  import FormsView from '$lib/ui/FormsView.svelte'
   import { etymologyTypeLabel, pronText, relationLabel } from '$lib/ui/labels'
   import { blockSize, cardBlocks } from '$lib/ui/cardBlocks'
   import { customFieldScript, customFieldsFor, customItems } from '$lib/core/customFields'
@@ -12,21 +17,43 @@
   import { registerShort } from '$lib/core/register'
   import { posStemSlotList, posText, sensePos } from '$lib/core/pos'
 
+  /** 显示模式下屈折形那一块收没收起（录入模式那边另记，见 Lexicon 的 FORMS_FOLD_EDIT） */
+  const FORMS_FOLD_ID = 'lex.forms:show'
+
   let {
     lexeme,
     project,
     onselect,
-    highlight = ''
+    highlight = '',
+    controls = false
   }: {
     lexeme: Lexeme
     project: Project
     onselect?: (id: Id) => void
     /** 皮肤页预览：描边标出正在调的那一块（header 或 cardBlocks 里的键） */
     highlight?: string
+    /** 词库的显示模式：屈折形那一块能收起、能换成表格或树形图（预览、悬浮卡里不给） */
+    controls?: boolean
   } = $props()
 
   const l = $derived(lexeme)
   const glossLangs = $derived(project.settings.glossLanguages)
+  /** 屈折形：列表、表格、树形图三选一（跟录入模式共用一个选择，记在本机） */
+  const layout = $derived(controls ? (ui.prefs.formsLayout ?? 'list') : 'list')
+  const setLayout = (v: FormsLayout): void => {
+    ui.prefs.formsLayout = v
+    void ui.savePrefs()
+  }
+  const formsFolded = $derived(controls && sectionCollapsed(FORMS_FOLD_ID))
+  /** 按「这一套」（构形 + 变体）分组，表格 / 树形图按各自构形的维度排 */
+  const groups = $derived(
+    layout === 'list' || !controls ? [] : lexemeSlotGroups(project, l, glossLangs)
+  )
+  /** 不在任何槽位里的屈折形（自己加的）：表格、树形图下面照旧列出来 */
+  const looseForms = $derived.by(() => {
+    const keys = new Set(groups.flatMap((g) => g.slots.map((s) => s.key)))
+    return filledForms.filter(([k]) => !keys.has(k))
+  })
   // 留空的词干与屈折形不占位置
   const filledStems = $derived.by(() => {
     const slotNames = posStemSlotList(project, l.posId).map((st) => st.name.trim())
@@ -45,6 +72,11 @@
   const formRows = $derived([
     ...filledStems.map(([k, v]) => ({ k, v, derived: false })),
     ...filledForms.map(([k, f]) => ({ k, v: f.surface, derived: f.derived }))
+  ])
+  /** 表格、树形图下面照旧列出来的：词干和不属于任何槽位的屈折形 */
+  const looseRows = $derived([
+    ...filledStems.map(([k, v]) => ({ k, v, derived: false })),
+    ...looseForms.map(([k, f]) => ({ k, v: f.surface, derived: f.derived }))
   ])
   const lang = $derived(project.languages.find((x) => x.id === l.languageId))
   const pos = $derived(project.posList.find((p) => p.id === l.posId))
@@ -256,22 +288,73 @@
     {@render customBlocks('afterEtymology')}
   {/snippet}
 
+  {#snippet formCell(s: LexemeSlot | null)}
+    {@const f = s ? l.forms[s.key] : undefined}
+    {#if f?.surface.trim()}
+      <span class="data cellform"
+        >{f.surface}{#if f.derived && ui.prefs.showDerivedMark}<span class="tiny muted">
+            ⚙</span
+          >{/if}</span
+      >
+    {:else}
+      <span class="muted">—</span>
+    {/if}
+  {/snippet}
+
   {#snippet blockForms()}
-    {#if filledStems.length || filledForms.length}
+    {#if filledStems.length || filledForms.length || (controls && groups.length)}
       <section>
-        <h4>{t('lexicon.forms')}</h4>
-        <!-- 名字一栏按最长的名字定宽、最多占 55%，更长的在 . 后面折行，不会压到右边的形式上 -->
-        <div class="forms">
-          {#each formRows as row, i (i)}
-            <span class="fk" class:alt={i % 2 === 1}
-              >{#each row.k.split('.') as part, pi (pi)}{#if pi}.<wbr />{/if}{part}{/each}</span
-            ><span class="fv data" class:alt={i % 2 === 1}
-              >{row.v}{#if row.derived && ui.prefs.showDerivedMark}<span class="tiny muted">
-                  ⚙</span
-                >{/if}</span
-            >
-          {/each}
-        </div>
+        <h4>
+          {t('lexicon.forms')}{#if controls}<button
+              class="fold"
+              class:on={formsFolded}
+              title={formsFolded ? t('common.expand') : t('common.collapse')}
+              aria-expanded={!formsFolded}
+              onclick={() => toggleSection(FORMS_FOLD_ID)}
+              >{#if formsFolded}<ChevronRight size={13} />{:else}<ChevronDown
+                  size={13}
+                />{/if}</button
+            ><span class="seg forms-seg">
+              <button
+                class:active={layout === 'list'}
+                title={t('lexicon.layoutList')}
+                onclick={() => setLayout('list')}><List size={13} /></button
+              ><button
+                class:active={layout === 'table'}
+                title={t('lexicon.layoutTable')}
+                onclick={() => setLayout('table')}><Table size={13} /></button
+              ><button
+                class:active={layout === 'tree'}
+                title={t('lexicon.layoutTree')}
+                onclick={() => setLayout('tree')}><ListTree size={13} /></button
+              ></span
+            >{/if}
+        </h4>
+        {#if !formsFolded}
+          {#if layout !== 'list' && groups.length}
+            {#each groups as grp (grp.id)}
+              {@const dims = paradigmDims(grp.lp.paradigm, project.categories, glossLangs)}
+              {#if dims.length}
+                {#if groups.length > 1}<div class="small para-head">{grp.name}</div>{/if}
+                <FormsView {dims} slots={grp.slots} {layout} cell={formCell} />
+              {/if}
+            {/each}
+          {/if}
+          <!-- 名字一栏按最长的名字定宽、最多占 55%，更长的在 . 后面折行，不会压到右边的形式上 -->
+          {#if layout === 'list' ? formRows.length : filledStems.length + looseForms.length}
+            <div class="forms">
+              {#each layout === 'list' ? formRows : looseRows as row, i (i)}
+                <span class="fk" class:alt={i % 2 === 1}
+                  >{#each row.k.split('.') as part, pi (pi)}{#if pi}.<wbr />{/if}{part}{/each}</span
+                ><span class="fv data" class:alt={i % 2 === 1}
+                  >{row.v}{#if row.derived && ui.prefs.showDerivedMark}<span class="tiny muted">
+                      ⚙</span
+                    >{/if}</span
+                >
+              {/each}
+            </div>
+          {/if}
+        {/if}
       </section>
     {/if}
   {/snippet}
@@ -486,10 +569,43 @@
     cursor: pointer;
     font-size: inherit;
   }
+  /* 屈折形块标题右边：收起的三角、列表 / 表格 / 树形图；平时淡，鼠标放到这一块上才显出来 */
+  .fold,
+  .forms-seg {
+    vertical-align: middle;
+    margin-left: 6px;
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  .fold {
+    border: 0;
+    background: none;
+    padding: 0 2px;
+    color: var(--text-3);
+    cursor: pointer;
+  }
+  .forms-seg button {
+    padding: 2px 6px;
+  }
+  section:hover .fold,
+  section:hover .forms-seg,
+  .fold.on,
+  .fold:focus-visible,
+  .forms-seg:focus-within {
+    opacity: 1;
+  }
+  .para-head {
+    font-weight: 600;
+    margin: 6px 0 2px;
+  }
+  .cellform {
+    font-size: 0.95em;
+  }
   .forms {
     display: grid;
     grid-template-columns: fit-content(55%) minmax(0, 1fr);
     font-size: 0.87em;
+    margin-top: 4px;
   }
   .forms .fk {
     font-weight: 500;
