@@ -18,6 +18,8 @@ export interface Installer {
   size: number
   /** 下载完按它校验；接口没给就只能不校验 */
   sha256: string | null
+  /** 接口问不到时退一步：Windows 安装包按 latest.yml 里的 sha512（base64）校验 */
+  sha512?: string | null
   /** 下好之后能不能自动装好并重开（false：打开安装包让用户自己拖进去） */
   auto: boolean
 }
@@ -73,6 +75,60 @@ export function pickInstaller(assets: ReleaseAsset[], target: InstallerTarget): 
     find((n) => n.endsWith('.appimage')),
     false
   )
+}
+
+/**
+ * 不走 GitHub 接口时用：github.com/…/releases/latest 跳转过去的地址里的版本号
+ * （…/releases/tag/v0.9.2 → 0.9.2）。接口的匿名额度每个 IP 每小时只有 60 次，带 ETag 的 304 也照扣，
+ * 几个人共用一个出口（代理、校园网）很快就用完；这个跳转不占额度。
+ */
+export function versionFromReleaseUrl(url: string): string | null {
+  const m = /\/releases\/tag\/v?([^/?#]+)/.exec(url)
+  if (!m) return null
+  const v = decodeURIComponent(m[1]).trim()
+  return /^\d+(\.\d+)*([.-][0-9A-Za-z.-]+)?$/.test(v) ? v : null
+}
+
+/** latest.yml 里的版本号与安装包（只认用得到的几项：url、sha512、size） */
+export function parseLatestYml(text: string): {
+  version: string | null
+  files: { url: string; sha512: string | null; size: number }[]
+} {
+  const version = /^version:\s*['"]?([^'"\s]+)/m.exec(text)?.[1] ?? null
+  const files: { url: string; sha512: string | null; size: number }[] = []
+  let cur: { url: string; sha512: string | null; size: number } | null = null
+  for (const line of text.split(/\r?\n/)) {
+    const url = /^\s*-\s*url:\s*['"]?([^'"]+?)['"]?\s*$/.exec(line)
+    if (url) {
+      cur = { url: url[1], sha512: null, size: 0 }
+      files.push(cur)
+      continue
+    }
+    if (!cur || !/^\s{2,}/.test(line)) {
+      if (!/^\s/.test(line)) cur = null
+      continue
+    }
+    const sha = /^\s+sha512:\s*['"]?([^'"\s]+)/.exec(line)
+    if (sha) cur.sha512 = sha[1]
+    const size = /^\s+size:\s*(\d+)/.exec(line)
+    if (size) cur.size = Number(size[1])
+  }
+  return { version, files }
+}
+
+/** 按 Release 的命名规则（electron-builder.yml 的 artifactName），本机该下哪几个文件，能自动装的排前面 */
+export function installerCandidates(
+  version: string,
+  target: InstallerTarget
+): { name: string; auto: boolean }[] {
+  if (target.platform === 'win32') return [{ name: `Qonlang-${version}-setup.exe`, auto: true }]
+  if (target.platform === 'darwin') {
+    const dmg = { name: `Qonlang-${version}-mac-${target.arch}.dmg`, auto: false }
+    return target.macSelfReplace
+      ? [{ name: `Qonlang-${version}-mac-${target.arch}.zip`, auto: true }, dmg]
+      : [dmg]
+  }
+  return [{ name: `Qonlang-${version}.AppImage`, auto: false }]
 }
 
 /** 「0.6.1」这类版本号比大小；只比数字段（0.8.1-local 不比 0.8.1 新） */

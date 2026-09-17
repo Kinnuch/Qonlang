@@ -37,11 +37,14 @@ import {
   type WindowState
 } from './windowState'
 import {
+  installerCandidates,
   macBundleMovable,
   macBundlePath,
   macReplaceScript,
   newerThan,
+  parseLatestYml,
   pickInstaller,
+  versionFromReleaseUrl,
   type Installer,
   type InstallerTarget,
   type ReleaseAsset
@@ -181,8 +184,23 @@ export interface UpdateInfo {
   installer: Installer | null
 }
 
-/** 上一次问到的 Release 与它的 ETag：下次带上 If-None-Match，没变时 GitHub 回 304，不占匿名接口每小时 60 次的额度 */
+/** 检查更新的结果：失败时写明原因，设置页「立即检查」要显示 */
+export interface UpdateCheck {
+  status: 'newer' | 'latest' | 'failed'
+  /** Release 上的最新版本号 */
+  latest?: string
+  info?: UpdateInfo
+  error?: 'offline' | 'rateLimited' | 'notFound'
+}
+
+const REPO_URL = 'https://github.com/Kinnuch/Qonlang'
+
+/** 上一次问到的 Release 与它的 ETag：没变时 GitHub 回 304（注意：不登录时 304 也照扣匿名额度） */
 let releaseCache: { etag: string; info: UpdateInfo } | null = null
+/** 接口被限流了：到 GitHub 说的恢复时间之前不再问 */
+let apiBlockedUntil = 0
+/** 最近一次查到的新版本（下载时按里面的校验值核对） */
+let lastInfo: UpdateInfo | null = null
 
 /** 挑安装包要知道的本机情况 */
 function installerTarget(): InstallerTarget {
@@ -194,8 +212,13 @@ function installerTarget(): InstallerTarget {
   }
 }
 
-/** 问 GitHub 最新的 Release；离线或出错就当没有更新，不打扰用户（被限流时沿用上一次问到的） */
-function fetchLatestRelease(): Promise<UpdateInfo | null> {
+/**
+ * 问 GitHub 接口最新的 Release（带安装包的校验值与更新说明）。
+ * 离线、出错给 null；被限流（403 / 429）时记下恢复时间，沿用上一次问到的
+ */
+function fetchLatestRelease(): Promise<{ info: UpdateInfo | null; limited?: boolean }> {
+  if (Date.now() < apiBlockedUntil)
+    return Promise.resolve({ info: releaseCache?.info ?? null, limited: true })
   return new Promise((resolve) => {
     const req = net.request({
       url: 'https://api.github.com/repos/Kinnuch/Qonlang/releases/latest',
@@ -206,18 +229,21 @@ function fetchLatestRelease(): Promise<UpdateInfo | null> {
     if (releaseCache) req.setHeader('If-None-Match', releaseCache.etag)
     const timer = setTimeout(() => {
       req.abort()
-      resolve(null)
+      resolve({ info: null })
     }, 8000)
     req.on('response', (res) => {
       if (res.statusCode === 304 && releaseCache) {
         clearTimeout(timer)
-        return resolve(releaseCache.info)
+        return resolve({ info: releaseCache.info })
       }
       if (res.statusCode !== 200) {
         clearTimeout(timer)
-        return resolve(
-          res.statusCode === 403 || res.statusCode === 429 ? (releaseCache?.info ?? null) : null
-        )
+        if (res.statusCode === 403 || res.statusCode === 429) {
+          const reset = Number([res.headers['x-ratelimit-reset']].flat()[0] ?? 0)
+          apiBlockedUntil = reset > 0 ? reset * 1000 : Date.now() + 3600_000
+          return resolve({ info: releaseCache?.info ?? null, limited: true })
+        }
+        return resolve({ info: null })
       }
       const chunks: Buffer[] = []
       res.on('data', (c: Buffer) => chunks.push(c))
@@ -231,20 +257,75 @@ function fetchLatestRelease(): Promise<UpdateInfo | null> {
             assets?: ReleaseAsset[]
           }
           const version = (j.tag_name ?? '').replace(/^v/, '')
-          if (!version) return resolve(null)
+          if (!version) return resolve({ info: null })
           const info: UpdateInfo = {
             version,
-            url: j.html_url ?? 'https://github.com/Kinnuch/Qonlang/releases',
+            url: j.html_url ?? `${REPO_URL}/releases`,
             notes: (j.body ?? '').slice(0, 1200),
             installer: pickInstaller(j.assets ?? [], installerTarget())
           }
           const etag = res.headers['etag']
           const tag = Array.isArray(etag) ? etag[0] : etag
           if (tag) releaseCache = { etag: String(tag), info }
-          resolve(info)
+          resolve({ info })
         } catch {
-          resolve(null)
+          resolve({ info: null })
         }
+      })
+    })
+    req.on('error', () => {
+      clearTimeout(timer)
+      resolve({ info: null })
+    })
+    req.end()
+  })
+}
+
+/** 只看响应头：跳转去了哪、状态码是多少（不收正文，不占接口额度） */
+function probe(url: string): Promise<{ status: number; location?: string }> {
+  return new Promise((resolve) => {
+    const req = net.request({ url, method: 'HEAD', redirect: 'manual' })
+    req.setHeader('User-Agent', 'Qonlang')
+    const timer = setTimeout(() => {
+      req.abort()
+      resolve({ status: 0 })
+    }, 10000)
+    req.on('redirect', (status, _method, redirectUrl) => {
+      clearTimeout(timer)
+      req.abort()
+      resolve({ status, location: redirectUrl })
+    })
+    req.on('response', (res) => {
+      clearTimeout(timer)
+      resolve({ status: res.statusCode })
+    })
+    req.on('error', () => {
+      clearTimeout(timer)
+      resolve({ status: 0 })
+    })
+    req.end()
+  })
+}
+
+/** 取一个小文本文件（latest.yml），跟着跳转走；拿不到给 null */
+function fetchText(url: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const req = net.request({ url, redirect: 'follow' })
+    req.setHeader('User-Agent', 'Qonlang')
+    const timer = setTimeout(() => {
+      req.abort()
+      resolve(null)
+    }, 10000)
+    req.on('response', (res) => {
+      if (res.statusCode !== 200) {
+        clearTimeout(timer)
+        return resolve(null)
+      }
+      const chunks: Buffer[] = []
+      res.on('data', (c: Buffer) => chunks.push(c))
+      res.on('end', () => {
+        clearTimeout(timer)
+        resolve(Buffer.concat(chunks).toString('utf8'))
       })
     })
     req.on('error', () => {
@@ -255,11 +336,68 @@ function fetchLatestRelease(): Promise<UpdateInfo | null> {
   })
 }
 
-/** 有比当前版本新的就返回，否则 null */
-async function checkUpdate(): Promise<UpdateInfo | null> {
-  const rel = await fetchLatestRelease()
-  if (!rel) return null
-  return newerThan(rel.version, app.getVersion()) ? rel : null
+/**
+ * 接口问不到时，按 Release 的命名规则找本机的安装包：一个个试（跳转到下载地址就是有），
+ * Windows 安装包再从 latest.yml 里拿 sha512 与大小。没有更新说明
+ */
+async function releaseByConvention(version: string): Promise<UpdateInfo> {
+  const base = `${REPO_URL}/releases/download/v${version}/`
+  let installer: Installer | null = null
+  for (const c of installerCandidates(version, installerTarget())) {
+    const r = await probe(base + encodeURIComponent(c.name))
+    if (r.location || r.status === 200) {
+      installer = { url: base + c.name, name: c.name, size: 0, sha256: null, auto: c.auto }
+      break
+    }
+  }
+  if (installer && process.platform === 'win32') {
+    const yml = await fetchText(base + 'latest.yml')
+    const f = yml ? parseLatestYml(yml).files.find((x) => x.url === installer.name) : undefined
+    if (f) {
+      installer.sha512 = f.sha512
+      installer.size = f.size
+    }
+  }
+  return { version, url: `${REPO_URL}/releases/tag/v${version}`, notes: '', installer }
+}
+
+/**
+ * 检查更新：先问 github.com/…/releases/latest 跳到哪个版本（不占接口额度）；
+ * 比当前新才问一次接口拿校验值与说明，接口被限流或连不上就按命名规则找安装包。
+ * 跳转也拿不到时退回问接口；都不行就给出失败原因
+ */
+async function checkUpdate(): Promise<UpdateCheck> {
+  const head = await probe(`${REPO_URL}/releases/latest`)
+  let latest = head.location ? versionFromReleaseUrl(head.location) : null
+  if (!latest) {
+    const api = await fetchLatestRelease()
+    if (!api.info)
+      return {
+        status: 'failed',
+        error:
+          head.status === 429 || api.limited
+            ? 'rateLimited'
+            : head.status === 404
+              ? 'notFound'
+              : 'offline'
+      }
+    latest = api.info.version
+    if (!newerThan(latest, app.getVersion())) return { status: 'latest', latest }
+    lastInfo = api.info
+    return { status: 'newer', latest, info: api.info }
+  }
+  if (!newerThan(latest, app.getVersion())) return { status: 'latest', latest }
+  if (lastInfo?.version === latest && lastInfo.installer)
+    return { status: 'newer', latest, info: lastInfo }
+  const api = await fetchLatestRelease()
+  let info = api.info?.version === latest ? api.info : null
+  // 接口没问到，或者那时 Release 上还没有本机的包（两个平台的包先后传）：按命名规则再找一遍
+  if (!info?.installer) {
+    const byName = await releaseByConvention(latest)
+    if (byName.installer || !info) info = { ...byName, notes: info?.notes ?? '' }
+  }
+  lastInfo = info
+  return { status: 'newer', latest, info }
 }
 
 const updateDir = (): string => join(app.getPath('temp'), 'qonlang-update')
@@ -334,13 +472,13 @@ async function downloadWithUpdater(version: string): Promise<string | null> {
 /** 下好的安装包 → 版本号（macOS 解开之后核对用） */
 const downloadedVersions = new Map<string, string>()
 
-/** 整个文件的 sha256（小写十六进制） */
-function sha256File(file: string): Promise<string> {
+/** 整个文件的摘要：sha256 用小写十六进制（跟接口的 digest 一样），sha512 用 base64（跟 latest.yml 一样） */
+function hashFile(file: string, algo: 'sha256' | 'sha512'): Promise<string> {
   return new Promise((resolve, reject) => {
-    const hash = createHash('sha256')
+    const hash = createHash(algo)
     createReadStream(file)
       .on('data', (c) => hash.update(c))
-      .on('end', () => resolve(hash.digest('hex')))
+      .on('end', () => resolve(hash.digest(algo === 'sha256' ? 'hex' : 'base64')))
       .on('error', reject)
   })
 }
@@ -364,11 +502,13 @@ async function downloadUpdate(
     await downloadTo(url, dest + '.part', (received, total) =>
       mainWindow?.webContents.send('update:progress', { received, total })
     )
-    const known = releaseCache?.info.installer
-    const expected = known && known.name === name ? known.sha256 : null
-    if (expected) {
-      const got = await sha256File(dest + '.part')
-      if (got !== expected) throw new Error(`sha256 mismatch: ${got}`)
+    const known = lastInfo?.installer?.name === name ? lastInfo.installer : null
+    if (known?.sha256) {
+      const got = await hashFile(dest + '.part', 'sha256')
+      if (got !== known.sha256) throw new Error(`sha256 mismatch: ${got}`)
+    } else if (known?.sha512) {
+      const got = await hashFile(dest + '.part', 'sha512')
+      if (got !== known.sha512) throw new Error(`sha512 mismatch: ${got}`)
     }
     await fs.rename(dest + '.part', dest)
     if (version) downloadedVersions.set(dest, version)
@@ -421,16 +561,12 @@ async function replaceMacApp(zip: string): Promise<void> {
   }
   const script = join(updateDir(), 'replace-app.sh')
   await fs.writeFile(script, macReplaceScript(), { mode: 0o755 })
-  const child = spawn(
+  const started = await spawnDetached(
     '/bin/bash',
     [script, String(process.pid), next, bundle, join(userData(), 'update.log')],
-    {
-      detached: true,
-      stdio: 'ignore',
-      env: { ...process.env, PATH: '/usr/bin:/bin:/usr/sbin:/sbin' }
-    }
+    { ...process.env, PATH: '/usr/bin:/bin:/usr/sbin:/sbin' }
   )
-  child.unref()
+  if (started !== true) throw new Error(started)
   forceClose = true
   dirty = false
   app.quit()
@@ -443,16 +579,34 @@ async function replaceMacApp(zip: string): Promise<void> {
  * Linux：打开所在目录。
  * manual：没有自动装，界面上要告诉用户接下来自己怎么做。
  */
+/** 起一个脱离本进程的子进程，等它真的起来（或出错）再返回：起来了给 true，否则给错误信息 */
+function spawnDetached(
+  command: string,
+  args: string[],
+  env?: NodeJS.ProcessEnv
+): Promise<true | string> {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, { detached: true, stdio: 'ignore', ...(env ? { env } : {}) })
+    child.once('error', (e) => resolve(String(e)))
+    child.once('spawn', () => {
+      child.unref()
+      resolve(true)
+    })
+  })
+}
+
 async function installUpdate(
   file: string
 ): Promise<{ ok: boolean; manual?: boolean; error?: string }> {
   if (process.platform === 'win32') {
-    forceClose = true
-    dirty = false
     // 装过的（旁边有卸载程序）才静默沿用上次的目录；解压直接运行的弹向导让用户自己选
     const args = isInstalled() ? ['--updated', '/S', '--force-run'] : ['--updated']
-    const child = spawn(file, args, { detached: true, stdio: 'ignore' })
-    child.unref()
+    // 安装包不见了或者起不来：报回界面，不退出（不接住 error 会弹主进程崩溃框）
+    if (!existsSync(file)) return { ok: false, error: `installer not found: ${file}` }
+    const started = await spawnDetached(file, args)
+    if (started !== true) return { ok: false, error: started }
+    forceClose = true
+    dirty = false
     app.quit()
     return { ok: true }
   }

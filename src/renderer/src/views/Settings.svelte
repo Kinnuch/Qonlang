@@ -6,7 +6,8 @@
   import { ui } from '$lib/state/ui.svelte'
   import { t, LOCALES } from '$lib/i18n/index.svelte'
   import { TOKENIZER_MODES } from '$lib/core/model'
-  import { Eye, FileSpreadsheet, FolderOutput, Trash2 } from '@lucide/svelte'
+  import { Eye, FileSpreadsheet, FolderOutput, RefreshCw, Trash2 } from '@lucide/svelte'
+  import { updates } from '$lib/state/updates.svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { filterRows } from '$lib/ui/filterRows'
@@ -18,6 +19,14 @@
 
   const project = $derived(projectState.project!)
   let info = $state<AppInfo | null>(null)
+  /** 在这一页点过「立即检查」才显示结果（后台自动检查的结果不在这里出） */
+  let checkedNow = $state(false)
+  /** Release 上的最新版本：后台自动检查或手动检查问到过才有 */
+  const latest = $derived(updates.last?.latest ?? '')
+  async function checkNow(): Promise<void> {
+    checkedNow = true
+    await updates.check(true)
+  }
   onMount(async () => {
     info = await platform.info()
   })
@@ -414,7 +423,40 @@
   <section class="about" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
     <h3>{t('settings.about')}</h3>
     <div class="lockup" aria-label={t('app.name')}>{@html lockupSvg}</div>
-    <p>{t('app.name')} · {t('settings.version')} {info?.version ?? ''} · {t('settings.license')}</p>
+    <p class="versions">
+      {t('settings.version')}
+      {info?.version ?? ''}
+      {#if platform.kind === 'electron'}
+        ·
+        <span
+          class:newer={latest &&
+            info &&
+            latest !== info.version &&
+            updates.last?.status === 'newer'}
+          >{latest ? t('settings.latestVersion', { v: latest }) : t('settings.latestUnknown')}</span
+        >
+      {/if}
+      · {t('settings.license')}
+    </p>
+    {#if platform.kind === 'electron'}
+      <div class="row update-now">
+        <button class="btn sm" disabled={updates.checking} onclick={checkNow}
+          ><RefreshCw size={14} />{t('settings.checkNow')}</button
+        >
+        {#if updates.checking}
+          <span class="small muted">{t('settings.updateChecking')}</span>
+        {:else if checkedNow && updates.last}
+          {@const r = updates.last}
+          <span class="small" class:muted={r.status === 'latest'} class:bad={r.status === 'failed'}
+            >{r.status === 'newer'
+              ? t('settings.updateNewer', { v: r.latest ?? '' })
+              : r.status === 'latest'
+                ? t('settings.updateLatest', { v: r.latest ?? info?.version ?? '' })
+                : t(`settings.updateFailed.${r.error ?? 'offline'}`)}</span
+          >
+        {/if}
+      </div>
+    {/if}
     {#if info?.userDataPath}
       <p class="small muted">{t('settings.userData')}: {info.userDataPath}</p>
     {/if}
@@ -446,12 +488,27 @@
   }
   /* 关于：整套标志（图标 + Qonlang + 千语集） */
   .lockup {
-    margin: 6px 0 12px;
+    margin: 10px 0 16px;
     color: var(--brand-mark);
     line-height: 0;
   }
   .lockup :global(svg) {
-    height: 30px;
+    height: 52px;
+    max-width: 100%;
     width: auto;
+  }
+  .versions .newer {
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+  .update-now {
+    margin: 4px 0 10px;
+  }
+  .update-now {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .update-now .bad {
+    color: var(--danger);
   }
 </style>

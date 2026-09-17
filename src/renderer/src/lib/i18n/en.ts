@@ -1882,6 +1882,17 @@ const en: Dict = {
     showDerivedMark: 'Mark paradigm-derived forms with a gear ⚙ on the entry card',
     examplesPerEntry: 'Examples shown under an entry',
     updateCheckMinutes: 'Check for new versions every … minutes',
+    checkNow: 'Check for updates now',
+    latestVersion: 'latest version {v}',
+    latestUnknown: 'latest version not checked yet',
+    updateChecking: 'Checking…',
+    updateLatest: 'You have the latest version (v{v})',
+    updateNewer: 'Version v{v} is available — download it from the notice at the bottom right',
+    updateFailed: {
+      offline: 'Check failed: can’t reach GitHub. Check your network or proxy and try again later',
+      rateLimited: 'Check failed: GitHub’s request limit is used up for now. Try again in a while',
+      notFound: 'Check failed: the release page wasn’t found'
+    },
     registerDisplay: 'Register labels on entry cards',
     registerDisplayShort:
       'Boxed short form (first character for CJK, abbreviations such as lit. otherwise)',

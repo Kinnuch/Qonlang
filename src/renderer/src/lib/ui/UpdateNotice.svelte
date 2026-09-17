@@ -4,33 +4,24 @@
    * 再静默安装（沿用上次的安装目录）并重开。没有本机安装包时只打开下载页。
    */
   import { onMount } from 'svelte'
-  import { platform, type UpdateInfo } from '$lib/platform'
+  import { platform } from '$lib/platform'
+  import { updates } from '$lib/state/updates.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { projectState } from '$lib/state/project.svelte'
   import { t } from '$lib/i18n/index.svelte'
   import { Download, X } from '@lucide/svelte'
 
-  let info = $state<UpdateInfo | null>(null)
+  const info = $derived(updates.info)
   let phase = $state<'idle' | 'downloading' | 'installing' | 'manual' | 'failed'>('idle')
   let received = $state(0)
   let total = $state(0)
   let error = $state('')
 
-  /** 这次运行里点过「稍后再说」的版本：同一个版本不再反复弹，出了更新的版本照样提示 */
-  let dismissed = ''
-  async function check(): Promise<void> {
-    // 正在下载或安装时不再查；已经在提示了也不再查——除非那时 Release 上还没有本机的安装包（另一个平台的包先传完了），
-    // 再查一次，传上来了就换成能直接装的
-    if (!ui.prefs.checkUpdates || phase !== 'idle' || (info && info.installer)) return
-    try {
-      const found = await platform.checkUpdate()
-      if (info && found?.version !== info.version) return
-      if (found && found.version !== ui.prefs.skippedVersion && found.version !== dismissed)
-        info = found
-    } catch {
-      // 离线或接口出错都当没有更新
-    }
-  }
+  // 正在下载或安装时不再查
+  $effect(() => {
+    updates.busy = phase !== 'idle'
+  })
+  const check = (): void => void updates.check()
 
   onMount(() => {
     platform.onUpdateProgress((p) => {
@@ -41,26 +32,29 @@
     const timer = setTimeout(check, 4000)
     return () => clearTimeout(timer)
   })
-  // 之后程序开着就按设置里的间隔一直查（默认 5 分钟）；改了间隔或开关立刻按新的来
+  // 之后程序开着就按设置里的间隔一直查（默认 20 分钟）；改了间隔或开关立刻按新的来
   $effect(() => {
     if (!ui.prefs.checkUpdates) return
-    const minutes = Math.min(1440, Math.max(1, Number(ui.prefs.updateCheckMinutes) || 5))
+    const minutes = Math.min(1440, Math.max(1, Number(ui.prefs.updateCheckMinutes) || 20))
     const id = setInterval(check, minutes * 60_000)
     return () => clearInterval(id)
   })
 
   function later(): void {
-    if (info) dismissed = info.version
-    info = null
+    if (info) updates.dismissed = info.version
+    updates.info = null
+    phase = 'idle'
   }
   function skip(): void {
     if (info) ui.prefs.skippedVersion = info.version
     void ui.savePrefs()
-    info = null
+    updates.info = null
+    phase = 'idle'
   }
   function openPage(): void {
     if (info) void platform.openExternal(info.url)
-    info = null
+    updates.info = null
+    phase = 'idle'
   }
   /**
    * 装之前把项目存好（安装会关掉软件）。存过盘的（有文件位置）直接存；

@@ -525,6 +525,8 @@
     display: block;
     width: 26px;
     height: auto;
+    /* Q 字形的笔画偏左（外框居中时视觉重心比下面的图标左 2px 多），往右挪一点按看上去的中心对齐 */
+    transform: translateX(2px);
   }
   .nav-btn {
     display: flex;

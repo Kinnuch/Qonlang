@@ -1817,6 +1817,17 @@ export default {
     showDerivedMark: '词条卡里给构形推导出来的形式标齿轮 ⚙',
     examplesPerEntry: '词条下方默认显示的例句条数',
     updateCheckMinutes: '每隔几分钟检查一次新版本',
+    checkNow: '立即检查更新',
+    latestVersion: '最新版本 {v}',
+    latestUnknown: '最新版本还没查过',
+    updateChecking: '检查中…',
+    updateLatest: '已是最新版本（v{v}）',
+    updateNewer: '有新版本 v{v}，在右下角的提示里下载',
+    updateFailed: {
+      offline: '检查失败：连不上 GitHub，检查一下网络或代理，稍后再试',
+      rateLimited: '检查失败：GitHub 这会儿的查询次数用完了，过一会儿再试',
+      notFound: '检查失败：没找到发布页'
+    },
     registerDisplay: '词条卡里语域的显示',
     registerDisplayShort: '方框里一个字（英文显示缩写，如 lit.）',
     registerDisplayFull: '方框里写全称',

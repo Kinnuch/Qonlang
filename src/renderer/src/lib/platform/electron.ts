@@ -6,7 +6,7 @@ import type {
   RecentEntry,
   SaveTarget,
   MenuAction,
-  UpdateInfo
+  UpdateCheck
 } from './types'
 import { DEFAULT_PREFS } from './types'
 
@@ -145,7 +145,7 @@ export const electronPlatform: PlatformAPI = {
     await bridge().invoke('shell:openExternal', url)
   },
   async checkUpdate() {
-    return (await bridge().invoke('app:checkUpdate')) as UpdateInfo | null
+    return (await bridge().invoke('app:checkUpdate')) as UpdateCheck
   },
   async downloadUpdate(url, name, version) {
     return (await bridge().invoke('app:downloadUpdate', url, name, version)) as {

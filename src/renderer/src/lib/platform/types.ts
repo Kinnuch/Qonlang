@@ -43,6 +43,8 @@ export interface Prefs {
   inspectorAuto?: boolean
   /** 检视器宽度设置的版本：旧版本记下的固定宽度（默认 360）升级时改回跟着窗口走一次 */
   inspectorWidthV?: number
+  /** 检查更新间隔设置的版本：旧版本默认的 5 分钟升级时改成 20 分钟一次 */
+  updateCheckV?: number
   /** 字符面板：最近插入的符号 */
   recentSymbols: string[]
   /** 字符面板：用户收藏的符号或组合 */
@@ -65,7 +67,7 @@ export interface Prefs {
   examplesPerEntry: number
   /** 各类可拖动面板的尺寸记忆：键 → 像素 */
   panelSizes: Record<string, number>
-  /** 自动检查新版本（启动后一次，之后按 updateCheckMinutes 的间隔一直查） */
+  /** 自动检查新版本（启动后一次，之后按 updateCheckMinutes 的间隔一直查，默认 20 分钟） */
   checkUpdates: boolean
   /** 检查新版本的间隔（分钟） */
   updateCheckMinutes: number
@@ -142,7 +144,8 @@ export const DEFAULT_PREFS: Prefs = {
   panelSizes: {},
   showDerivedMark: true,
   checkUpdates: true,
-  updateCheckMinutes: 5,
+  updateCheckMinutes: 20,
+  updateCheckV: 2,
   skippedVersion: '',
   guideTourAlways: false,
   seenTours: [],
@@ -160,6 +163,14 @@ export interface UpdateInfo {
   notes: string
   /** 本机能直接装的安装包；为空只能去下载页。auto：下好能自动装好并重开（false 是打开安装包让用户自己装） */
   installer: { url: string; name: string; size: number; auto?: boolean } | null
+}
+
+/** 检查更新的结果：failed 时 error 写明原因（连不上 / GitHub 查询次数用完 / 没找到发布） */
+export interface UpdateCheck {
+  status: 'newer' | 'latest' | 'failed'
+  latest?: string
+  info?: UpdateInfo
+  error?: 'offline' | 'rateLimited' | 'notFound'
 }
 
 export interface AppInfo {
@@ -235,7 +246,7 @@ export interface PlatformAPI {
   showInFolder(path: string): Promise<void>
   openExternal(url: string): Promise<void>
   /** 查有没有新版本；网页版或离线时返回 null */
-  checkUpdate(): Promise<UpdateInfo | null>
+  checkUpdate(): Promise<UpdateCheck>
   /** 下载安装包到临时目录（桌面版） */
   /** version 给了就先试增量下载（装过的 Windows 版），不行再整包下 */
   downloadUpdate(

@@ -330,7 +330,13 @@ class UiState {
     if (this.prefs.formsLayout !== 'table' && this.prefs.formsLayout !== 'tree')
       this.prefs.formsLayout = 'list'
     this.prefs.checkUpdates ??= true
-    if (!(Number(this.prefs.updateCheckMinutes) >= 1)) this.prefs.updateCheckMinutes = 5
+    if (!(Number(this.prefs.updateCheckMinutes) >= 1)) this.prefs.updateCheckMinutes = 20
+    // 旧版本默认 5 分钟查一次，匿名接口的额度几个人一分就不够用：没改过的升级时改成 20 分钟一次
+    if ((this.prefs.updateCheckV ?? 1) < 2) {
+      if (Number(this.prefs.updateCheckMinutes) === 5) this.prefs.updateCheckMinutes = 20
+      this.prefs.updateCheckV = 2
+      void this.savePrefs()
+    }
     this.prefs.skippedVersion ??= ''
     this.prefs.guideTourAlways ??= false
     if (!Array.isArray(this.prefs.seenTours)) this.prefs.seenTours = []

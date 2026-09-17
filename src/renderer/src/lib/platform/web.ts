@@ -377,7 +377,7 @@ export const webPlatform: PlatformAPI = {
   },
   async checkUpdate() {
     // 网页版跟着页面走，没有安装包要更新
-    return null
+    return { status: 'latest' as const }
   },
   async downloadUpdate() {
     return { ok: false, error: 'web' }

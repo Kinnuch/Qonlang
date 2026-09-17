@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  installerCandidates,
   macBundleMovable,
   macBundlePath,
   macReplaceScript,
   newerThan,
+  parseLatestYml,
   pickInstaller,
   sha256FromDigest,
+  versionFromReleaseUrl,
   type ReleaseAsset
 } from '../../src/main/update'
 
@@ -97,5 +100,53 @@ describe('macOS 应用包', () => {
     expect(s).toContain('case "$TARGET" in *.app)')
     expect(s).toContain('mv "$BACKUP" "$TARGET"')
     expect(s).toContain('xattr -dr com.apple.quarantine "$TARGET"')
+  })
+})
+
+describe('不走接口的检查', () => {
+  it('从 releases/latest 跳转地址里取版本号', () => {
+    expect(versionFromReleaseUrl('https://github.com/Kinnuch/Qonlang/releases/tag/v0.9.2')).toBe(
+      '0.9.2'
+    )
+    expect(versionFromReleaseUrl('https://github.com/Kinnuch/Qonlang/releases/tag/1.0.0')).toBe(
+      '1.0.0'
+    )
+    expect(versionFromReleaseUrl('https://github.com/Kinnuch/Qonlang/releases')).toBeNull()
+    expect(versionFromReleaseUrl('https://github.com/login?return_to=x')).toBeNull()
+  })
+  it('读 latest.yml 的版本与安装包', () => {
+    const yml = [
+      'version: 0.9.2',
+      'files:',
+      '  - url: Qonlang-0.9.2-setup.exe',
+      '    sha512: b1xZvy8uJ14CzwVNioXsy5IGugar6fplifRbOgEBhgliY3+2momAwwQg4liYUm07f+dIlzPHRgqSEpZUS+r/lw==',
+      '    size: 96215943',
+      'path: Qonlang-0.9.2-setup.exe',
+      "releaseDate: '2026-09-17T05:07:50.355Z'"
+    ].join('\r\n')
+    const r = parseLatestYml(yml)
+    expect(r.version).toBe('0.9.2')
+    expect(r.files).toEqual([
+      {
+        url: 'Qonlang-0.9.2-setup.exe',
+        sha512:
+          'b1xZvy8uJ14CzwVNioXsy5IGugar6fplifRbOgEBhgliY3+2momAwwQg4liYUm07f+dIlzPHRgqSEpZUS+r/lw==',
+        size: 96215943
+      }
+    ])
+  })
+  it('按命名规则挑本机的安装包', () => {
+    expect(installerCandidates('1.2.3', { platform: 'win32', arch: 'x64' })).toEqual([
+      { name: 'Qonlang-1.2.3-setup.exe', auto: true }
+    ])
+    expect(
+      installerCandidates('1.2.3', { platform: 'darwin', arch: 'arm64', macSelfReplace: true })
+    ).toEqual([
+      { name: 'Qonlang-1.2.3-mac-arm64.zip', auto: true },
+      { name: 'Qonlang-1.2.3-mac-arm64.dmg', auto: false }
+    ])
+    expect(installerCandidates('1.2.3', { platform: 'darwin', arch: 'x64' })).toEqual([
+      { name: 'Qonlang-1.2.3-mac-x64.dmg', auto: false }
+    ])
   })
 })

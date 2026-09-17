@@ -72,7 +72,10 @@
     /** art：作品图怎么放——像素画按整数倍放大，logo 是矢量图 */
     names: { name: string; icon?: string; art?: 'pixel' | 'logo' }[]
   }[] = [
-    { role: 'logoDesign', names: [{ name: 'Kikomas', icon: logoArt, art: 'logo' }] },
+    {
+      role: 'logoDesign',
+      names: [{ name: 'Kikomas', icon: logoArt, art: 'logo' }, { name: 'sgiofh' }]
+    },
     { role: 'pixelArt', names: [{ name: 'scarps', icon: iconScarps, art: 'pixel' }] },
     { role: 'sponsors', names: [{ name: 'Kikomas' }, { name: 'Cathamos' }] },
     {
@@ -551,10 +554,14 @@
     align-items: center;
     gap: 8px;
   }
-  /* 千语集的 logo（矢量图） */
+  /*
+   * 千语集的 logo（矢量图）：跟下面的像素画占一样宽——像素画 98px 宽、画面在中间 70px，
+   * logo 画 70px、左右各留 14px，图的左边与名字的起点都跟像素画对齐
+   */
   .logo-art {
-    width: 64px;
-    height: 64px;
+    width: 70px;
+    height: 70px;
+    margin: 0 14px;
   }
   /* 像素画按整数倍放大，不要糊 */
   .pixel {
