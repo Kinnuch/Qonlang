@@ -619,6 +619,11 @@
   .wordmark.en :global(svg) {
     height: 27px;
   }
+  /* 英文字标下面约三分之一是 g 的下伸，算进高度字就显得靠上：让它伸进副标题的行距里，
+     整块跟中文一样高（字顶、副标题底离图标上下沿各 1.5px） */
+  .wordmark.en {
+    margin-bottom: -4px;
+  }
   .actions {
     display: flex;
     flex-direction: column;
