@@ -45,6 +45,7 @@
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import SlotPipeline from '$lib/ui/SlotPipeline.svelte'
+  import TabStrip from '$lib/ui/TabStrip.svelte'
   import { flashOn } from '$lib/ui/flash'
   let derivedFlash = $state(0)
   import {
@@ -66,8 +67,12 @@
     ChevronsDownUp,
     ChevronsUpDown,
     FilePlus2,
-    CornerDownRight
+    CornerDownRight,
+    Copy,
+    ClipboardPaste
   } from '@lucide/svelte'
+  import { morphClip } from '$lib/state/morphClip.svelte'
+  import { pastedGenerator } from '$lib/core/pasteGenerator'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import { sortable } from '$lib/ui/sortable.svelte'
   import { moveItem } from '$lib/core/move'
@@ -699,6 +704,50 @@
         : ({ kind } as SlotGenerator)
     touch()
   }
+  /** 复制一个槽位的生成方式（当前变体下的；变体没写的复制通用那套） */
+  function copySlot(key: string): void {
+    if (!active) return
+    if (projectState.readOnly) return void ui.toast(t('readonly.exportBlocked'))
+    const g = active.generators[gkey(key)] ?? active.generators[key] ?? { kind: 'none' }
+    morphClip.copy({ kind: 'slot', generator: g })
+    ui.toast(t('paradigms.clip.slotCopied'))
+  }
+  async function pasteSlot(key: string): Promise<void> {
+    if (!active) return
+    const c = await morphClip.read()
+    if (c?.kind !== 'slot') return void ui.toast(t('paradigms.clip.noSlot'))
+    active.generators[gkey(key)] = pastedGenerator(c.generator)
+    touch()
+  }
+  /** 复制正在看的这一套：每个槽位实际用的生成方式（变体没写的沿用通用那套） */
+  function copyVariant(): void {
+    if (!active) return
+    if (projectState.readOnly) return void ui.toast(t('readonly.exportBlocked'))
+    const generators: Record<string, SlotGenerator> = {}
+    for (const s of slots) {
+      const g = active.generators[gkey(s.key)] ?? active.generators[s.key]
+      if (g && g.kind !== 'none') generators[s.key] = g
+    }
+    const name = variants.find((v) => v.id === editVariantId)?.name ?? baseName
+    morphClip.copy({ kind: 'variant', name, generators })
+    ui.toast(t('paradigms.clip.variantCopied', { name, n: Object.keys(generators).length }))
+  }
+  /** 整套贴进正在看的这一套：槽位对得上的都换掉，对不上的（维度不一样）跳过 */
+  async function pasteVariant(): Promise<void> {
+    if (!active) return
+    const c = await morphClip.read()
+    if (c?.kind !== 'variant') return void ui.toast(t('paradigms.clip.noVariant'))
+    const keys = new Set(slots.map((s) => s.key))
+    let n = 0
+    for (const [key, g] of Object.entries(c.generators)) {
+      if (!keys.has(key)) continue
+      active.generators[gkey(key)] = pastedGenerator(g)
+      n++
+    }
+    if (!n) return void ui.toast(t('paradigms.clip.noMatch'))
+    touch()
+    ui.toast(t('paradigms.clip.variantPasted', { name: c.name, n }))
+  }
   function isInherited(key: string): boolean {
     if (!active) return false
     const own = active.generators[key]
@@ -789,36 +838,30 @@
   <div class="page-head row tabbed">
     <h1>{t('paradigms.title')}</h1>
     <GuideLink section="paradigms" />
-    <div class="booktabs grow">
-      {#each project.paradigms as p, pi (p.id)}
-        <span
-          class="tabwrap"
-          {...sortable('paradigm-tabs', pi, (from, to) => {
-            if (moveItem(project.paradigms, from, to)) touch()
-          })}
-        >
-          <button
-            class="tab"
-            class:active={active?.id === p.id}
-            onclick={() => {
-              activeId = p.id
-              view = 'slots'
-            }}>{pickText(p.name, glossLangs) || t('paradigms.untitled')}</button
-          >
-          <button
-            class="pen"
-            title={t('common.rename')}
-            onclick={() => {
-              activeId = p.id
-              view = 'slots'
-              ui.inspectorOpen = true
-              ui.syntaxOpen = false
-              focusField('#p-name-field input')
-            }}><Pencil size={11} /></button
-          >
-        </span>
-      {/each}
-    </div>
+    <TabStrip
+      kind="paradigms"
+      items={project.paradigms.map((p) => ({
+        id: p.id,
+        label: pickText(p.name, glossLangs) || t('paradigms.untitled')
+      }))}
+      activeId={active?.id ?? null}
+      onselect={(id) => {
+        activeId = id
+        view = 'slots'
+      }}
+      onrename={(id) => {
+        activeId = id
+        view = 'slots'
+        ui.inspectorOpen = true
+        ui.syntaxOpen = false
+        focusField('#p-name-field input')
+      }}
+      onmove={(from, to) => {
+        if (!moveItem(project.paradigms, from, to)) return false
+        touch()
+        return true
+      }}
+    />
     {#if view === 'report'}
       <button class="btn" onclick={() => (view = 'slots')}
         ><ArrowLeft size={16} />{t('paradigms.backToSlots')}</button
@@ -1035,6 +1078,18 @@
             >
           {/if}
           <HelpDot tip={t('paradigms.variantHint')} />
+          <span class="grow"></span>
+          <button
+            class="btn ghost sm"
+            title={t('paradigms.clip.copyVariantHint')}
+            onclick={copyVariant}><Copy size={13} />{t('paradigms.clip.copyVariant')}</button
+          >
+          <button
+            class="btn ghost sm"
+            title={t('paradigms.clip.pasteVariantHint')}
+            onclick={pasteVariant}
+            ><ClipboardPaste size={13} />{t('paradigms.clip.pasteVariant')}</button
+          >
         </div>
         {#snippet cell(s: SlotDef | undefined)}
           {#if s}
@@ -1226,6 +1281,18 @@
                       {#if isInherited(gkey(s.key))}<span class="badge"
                           >{t('paradigms.inherited')}</span
                         >{/if}
+                      <div class="row slot-clip">
+                        <button
+                          class="btn ghost icon sm"
+                          title={t('paradigms.clip.copySlot')}
+                          onclick={() => copySlot(s.key)}><Copy size={13} /></button
+                        >
+                        <button
+                          class="btn ghost icon sm"
+                          title={t('paradigms.clip.pasteSlot')}
+                          onclick={() => pasteSlot(s.key)}><ClipboardPaste size={13} /></button
+                        >
+                      </div>
                     </td>
                     <td colspan="2">
                       {#if g.kind === 'pipeline'}
@@ -1832,6 +1899,10 @@
   }
   .slots .kind {
     margin-top: 13px;
+  }
+  .slot-clip {
+    gap: 2px;
+    margin-top: 4px;
   }
   .slots tr:not(.folded) td.label,
   .slots tr:not(.folded) td.mono {

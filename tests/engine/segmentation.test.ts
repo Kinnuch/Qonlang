@@ -44,6 +44,16 @@ const forms = (a: Analysis | undefined): string[] => a?.morphs.map((m) => m.form
 const glosses = (a: Analysis | undefined): string[] => a?.morphs.map((m) => m.gloss) ?? []
 
 describe('通用切分', () => {
+  it('附着词单独成词也给 gloss（悬浮认得出，下拉里也得有）', () => {
+    const { p, lid } = setup()
+    const of = morph(p, lid, 'clitic', 'jehr', '属于')
+    lex(p, lid, 'aila', '转折')
+    const idx = buildIndex(p, lid)
+    const a = analyzeToken(idx, 'jehr', p.settings.morphemeBoundaries)[0]
+    expect(forms(a)).toEqual(['jehr'])
+    expect(glosses(a)).toEqual(['属于'])
+    expect(a.morphs[0].morphemeId).toBe(of)
+  })
   it('两个词连写再接两个后缀也认得出，拼了两个词干的标成猜测', () => {
     const { p, lid } = setup()
     const tall = lex(p, lid, 'yvpli', '高大')

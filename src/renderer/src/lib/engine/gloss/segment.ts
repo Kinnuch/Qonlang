@@ -111,7 +111,7 @@ interface State {
   last: 'start' | 'pre' | 'suf' | 'stem' | 'whole'
   /** 每一块的学习键（算前后接续用） */
   keys: string[][]
-  /** 已切出的几块的签名（去重用，随块增量拼） */
+  /** 已切出的几块的签名（去重用，随块增量拼）；带上块的角色，附着词单独成词和当前缀不算重复 */
   sig: string
 }
 
@@ -237,7 +237,7 @@ export function segmentWord(
             stems: st.stems + addsStems(p),
             last: p.role,
             keys: [...st.keys, lastKeys],
-            sig: `${st.sig}|${p.form}/${p.morphemeId ?? ''}/${p.lexemeId ?? ''}/${p.slot ?? ''}/${p.chunk ? 'c' : ''}`
+            sig: `${st.sig}|${p.role}:${p.form}/${p.morphemeId ?? ''}/${p.lexemeId ?? ''}/${p.slot ?? ''}/${p.chunk ? 'c' : ''}`
           })
         }
       }

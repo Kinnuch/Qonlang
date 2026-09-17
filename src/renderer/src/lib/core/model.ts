@@ -82,6 +82,21 @@ export interface ProjectSettings {
   lexiconColumns: string[]
   /** 词条配图的统一尺寸（像素） */
   imageSize: { width: number; height: number }
+  /** 音变、构形页签的分组（像浏览器的标签页分组，可以收起）；没写时按默认分法显示 */
+  tabGroups?: { ruleSets?: TabGroupSet; paradigms?: TabGroupSet }
+}
+
+/** 一排页签的分组：分组本身按顺序排，members 记每个页签（规则集 / 构形 id）在哪个组 */
+export interface TabGroupSet {
+  groups: TabGroup[]
+  members: Record<Id, Id>
+}
+
+export interface TabGroup {
+  id: Id
+  name: string
+  /** TAB_GROUP_COLORS 里的一个 */
+  color: string
 }
 
 export interface ExportTemplate {

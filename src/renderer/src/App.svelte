@@ -15,6 +15,7 @@
   import ProgressOverlay from '$lib/ui/ProgressOverlay.svelte'
   import UpdateNotice from '$lib/ui/UpdateNotice.svelte'
   import { refreshPage } from '$lib/ui/refresh'
+  import { backgroundStyle } from '$lib/skin/presets'
 
   let ready = $state(false)
   let snapshot = $state<string | null>(null)
@@ -171,6 +172,11 @@
       }}
     />
   </svelte:boundary>
+{/if}
+<!-- 皮肤盖在窗口上的两层：预设的花纹（星月夜的星点）和自定义背景图，都不接鼠标 -->
+<div class="skin-pattern" aria-hidden="true"></div>
+{#if ui.prefs.skin?.background?.image}
+  <div class="skin-bg" aria-hidden="true" style={backgroundStyle(ui.prefs.skin.background)}></div>
 {/if}
 <Toasts />
 <ProgressOverlay />

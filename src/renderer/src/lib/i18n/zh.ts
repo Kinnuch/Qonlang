@@ -86,7 +86,7 @@ export default {
     lexicanterPick: '选择 .lexc 文件',
     definitionLang: '义项文本的语言',
     examples: '示例工程',
-    examplesHint: '两个虚构示例项目，打开随便改，原文件不会被覆盖。',
+    examplesHint: '两个虚构示例项目：打开随便改但不能保存，想留着就复制一份。',
     openExample: '打开',
     exampleOpened: '已打开示例工程「{name}」',
     galleryLabel: '最近项目里的例句、短语与配图',
@@ -224,6 +224,9 @@ export default {
     badLine: '无法解析的行',
     formHint: '目标留空表示增生，替换留空表示删除。环境里用 _ 表示目标位置，# 表示词界。',
     beforeFirstStage: '（阶段标记之前）',
+    collapseStages: '阶段全部收起',
+    expandStages: '阶段全部展开',
+    stageItems: '{n} 条',
     noStagesYet: '还没有阶段标记。规则会按顺序全部应用。',
     viewChain: '链图',
     ruleN: '第 {n} 条',
@@ -383,6 +386,37 @@ export default {
     allTypes: '全部类型',
     search: '搜索语素：形式、gloss、意义',
     count: '{n} 条'
+  },
+  tabGroups: {
+    synchronic: '共时',
+    diachronic: '历时',
+    name: '分组名称',
+    collapse: '收起这一组（右键改名、换色）',
+    expand: '展开这一组（右键改名、换色）',
+    moveTo: '移到分组',
+    newGroup: '新建分组…',
+    removeFromGroup: '移出分组',
+    moveLeft: '分组左移',
+    moveRight: '分组右移',
+    ungroup: '解散分组',
+    colors: {
+      blue: '蓝',
+      green: '绿',
+      purple: '紫',
+      orange: '橙',
+      red: '红',
+      teal: '青',
+      pink: '粉',
+      yellow: '黄',
+      grey: '灰'
+    }
+  },
+  example: {
+    badge: '示例',
+    hint: '示例工程：随便改，改动不会保存；想留着就复制一份',
+    blocked: '示例工程不能保存，点「复制一份」存成自己的项目',
+    copy: '复制一份',
+    copyHint: '另存一份成自己的项目，之后照常保存'
   },
   readonly: {
     badge: '纯欣赏',
@@ -1496,6 +1530,20 @@ export default {
     addVariant: '新建变体',
     variantName: '变体名称（如 A 式、文言体）',
     variantHint: '变体只改你改过的槽位，其余沿用通用那套；词条上可以选用哪个变体。',
+    clip: {
+      copySlot: '复制这个槽位的写法',
+      pasteSlot: '粘贴到这个槽位（换掉原来的写法）',
+      slotCopied: '已复制槽位写法',
+      noSlot: '剪贴板里没有复制过的槽位写法',
+      copyVariant: '复制这套',
+      copyVariantHint: '复制正在看的这一套里每个槽位的写法',
+      pasteVariant: '粘贴到这套',
+      pasteVariantHint: '把复制的一整套贴进正在看的这一套，槽位对得上的都换掉',
+      variantCopied: '已复制「{name}」（{n} 个槽位）',
+      variantPasted: '已粘贴「{name}」的 {n} 个槽位',
+      noVariant: '剪贴板里没有复制过的一整套',
+      noMatch: '复制的那套跟这个构形的槽位对不上（维度不同）'
+    },
     slotsExplain:
       '每个维度各取一个值凑成一个槽位（{dims}），去掉禁用的还剩 {n} 个；一个槽位就是一个要生成的形式。',
     infixPresets: {
@@ -1720,6 +1768,33 @@ export default {
       '统一尺寸 {w}×{h}；尺寸相符的图片原样保存，比例相同的等比缩放，其余会弹出裁剪框。PNG / GIF 无损保存，JPEG / WebP 沿用原格式高质量编码。'
   },
   skin: {
+    bg: {
+      title: '背景图',
+      hint: '挑一张图盖在整个窗口上（半透明、不挡点击）；换预设、恢复默认都不会动它',
+      pick: '选择图片',
+      change: '换一张',
+      remove: '移除背景图',
+      fit: '铺法',
+      fits: {
+        cover: '铺满',
+        contain: '完整显示',
+        tile: '平铺',
+        center: '居中',
+        stretch: '拉伸'
+      },
+      position: '对齐',
+      positions: {
+        center: '居中',
+        top: '靠上',
+        bottom: '靠下',
+        left: '靠左',
+        right: '靠右'
+      },
+      opacity: '不透明度',
+      scale: '缩放',
+      blur: '模糊',
+      loadFailed: '读不了这张图：{msg}'
+    },
     search: '搜索字体：名称、说明、标签',
     title: '皮肤',
     hint: '皮肤只存在本机，不进项目文件。',
@@ -1800,8 +1875,18 @@ export default {
   settings: {
     search: '搜索设置项',
     title: '设置',
-    app: '应用',
-    project: '项目',
+    app: '应用（本机）',
+    project: '当前项目',
+    groups: {
+      ui: '界面',
+      saving: '保存与启动',
+      updates: '更新',
+      display: '显示',
+      info: '基本信息',
+      languages: '语言与字体',
+      words: '分词与 gloss',
+      data: '数据'
+    },
     uiLanguage: '界面语言',
     theme: '主题',
     themeSystem: '跟随系统',
@@ -1832,8 +1917,8 @@ export default {
     registerDisplayShort: '方框里一个字（英文显示缩写，如 lit.）',
     registerDisplayFull: '方框里写全称',
     pronBrackets: '发音两边的符号',
-    pronBracketsSlash: '宽式 /…/',
-    pronBracketsBracket: '严式 […]',
+    pronBracketsSlash: '音位标注 /…/',
+    pronBracketsBracket: '音值标注 […]',
     pronBracketsNone: '不加符号',
     projectName: '项目名称',
     author: '作者',

@@ -3,7 +3,7 @@ import { t } from '$lib/i18n/index.svelte'
 import { ETYMOLOGY_TYPES } from '$lib/core/model'
 import { ui } from '$lib/state/ui.svelte'
 
-/** 发音两边的符号：设置里选宽式 /…/、严式 […]，或者什么都不加 */
+/** 发音两边的符号：设置里选音位标注 /…/、音值标注 […]，或者什么都不加 */
 export function pronText(ipa: string): string {
   const s = (ipa ?? '').trim()
   if (!s) return ''

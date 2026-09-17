@@ -42,8 +42,12 @@
     X,
     AlertTriangle,
     Pencil,
-    RotateCcw
+    RotateCcw,
+    ChevronRight,
+    ChevronsDownUp,
+    ChevronsUpDown
   } from '@lucide/svelte'
+  import { sectionCollapsed, setSectionsCollapsed, toggleSection } from './section.svelte'
 
   let {
     text = $bindable(''),
@@ -51,7 +55,8 @@
     query = '',
     hits = new Map<number, number>(),
     selectedLine = $bindable<number | null>(null),
-    onchange
+    onchange,
+    foldKey = ''
   }: {
     text?: string
     program: RuleProgram | null
@@ -60,9 +65,14 @@
     hits?: Map<number, number>
     selectedLine?: number | null
     onchange?: () => void
+    /** 各阶段收起状态记在本机时用的名字（规则集 id 这类），不同的规则列表各记各的 */
+    foldKey?: string
   } = $props()
 
   const ordinals = $derived(program ? ruleOrdinals(program) : new Map<number, number>())
+
+  /** 阶段收起记在本机：按这个列表的 foldKey 和阶段名记 */
+  const stageFoldId = (name: string): string => `rules.stage:${foldKey}:${name}`
 
   // ───── 文本行操作 ─────
   function lines(): string[] {
@@ -184,6 +194,13 @@
     // 搜索时空的阶段就别占地方了
     return needle ? out.filter((s) => s.items.length || (s.marker && lineHit(s.marker.raw))) : out
   })
+  /** 有名字的阶段各自的收起 id；两个以上才给「全部收起 / 全部展开」 */
+  const stageFoldIds = $derived(
+    sections.filter((sec) => sec.marker).map((sec) => stageFoldId(sec.marker!.name))
+  )
+  const allStagesFolded = $derived(
+    stageFoldIds.length > 0 && stageFoldIds.every((id) => sectionCollapsed(id))
+  )
   const classLines = $derived(
     program ? program.lines.filter((l) => l.kind === 'class' && lineHit(l.raw)) : []
   )
@@ -743,7 +760,20 @@
   </section>
 
   <!-- 规则分段 -->
+  {#if stageFoldIds.length > 1}
+    <div class="row stage-tools">
+      <span class="grow"></span>
+      <button
+        class="btn ghost sm"
+        onclick={() => setSectionsCollapsed(stageFoldIds, !allStagesFolded)}
+        >{#if allStagesFolded}<ChevronsUpDown size={14} />{t(
+            'soundChanges.expandStages'
+          )}{:else}<ChevronsDownUp size={14} />{t('soundChanges.collapseStages')}{/if}</button
+      >
+    </div>
+  {/if}
   {#each sections as sec, si (sec.marker?.line ?? -si)}
+    {@const folded = !!sec.marker && sectionCollapsed(stageFoldId(sec.marker.name))}
     <!-- 整段都能接住拖过来的规则：放在这一段的末尾 -->
     <section
       class="stage"
@@ -805,6 +835,13 @@
             >
           {:else}
             <button
+              class="stage-fold"
+              title={folded ? t('common.expand') : t('common.collapse')}
+              aria-expanded={!folded}
+              onclick={() => toggleSection(stageFoldId(m.name))}
+              >{#if folded}<ChevronRight size={15} />{:else}<ChevronDown size={15} />{/if}</button
+            >
+            <button
               class="stage-name"
               onclick={() => {
                 editingMarker = m.line
@@ -812,6 +849,11 @@
               }}>-* {m.name}</button
             >
             {#if m.comment}<span class="small muted">{m.comment}</span>{/if}
+            {#if folded}<button
+                class="small muted stage-count"
+                onclick={() => toggleSection(stageFoldId(m.name))}
+                >{t('soundChanges.stageItems', { n: sec.items.length })}</button
+              >{/if}
           {/if}
           <span class="grow"></span>
           <button
@@ -831,7 +873,7 @@
         </div>
       {/if}
 
-      {#each sec.items as item (item.line)}
+      {#each folded ? [] : sec.items as item (item.line)}
         {#if gapAt(item.line)}
           <div class="drop-gap"></div>
         {/if}
@@ -1313,6 +1355,23 @@
     border-bottom: 1px solid var(--border);
     margin-bottom: 4px;
   }
+  .stage-tools {
+    margin: 2px 0 -4px;
+  }
+  .stage-fold,
+  .stage-count {
+    display: inline-flex;
+    align-items: center;
+    border: 0;
+    background: none;
+    padding: 0 2px;
+    color: var(--text-3);
+    cursor: pointer;
+  }
+  .stage-fold:hover,
+  .stage-count:hover {
+    color: var(--text);
+  }
   .stage-name {
     border: 0;
     background: none;
@@ -1387,7 +1446,7 @@
   }
   .rule.selected .num {
     background: var(--accent);
-    color: #fff;
+    color: var(--accent-contrast, #fff);
   }
   .mono {
     font-family: var(--font-mono);

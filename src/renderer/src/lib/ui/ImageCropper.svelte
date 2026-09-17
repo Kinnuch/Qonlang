@@ -1,6 +1,7 @@
 <script lang="ts">
   /** 裁剪对话框：固定比例的裁剪框，拖动移动、滚轮 / 滑块缩放，输出项目设置的尺寸。 */
   import { t } from '$lib/i18n/index.svelte'
+  import { rangeFill } from '$lib/ui/rangeFill'
   import { cropToDataUrl, type ImageSize } from '$lib/core/images'
   import { Check, X } from '@lucide/svelte'
 
@@ -99,7 +100,7 @@
   </div>
   <div class="row ctl">
     <span class="small muted">{t('images.zoom')}</span>
-    <input type="range" min="0.1" max="1" step="0.01" bind:value={zoom} />
+    <input type="range" min="0.1" max="1" step="0.01" bind:value={zoom} use:rangeFill={zoom} />
     <span class="grow"></span>
     <button class="btn sm" onclick={oncancel}><X size={14} />{t('common.cancel')}</button>
     <button class="btn primary sm" onclick={done}><Check size={14} />{t('images.crop')}</button>

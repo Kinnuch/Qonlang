@@ -817,7 +817,12 @@
         <div class="editor-area">
           {#if orthoDir === 'toIpa'}
             {#if orthoView === 'list'}
-              <RuleList bind:text={ortho.rulesToIpa} program={orthoProgram} onchange={touch} />
+              <RuleList
+                bind:text={ortho.rulesToIpa}
+                program={orthoProgram}
+                onchange={touch}
+                foldKey={`ortho:${ortho.id}:toIpa`}
+              />
             {:else}
               <div class="src">
                 <RuleEditor
@@ -828,7 +833,12 @@
               </div>
             {/if}
           {:else if orthoView === 'list'}
-            <RuleList bind:text={ortho.rulesFromIpa} program={orthoProgram} onchange={touch} />
+            <RuleList
+              bind:text={ortho.rulesFromIpa}
+              program={orthoProgram}
+              onchange={touch}
+              foldKey={`ortho:${ortho.id}:fromIpa`}
+            />
           {:else}
             <div class="src">
               <RuleEditor

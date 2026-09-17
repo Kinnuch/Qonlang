@@ -27,7 +27,9 @@
     Eye,
     Undo2,
     Redo2,
-    RotateCw
+    RotateCw,
+    Copy,
+    Sparkles
   } from '@lucide/svelte'
   import { refreshPage } from '$lib/ui/refresh'
   import { chars } from '$lib/state/chars.svelte'
@@ -316,6 +318,11 @@
           ><Eye size={12} />{t('readonly.badge')}</span
         >
       {/if}
+      {#if projectState.example}
+        <span class="badge ro" title={t('example.hint')}
+          ><Sparkles size={12} />{t('example.badge')}</span
+        >
+      {/if}
       {#if projectState.dirty}
         <span class="badge">{t('common.unsaved')}</span>
       {:else if projectState.lastSavedAt}
@@ -339,7 +346,16 @@
         {/each}
       </select>
     </label>
-    {#if !projectState.readOnly}
+    {#if projectState.example}
+      <button
+        class="btn sm"
+        title={t('example.copyHint')}
+        disabled={projectState.saving}
+        onclick={() => projectState.save(true)}
+      >
+        <Copy size={14} />{t('example.copy')}
+      </button>
+    {:else if !projectState.readOnly}
       <button
         class="btn icon"
         title={t('topbar.saveShortcut')}
@@ -509,7 +525,8 @@
   }
   .nav-logo {
     height: 36px;
-    margin: 0 0 8px;
+    /* 往上提 4px：中线对上顶栏（搜索框、项目名都在 22px 那条线上）；下边多留 4px，下面的模块按钮不动 */
+    margin: -4px 0 12px;
     display: grid;
     place-items: center;
     color: var(--brand-mark);

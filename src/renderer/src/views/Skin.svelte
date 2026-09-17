@@ -1,5 +1,6 @@
 <script lang="ts">
   import { matchQuery, parseQuery } from '$lib/core/query'
+  import { rangeFill } from '$lib/ui/rangeFill'
   import { sectionCollapsed } from '$lib/ui/section.svelte'
   import SectionHead from '$lib/ui/SectionHead.svelte'
   import {
@@ -24,9 +25,13 @@
     COMMON_SYSTEM_FONTS,
     DEFAULT_SKIN,
     EMPTY_FONTS,
+    BACKGROUND_FITS,
+    DEFAULT_BACKGROUND,
     type FontSlot,
-    type FontEntry
+    type FontEntry,
+    type SkinBackground
   } from '$lib/skin/presets'
+  import { inkTransition } from '$lib/skin/ink'
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import { flashOn } from '$lib/ui/flash'
@@ -39,7 +44,8 @@
     Loader,
     Save,
     Pencil,
-    GripVertical
+    GripVertical,
+    ImagePlus
   } from '@lucide/svelte'
   import { newId } from '$lib/core/factory'
   import { interlinear } from '$lib/engine/gloss'
@@ -149,26 +155,30 @@
     bump(name)
     save()
   }
-  function applyPreset(id: string): void {
+  function applyPreset(id: string, e?: MouseEvent): void {
     const p = SKIN_PRESETS.find((x) => x.id === id)
     if (!p) return
-    skin.preset = id
-    skin.light = { ...p.light }
-    skin.dark = { ...p.dark }
-    skin.fonts = { ...EMPTY_FONTS, ...p.fonts }
-    presetFlash++
-    save()
+    inkTransition(e, () => {
+      skin.preset = id
+      skin.light = { ...p.light }
+      skin.dark = { ...p.dark }
+      skin.fonts = { ...EMPTY_FONTS, ...p.fonts }
+      presetFlash++
+      save()
+    })
   }
   const userPresets = $derived(ui.prefs.skinPresets)
-  function applyUserPreset(id: string): void {
+  function applyUserPreset(id: string, e?: MouseEvent): void {
     const p = userPresets.find((x) => x.id === id)
     if (!p) return
-    skin.preset = id
-    skin.light = { ...p.light }
-    skin.dark = { ...p.dark }
-    skin.fonts = { ...EMPTY_FONTS, ...p.fonts }
-    presetFlash++
-    save()
+    inkTransition(e, () => {
+      skin.preset = id
+      skin.light = { ...p.light }
+      skin.dark = { ...p.dark }
+      skin.fonts = { ...EMPTY_FONTS, ...p.fonts }
+      presetFlash++
+      save()
+    })
   }
   async function saveAsPreset(): Promise<void> {
     const name = (await ui.prompt(t('skin.presetName'), ''))?.trim()
@@ -220,9 +230,57 @@
     ]
   }
   function reset(): void {
-    ui.prefs.skin = structuredClone(DEFAULT_SKIN)
+    // 背景图单独留着：挑图、调好不容易，要去掉在背景图那里点移除
+    const background = $state.snapshot(skin.background)
+    ui.prefs.skin = { ...structuredClone(DEFAULT_SKIN), background }
     save()
     ui.toast(t('skin.resetDone'))
+  }
+  // ── 背景图 ──
+  const bg = $derived<SkinBackground>({ ...DEFAULT_BACKGROUND, ...(skin.background ?? {}) })
+  let bgInput = $state<HTMLInputElement | null>(null)
+  let bgLoading = $state(false)
+  function setBg(patch: Partial<SkinBackground>): void {
+    skin.background = { ...bg, ...patch }
+    bump('background')
+    ui.savePrefsSoon()
+  }
+  /** 读进一张图：长边缩到 2400 像素以内再存（存在偏好文件里，原图太大每次保存都慢） */
+  async function pickBackground(file: File | undefined): Promise<void> {
+    if (!file) return
+    bgLoading = true
+    try {
+      // 页面的内容安全策略只放行 data: 图片（blob: 读不出来），先读成 data URL 再缩
+      const src = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader()
+        r.onload = () => resolve(String(r.result))
+        r.onerror = () => reject(r.error ?? new Error('read failed'))
+        r.readAsDataURL(file)
+      })
+      const img = new Image()
+      img.src = src
+      await img.decode()
+      const k = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight))
+      const w = Math.max(1, Math.round(img.naturalWidth * k))
+      const h = Math.max(1, Math.round(img.naturalHeight * k))
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+      const image = canvas.toDataURL('image/webp', 0.86)
+      skin.background = { ...bg, image, width: w, height: h }
+      bump('background')
+      save()
+    } catch (err) {
+      ui.error(t('skin.bg.loadFailed', { msg: (err as Error).message }))
+    } finally {
+      bgLoading = false
+      if (bgInput) bgInput.value = ''
+    }
+  }
+  function removeBackground(): void {
+    delete skin.background
+    save()
   }
   /** 当前项目里的每套文字，皮肤里可以单独给它换字体 */
   const projectScripts = $derived(
@@ -415,51 +473,180 @@
   <div class="scroll">
     <section>
       <h3>{t('skin.presets')} <HelpDot tip={t('skin.presetHint')} /></h3>
-      <div class="presets" use:flashOn={presetFlash}>
-        {#each SKIN_PRESETS as p (p.id)}
-          <button
-            class="preset"
-            class:active={skin.preset === p.id}
-            onclick={() => applyPreset(p.id)}
-          >
-            <span class="swatch" style:background={p.swatch[0]} style:border-color={p.swatch[1]}>
-              <span class="dot" style:background={p.swatch[1]}></span>
-              <span class="line" style:background={p.swatch[2]}></span>
-              <span class="line short" style:background={p.swatch[2]}></span>
-            </span>
-            <span class="pname">{zh ? p.name.zh : p.name.en}</span>
-          </button>
-        {/each}
-        {#each userPresets as p (p.id)}
-          {@const sw = swatchOf(p)}
-          <div class="preset user" class:active={skin.preset === p.id}>
-            <button class="preset-main" onclick={() => applyUserPreset(p.id)}>
-              <span class="swatch" style:background={sw[0]} style:border-color={sw[1]}>
-                <span class="dot" style:background={sw[1]}></span>
-                <span class="line" style:background={sw[2]}></span>
-                <span class="line short" style:background={sw[2]}></span>
-              </span>
-              <span class="pname">{p.name}</span>
-            </button>
-            <span class="preset-tools">
+      <div class="presets-wrap" use:flashOn={presetFlash}>
+        {#each [1, 2] as row (row)}
+          <div class="presets">
+            {#each SKIN_PRESETS.filter((x) => x.row === row) as p (p.id)}
               <button
-                class="btn ghost icon sm"
-                title={t('skin.renamePreset')}
-                onclick={() => renamePreset(p.id)}><Pencil size={11} /></button
+                class="preset"
+                class:active={skin.preset === p.id}
+                onclick={(e) => applyPreset(p.id, e)}
               >
-              <button
-                class="btn ghost icon sm"
-                title={t('skin.deletePreset')}
-                onclick={() => deletePreset(p.id)}><Trash2 size={11} /></button
-              >
-            </span>
+                <span
+                  class="swatch"
+                  style:background-color={p.swatch[0]}
+                  style:border-color={p.swatch[1]}
+                  style:background-image={p.swatchPattern ?? null}
+                  style:background-size={p.swatchPattern
+                    ? '31px 29px, 23px 27px, 17px 19px, 41px 37px'
+                    : null}
+                >
+                  <span class="dot" style:background={p.swatch[1]}></span>
+                  <span class="line" style:background={p.swatch[2]}></span>
+                  <span class="line short" style:background={p.swatch[2]}></span>
+                </span>
+                <span class="pname">{zh ? p.name.zh : p.name.en}</span>
+              </button>
+            {/each}
           </div>
         {/each}
-        <button class="preset add" onclick={saveAsPreset}>
-          <span class="swatch dashed"><Save size={20} /></span>
-          <span class="pname">{t('skin.saveAsPreset')}</span>
+        <div class="presets">
+          {#each userPresets as p (p.id)}
+            {@const sw = swatchOf(p)}
+            <div class="preset user" class:active={skin.preset === p.id}>
+              <button class="preset-main" onclick={(e) => applyUserPreset(p.id, e)}>
+                <span class="swatch" style:background={sw[0]} style:border-color={sw[1]}>
+                  <span class="dot" style:background={sw[1]}></span>
+                  <span class="line" style:background={sw[2]}></span>
+                  <span class="line short" style:background={sw[2]}></span>
+                </span>
+                <span class="pname">{p.name}</span>
+              </button>
+              <span class="preset-tools">
+                <button
+                  class="btn ghost icon sm"
+                  title={t('skin.renamePreset')}
+                  onclick={() => renamePreset(p.id)}><Pencil size={11} /></button
+                >
+                <button
+                  class="btn ghost icon sm"
+                  title={t('skin.deletePreset')}
+                  onclick={() => deletePreset(p.id)}><Trash2 size={11} /></button
+                >
+              </span>
+            </div>
+          {/each}
+          <button class="preset add" onclick={saveAsPreset}>
+            <span class="swatch dashed"><Save size={20} /></span>
+            <span class="pname">{t('skin.saveAsPreset')}</span>
+          </button>
+          {#if skin.preset === 'custom'}<span class="badge accent self">{t('skin.custom')}</span
+            >{/if}
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h3>{t('skin.bg.title')} <HelpDot tip={t('skin.bg.hint')} /></h3>
+      <div class="bg-box">
+        <button
+          class="bg-thumb"
+          class:empty={!bg.image}
+          title={t('skin.bg.pick')}
+          disabled={bgLoading}
+          onclick={() => bgInput?.click()}
+          style:background-image={bg.image ? `url("${bg.image}")` : null}
+        >
+          {#if !bg.image}<ImagePlus size={22} /><span class="small">{t('skin.bg.pick')}</span>{/if}
         </button>
-        {#if skin.preset === 'custom'}<span class="badge accent self">{t('skin.custom')}</span>{/if}
+        <input
+          bind:this={bgInput}
+          type="file"
+          accept="image/*"
+          hidden
+          onchange={(e) => pickBackground((e.currentTarget as HTMLInputElement).files?.[0])}
+        />
+        <div class="bg-controls" class:off={!bg.image}>
+          <div class="row wrap">
+            <span class="small muted bg-label">{t('skin.bg.fit')}</span>
+            <div class="seg">
+              {#each BACKGROUND_FITS as f (f)}
+                <button
+                  class:active={bg.fit === f}
+                  disabled={!bg.image}
+                  onclick={() => setBg({ fit: f })}>{t(`skin.bg.fits.${f}`)}</button
+                >
+              {/each}
+            </div>
+          </div>
+          {#if bg.fit !== 'cover' && bg.fit !== 'stretch'}
+            <div class="row wrap">
+              <span class="small muted bg-label">{t('skin.bg.position')}</span>
+              <select
+                class="select sm"
+                disabled={!bg.image}
+                value={bg.position}
+                onchange={(e) =>
+                  setBg({
+                    position: (e.currentTarget as HTMLSelectElement)
+                      .value as SkinBackground['position']
+                  })}
+              >
+                {#each ['center', 'top', 'bottom', 'left', 'right'] as pos (pos)}
+                  <option value={pos}>{t(`skin.bg.positions.${pos}`)}</option>
+                {/each}
+              </select>
+            </div>
+          {/if}
+          <label class="row bg-slider">
+            <span class="small muted bg-label">{t('skin.bg.opacity')}</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              disabled={!bg.image}
+              value={Math.round(bg.opacity * 100)}
+              use:rangeFill={bg.opacity}
+              oninput={(e) =>
+                setBg({ opacity: Number((e.currentTarget as HTMLInputElement).value) / 100 })}
+            />
+            <span class="small mono">{Math.round(bg.opacity * 100)}%</span>
+          </label>
+          {#if bg.fit === 'tile' || bg.fit === 'center'}
+            <label class="row bg-slider">
+              <span class="small muted bg-label">{t('skin.bg.scale')}</span>
+              <input
+                type="range"
+                min="5"
+                max="300"
+                step="5"
+                disabled={!bg.image}
+                value={Math.round(bg.scale * 100)}
+                use:rangeFill={bg.scale}
+                oninput={(e) =>
+                  setBg({ scale: Number((e.currentTarget as HTMLInputElement).value) / 100 })}
+              />
+              <span class="small mono">{Math.round(bg.scale * 100)}%</span>
+            </label>
+          {/if}
+          <label class="row bg-slider">
+            <span class="small muted bg-label">{t('skin.bg.blur')}</span>
+            <input
+              type="range"
+              min="0"
+              max="30"
+              step="1"
+              disabled={!bg.image}
+              value={bg.blur}
+              use:rangeFill={bg.blur}
+              oninput={(e) => setBg({ blur: Number((e.currentTarget as HTMLInputElement).value) })}
+            />
+            <span class="small mono">{bg.blur}px</span>
+          </label>
+          <div class="row">
+            <button class="btn sm" disabled={bgLoading} onclick={() => bgInput?.click()}
+              >{#if bgLoading}<Loader size={14} />{:else}<ImagePlus size={14} />{/if}{bg.image
+                ? t('skin.bg.change')
+                : t('skin.bg.pick')}</button
+            >
+            {#if bg.image}
+              <button class="btn ghost sm danger" onclick={removeBackground}
+                ><Trash2 size={14} />{t('skin.bg.remove')}</button
+              >
+            {/if}
+          </div>
+        </div>
       </div>
     </section>
 
@@ -554,6 +741,7 @@
           {@const n = blockSize(ui.prefs.cardBlockSize, key)}
           <input
             class="bsz"
+            use:rangeFill={n}
             type="range"
             min={CARD_SIZE_MIN}
             max={CARD_SIZE_MAX}
@@ -836,12 +1024,67 @@ a > e / _i</span
     align-items: baseline;
     gap: 10px;
   }
+  .presets-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-radius: var(--radius-sm);
+  }
   .presets {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     align-items: center;
-    border-radius: var(--radius-sm);
+  }
+  .presets:empty {
+    display: none;
+  }
+  /* 背景图：左边缩略图（点了换图），右边铺法、不透明度这些 */
+  .bg-box {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .bg-thumb {
+    width: 176px;
+    height: 112px;
+    flex: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background-color: var(--bg-sunken);
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--text-3);
+    cursor: pointer;
+  }
+  .bg-thumb.empty {
+    border-style: dashed;
+    border-color: var(--border-strong);
+  }
+  .bg-thumb:hover {
+    border-color: var(--accent);
+    color: var(--accent-text);
+  }
+  .bg-controls {
+    flex: 1;
+    min-width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .bg-label {
+    width: 72px;
+    flex: none;
+  }
+  .bg-slider input {
+    flex: 1;
+    max-width: 260px;
   }
   .preset {
     display: flex;
@@ -1202,7 +1445,8 @@ a > e / _i</span
   .blk .px.changed {
     color: var(--accent-text);
   }
-  .blk:hover {
+  /* 悬停只描一圈虚线提示能拖；主题色的底留给拖到这里时 */
+  .blk:not(.fixed):hover {
     border-style: dashed;
     border-color: var(--border-strong);
   }

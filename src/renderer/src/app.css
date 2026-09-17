@@ -189,7 +189,8 @@ button {
 .btn.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  /* 强调色很亮的皮肤（瓦其夫的金黄、深色里的浅绿）按钮字换成深色，预设里写 --accent-contrast */
+  color: var(--accent-contrast, #fff);
 }
 .btn.primary:hover {
   background: var(--accent-hover);
@@ -492,4 +493,111 @@ kbd {
 .booktabs .tab.active::after {
   right: -10px;
   background: radial-gradient(circle at 100% 0, transparent 9.5px, var(--accent-soft) 10px);
+}
+
+/* 滑块：跟着主题色走（原生滑块用的是系统色，换主题不变、悬停时还会变成刺眼的亮青）。
+   已拖过的一段按 --fill 涂主题色，用 rangeFill 动作写进去 */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  background: transparent;
+  cursor: pointer;
+  --fill: 0%;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0,
+    var(--accent) var(--fill),
+    var(--border-strong) var(--fill),
+    var(--border-strong) 100%
+  );
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-elev);
+  box-shadow: 0 0 0 1px var(--accent);
+  transition: transform 0.1s;
+}
+input[type='range']:hover::-webkit-slider-thumb {
+  background: var(--accent-hover);
+  box-shadow: 0 0 0 1px var(--accent-hover);
+}
+input[type='range']:active::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+input[type='range']:focus-visible {
+  outline: none;
+}
+input[type='range']:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 3px var(--accent-soft),
+    0 0 0 1px var(--accent);
+}
+input[type='range']:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* 皮肤盖在窗口上的层：花纹与背景图，半透明、不接鼠标。浅色里正片叠底、深色里滤色，字不会被盖灰 */
+.skin-pattern,
+.skin-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1000;
+}
+.skin-pattern {
+  background-image: var(--skin-pattern, none);
+  background-size: var(--skin-pattern-size, auto);
+}
+.skin-bg {
+  mix-blend-mode: multiply;
+}
+[data-theme='dark'] .skin-bg {
+  mix-blend-mode: screen;
+}
+
+/* 换皮肤的墨水晕开（lib/skin/ink.ts）：新样子套几团随 --ink-r 长大的软边圆，旧样子不动 */
+@property --ink-r {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+html.ink-switch::view-transition-old(root),
+html.ink-switch::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+html.ink-switch::view-transition-new(root) {
+  mask-image:
+    radial-gradient(
+      circle at var(--ink-x) var(--ink-y),
+      #000 calc(var(--ink-r) * 0.62),
+      transparent var(--ink-r)
+    ),
+    radial-gradient(
+      circle at calc(var(--ink-x) + var(--ink-r) * 0.24) calc(var(--ink-y) - var(--ink-r) * 0.17),
+      #000 calc(var(--ink-r) * 0.42),
+      transparent calc(var(--ink-r) * 0.8)
+    ),
+    radial-gradient(
+      circle at calc(var(--ink-x) - var(--ink-r) * 0.21) calc(var(--ink-y) + var(--ink-r) * 0.2),
+      #000 calc(var(--ink-r) * 0.38),
+      transparent calc(var(--ink-r) * 0.76)
+    ),
+    radial-gradient(
+      circle at calc(var(--ink-x) + var(--ink-r) * 0.12) calc(var(--ink-y) + var(--ink-r) * 0.26),
+      #000 calc(var(--ink-r) * 0.3),
+      transparent calc(var(--ink-r) * 0.66)
+    );
 }

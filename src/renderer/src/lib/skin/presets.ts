@@ -14,6 +14,64 @@ export interface Skin {
   mirror: string
   /** 给某套自定义文字单独指定的字体：文字 id → 字体名（覆盖文字自带的字体） */
   scriptFonts?: Record<string, string>
+  /** 自定义背景图：盖在整个窗口上的一层半透明图，不挡点击；换预设不动它 */
+  background?: SkinBackground
+}
+
+export type BackgroundFit = 'cover' | 'contain' | 'tile' | 'center' | 'stretch'
+export const BACKGROUND_FITS: BackgroundFit[] = ['cover', 'contain', 'tile', 'center', 'stretch']
+
+export interface SkinBackground {
+  /** 图片（缩到长边不超过 2400 像素的 data URL）；空表示没有 */
+  image: string
+  /** 缩过之后的图片尺寸（平铺、居中按它乘缩放） */
+  width: number
+  height: number
+  fit: BackgroundFit
+  /** 不透明度 0–1 */
+  opacity: number
+  /** 平铺、居中时的缩放（1 为原大小） */
+  scale: number
+  /** 模糊（像素） */
+  blur: number
+  /** 平铺、居中、适应时图从哪对齐 */
+  position: 'center' | 'top' | 'bottom' | 'left' | 'right'
+}
+
+export const DEFAULT_BACKGROUND: SkinBackground = {
+  image: '',
+  width: 0,
+  height: 0,
+  fit: 'cover',
+  opacity: 0.18,
+  scale: 1,
+  blur: 0,
+  position: 'center'
+}
+
+/** 背景图那一层的样式（写在一个固定铺满窗口、不接鼠标的层上） */
+export function backgroundStyle(b: SkinBackground | undefined): string {
+  if (!b?.image) return ''
+  const k = Math.max(0.05, b.scale)
+  const size =
+    b.fit === 'cover'
+      ? 'cover'
+      : b.fit === 'contain'
+        ? 'contain'
+        : b.fit === 'stretch'
+          ? '100% 100%'
+          : `${Math.round(b.width * k)}px ${Math.round(b.height * k)}px`
+  return [
+    `background-image:url("${b.image}")`,
+    `background-size:${size}`,
+    `background-repeat:${b.fit === 'tile' ? 'repeat' : 'no-repeat'}`,
+    `background-position:${b.position}`,
+    `opacity:${Math.min(1, Math.max(0, b.opacity))}`,
+    // 模糊后边缘会发虚透出底色：往外多铺一点
+    b.blur > 0 ? `filter:blur(${b.blur}px);inset:-${b.blur * 2}px` : ''
+  ]
+    .filter(Boolean)
+    .join(';')
 }
 
 export const EMPTY_FONTS: Record<FontSlot, string> = {
@@ -36,6 +94,9 @@ export const DEFAULT_SKIN: Skin = {
 }
 
 /** 可编辑的颜色变量（顺序即界面顺序） */
+/** 预设里会写、但不在颜色表里单独改的变量：换皮肤时也要先清掉 */
+export const SKIN_EXTRA_VARS = ['--accent-contrast', '--skin-pattern', '--skin-pattern-size']
+
 export const SKIN_VARS: { name: string; key: string }[] = [
   { name: '--bg', key: 'bg' },
   { name: '--bg-elev', key: 'bgElev' },
@@ -75,9 +136,13 @@ export interface UserSkinPreset {
 
 export interface SkinPreset {
   id: string
+  /** 预设排在第几排 */
+  row: 1 | 2
   name: { zh: string; en: string }
   /** 预览色：背景 / 强调 / 文字 */
   swatch: [string, string, string]
+  /** 预览卡上叠的花纹（星月夜的星点） */
+  swatchPattern?: string
   light: Record<string, string>
   dark: Record<string, string>
   fonts: Partial<Record<FontSlot, string>>
@@ -86,54 +151,35 @@ export interface SkinPreset {
 const KAI = "'LXGW WenKai', 'KaiTi', 'STKaiti', 'Noto Serif SC', serif"
 const SONG = "'Noto Serif SC', 'Source Han Serif SC', 'SimSun', serif"
 
+/** 星月夜的星点：大小不一的黄、蓝小点，按两种间距错开铺，看着不成格子 */
+const STARS_LIGHT = [
+  'radial-gradient(circle at 18% 22%, rgba(214, 170, 30, 0.22) 0 1.6px, transparent 2.4px)',
+  'radial-gradient(circle at 63% 71%, rgba(40, 70, 150, 0.16) 0 1.2px, transparent 1.9px)',
+  'radial-gradient(circle at 81% 34%, rgba(214, 170, 30, 0.14) 0 0.9px, transparent 1.5px)',
+  'radial-gradient(circle at 37% 86%, rgba(40, 70, 150, 0.12) 0 0.8px, transparent 1.4px)'
+].join(', ')
+const STARS_DARK = [
+  'radial-gradient(circle at 18% 22%, rgba(240, 200, 80, 0.30) 0 1.6px, transparent 2.6px)',
+  'radial-gradient(circle at 63% 71%, rgba(120, 160, 240, 0.20) 0 1.2px, transparent 2px)',
+  'radial-gradient(circle at 81% 34%, rgba(240, 210, 110, 0.20) 0 0.9px, transparent 1.6px)',
+  'radial-gradient(circle at 37% 86%, rgba(150, 180, 255, 0.16) 0 0.8px, transparent 1.5px)'
+].join(', ')
+const STARS_SIZE = '97px 89px, 61px 67px, 43px 53px, 131px 113px'
+
 export const SKIN_PRESETS: SkinPreset[] = [
   {
     id: 'default',
-    name: { zh: '默认', en: 'Default' },
+    row: 1,
+    name: { zh: '亚夜花园·青', en: 'Yaye Garden · Cyan' },
     swatch: ['#fafaf7', '#0e9f8a', '#1f1f1f'],
     light: {},
     dark: {},
     fonts: {}
   },
   {
-    id: 'ancient',
-    name: { zh: '中国古代', en: 'Classical Chinese' },
-    swatch: ['#f6efe1', '#a23b2c', '#3b2f22'],
-    light: {
-      '--bg': '#f6efe1',
-      '--bg-elev': '#fbf6ea',
-      '--bg-sunken': '#efe5d0',
-      '--bg-hover': '#f1e8d6',
-      '--border': '#dccfb4',
-      '--border-strong': '#c4b28f',
-      '--text': '#3b2f22',
-      '--text-2': '#6e5c48',
-      '--text-3': '#9a8a74',
-      '--accent': '#a23b2c',
-      '--accent-hover': '#8a2f22',
-      '--accent-soft': '#f3e0d8',
-      '--accent-text': '#8a2f22'
-    },
-    dark: {
-      '--bg': '#1f1a14',
-      '--bg-elev': '#28221a',
-      '--bg-sunken': '#17130e',
-      '--bg-hover': '#31291f',
-      '--border': '#3d3327',
-      '--border-strong': '#54473a',
-      '--text': '#ebdfc9',
-      '--text-2': '#b8a88e',
-      '--text-3': '#85775f',
-      '--accent': '#d4664f',
-      '--accent-hover': '#e07b66',
-      '--accent-soft': '#3d2520',
-      '--accent-text': '#e7907c'
-    },
-    fonts: { ui: KAI, corpusTr: KAI, corpusText: "'Gentium Plus', 'Charis SIL', serif" }
-  },
-  {
     id: 'bamboo',
-    name: { zh: '竹林', en: 'Bamboo grove' },
+    row: 1,
+    name: { zh: '林中幻想·绿', en: 'Forest Fantasia · Green' },
     swatch: ['#f3f7f0', '#3f7d4c', '#23301f'],
     light: {
       '--bg': '#f3f7f0',
@@ -163,13 +209,15 @@ export const SKIN_PRESETS: SkinPreset[] = [
       '--accent': '#6fb37a',
       '--accent-hover': '#85c48f',
       '--accent-soft': '#1f3524',
-      '--accent-text': '#93cf9d'
+      '--accent-text': '#93cf9d',
+      '--accent-contrast': '#0e1a10'
     },
     fonts: { ui: SONG, corpusTr: SONG }
   },
   {
     id: 'fantasy',
-    name: { zh: '西幻', en: 'High fantasy' },
+    row: 1,
+    name: { zh: '契耶西塔·紫', en: 'Qiyexita · Purple' },
     swatch: ['#f4f1ea', '#6b4fa3', '#2b2333'],
     light: {
       '--bg': '#f4f1ea',
@@ -200,7 +248,8 @@ export const SKIN_PRESETS: SkinPreset[] = [
       '--accent': '#a98be0',
       '--accent-hover': '#bba2ea',
       '--accent-soft': '#2c2244',
-      '--accent-text': '#c3acef'
+      '--accent-text': '#c3acef',
+      '--accent-contrast': '#1a1030'
     },
     fonts: {
       data: "'Cinzel', 'Gentium Plus', serif",
@@ -209,8 +258,48 @@ export const SKIN_PRESETS: SkinPreset[] = [
     }
   },
   {
+    // 靛：偏蓝的紫，比契耶西塔冷、深，底色带一点海雾的灰蓝
+    id: 'norian',
+    row: 1,
+    name: { zh: '海岛诺连·靛', en: 'Nuolian Isle · Indigo' },
+    swatch: ['#f1f3f9', '#3f47b5', '#1b1f3a'],
+    light: {
+      '--bg': '#f1f3f9',
+      '--bg-elev': '#fbfcff',
+      '--bg-sunken': '#e5e8f3',
+      '--bg-hover': '#e9ecf6',
+      '--border': '#cfd4e8',
+      '--border-strong': '#a9b0d0',
+      '--text': '#1b1f3a',
+      '--text-2': '#4c5275',
+      '--text-3': '#8187a6',
+      '--accent': '#3f47b5',
+      '--accent-hover': '#343b9c',
+      '--accent-soft': '#e0e3f8',
+      '--accent-text': '#343b9c'
+    },
+    dark: {
+      '--bg': '#0f1120',
+      '--bg-elev': '#171a2e',
+      '--bg-sunken': '#0a0c17',
+      '--bg-hover': '#1f2339',
+      '--border': '#272b47',
+      '--border-strong': '#3b4166',
+      '--text': '#e5e7f5',
+      '--text-2': '#a8acc9',
+      '--text-3': '#7478a0',
+      '--accent': '#8088f0',
+      '--accent-hover': '#9aa0f5',
+      '--accent-soft': '#232850',
+      '--accent-text': '#a6acf7',
+      '--accent-contrast': '#0c0f2a'
+    },
+    fonts: {}
+  },
+  {
     id: 'sea',
-    name: { zh: '海蓝', en: 'Sea' },
+    row: 1,
+    name: { zh: '蓝地渐歌·蓝', en: 'Blueland Song · Blue' },
     swatch: ['#eef4f8', '#2a6fb0', '#1c2a36'],
     light: {
       '--bg': '#eef4f8',
@@ -240,45 +329,215 @@ export const SKIN_PRESETS: SkinPreset[] = [
       '--accent': '#5aa0e6',
       '--accent-hover': '#77b2ee',
       '--accent-soft': '#173047',
-      '--accent-text': '#8dc0f0'
+      '--accent-text': '#8dc0f0',
+      '--accent-contrast': '#08182a'
     },
     fonts: {}
   },
   {
+    // 夜空一样的蓝黑，满屏细碎的星点（黄、蓝两种），强调色在深色里是星星的暖黄
     id: 'ink',
-    name: { zh: '墨夜', en: 'Ink night' },
-    swatch: ['#f7f7f5', '#333333', '#111111'],
+    row: 2,
+    name: { zh: '星月夜·黑', en: 'Starry Night · Black' },
+    swatch: ['#12151f', '#e8c34a', '#e9e6d8'],
+    swatchPattern: STARS_DARK,
     light: {
-      '--bg': '#f7f7f5',
-      '--bg-elev': '#ffffff',
-      '--bg-sunken': '#ececea',
-      '--bg-hover': '#f0f0ee',
-      '--border': '#dedddb',
-      '--border-strong': '#bdbcb9',
-      '--text': '#111111',
-      '--text-2': '#555555',
-      '--text-3': '#8a8a8a',
-      '--accent': '#333333',
-      '--accent-hover': '#111111',
-      '--accent-soft': '#e8e8e6',
-      '--accent-text': '#222222'
+      '--bg': '#f3f2ec',
+      '--bg-elev': '#fbfaf5',
+      '--bg-sunken': '#e8e6dc',
+      '--bg-hover': '#ecebe3',
+      '--border': '#d7d5ca',
+      '--border-strong': '#b5b2a3',
+      '--text': '#12151f',
+      '--text-2': '#4a4f60',
+      '--text-3': '#838795',
+      '--accent': '#1f2a48',
+      '--accent-hover': '#141c33',
+      '--accent-soft': '#e2e4ea',
+      '--accent-text': '#1f2a48',
+      '--warn': '#b98a00',
+      '--skin-pattern': STARS_LIGHT,
+      '--skin-pattern-size': STARS_SIZE
     },
     dark: {
-      '--bg': '#0d0d0d',
-      '--bg-elev': '#151515',
-      '--bg-sunken': '#070707',
-      '--bg-hover': '#1d1d1d',
-      '--border': '#262626',
-      '--border-strong': '#3b3b3b',
-      '--text': '#f0f0f0',
-      '--text-2': '#b5b5b5',
-      '--text-3': '#7c7c7c',
-      '--accent': '#d9d9d9',
-      '--accent-hover': '#ffffff',
-      '--accent-soft': '#262626',
-      '--accent-text': '#e6e6e6'
+      '--bg': '#0b0e17',
+      '--bg-elev': '#121624',
+      '--bg-sunken': '#070911',
+      '--bg-hover': '#1a1f30',
+      '--border': '#222840',
+      '--border-strong': '#363e5c',
+      '--text': '#ece9dc',
+      '--text-2': '#b1b2bb',
+      '--text-3': '#7b7f90',
+      '--accent': '#e8c34a',
+      '--accent-hover': '#f2d36b',
+      '--accent-soft': '#2a2a2c',
+      '--accent-text': '#f0cf62',
+      '--accent-contrast': '#141726',
+      '--skin-pattern': STARS_DARK,
+      '--skin-pattern-size': STARS_SIZE
     },
     fonts: { ui: KAI, corpusTr: KAI }
+  },
+  {
+    id: 'ancient',
+    row: 2,
+    name: { zh: '山海经·褐', en: 'Shanhaijing · Brown' },
+    swatch: ['#f6efe1', '#8a5a2e', '#3b2f22'],
+    light: {
+      '--bg': '#f6efe1',
+      '--bg-elev': '#fbf6ea',
+      '--bg-sunken': '#efe5d0',
+      '--bg-hover': '#f1e8d6',
+      '--border': '#dccfb4',
+      '--border-strong': '#c4b28f',
+      '--text': '#3b2f22',
+      '--text-2': '#6e5c48',
+      '--text-3': '#9a8a74',
+      '--accent': '#8a5a2e',
+      '--accent-hover': '#744a24',
+      '--accent-soft': '#efe0cc',
+      '--accent-text': '#744a24'
+    },
+    dark: {
+      '--bg': '#1f1a14',
+      '--bg-elev': '#28221a',
+      '--bg-sunken': '#17130e',
+      '--bg-hover': '#31291f',
+      '--border': '#3d3327',
+      '--border-strong': '#54473a',
+      '--text': '#ebdfc9',
+      '--text-2': '#b8a88e',
+      '--text-3': '#85775f',
+      '--accent': '#c8955f',
+      '--accent-hover': '#d6a877',
+      '--accent-soft': '#3a2c1e',
+      '--accent-text': '#ddb283',
+      '--accent-contrast': '#1f160c'
+    },
+    fonts: { ui: KAI, corpusTr: KAI, corpusText: "'Gentium Plus', 'Charis SIL', serif" }
+  },
+  {
+    // 红配白：雪白的底，正红的强调
+    id: 'meizhusa',
+    row: 2,
+    name: { zh: '梅珠撒·红', en: 'Meizhusa · Red' },
+    swatch: ['#fffafa', '#c8102e', '#2a1416'],
+    light: {
+      '--bg': '#fffafa',
+      '--bg-elev': '#ffffff',
+      '--bg-sunken': '#f8eeee',
+      '--bg-hover': '#fbf0f0',
+      '--border': '#efdada',
+      '--border-strong': '#dcb5b8',
+      '--text': '#2a1416',
+      '--text-2': '#664346',
+      '--text-3': '#9c7f81',
+      '--accent': '#c8102e',
+      '--accent-hover': '#a90d27',
+      '--accent-soft': '#fbe2e6',
+      '--accent-text': '#a90d27',
+      '--danger': '#b3261e'
+    },
+    dark: {
+      '--bg': '#1a0f11',
+      '--bg-elev': '#241518',
+      '--bg-sunken': '#12090b',
+      '--bg-hover': '#2e1b1f',
+      '--border': '#3a2327',
+      '--border-strong': '#553439',
+      '--text': '#f8eced',
+      '--text-2': '#c9aeb1',
+      '--text-3': '#927579',
+      '--accent': '#ef4058',
+      '--accent-hover': '#f5647a',
+      '--accent-soft': '#3f1a21',
+      '--accent-text': '#f7798c'
+    },
+    fonts: {}
+  },
+  {
+    // 黄蓝红：深藏青的底，金黄的强调，红色当警示
+    id: 'vaqif',
+    row: 2,
+    name: { zh: '瓦其夫·黄', en: 'Waqifu · Yellow' },
+    swatch: ['#13204a', '#f2c230', '#d8342c'],
+    light: {
+      '--bg': '#f6f3e6',
+      '--bg-elev': '#fffdf4',
+      '--bg-sunken': '#ebe6d0',
+      '--bg-hover': '#efead6',
+      '--border': '#d9d1b0',
+      '--border-strong': '#b8ad83',
+      '--text': '#13204a',
+      '--text-2': '#414c73',
+      '--text-3': '#7d839c',
+      '--accent': '#e3a900',
+      '--accent-hover': '#cc9700',
+      '--accent-soft': '#f8ebb8',
+      '--accent-text': '#8a6200',
+      '--accent-contrast': '#13204a',
+      '--danger': '#d0312a',
+      '--warn': '#c26a00'
+    },
+    dark: {
+      '--bg': '#0f1a3a',
+      '--bg-elev': '#16234a',
+      '--bg-sunken': '#0a1330',
+      '--bg-hover': '#1d2c57',
+      '--border': '#243767',
+      '--border-strong': '#34497f',
+      '--text': '#f3eed8',
+      '--text-2': '#bfc2cf',
+      '--text-3': '#858ca6',
+      '--accent': '#f2c230',
+      '--accent-hover': '#ffd24f',
+      '--accent-soft': '#2c3558',
+      '--accent-text': '#ffd24f',
+      '--accent-contrast': '#0f1a3a',
+      '--danger': '#e8463d',
+      '--warn': '#f08c2a'
+    },
+    fonts: {}
+  },
+  {
+    // 橙白：暖白的底，柔和的杏橙
+    id: 'xuelizi',
+    row: 2,
+    name: { zh: '雪利兹·橙', en: 'Xuelizi · Orange' },
+    swatch: ['#fffaf4', '#e8833a', '#3a2a1e'],
+    light: {
+      '--bg': '#fffaf4',
+      '--bg-elev': '#ffffff',
+      '--bg-sunken': '#fbefe2',
+      '--bg-hover': '#fcf2e7',
+      '--border': '#f0dcc6',
+      '--border-strong': '#dfbd9b',
+      '--text': '#3a2a1e',
+      '--text-2': '#6e5846',
+      '--text-3': '#a08a78',
+      '--accent': '#e07a30',
+      '--accent-hover': '#c96a24',
+      '--accent-soft': '#fde8d6',
+      '--accent-text': '#b35c1b'
+    },
+    dark: {
+      '--bg': '#1c1510',
+      '--bg-elev': '#261d16',
+      '--bg-sunken': '#15100b',
+      '--bg-hover': '#30251c',
+      '--border': '#3d2f23',
+      '--border-strong': '#574332',
+      '--text': '#f7ebe0',
+      '--text-2': '#c7b19f',
+      '--text-3': '#917b69',
+      '--accent': '#f3a263',
+      '--accent-hover': '#f7b580',
+      '--accent-soft': '#3f2a1b',
+      '--accent-text': '#f7b88a',
+      '--accent-contrast': '#2a1809'
+    },
+    fonts: {}
   }
 ]
 

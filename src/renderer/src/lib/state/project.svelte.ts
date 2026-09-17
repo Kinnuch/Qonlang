@@ -23,6 +23,8 @@ class ProjectState {
   dirty = $state(false)
   saving = $state(false)
   lastSavedAt = $state<string | null>(null)
+  /** 开着的是随软件带的示例工程：随便改，但不能保存，只能复制一份成自己的项目 */
+  example = $state(false)
   /** 顶栏选中的当前语言；null 表示全部 */
   currentLanguageId = $state<Id | null>(null)
 
@@ -93,7 +95,7 @@ class ProjectState {
     this.currentLanguageId =
       lang && p.languages.some((l) => l.id === lang) ? lang : (p.languages[0]?.id ?? null)
     this.committed = json
-    if (!this.dirty) {
+    if (!this.dirty && !this.example) {
       this.dirty = true
       platform.setDirty(true)
     }
@@ -168,7 +170,7 @@ class ProjectState {
     this.project.meta.updatedAt = now()
     clearScriptCache()
     this.scheduleCommit()
-    if (!this.dirty) {
+    if (!this.dirty && !this.example) {
       this.dirty = true
       platform.setDirty(true)
     }
@@ -195,6 +197,7 @@ class ProjectState {
     clearScriptCache()
     this.project = p
     this.target = target
+    this.example = false
     // 纯欣赏项目开着时，桌面版不让开开发者工具
     platform.setReadOnly(!!p.meta.readOnly)
     this.currentLanguageId = p.settings.defaultLanguageId ?? p.languages[0]?.id ?? null
@@ -279,6 +282,10 @@ class ProjectState {
       ui.toast(t('readonly.blocked'))
       return false
     }
+    if (this.example && !saveAs) {
+      ui.toast(t('example.blocked'))
+      return false
+    }
     this.saving = true
     try {
       // 存的是这一刻的项目：先记进撤销栈，排版、加密交给后台线程
@@ -289,6 +296,8 @@ class ProjectState {
       const target = await platform.saveProject(saveAs ? null : this.target, content, this.fileName)
       if (!target) return false
       this.target = target
+      // 示例另存出去的那份就是自己的项目了
+      this.example = false
       this.lastSavedAt = now()
       this.markClean()
       await platform.saveSnapshot(null)
@@ -299,6 +308,31 @@ class ProjectState {
       return false
     } finally {
       this.saving = false
+    }
+  }
+
+  /** 打开示例工程：没有文件目标，改动不算未保存，也不写崩溃快照 */
+  openExample(p: Project): void {
+    this.load(p, null)
+    this.example = true
+  }
+
+  /** 把一个项目（示例工程）另存一份再打开，打开的就是存下来的那份 */
+  async saveCopy(p: Project): Promise<boolean> {
+    try {
+      const target = await platform.saveProject(
+        null,
+        await diskTextFromJson(JSON.stringify(p)),
+        (p.meta.name || 'qonlang') + PROJECT_EXTENSION
+      )
+      if (!target) return false
+      this.load(p, target)
+      this.lastSavedAt = now()
+      await this.remember()
+      return true
+    } catch (e) {
+      ui.error(t('errors.saveFailed', { msg: (e as Error).message }))
+      return false
     }
   }
 
@@ -339,6 +373,7 @@ class ProjectState {
   close(): void {
     this.project = null
     this.target = null
+    this.example = false
     platform.setReadOnly(false)
     this.currentLanguageId = null
     this.markClean()

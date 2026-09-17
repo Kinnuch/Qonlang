@@ -31,7 +31,8 @@
     BookOpen,
     Sparkles,
     HeartHandshake,
-    BookText
+    BookText,
+    Copy
   } from '@lucide/svelte'
   import changelogRaw from '../../../../CHANGELOG.md?raw'
   import wechatQr from '../assets/img/wechat-qr.png'
@@ -98,9 +99,10 @@
     if (!ui.prefs.seenTours.includes('welcome')) tour.request('welcome')
   })
 
+  /** 右侧面板：打开开始页时默认摊开更新日志 */
   let footerPanel = $state<
     'examples' | 'coffee' | 'changelog' | 'dev' | 'friends' | 'credits' | 'syntax' | null
-  >(null)
+  >('changelog')
 
   /**
    * 示例工程：随软件一起带的两个虚构项目，覆盖各模块的功能。
@@ -119,15 +121,19 @@
     }
   ]
   let loadingExample = $state('')
-  async function openExample(ex: (typeof EXAMPLES)[number]): Promise<void> {
+  async function openExample(ex: (typeof EXAMPLES)[number], copy = false): Promise<void> {
     if (loadingExample) return
     loadingExample = ex.id
     try {
       const raw = (await ex.load()).default
       const project = parseProject(raw)
-      // 没有文件目标：改动要另存为，示例文件本身不会被覆盖
-      projectState.load(project, null)
-      projectState.touch()
+      if (copy) {
+        // 复制一份：先问存到哪，存下来的就是自己的项目
+        if (await projectState.saveCopy(project)) footerPanel = null
+        return
+      }
+      // 示例工程：能改不能存，要留着就复制一份
+      projectState.openExample(project)
       footerPanel = null
       ui.toast(t('welcome.exampleOpened', { name: ex.name }))
     } catch (e) {
@@ -444,12 +450,23 @@
             <div class="card panel example">
               <strong>{ex.name}</strong>
               <p class="small muted">{t(`welcome.exampleDesc.${ex.id}`)}</p>
-              <button
-                class="btn primary sm"
-                disabled={!!loadingExample}
-                onclick={() => openExample(ex)}
-                >{loadingExample === ex.id ? t('common.loading') : t('welcome.openExample')}</button
-              >
+              <div class="row">
+                <button
+                  class="btn primary sm"
+                  disabled={!!loadingExample}
+                  onclick={() => openExample(ex)}
+                  >{loadingExample === ex.id
+                    ? t('common.loading')
+                    : t('welcome.openExample')}</button
+                >
+                <button
+                  class="btn sm"
+                  disabled={!!loadingExample}
+                  title={t('example.copyHint')}
+                  onclick={() => openExample(ex, true)}
+                  ><Copy size={14} />{t('example.copy')}</button
+                >
+              </div>
             </div>
           {/each}
         {:else if footerPanel === 'coffee'}
@@ -592,7 +609,8 @@
   .side {
     background: var(--bg-elev);
     border-right: 1px solid var(--border);
-    padding: 28px 24px;
+    /* 底边跟主区一样留 40px：左下的语言选择、版本号跟右边底部那排按钮落在同一条线上 */
+    padding: 28px 24px 40px;
     display: flex;
     flex-direction: column;
     gap: 24px;

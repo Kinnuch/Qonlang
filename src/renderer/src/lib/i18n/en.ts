@@ -94,7 +94,7 @@ const en: Dict = {
     definitionLang: 'Language of the definition text',
     examples: 'Example projects',
     examplesHint:
-      'Two fictional sample projects. Change anything; the originals are never overwritten.',
+      'Two fictional sample projects: change anything, but they cannot be saved; make a copy to keep one.',
     openExample: 'Open',
     exampleOpened: 'Opened the example project “{name}”',
     galleryLabel: 'Sentences, phrases and pictures from recent projects',
@@ -235,6 +235,9 @@ const en: Dict = {
     formHint:
       'Empty target = insertion, empty replacement = deletion. Use _ for the target position and # for a word boundary.',
     beforeFirstStage: '(before the first stage marker)',
+    collapseStages: 'Collapse all stages',
+    expandStages: 'Expand all stages',
+    stageItems: '{n} lines',
     noStagesYet: 'No stage markers yet; rules apply in order.',
     viewChain: 'Chain graph',
     ruleN: 'Rule {n}',
@@ -396,6 +399,37 @@ const en: Dict = {
     allTypes: 'All types',
     search: 'Search morphemes: form, gloss, meaning',
     count: '{n} items'
+  },
+  tabGroups: {
+    synchronic: 'Synchronic',
+    diachronic: 'Diachronic',
+    name: 'Group name',
+    collapse: 'Collapse this group (right-click to rename or recolour)',
+    expand: 'Expand this group (right-click to rename or recolour)',
+    moveTo: 'Move to group',
+    newGroup: 'New group…',
+    removeFromGroup: 'Remove from group',
+    moveLeft: 'Move group left',
+    moveRight: 'Move group right',
+    ungroup: 'Ungroup',
+    colors: {
+      blue: 'Blue',
+      green: 'Green',
+      purple: 'Purple',
+      orange: 'Orange',
+      red: 'Red',
+      teal: 'Teal',
+      pink: 'Pink',
+      yellow: 'Yellow',
+      grey: 'Grey'
+    }
+  },
+  example: {
+    badge: 'Example',
+    hint: 'Example project: change anything, but changes are not saved; make a copy to keep them',
+    blocked: 'Example projects cannot be saved; use “Make a copy” to keep it as your own project',
+    copy: 'Make a copy',
+    copyHint: 'Save a copy as your own project, then save as usual'
   },
   readonly: {
     badge: 'Read-only',
@@ -1544,6 +1578,21 @@ const en: Dict = {
     variants: 'Variants',
     variantBase: 'Base',
     addVariant: 'New variant',
+    clip: {
+      copySlot: 'Copy this slot’s setup',
+      pasteSlot: 'Paste into this slot (replaces its setup)',
+      slotCopied: 'Slot setup copied',
+      noSlot: 'No copied slot setup on the clipboard',
+      copyVariant: 'Copy set',
+      copyVariantHint: 'Copy the setup of every slot in the set you are viewing',
+      pasteVariant: 'Paste into set',
+      pasteVariantHint:
+        'Paste a copied set into the one you are viewing; every matching slot is replaced',
+      variantCopied: 'Copied “{name}” ({n} slots)',
+      variantPasted: 'Pasted {n} slots from “{name}”',
+      noVariant: 'No copied set on the clipboard',
+      noMatch: 'The copied set’s slots don’t match this paradigm (different dimensions)'
+    },
     variantName: 'Variant name (e.g. A-form, literary)',
     variantHint:
       'A variant only overrides the slots you change; entries can pick which variant to use.',
@@ -1780,6 +1829,33 @@ const en: Dict = {
       'Uniform size {w}×{h}; matching images are stored as-is, same-ratio images are scaled, others open the cropper. PNG / GIF stay lossless; JPEG / WebP keep their format at high quality.'
   },
   skin: {
+    bg: {
+      title: 'Background image',
+      hint: 'Lay an image over the whole window (translucent, never blocks clicks); switching presets or resetting leaves it alone',
+      pick: 'Choose image',
+      change: 'Change image',
+      remove: 'Remove background',
+      fit: 'Fit',
+      fits: {
+        cover: 'Fill',
+        contain: 'Fit whole',
+        tile: 'Tile',
+        center: 'Centre',
+        stretch: 'Stretch'
+      },
+      position: 'Align',
+      positions: {
+        center: 'Centre',
+        top: 'Top',
+        bottom: 'Bottom',
+        left: 'Left',
+        right: 'Right'
+      },
+      opacity: 'Opacity',
+      scale: 'Scale',
+      blur: 'Blur',
+      loadFailed: 'Could not read this image: {msg}'
+    },
     search: 'Search fonts: name, description, tag',
     title: 'Skin',
     hint: 'The skin is stored on this computer, not in the project file.',
@@ -1863,8 +1939,18 @@ const en: Dict = {
   settings: {
     search: 'Search settings',
     title: 'Settings',
-    app: 'Application',
-    project: 'Project',
+    app: 'Application (this computer)',
+    project: 'Current project',
+    groups: {
+      ui: 'Interface',
+      saving: 'Saving & startup',
+      updates: 'Updates',
+      display: 'Display',
+      info: 'Basics',
+      languages: 'Languages & fonts',
+      words: 'Word splitting & gloss',
+      data: 'Data'
+    },
     uiLanguage: 'Interface language',
     theme: 'Theme',
     themeSystem: 'Follow system',
@@ -1898,8 +1984,8 @@ const en: Dict = {
       'Boxed short form (first character for CJK, abbreviations such as lit. otherwise)',
     registerDisplayFull: 'Boxed full name',
     pronBrackets: 'Pronunciation brackets',
-    pronBracketsSlash: 'Broad /…/',
-    pronBracketsBracket: 'Narrow […]',
+    pronBracketsSlash: 'Phonemic /…/',
+    pronBracketsBracket: 'Phonetic […]',
     pronBracketsNone: 'None',
     projectName: 'Project name',
     author: 'Author',

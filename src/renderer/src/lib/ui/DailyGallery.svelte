@@ -10,8 +10,10 @@
   import { ChevronLeft, ChevronRight } from '@lucide/svelte'
   import { platform, type RecentEntry } from '$lib/platform'
   import { parseProject, readProjectText } from '$lib/core/serialize'
-  import type { Id, Project, Sentence, Token } from '$lib/core/model'
+  import type { Id, LocalizedText, Project, Sentence, Token } from '$lib/core/model'
   import { analyzeToken, buildIndex, tokenize, type GlossIndex } from '$lib/engine/gloss'
+  import { piecesOf } from '$lib/engine/gloss/candidates'
+  import { createSentence } from '$lib/core/factory'
   import { WordResolver } from '$lib/engine/gloss/resolve'
   import { collectEvidence } from '$lib/engine/gloss/candidates'
   import { projectState } from '$lib/state/project.svelte'
@@ -28,6 +30,8 @@
     indexes: Map<Id, GlossIndex>
     /** 语言 id → 认词（悬浮例句里的词时才建，跟语料页同一套判断） */
     resolvers: Map<Id, WordResolver>
+    /** 短语 id → 分析好的样子（第一次画这张时才分析） */
+    phrases: Map<Id, Sentence>
   }
   type Slide =
     | { kind: 'sentence'; key: string; source: number; sentence: Sentence; translation: string }
@@ -35,9 +39,11 @@
         kind: 'phrase'
         key: string
         source: number
+        phraseId: Id
         languageId: Id
         text: string
         translation: string
+        translations: LocalizedText
       }
     | {
         kind: 'image'
@@ -83,7 +89,8 @@
             entry,
             project: parseProject(await readProjectText(r.content)),
             indexes: new Map(),
-            resolvers: new Map()
+            resolvers: new Map(),
+            phrases: new Map()
           })
       } catch {
         // 文件不在了、不是合法的项目：跳过这一个
@@ -123,9 +130,11 @@
             kind: 'phrase',
             key: `${source}:p:${x.id}`,
             source,
+            phraseId: x.id,
             languageId: x.languageId,
             text: x.text,
-            translation: pickText(x.translation, langs)
+            translation: pickText(x.translation, langs),
+            translations: x.translation
           })
       for (const l of p.lexemes) {
         const image = l.images.find((im) => im.dataUrl)?.dataUrl
@@ -233,13 +242,20 @@
    * 悬浮例句里的词：跟语料页一样认——存着的分析没挂上词条时也按词形、构形词缀、切分反查，
    * 切分里的每一段也挂上，点得开。项目没打开，写不回去：几个候选只是换着看，没找到的点「改」去语料里指定
    */
-  function hoverToken(e: MouseEvent, src: Source, sentence: Sentence, at: number): void {
+  function hoverToken(
+    e: MouseEvent,
+    src: Source,
+    sentence: Sentence,
+    at: number,
+    inCorpus = true
+  ): void {
     const tk = sentence.tokens[at]
     if (!tk) return
     const r = resolverOf(src, sentence.languageId)
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     useSource(src)
-    wordHover.editAt = (index) => void editInCorpus(src, sentence, at, index)
+    // 短语不在语料里，没地方去改
+    wordHover.editAt = inCorpus ? (index) => void editInCorpus(src, sentence, at, index) : null
     const cands = r.candidatesOf(tk, sentence)
     if (cands.length > 1) {
       wordHover.showCandidates(cands, rect, () => {})
@@ -253,18 +269,61 @@
     if (target.lexemeId) wordHover.show(target.lexemeId, rect, parts)
     else if (target.morphemeId) wordHover.showMorpheme(target.morphemeId, rect, parts)
   }
-  function phraseLexeme(src: Source, languageId: Id, word: string): Id | null {
-    const w = tokenize(word)[0]
-    if (!w) return null
-    let idx = src.indexes.get(languageId)
+  /**
+   * 短语当一句例句来认：按项目的分词设置切词、逐词分析（带上译文挑同形词），
+   * 悬浮时跟例句走同一套——切分里的每一段都挂上，没找到的写「没有找到」
+   */
+  function phraseSentence(
+    src: Source,
+    p: { phraseId: Id; languageId: Id; text: string; translations: LocalizedText }
+  ): Sentence {
+    const hit = src.phrases.get(p.phraseId)
+    if (hit) return hit
+    let idx = src.indexes.get(p.languageId)
     if (!idx) {
-      idx = buildIndex(src.project, languageId)
-      src.indexes.set(languageId, idx)
+      idx = buildIndex(src.project, p.languageId)
+      src.indexes.set(p.languageId, idx)
     }
-    return (
-      analyzeToken(idx, w, src.project.settings.morphemeBoundaries).find((a) => a.lexemeId)
-        ?.lexemeId ?? null
-    )
+    const settings = src.project.settings
+    const tr = Object.values(p.translations ?? {}).join('；')
+    const hint = tr.trim() ? piecesOf(tr) : undefined
+    const s = createSentence(p.languageId)
+    s.id = p.phraseId
+    s.text = p.text
+    s.translation = p.translations ?? {}
+    s.tokens = tokenize(p.text, {
+      mode: settings.tokenizer,
+      pattern: settings.tokenizerPattern,
+      letters: idx.wordChars + (settings.tokenizerLetters ?? '')
+    }).map((w) => ({
+      surface: w,
+      analyses: analyzeToken(idx, w, settings.morphemeBoundaries, hint),
+      chosen: 0,
+      confirmed: false
+    }))
+    src.phrases.set(p.phraseId, s)
+    return s
+  }
+  /**
+   * 原文切成几段：词（at 是第几个词）和词之间原样留着的标点、空格。
+   * 词在原文里按顺序找不到（分词改过写法）时给 null，退回用空格把词连起来
+   */
+  function textPieces(text: string, tokens: Token[]): { text: string; at: number | null }[] | null {
+    if (!tokens.length) return null
+    const out: { text: string; at: number | null }[] = []
+    const lower = text.toLowerCase()
+    let pos = 0
+    for (let i = 0; i < tokens.length; i++) {
+      const w = tokens[i].surface
+      let j = text.indexOf(w, pos)
+      if (j < 0) j = lower.indexOf(w.toLowerCase(), pos)
+      if (j < 0) return null
+      if (j > pos) out.push({ text: text.slice(pos, j), at: null })
+      out.push({ text: text.slice(j, j + w.length), at: i })
+      pos = j + w.length
+    }
+    if (pos < text.length) out.push({ text: text.slice(pos), at: null })
+    return out
   }
   function hoverLexeme(e: MouseEvent, src: Source, id: Id | null): void {
     if (!id) return
@@ -291,29 +350,27 @@
           <div class="shade"></div>
         {/if}
         <div class="content">
-          {#if slide.kind === 'sentence'}
+          {#if slide.kind === 'sentence' || slide.kind === 'phrase'}
+            {@const sen = slide.kind === 'sentence' ? slide.sentence : phraseSentence(src, slide)}
+            {@const inCorpus = slide.kind === 'sentence'}
+            {@const pieces = textPieces(sen.text, sen.tokens)}
             <span class="main data"
-              >{#if slide.sentence.tokens.length}{#each slide.sentence.tokens as tk, i (i)}{#if i}{SPACE}{/if}<span
+              >{#if pieces}{#each pieces as pc, k (k)}{#if pc.at === null}{pc.text}{:else}{@const i =
+                      pc.at}<span
+                      class="w"
+                      class:link={tokenLinked(src, sen, sen.tokens[i])}
+                      role="link"
+                      tabindex="-1"
+                      onmouseenter={(e) => hoverToken(e, src, sen, i, inCorpus)}
+                      onmouseleave={() => wordHover.hide()}>{pc.text}</span
+                    >{/if}{/each}{:else if sen.tokens.length}{#each sen.tokens as tk, i (i)}{#if i}{SPACE}{/if}<span
                     class="w"
-                    class:link={tokenLinked(src, slide.sentence, tk)}
+                    class:link={tokenLinked(src, sen, tk)}
                     role="link"
                     tabindex="-1"
-                    onmouseenter={(e) => hoverToken(e, src, slide.sentence, i)}
+                    onmouseenter={(e) => hoverToken(e, src, sen, i, inCorpus)}
                     onmouseleave={() => wordHover.hide()}>{tk.surface}</span
-                  >{/each}{:else}{slide.sentence.text}{/if}</span
-            >
-          {:else if slide.kind === 'phrase'}
-            {@const phrase = slide}
-            <span class="main data"
-              >{#each phrase.text.split(/(\s+)/) as w, i (i)}{#if w.trim()}{@const id =
-                    phraseLexeme(src, phrase.languageId, w)}<span
-                    class="w"
-                    class:link={!!id}
-                    role="link"
-                    tabindex="-1"
-                    onmouseenter={(e) => hoverLexeme(e, src, id)}
-                    onmouseleave={() => wordHover.hide()}>{w}</span
-                  >{:else}{w}{/if}{/each}</span
+                  >{/each}{:else}{sen.text}{/if}</span
             >
           {:else}
             {@const pic = slide}

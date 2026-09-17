@@ -23,6 +23,7 @@
   import Hint from '$lib/ui/Hint.svelte'
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
   import RuleList from '$lib/ui/RuleList.svelte'
+  import TabStrip from '$lib/ui/TabStrip.svelte'
   import RuleChainGraph from '$lib/ui/RuleChainGraph.svelte'
   import StressText from '$lib/ui/StressText.svelte'
   import Menu from '$lib/ui/Menu.svelte'
@@ -39,11 +40,9 @@
     Code,
     GitBranch,
     Sprout,
-    X,
-    Pencil
+    X
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
-  import { sortable } from '$lib/ui/sortable.svelte'
   import { moveItem } from '$lib/core/move'
   let evolveOpen = $state(false)
 
@@ -324,30 +323,26 @@
   <div class="page-head row tabbed">
     <h1>{t('soundChanges.title')}</h1>
     <GuideLink section="soundChanges" />
-    <div class="booktabs grow">
-      {#each project.ruleSets as rs, ri (rs.id)}
-        <span
-          class="tabwrap"
-          {...sortable('ruleset-tabs', ri, (from, to) => {
-            if (moveItem(project.ruleSets, from, to)) projectState.touch()
-          })}
-        >
-          <button class="tab" class:active={active?.id === rs.id} onclick={() => (activeId = rs.id)}
-            >{rs.name || t('soundChanges.untitledSet')}</button
-          >
-          <button
-            class="pen"
-            title={t('common.rename')}
-            onclick={() => {
-              activeId = rs.id
-              ui.inspectorOpen = true
-              ui.syntaxOpen = false
-              focusField('#rs-name')
-            }}><Pencil size={11} /></button
-          >
-        </span>
-      {/each}
-    </div>
+    <TabStrip
+      kind="ruleSets"
+      items={project.ruleSets.map((rs) => ({
+        id: rs.id,
+        label: rs.name || t('soundChanges.untitledSet')
+      }))}
+      activeId={active?.id ?? null}
+      onselect={(id) => (activeId = id)}
+      onrename={(id) => {
+        activeId = id
+        ui.inspectorOpen = true
+        ui.syntaxOpen = false
+        focusField('#rs-name')
+      }}
+      onmove={(from, to) => {
+        if (!moveItem(project.ruleSets, from, to)) return false
+        projectState.touch()
+        return true
+      }}
+    />
     <Menu label={t('soundChanges.import')} icon={Download}>
       <button onclick={importYinbianji}>{t('soundChanges.importYinbianji')}</button>
       <button onclick={() => importConverted('lexicanter')}
@@ -437,6 +432,7 @@
             query={ui.search}
             bind:selectedLine
             onchange={() => touch(rs)}
+            foldKey={rs.id}
           />
         </div>
       {/if}

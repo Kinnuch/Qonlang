@@ -5,6 +5,7 @@
    * 画笔一笔一笔地画；框选把框到的笔画选中，按住选框拖着挪，Delete 删；橡皮点到哪笔删哪笔。
    */
   import { onMount, untrack } from 'svelte'
+  import { rangeFill } from '$lib/ui/rangeFill'
   import type { GlyphDrawing } from '$lib/core/model'
   import { GUIDES, simplify } from '$lib/script/drawnFont'
   import { t } from '$lib/i18n/index.svelte'
@@ -273,7 +274,7 @@
   <div class="row tools">
     <label class="row small"
       >{t('glyphPad.width')}
-      <input type="range" min="10" max="220" step="5" bind:value={width} />
+      <input type="range" min="10" max="220" step="5" bind:value={width} use:rangeFill={width} />
       <span class="num">{width}</span></label
     >
     <label class="row small"

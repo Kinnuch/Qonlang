@@ -1,4 +1,4 @@
-import { FONT_VARS, SKIN_VARS, type Skin } from './presets'
+import { FONT_VARS, SKIN_EXTRA_VARS, SKIN_VARS, type Skin } from './presets'
 import { scriptFontVar } from '$lib/script/fonts'
 
 /** 上一次写上去的按文字字体变量，换皮肤时先清掉 */
@@ -10,6 +10,7 @@ export function applySkin(skin: Skin, theme: 'light' | 'dark'): void {
   if (typeof document === 'undefined') return
   const st = document.documentElement.style
   for (const v of SKIN_VARS) st.removeProperty(v.name)
+  for (const name of SKIN_EXTRA_VARS) st.removeProperty(name)
   for (const name of Object.values(FONT_VARS)) st.removeProperty(name)
   const vars = theme === 'dark' ? skin.dark : skin.light
   for (const [k, v] of Object.entries(vars ?? {})) if (v) st.setProperty(k, v)
