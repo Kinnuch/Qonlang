@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { orthoIpaLabel } from '$lib/ui/labels'
   import { navScroll } from '$lib/ui/navScroll'
   import { scrollToItem } from '$lib/ui/reveal'
   import type { PageView } from '$lib/state/ui.svelte'
@@ -437,7 +438,9 @@
       </div>
       {#each language.orthographies as o (o.id)}
         <div class="row kv">
-          <span class="small oname">{o.name}</span>
+          <span class="small oname" title={o.name}
+            >{orthoIpaLabel(o.name, language.orthographies.length)}</span
+          >
           <input
             class="input data"
             value={p.pronunciations[o.id]?.ipa ?? ''}
@@ -621,7 +624,7 @@
     margin-bottom: 4px;
   }
   .oname {
-    width: 90px;
+    width: 124px;
     flex: none;
     color: var(--text-2);
   }

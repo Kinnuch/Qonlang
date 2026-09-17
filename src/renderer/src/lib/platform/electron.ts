@@ -94,6 +94,9 @@ export const electronPlatform: PlatformAPI = {
   async saveTextFile(suggestedName, content) {
     return (await bridge().invoke('file:saveText', suggestedName, content)) as boolean
   },
+  async saveBinaryFile(suggestedName, data) {
+    return (await bridge().invoke('file:saveBinary', suggestedName, data)) as boolean
+  },
 
   async getRecent() {
     return (await bridge().invoke('recent:get')) as RecentEntry[]

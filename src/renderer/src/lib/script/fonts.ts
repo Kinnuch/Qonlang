@@ -1,6 +1,7 @@
 /** 把文字里内嵌的字体注册成 FontFace；返回该文字应使用的 font-family。 */
 import type { Script } from '$lib/core/model'
 import { buildDrawnFont, drawnGlyphs } from './drawnFont'
+import { hasDrawingContent } from './glyphGeometry'
 import { scriptCacheStamp, scriptCacheValid } from './render'
 
 const registered = new Map<string, string>() // scriptId → dataUrl 已注册
@@ -16,7 +17,7 @@ const drawnFlags = new WeakMap<Script, { stamp: number; drawn: boolean }>()
 const hasDrawn = (script: Script): boolean => {
   const hit = drawnFlags.get(script)
   if (hit && scriptCacheValid(hit.stamp)) return hit.drawn
-  const drawn = script.glyphs.some((g) => g.drawing?.strokes.length)
+  const drawn = script.glyphs.some((g) => hasDrawingContent(g.drawing))
   drawnFlags.set(script, { stamp: scriptCacheStamp(), drawn })
   return drawn
 }

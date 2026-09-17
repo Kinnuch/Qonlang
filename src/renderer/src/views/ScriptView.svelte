@@ -23,7 +23,11 @@
     ParenMode
   } from '$lib/core/model'
   import GlyphPad from '$lib/ui/GlyphPad.svelte'
-  import { freePrivateChar } from '$lib/script/drawnFont'
+  import Menu from '$lib/ui/Menu.svelte'
+  import { drawnGlyphs, freePrivateChar } from '$lib/script/drawnFont'
+  import { buildScriptFont, dataUrlToBuffer } from '$lib/script/fontBuild'
+  import { toWoff } from '$lib/script/fontWriter'
+  import { hasDrawingContent } from '$lib/script/glyphGeometry'
   import { parseFont } from '$lib/script/fontParse'
   import {
     BUILTIN_GLYPH_CATEGORIES as BUILTIN_CATS,
@@ -59,7 +63,8 @@
     Code,
     X,
     Pencil,
-    PenTool
+    PenTool,
+    FileOutput
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
@@ -339,10 +344,14 @@
       return []
     }
   }
-  /** 画完保存：没笔画就去掉手写；字符还空着就分一个私用区码位（项目里别的文字用了的、内嵌字体里有的都跳过） */
+  /** 手写板开着、这套文字有内嵌字体时，把字体数据交给手写板（从字体载入字形用） */
+  const padFontData = $derived(
+    padGlyphId && script?.font.dataUrl ? dataUrlToBuffer(script.font.dataUrl) : null
+  )
+  /** 画完保存：没笔画也没轮廓就去掉手写；字符还空着就分一个私用区码位（项目里别的文字用了的、内嵌字体里有的都跳过） */
   function saveDrawing(g: Glyph, d: GlyphDrawing): void {
     padGlyphId = null
-    if (!d.strokes.length) {
+    if (!hasDrawingContent(d)) {
       if (g.drawing) {
         delete g.drawing
         touch()
@@ -357,6 +366,66 @@
       g.char = freePrivateChar(used, embeddedCodepoints(script))
     }
     touch()
+  }
+  // ───── 导出字体 / 写回内嵌字体 ─────
+  /** 内嵌字体的字形加上画过的字，重新写成 TTF；两样都没有、或者字体读不了时提示并返回 null */
+  function rebuildFont(s: Script): ArrayBuffer | null {
+    if (!s.font.dataUrl && !drawnGlyphs(s).length) {
+      ui.toast(t('script.fontNothing'))
+      return null
+    }
+    try {
+      return buildScriptFont(s)
+    } catch (e) {
+      ui.toast(t('script.fontBuildFailed', { err: e instanceof Error ? e.message : String(e) }), {
+        kind: 'error'
+      })
+      return null
+    }
+  }
+  /** 存盘用的文件名：原来内嵌的字体文件名，没有就用字体名或文字名 */
+  function fontBaseName(s: Script): string {
+    const base = s.font.fileName.replace(/\.[^.]+$/, '') || s.font.family || s.name || 'font'
+    return base.replace(/[\\/:*?"<>|]/g, '_')
+  }
+  async function exportFont(kind: 'ttf' | 'woff'): Promise<void> {
+    if (!script) return
+    const ttf = rebuildFont(script)
+    if (!ttf) return
+    try {
+      const data = kind === 'woff' ? await toWoff(ttf) : ttf
+      await platform.saveBinaryFile(`${fontBaseName(script)}.${kind}`, new Uint8Array(data))
+    } catch (e) {
+      ui.toast(t('script.fontBuildFailed', { err: e instanceof Error ? e.message : String(e) }), {
+        kind: 'error'
+      })
+    }
+  }
+  /** 用重新写成的 TTF 换掉内嵌字体；画过的字留着（跟字体里的一样） */
+  function writeBackFont(): void {
+    const s = script
+    if (!s) return
+    const ttf = rebuildFont(s)
+    if (!ttf) return
+    const bytes = new Uint8Array(ttf)
+    let bin = ''
+    for (let i = 0; i < bytes.length; i += 0x8000)
+      bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+    const fileName = `${fontBaseName(s)}.ttf`
+    const prev = { ...s.font }
+    s.font = { family: s.font.family, dataUrl: fontDataUrl(fileName, btoa(bin)), fileName }
+    ensureScriptFont(s)
+    touch()
+    ui.toast(t('script.fontWrittenBack', { name: fileName }), {
+      action: {
+        label: t('common.undo'),
+        run: () => {
+          s.font = prev
+          ensureScriptFont(s)
+          touch()
+        }
+      }
+    })
   }
   function pickGlyph(e: MouseEvent, g: Glyph, i: number): void {
     if (e.shiftKey && lastGlyphIndex >= 0) {
@@ -639,6 +708,17 @@
           ><Wand2 size={14} />{t('script.autoCategorize')}</button
         >
         <span class="grow"></span>
+        <Menu small label={t('script.exportFont')} icon={FileOutput}>
+          <button title={t('script.exportFontHint')} onclick={() => exportFont('ttf')}
+            >{t('script.exportTtf')}</button
+          >
+          <button title={t('script.exportFontHint')} onclick={() => exportFont('woff')}
+            >{t('script.exportWoff')}</button
+          >
+          <button title={t('script.writeBackFontHint')} onclick={writeBackFont}
+            >{t('script.writeBackFont')}</button
+          >
+        </Menu>
         <button class="btn sm" title={t('script.drawGlyphHint')} onclick={drawNewGlyph}
           ><PenTool size={14} />{t('script.drawGlyph')}</button
         >
@@ -1115,6 +1195,8 @@
   {#if pg}
     <GlyphPad
       drawing={pg.drawing}
+      fontData={padFontData}
+      char={pg.char}
       title={t('glyphPad.title', { name: pg.name || pg.value || t('script.untitledGlyph') })}
       onsave={(d) => saveDrawing(pg, d)}
       oncancel={() => (padGlyphId = null)}

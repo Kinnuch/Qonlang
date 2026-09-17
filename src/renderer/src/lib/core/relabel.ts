@@ -34,33 +34,13 @@ export function slotLabels(project: Project): SlotLabels {
 }
 
 /**
- * 构形换维度先后。槽位 key 是按维度先后拼的取值 id，所以生成器（含变体的 `key#变体`）和停用的槽位
- * 要按新顺序重拼 key，不然整张构形的写法都对不上；词条里按槽位名存的屈折形也跟着挪。返回挪了屈折形的词条数。
+ * 构形换维度先后。槽位键跟维度先后无关（取值按维度 id 排好序拼的，见 slotKeys.ts），生成器、停用的槽位都不用动；
+ * 词条里按槽位名存的屈折形（名字按维度先后拼）跟着挪到新名字下。返回挪了屈折形的词条数。
  */
 export function setDimensionOrder(project: Project, para: Paradigm, order: Id[]): number {
   const old = [...para.dimensionIds]
   if (old.length !== order.length || old.every((id, i) => id === order[i])) return 0
   const before = slotLabels(project)
-  const catOf = new Map<Id, Id>()
-  for (const c of project.categories) for (const v of c.values) catOf.set(v.id, c.id)
-  const rekey = (key: string): string => {
-    const hash = key.indexOf('#')
-    const base = hash < 0 ? key : key.slice(0, hash)
-    const parts = base.split('|')
-    if (parts.length !== old.length) return key
-    const byCat = new Map<Id, string>()
-    for (const v of parts) {
-      const c = catOf.get(v)
-      if (!c) return key
-      byCat.set(c, v)
-    }
-    if (order.some((d) => !byCat.has(d))) return key
-    return order.map((d) => byCat.get(d)!).join('|') + (hash < 0 ? '' : key.slice(hash))
-  }
-  para.generators =
-    renameKeys(para.generators, new Map(Object.keys(para.generators).map((k) => [k, rekey(k)]))) ??
-    para.generators
-  para.disabledSlots = para.disabledSlots.map(rekey)
   para.dimensionIds = [...order]
   return followSlotLabels(project, before)
 }

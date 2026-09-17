@@ -5,6 +5,7 @@
    */
   import { t } from '$lib/i18n/index.svelte'
   import { newId } from '$lib/core/factory'
+  import type { Snippet } from 'svelte'
   import type { Id, MorphStep, MorphStepKind, RuleSet } from '$lib/core/model'
   import { Plus, X, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from '@lucide/svelte'
   import { conditionVariants, hasConditions } from '$lib/engine/morph/conditions'
@@ -20,17 +21,23 @@
   }
 
   let {
-    stem = $bindable(),
+    stem = $bindable(''),
     steps = $bindable(),
     ruleSets,
     paradigms = [],
-    onchange
+    onchange,
+    start,
+    nest = true
   }: {
-    stem: string
+    stem?: string
     steps: MorphStep[]
     ruleSets: RuleSet[]
     paradigms?: ParadigmChoice[]
     onchange: () => void
+    /** 起点那一格换成自己画的（继承槽位、发音流水线的起点）；不给就是词干输入框 */
+    start?: Snippet
+    /** 能不能加「构形」步骤（发音流水线里不能） */
+    nest?: boolean
   } = $props()
 
   const KINDS: MorphStepKind[] = [
@@ -126,16 +133,20 @@
 {/snippet}
 
 <div class="pipe">
-  <label class="step stem" title={t('paradigms.stemHint')}>
-    <span class="tag">{t('paradigms.stem')}</span>
-    <input
-      class="input data"
-      list="dl-stems"
-      placeholder="lemma"
-      bind:value={stem}
-      oninput={onchange}
-    />
-  </label>
+  {#if start}
+    {@render start()}
+  {:else}
+    <label class="step stem" title={t('paradigms.stemHint')}>
+      <span class="tag">{t('paradigms.stem')}</span>
+      <input
+        class="input data"
+        list="dl-stems"
+        placeholder="lemma"
+        bind:value={stem}
+        oninput={onchange}
+      />
+    </label>
+  {/if}
   {#each steps as st, i (st.id)}
     <span class="arrow">→</span>
     <div
@@ -319,7 +330,7 @@
     >
     {#if adding}
       <div class="menu card">
-        {#each KINDS as k (k)}
+        {#each nest ? KINDS : KINDS.filter((x) => x !== 'paradigm') as k (k)}
           <button onclick={() => add(k)}>{t(`paradigms.steps.${k}`)}</button>
         {/each}
       </div>

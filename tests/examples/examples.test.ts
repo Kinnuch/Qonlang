@@ -14,6 +14,8 @@ import { lexiconIssues } from '$lib/core/lexiconIssues'
 import { lexemeStress, morphemeStress, stressForWord } from '$lib/core/stressInfo'
 import { lexemeScript } from '$lib/script/render'
 import { sentenceScriptText } from '$lib/script/lexiconScript'
+import { groupLanguages } from '$lib/core/languageTree'
+import { historyChain } from '$lib/core/history'
 
 const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
@@ -206,6 +208,34 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     // 同一语言里由 kaso 派生、复合的词自成一组，构成各不相同
     const derived = groups.find((g) => g.root.key === `l:${kaso.id}`)!
     expect(derived.lexemes.map((l) => l.lemma).sort()).toEqual(['kasolu', 'telikaso'])
+  })
+
+  it('Aelith：语系节点、历时阶段与历史形式链、槽位继承与影响发音', () => {
+    const p = load('Aelith.laim.json')
+    const fam = p.languageGroups?.[0]
+    expect(fam?.level).toBe('family')
+    expect(groupLanguages(p, fam!.id).map((l) => l.name)).toEqual([
+      'Proto-Aelith',
+      'Aelith',
+      'Merun'
+    ])
+    const ae = p.languages.find((l) => l.name === 'Aelith')!
+    expect(ae.stages?.map((s) => s.abbr)).toEqual(['CAe', 'Ae'])
+    const kaso = p.lexemes.find((l) => l.lemma === 'kaso')!
+    expect(historyChain(p, kaso)?.steps.map((s) => `${s.label} ${s.form}`)).toEqual([
+      'PAe kasu',
+      'CAe kaso',
+      'Ae kaso'
+    ])
+    const nöl = p.lexemes.find((l) => l.lemma === 'nöl')!
+    expect(historyChain(p, nöl)?.steps.map((s) => s.form)).toEqual(['nol', 'nol', 'nöl'])
+    // 复数的格继承复数主格；位格的发音流水线：kasoda 读 ˈkasoða
+    const noun = p.paradigms.find((x) => x.name.zh === '名词')!
+    expect(
+      Object.values(noun.generators).filter((g) => g.kind === 'pipeline' && g.base)
+    ).toHaveLength(3)
+    expect(kaso.forms['单数.位格']).toMatchObject({ surface: 'kasoda', ipa: 'ˈkasoða' })
+    expect(kaso.forms['复数.位格'].surface).toBe('kasolarda')
   })
 
   it('Tsahun loads with tones, two orthographies, packing and reduplication', () => {

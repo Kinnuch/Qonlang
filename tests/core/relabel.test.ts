@@ -3,6 +3,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { createLexeme, createProject, createScript, newId } from '$lib/core/factory'
+import { canonicalizeSlotKeys } from '$lib/core/slotKeys'
 import type { GrammaticalCategory, Paradigm, PartOfSpeech, SlotGenerator } from '$lib/core/model'
 import {
   followSlotLabels,
@@ -73,6 +74,7 @@ function setup() {
   sc.from = 'form:单.主'
   L.scripts.push(sc)
   p.settings.lexiconColumns = ['pos', 'form:单.主', 'stem:词干']
+  canonicalizeSlotKeys(p)
   return { p, decl, N, V, noun, verb, sc, kase }
 }
 
@@ -114,14 +116,16 @@ describe('followSlotLabels', () => {
     expect(sc.from).toBe('form:单.主格')
   })
 
-  it('re-keys generators and disabled slots and moves forms when the dimension order changes', () => {
+  it('keeps generator keys and disabled slots, moves forms when the dimension order changes', () => {
     const { p, decl, noun } = setup()
     noun.forms['宾.复'] = form('hand-written')
-    decl.generators['sg|acc#v1'] = { kind: 'table' }
-    decl.disabledSlots = ['pl|nom']
+    decl.generators['acc|sg#v1'] = { kind: 'table' }
+    decl.disabledSlots = ['nom|pl']
+    const keys = Object.keys(decl.generators)
     expect(setDimensionOrder(p, decl, ['case', 'num'])).toBe(1)
     expect(decl.dimensionIds).toEqual(['case', 'num'])
-    expect(Object.keys(decl.generators)).toEqual(['nom|sg', 'acc|pl', 'acc|sg#v1'])
+    // 槽位键跟维度先后无关：换了先后还是原来那几个键
+    expect(Object.keys(decl.generators)).toEqual(keys)
     expect(decl.disabledSlots).toEqual(['nom|pl'])
     expect(noun.forms['主.单'].surface).toBe('kasa')
     // 新名下已经有手填的：旧名那条留着，不盖掉
@@ -145,7 +149,7 @@ describe('followStemRename', () => {
     expect(followStemRename(p, N.id, '词干', '根')).toBe(1)
     expect(noun.stems).toEqual({ 根: 'kas' })
     expect(verb.stems).toEqual({ 词干: 'tu' })
-    expect((decl.generators['sg|nom'] as { stem: string }).stem).toBe('根')
+    expect((decl.generators['nom|sg'] as { stem: string }).stem).toBe('根')
     expect(p.settings.lexiconColumns).toContain('stem:词干')
   })
 

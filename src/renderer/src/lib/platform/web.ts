@@ -327,6 +327,28 @@ export const webPlatform: PlatformAPI = {
     download(suggestedName, content)
     return true
   },
+  async saveBinaryFile(suggestedName, data) {
+    const blob = new Blob([data as Uint8Array<ArrayBuffer>], { type: 'application/octet-stream' })
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({ suggestedName })
+        const w = await handle.createWritable()
+        await w.write(blob)
+        await w.close()
+        return true
+      } catch (e) {
+        if ((e as DOMException).name === 'AbortError') return false
+        throw e
+      }
+    }
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = suggestedName
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    return true
+  },
 
   async getRecent() {
     return lsGet<RecentEntry[]>(LS_RECENT, [])

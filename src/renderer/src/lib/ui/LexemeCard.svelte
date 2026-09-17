@@ -6,7 +6,7 @@
   import { lexemeSlotGroups, paradigmDims, type LexemeSlot } from '$lib/engine/morph'
   import { sectionCollapsed, toggleSection } from '$lib/ui/section.svelte'
   import FormsView from '$lib/ui/FormsView.svelte'
-  import { etymologyTypeLabel, pronText, relationLabel } from '$lib/ui/labels'
+  import { etymologyTypeLabel, orthoIpaLabel, pronText, relationLabel } from '$lib/ui/labels'
   import { blockSize, cardBlocks } from '$lib/ui/cardBlocks'
   import { customFieldScript, customFieldsFor, customItems } from '$lib/core/customFields'
   import { morphemeLabel } from '$lib/core/etymology'
@@ -70,13 +70,18 @@
   const filledForms = $derived(Object.entries(l.forms).filter(([, f]) => f.surface.trim()))
   /** 词干与屈折形排在一张表里：名字、写法、是不是推导出来的 */
   const formRows = $derived([
-    ...filledStems.map(([k, v]) => ({ k, v, derived: false })),
-    ...filledForms.map(([k, f]) => ({ k, v: f.surface, derived: f.derived }))
+    ...filledStems.map(([k, v]) => ({
+      k,
+      v,
+      derived: false,
+      ipa: undefined as string | undefined
+    })),
+    ...filledForms.map(([k, f]) => ({ k, v: f.surface, derived: f.derived, ipa: f.ipa }))
   ])
   /** 表格、树形图下面照旧列出来的：词干和不属于任何槽位的屈折形 */
   const looseRows = $derived([
-    ...filledStems.map(([k, v]) => ({ k, v, derived: false })),
-    ...looseForms.map(([k, f]) => ({ k, v: f.surface, derived: f.derived }))
+    ...filledStems.map(([k, v]) => ({ k, v, derived: false, ipa: undefined })),
+    ...looseForms.map(([k, f]) => ({ k, v: f.surface, derived: f.derived, ipa: f.ipa }))
   ])
   const lang = $derived(project.languages.find((x) => x.id === l.languageId))
   const pos = $derived(project.posList.find((p) => p.id === l.posId))
@@ -195,7 +200,7 @@
       </div>{/each}
     <div class="row meta">
       {#if pos}<span class="pos">{pos.abbr || pickText(pos.name, glossLangs)}</span>{/if}
-      {#each pron as p, pi (pi)}<span class="ipa data"
+      {#each pron as p, pi (pi)}<span class="ipa data" title={orthoIpaLabel(p.name, pron.length)}
           >{pronText(p.p.ipa)}{#if pron.length > 1}<span class="tiny">{p.name}</span>{/if}</span
         >{/each}
     </div>
@@ -294,7 +299,7 @@
       <span class="data cellform"
         >{f.surface}{#if f.derived && ui.prefs.showDerivedMark}<span class="tiny muted">
             ⚙</span
-          >{/if}</span
+          >{/if}{#if f.ipa}<span class="form-ipa">{pronText(f.ipa)}</span>{/if}</span
       >
     {:else}
       <span class="muted">—</span>
@@ -349,7 +354,7 @@
                 ><span class="fv data" class:alt={i % 2 === 1}
                   >{row.v}{#if row.derived && ui.prefs.showDerivedMark}<span class="tiny muted">
                       ⚙</span
-                    >{/if}</span
+                    >{/if}{#if row.ipa}<span class="form-ipa">{pronText(row.ipa)}</span>{/if}</span
                 >
               {/each}
             </div>
@@ -477,6 +482,12 @@
   .pos {
     font-style: italic;
     color: var(--accent-text);
+  }
+  /* 勾了「影响发音」的槽位推出来的发音，跟在形式后面 */
+  .form-ipa {
+    margin-left: 0.5em;
+    font-size: 0.85em;
+    color: var(--text-2);
   }
   .ipa {
     color: var(--text-2);

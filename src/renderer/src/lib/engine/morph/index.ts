@@ -10,8 +10,11 @@ import type {
   Lexeme,
   Morpheme,
   Paradigm,
+  InflectedForm,
   Project,
-  SlotGenerator
+  SlotBase,
+  SlotGenerator,
+  SlotPron
 } from '$lib/core/model'
 import { parseRuleText, runRules, stripStress, type RuleProgram, type WordStress } from '../sca'
 import { lexemeStress, morphemeStress, posNames } from '$lib/core/stressInfo'
@@ -35,9 +38,8 @@ function pick(text: Record<string, string>, langs: string[]): string {
   return Object.values(text).find(Boolean) ?? ''
 }
 
-export function slotKey(values: { categoryId: Id; valueId: Id }[]): string {
-  return values.map((v) => v.valueId).join('|')
-}
+import { slotKey } from '$lib/core/slotKeys'
+export { slotKey, canonicalSlotKey, canonicalizeSlotKeys } from '$lib/core/slotKeys'
 
 /** 维度笛卡尔积 → 槽位（已屏蔽的除外） */
 export function paradigmSlots(
@@ -598,6 +600,8 @@ function applyPattern(
 export interface Generated {
   surface: string
   trace: string[]
+  /** 勾了「影响发音」的槽位：推出来的发音 */
+  ipa?: string
 }
 
 /**
@@ -791,6 +795,84 @@ function nestParadigm(
   return g.surface
 }
 
+/**
+ * 槽位继承的起点：那一格在这个词条上推出来的形式。那一格手改过（覆盖）就用手改的；
+ * 那一格是表格、没写法时用词条里存着的；都没有返回 null（调用处退回词干）
+ */
+function baseForm(
+  ctx: MorphContext,
+  lexeme: Lexeme,
+  paradigm: Paradigm,
+  base: SlotBase,
+  variantId: Id | null | undefined,
+  trace: string[],
+  depth: number
+): string | null {
+  const p = base.paradigmId ? ctx.project.paradigms.find((x) => x.id === base.paradigmId) : paradigm
+  if (!p) {
+    trace.push('继承的构形不存在')
+    return null
+  }
+  const name = pick(p.name, ctx.project.settings.glossLanguages) || '?'
+  if (depth >= MAX_NEST) {
+    trace.push(`继承 ${name}：套得太深（超过 ${MAX_NEST} 层），停在这里`)
+    return null
+  }
+  const slot = paradigmSlots(
+    p,
+    ctx.project.categories,
+    ctx.project.settings.glossLanguages,
+    true
+  ).find((s) => s.key === base.slotKey)
+  if (!slot) {
+    trace.push(`继承 ${name}：那一格已经不在了`)
+    return null
+  }
+  const vid = base.variantId !== undefined ? base.variantId : p === paradigm ? variantId : null
+  const stored = lexeme.forms[formKeyOf(ctx.project, lexeme, p.id, slot, vid)]
+  if (stored?.override && stored.surface) {
+    trace.push(`继承 ${name} · ${slot.label}（手改过）: ${stored.surface}`)
+    return stored.surface
+  }
+  const g = generateForm(ctx, lexeme, p, slot, vid, depth + 1)
+  const surface = g?.surface ?? stored?.surface ?? ''
+  if (!surface) {
+    trace.push(`继承 ${name} · ${slot.label}：那一格没有形式`)
+    return null
+  }
+  for (const line of g?.trace ?? []) trace.push('  ' + line)
+  trace.push(`继承 ${name} · ${slot.label}: ${surface}`)
+  return surface
+}
+
+/**
+ * 槽位的发音流水线：起点是这一格的拼写按主正字法转出的 IPA（from = form），或词条自己的发音（lemma），
+ * 再一步步改。重音另起一份，不跟拼写那条流水线共用
+ */
+function slotPron(
+  ctx: MorphContext,
+  lexeme: Lexeme,
+  surface: string,
+  pron: SlotPron,
+  trace: string[],
+  pick: (text: string) => string
+): string {
+  const lang = ctx.language
+  const ortho = lang.orthographies.find((o) => o.isPrimary) ?? lang.orthographies[0]
+  const word: { current?: WordStress } = { current: lexemeStress(ctx.project, lexeme) }
+  let out: string
+  if (pron.from === 'lemma') {
+    const stored = ortho ? lexeme.pronunciations[ortho.id]?.ipa : ''
+    out =
+      stored || (ortho ? transcribe(lang, ortho, lexeme.lemma, word.current) : null) || lexeme.lemma
+  } else out = (ortho ? transcribe(lang, ortho, surface, word.current) : null) ?? surface
+  trace.push(`发音起点: ${out}`)
+  for (const step of pron.steps)
+    if (step.kind !== 'paradigm') out = runStep(ctx, step, out, trace, pick, word)
+  trace.push(`发音: ${out}`)
+  return out
+}
+
 export function generateForm(
   ctx: MorphContext,
   lexeme: Lexeme,
@@ -809,7 +891,8 @@ export function generateForm(
   if (g.kind === 'none' || g.kind === 'table') return null
   const trace: string[] = []
   const stem = stemOf(lexeme, g.stem)
-  trace.push(`词干 ${stem.note}: ${stem.value}`)
+  const based = g.kind === 'pipeline' && g.base?.slotKey
+  if (!based) trace.push(`词干 ${stem.note}: ${stem.value}`)
   // 按条件换字母（{阴:g|k}）：看这个槽位的维度取值，再看词条自己的语法特征
   const active = activeValues(slot.values, lexeme)
   const unknown = new Set<string>()
@@ -822,13 +905,19 @@ export function generateForm(
   const word: { current?: WordStress } = { current: lexemeStress(ctx.project, lexeme) }
   if (g.kind === 'pipeline') {
     let out = stem.value
+    if (g.base?.slotKey) {
+      const b = baseForm(ctx, lexeme, paradigm, g.base, variantId, trace, depth)
+      if (b === null) trace.push(`退回词干 ${stem.note}: ${stem.value}`)
+      else out = b
+    }
     for (const step of g.steps)
       out =
         step.kind === 'paradigm'
           ? nestParadigm(ctx, lexeme, step, out, trace, depth)
           : runStep(ctx, step, out, trace, pick, word)
     noteUnknown()
-    return { surface: out, trace }
+    if (!g.pron?.on) return { surface: out, trace }
+    return { surface: out, trace, ipa: slotPron(ctx, lexeme, out, g.pron, trace, pick) }
   }
   const { units: inventory, isVowel } = spellingUnits(ctx.language)
   let surface = stem.value
@@ -901,8 +990,15 @@ export function deriveForms(
     if (cur?.override) continue
     const g = generateForm(ctx, lexeme, paradigm, s, variantId)
     if (!g) continue
-    if (!cur || cur.surface !== g.surface || !cur.derived) {
-      lexeme.forms[key] = { surface: g.surface, derived: true, override: false, trace: g.trace }
+    if (!cur || cur.surface !== g.surface || !cur.derived || cur.ipa !== g.ipa) {
+      const f: InflectedForm = {
+        surface: g.surface,
+        derived: true,
+        override: false,
+        trace: g.trace
+      }
+      if (g.ipa) f.ipa = g.ipa
+      lexeme.forms[key] = f
       n++
     }
   }

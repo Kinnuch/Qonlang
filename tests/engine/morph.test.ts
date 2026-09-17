@@ -10,6 +10,7 @@ import { inferFeatures } from '$lib/ipa/features'
 import type { GrammaticalCategory, MorphStep, Paradigm } from '$lib/core/model'
 import { SCHEMA_VERSION } from '$lib/core/model'
 import { parseProject } from '$lib/core/serialize'
+import { canonicalizeSlotKeys } from '$lib/core/slotKeys'
 import {
   paradigmSlots,
   resolveGenerator,
@@ -77,9 +78,9 @@ function setup() {
     dimensionIds: ['num', 'cas'],
     disabledSlots: [],
     generators: {
-      'sg|nom': { kind: 'affix', stem: '', prefix: '', suffix: '', infix: '', infixAt: '' },
-      'pl|nom': { kind: 'affix', stem: '', prefix: '', suffix: '@-lAr', infix: '', infixAt: '' },
-      'sg|acc': {
+      'nom|sg': { kind: 'affix', stem: '', prefix: '', suffix: '', infix: '', infixAt: '' },
+      'nom|pl': { kind: 'affix', stem: '', prefix: '', suffix: '@-lAr', infix: '', infixAt: '' },
+      'acc|sg': {
         kind: 'affix-sca',
         stem: '',
         prefix: '',
@@ -88,7 +89,7 @@ function setup() {
         fromStage: '底层',
         toStage: '表层'
       },
-      'pl|acc': {
+      'acc|pl': {
         kind: 'affix-sca',
         stem: '',
         prefix: '',
@@ -107,6 +108,8 @@ function setup() {
   const nöl = createLexeme(L.id, 'nöl')
   nöl.posId = 'n'
   p.lexemes.push(kaso, nöl)
+  // 生成器按旧版（维度先后）写的键：跟打开旧文件时一样换成新排法
+  canonicalizeSlotKeys(p)
   return { p, L, para, kaso, nöl, pl, ctx: makeContext(p, L) }
 }
 
@@ -116,7 +119,7 @@ describe('paradigm slots', () => {
     const slots = paradigmSlots(para, p.categories, ['zh'])
     expect(slots.map((s) => s.label)).toEqual(['单数.主格', '单数.宾格', '复数.主格', '复数.宾格'])
     expect(slots[3].abbr).toBe('PL.ACC')
-    para.disabledSlots = ['pl|acc']
+    para.disabledSlots = ['acc|pl']
     expect(paradigmSlots(para, p.categories, ['zh'])).toHaveLength(3)
   })
   it('inherits generators from a parent paradigm', () => {
@@ -127,13 +130,13 @@ describe('paradigm slots', () => {
       dimensionIds: para.dimensionIds,
       disabledSlots: [],
       generators: {
-        'sg|nom': { kind: 'affix', stem: '', prefix: 'x', suffix: '', infix: '', infixAt: '' }
+        'nom|sg': { kind: 'affix', stem: '', prefix: 'x', suffix: '', infix: '', infixAt: '' }
       },
       inheritsFrom: 'para'
     }
     p.paradigms.push(child)
-    expect(resolveGenerator(child, 'sg|nom', p.paradigms)).toMatchObject({ prefix: 'x' })
-    expect(resolveGenerator(child, 'pl|nom', p.paradigms)).toMatchObject({ suffix: '@-lAr' })
+    expect(resolveGenerator(child, 'nom|sg', p.paradigms)).toMatchObject({ prefix: 'x' })
+    expect(resolveGenerator(child, 'nom|pl', p.paradigms)).toMatchObject({ suffix: '@-lAr' })
   })
 })
 
@@ -141,7 +144,7 @@ describe('generators', () => {
   it('affix with morpheme reference picks the allomorph by environment', () => {
     const { p, para, kaso, nöl, ctx, pl } = setup()
     const slots = paradigmSlots(para, p.categories, ['zh'])
-    const plNom = slots.find((s) => s.key === 'pl|nom')!
+    const plNom = slots.find((s) => s.key === 'nom|pl')!
     expect(generateForm(ctx, kaso, para, plNom)?.surface).toBe('kasolar')
     expect(generateForm(ctx, nöl, para, plNom)?.surface).toBe('nöller')
     expect(selectAllomorph(ctx, pl, 'kaso', 'suffix').form).toBe('-lar')
@@ -154,7 +157,7 @@ describe('generators', () => {
         ctx,
         kaso,
         para,
-        slots.find((s) => s.key === 'sg|acc')!
+        slots.find((s) => s.key === 'acc|sg')!
       )?.surface
     ).toBe('kasom')
     expect(
@@ -162,7 +165,7 @@ describe('generators', () => {
         ctx,
         nöl,
         para,
-        slots.find((s) => s.key === 'sg|acc')!
+        slots.find((s) => s.key === 'acc|sg')!
       )?.surface
     ).toBe('nölum'.replace('nölum', 'nölum'))
     expect(
@@ -170,14 +173,14 @@ describe('generators', () => {
         ctx,
         kaso,
         para,
-        slots.find((s) => s.key === 'pl|acc')!
+        slots.find((s) => s.key === 'acc|pl')!
       )?.surface
     ).toBe('kasolarum')
     const g = generateForm(
       ctx,
       kaso,
       para,
-      slots.find((s) => s.key === 'pl|acc')!
+      slots.find((s) => s.key === 'acc|pl')!
     )!
     expect(g.trace.length).toBeGreaterThan(2)
   })
@@ -366,11 +369,11 @@ describe('derive and reconcile', () => {
     expect(kaso.forms['复数.主格']).toMatchObject({ surface: 'kasolar', derived: true })
     expect(kaso.forms['复数.宾格'].surface).toBe('kasolarum')
     const rep = reconcile(ctx, [kaso, nöl], para)
-    const plAcc = rep.find((r) => r.slot.key === 'pl|acc')!
+    const plAcc = rep.find((r) => r.slot.key === 'acc|pl')!
     expect(plAcc.same).toBe(1)
     expect(plAcc.diff).toBe(1)
     expect(plAcc.examples[0]).toEqual({ lemma: 'nöl', stored: 'nölleri', generated: 'nöllerum' })
-    const sgAcc = rep.find((r) => r.slot.key === 'sg|acc')!
+    const sgAcc = rep.find((r) => r.slot.key === 'acc|sg')!
     expect(sgAcc.same).toBe(1)
     expect(sgAcc.missing).toBe(1)
   })

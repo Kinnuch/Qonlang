@@ -602,12 +602,32 @@
               value={rs.stageLanguages[m] ?? ''}
               onchange={(e) => {
                 rs.stageLanguages[m] = (e.currentTarget as HTMLSelectElement).value || null
+                // 换了语言，原来挑的阶段不一定还在
+                if (rs.stageLanguageStages) delete rs.stageLanguageStages[m]
                 touch(rs)
               }}
             >
               <option value="">{t('soundChanges.unbound')}</option>
               {#each project.languages as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
             </select>
+            {#if project.languages.find((l) => l.id === rs.stageLanguages[m])?.stages?.length}
+              {@const bl = project.languages.find((l) => l.id === rs.stageLanguages[m])!}
+              <select
+                class="select stage-sel"
+                title={t('soundChanges.stageOfLanguage')}
+                value={rs.stageLanguageStages?.[m] ?? ''}
+                onchange={(e) => {
+                  const v = (e.currentTarget as HTMLSelectElement).value || null
+                  rs.stageLanguageStages = { ...(rs.stageLanguageStages ?? {}), [m]: v }
+                  touch(rs)
+                }}
+              >
+                <option value="">{t('soundChanges.anyStage')}</option>
+                {#each bl.stages ?? [] as st (st.id)}<option value={st.id}
+                    >{st.abbr ? `${st.abbr} · ${st.name}` : st.name}</option
+                  >{/each}
+              </select>
+            {/if}
           </label>
         {/each}
       {/if}
@@ -775,6 +795,10 @@
   .binding {
     gap: 8px;
     margin: 4px 0;
+    flex-wrap: wrap;
+  }
+  .binding .select.stage-sel {
+    width: 130px;
   }
   .binding .select {
     width: 180px;

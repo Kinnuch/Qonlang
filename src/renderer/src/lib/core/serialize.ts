@@ -1,6 +1,7 @@
 /**
  * 项目文件的读写：JSON 序列化、版本迁移、基本校验、文件夹格式导出。
  */
+import { canonicalizeSlotKeys } from './slotKeys'
 import { isSealed, sealText, unsealText } from './sealed'
 import {
   CUSTOM_FIELD_KINDS,
@@ -145,6 +146,8 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
     if (!Array.isArray(p.variants)) p.variants = []
     for (const [k, g] of Object.entries(p.generators)) p.generators[k] = toPipeline(g)
   }
+  // 槽位键跟维度先后无关（0.9.4 起）：旧文件里按维度先后拼的键换成按维度 id 排的
+  canonicalizeSlotKeys(merged)
   for (const lang of merged.languages) {
     if (!lang.prosody)
       lang.prosody = { type: 'none', stressPosition: 'initial', rules: '', tones: [] }

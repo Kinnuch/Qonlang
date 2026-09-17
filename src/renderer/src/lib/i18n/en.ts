@@ -10,6 +10,7 @@ const en: Dict = {
     untitledLanguage: 'Untitled language'
   },
   common: {
+    clear: 'Clear',
     save: 'Save',
     saveAs: 'Save as…',
     open: 'Open…',
@@ -102,7 +103,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph.',
+        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (syllables and sound counts follow the spelling), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font.'
     },
@@ -147,7 +148,63 @@ const en: Dict = {
     matchIgnore: 'Characters ignored in fuzzy matching',
     matchIgnoreHint:
       'Removed before comparing forms across languages, e.g. laryngeal numbers or syllable dots.',
-    lineage: 'Lineage'
+    lineage: 'Lineage',
+    addGroup: 'Add group',
+    untitledGroup: 'Untitled group',
+    groupLevels: { family: 'Family', branch: 'Branch', subbranch: 'Sub-branch' },
+    groupLevel: 'Level',
+    group: 'Group',
+    groupParent: 'Parent group',
+    noGroup: '(no group)',
+    groupFromParent: '(same as parent language)',
+    groupDeleted: 'Deleted group “{name}”; its languages and groups moved up a level',
+    groupCounts: '{groups} sub-groups · {languages} languages (at all levels below)',
+    protoLanguage: 'Proto-language',
+    protoHint:
+      'The proto-language representing this group (optional); it stays an ordinary language',
+    addLanguageHere: 'Add a language here',
+    stages: 'Historical stages',
+    stagesTitle: 'Historical stages',
+    stagesHint:
+      'Stages inside one language (Old → Middle → Modern), oldest first. Their abbreviations can be bound to sound-change stage markers, and entries show their history chain with them',
+    addStage: 'Add stage',
+    stageName: 'Stage name',
+    merge: {
+      pick: 'Merge into stages starting from…',
+      hint: 'Merge the chain from that language down to the current one into stages of the current language',
+      button: 'Merge into stages',
+      confirm: 'Merge {names} into stages of “{target}”?',
+      confirmBody:
+        'Each language becomes a stage; entries, morphemes, sentences and phrases move into this language and remember their stage; sound-change bindings point at the stages; orthographies, scripts and dialects are matched by name. Only this language’s phonology is kept. You can undo.',
+      do: 'Merge',
+      done: 'Merged: {stages} stages, moved {lexemes} entries and {morphemes} morphemes; {dropped} pronunciations dropped (no matching orthography)'
+    },
+    stats: {
+      title: 'Statistics and comparison: “{name}”',
+      tabs: {
+        counts: 'Counts',
+        phonemes: 'Phonemes',
+        cognates: 'Cognate rates',
+        table: 'Correspondences'
+      },
+      noLanguages: 'This group has no languages yet.',
+      language: 'Language',
+      lexemes: 'Entries',
+      morphemes: 'Morphemes',
+      sentences: 'Sentences',
+      phrases: 'Phrases',
+      stageCount: '{n} stages',
+      total: 'Total ({n} languages)',
+      noPhonemes: 'None of these languages has phonemes yet.',
+      phonemeCount: 'Phonemes',
+      needTwo: 'Pick at least two languages to compare.',
+      cognatesHint:
+        'Share of the row language’s entries that have a cognate in the column language (traced to the same source through etymology)',
+      cognateCell: '{n} entries in {a} have a cognate in {b}',
+      noCognates: 'No cognates linked by etymology among the ticked languages yet.',
+      tableCount: '{n} shared sources, showing the first {shown}',
+      root: 'Source'
+    }
   },
   soundChanges: {
     search: 'Search rules, classes, stages',
@@ -184,6 +241,8 @@ const en: Dict = {
     setName: 'Rule set name',
     stageBindings: 'Languages for stages',
     noStages: 'No -* stage markers in the text yet.',
+    stageOfLanguage: 'Which historical stage of this language',
+    anyStage: '(any stage)',
     unbound: '(unbound)',
     deleteSet: 'Delete rule set',
     deletedSet: 'Deleted rule set “{name}”',
@@ -464,17 +523,64 @@ const en: Dict = {
   glyphPad: {
     title: 'Draw: {name}',
     pen: 'Pen',
+    penHint:
+      'Draw freehand strokes; higher stabilizer gives steadier lines, the tip trails behind the pointer',
+    shape: 'Shapes',
+    shapeHint:
+      'Drag out a rectangle, ellipse, regular polygon (filled outlines) or a straight line (a stroke); hold Shift for a square, circle or 45° line',
+    shapes: {
+      rect: 'Rectangle',
+      ellipse: 'Ellipse',
+      polygon: 'Regular polygon',
+      line: 'Line'
+    },
+    sides: 'Sides',
     select: 'Select',
     selectHint:
-      'Drag a box around strokes to select them; drag the selection to move it, Delete removes it',
+      'Click or drag a box to select strokes and outlines (Shift adds); drag to move, drag the top-right square to scale (Shift keeps proportions), arrow keys nudge (Shift = 50), Delete removes',
+    node: 'Nodes',
+    nodeHint:
+      'Click an outline or stroke to show its nodes: squares are on-curve points, small circles are control points; drag to reshape, Delete removes the selected node',
     erase: 'Eraser',
-    eraseHint: 'Click a stroke to delete it',
+    eraseHint: 'Click a stroke or outline to delete it',
     width: 'Weight',
+    widthHint: 'Weight used by the pen, lines and Outline (font units)',
+    stabilizer: 'Stabilizer',
+    stabilizerHint:
+      '0 is off; higher is steadier but lags more. The tip hangs on a string behind the pointer and catches up when you lift',
     advance: 'Advance',
     undo: 'Undo (Ctrl+Z)',
+    redo: 'Redo (Ctrl+Y)',
     clear: 'Clear all',
+    zoomReset: 'Scroll to zoom, drag with the middle button to pan; click to reset',
+    loadFont: 'Load from font',
+    loadFontHint:
+      "Load this character's outline from the script's embedded font, replacing what is on the pad (undoable)",
+    fontNoChar: 'The embedded font has no such character.',
+    fontLoadedAuto: 'Loaded this character from the embedded font.',
+    fontError: 'Could not read the embedded font: {err}',
+    selectedN: '{n} selected',
+    wholeGlyph: 'Whole glyph',
+    w: 'W',
+    h: 'H',
+    sizeHint:
+      'Resize by the bounding box, keeping the bottom-left corner; stroke weights stay the same',
+    lockRatio: 'Lock aspect ratio',
+    flipH: 'Flip horizontally',
+    flipV: 'Flip vertically',
+    reverse: 'Reverse',
+    reverseHint:
+      'Reverse outline direction (use it when a hole is filled or a shape turned into a hole); for strokes, reverses the point order',
+    outline: 'Outline',
+    outlineHint:
+      'Turn filled outlines into strokes along their edges (a hollow glyph), using the weight above',
+    bold: 'Bold',
+    boldHint:
+      'One-click bold: thicken each side by this many font units (strokes get heavier, outlines grow outward and holes shrink)',
+    duplicate: 'Duplicate (offset down-right)',
+    delete: 'Delete',
     save: 'Save',
-    hint: 'Draw inside the body box: the green line is the baseline; the dashed lines from the top are the ascender, cap height and x-height, and the lowest is the descender. Drag the dot under the right edge to change the advance width.',
+    hint: 'Draw inside the body box: the green line is the baseline; the dashed lines from the top are the ascender, cap height and x-height, and the lowest is the descender. Drag the dot under the right edge to change the advance width. With nothing selected, the actions row applies to the whole glyph.',
     guides: {
       ascender: 'ascender',
       capHeight: 'cap height',
@@ -859,6 +965,17 @@ const en: Dict = {
     stemName: 'Stem name',
     nameTaken: '“{name}” already exists; name unchanged',
     pronunciations: 'Pronunciations',
+    stage: 'Historical stage',
+    latestStage: '(latest stage)',
+    history: {
+      title: 'History',
+      openRuleSet: 'Open this rule set',
+      mismatch: 'differs from the entry',
+      mismatchHint:
+        'Running the sound changes to the end does not give this entry’s spelling; check the rules or the etymology'
+    },
+    orthoIpa: 'Orthography-based IPA',
+    orthoIpaOf: 'Orthography-based IPA ({name})',
     irregular: 'Irregular (not recomputed by rules)',
     forms: 'Inflected forms',
     formsHint: 'Paradigm derivation arrives in M4; forms entered so far are shown here.',
@@ -1321,6 +1438,17 @@ const en: Dict = {
     editDrawing: 'Edit drawing',
     removeDrawing: 'Remove drawing',
     untitledGlyph: 'new glyph',
+    exportFont: 'Export font',
+    exportFontHint:
+      "Rebuild a font from the embedded font's glyphs plus every drawn or edited glyph (drawn ones replace the originals); kerning, ligatures and hinting of the original font are not kept",
+    exportTtf: 'Export TTF',
+    exportWoff: 'Export WOFF',
+    writeBackFont: 'Update embedded font',
+    writeBackFontHint:
+      "Replace this script's embedded font with the rebuilt TTF so the project carries the edited font; kerning, ligatures and hinting of the original font are not kept",
+    fontNothing: 'This script has no embedded font and no drawn glyphs',
+    fontBuildFailed: 'Could not build the font: {err}',
+    fontWrittenBack: 'Embedded font updated to {name}',
     typeHints: {
       alphabet:
         'One letter per sound: @glyphs is usually enough; give digraph glyphs a longer transliteration value.',
@@ -1578,6 +1706,33 @@ const en: Dict = {
     variants: 'Variants',
     variantBase: 'Base',
     addVariant: 'New variant',
+    base: {
+      hint: 'Start point: the stem, or the form another slot produces (changes there carry over here)',
+      thisParadigm: 'This paradigm',
+      from: 'Based on {name}',
+      summary: 'based on “{name}”'
+    },
+    pron: {
+      toggle: 'Affects pronunciation',
+      hint: 'When ticked, this slot gets a second pipeline that changes the pronunciation (orthography-based IPA); the result is stored on the form',
+      label: 'Pron.',
+      startHint:
+        'Where the pronunciation starts: this slot’s spelling converted to IPA, or the entry’s own pronunciation',
+      fromForm: 'This form → IPA',
+      fromLemma: 'Entry pronunciation'
+    },
+    relocate: {
+      hint: 'Double-click: this setup is in the wrong slot, move it',
+      title: 'Move the setup of “{name}” to…',
+      body: 'This slot goes back to “None” afterwards.',
+      search: 'Search slot name or abbreviation',
+      taken: 'has a setup',
+      overwrite: '“{name}” already has a setup. Replace it?',
+      overwriteBody: 'That slot’s setup will be replaced (you can undo).',
+      do: 'Replace',
+      done: 'Moved the setup of “{from}” to “{to}”',
+      empty: 'This slot has no setup yet'
+    },
     clip: {
       copySlot: 'Copy this slot’s setup',
       pasteSlot: 'Paste into this slot (replaces its setup)',

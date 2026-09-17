@@ -1012,6 +1012,14 @@ function registerIpc(): void {
     await fs.writeFile(r.filePath, content, 'utf8')
     return true
   })
+  ipcMain.handle('file:saveBinary', async (_e, suggestedName: string, data: Uint8Array) => {
+    const r = await dialog.showSaveDialog(mainWindow!, {
+      defaultPath: join(app.getPath('documents'), suggestedName)
+    })
+    if (r.canceled || !r.filePath) return false
+    await fs.writeFile(r.filePath, Buffer.from(data))
+    return true
+  })
 
   ipcMain.handle('recent:get', async () => {
     const list = await readJson<RecentEntry[]>(recentFile(), [])

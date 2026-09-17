@@ -24,6 +24,7 @@ import {
   newId
 } from '$lib/core/factory'
 import { serializeProject } from '$lib/core/serialize'
+import { canonicalizeSlotKeys } from '$lib/core/slotKeys'
 import { inferFeatures } from '$lib/ipa/features'
 import { analyzeSentence } from '$lib/engine/gloss'
 import { homographIds, piecesOf, rankHomographs } from '$lib/engine/gloss/candidates'
@@ -141,6 +142,8 @@ function analyzeAll(p: Project, sentences: Sentence[]): number {
 }
 /** 给绑定了构形的词条推导屈折形 */
 function deriveAll(p: Project, lang: Language): number {
+  // 上面按维度先后拼的槽位键换成跟维度先后无关的排法（软件打开文件时也这样换）
+  canonicalizeSlotKeys(p)
   const ctx = makeContext(p, lang)
   let n = 0
   for (const l of p.lexemes) {
@@ -150,6 +153,7 @@ function deriveAll(p: Project, lang: Language): number {
   return n
 }
 function save(name: string, p: Project): void {
+  canonicalizeSlotKeys(p)
   const file = join(outDir, name)
   writeFileSync(file, serializeProject(p), 'utf8')
   const tokens = p.sentences.reduce((a, s) => a + s.tokens.length, 0)
@@ -181,6 +185,23 @@ function makeAelith(): void {
     .split(' ')
     .map((s) => ({ id: newId(), symbol: s, features: inferFeatures(s), graphemes: {}, notes: '' }))
   const L = createLanguage({ name: 'Aelith', abbr: 'ae', color: '#0e9f8a', parentId: P.id })
+  // 语言内部的两个历时阶段：「Proto → Aelith」的「古典期」「现代语」两个阶段标记分别绑到它们，词条显示历史形式链
+  L.stages = [
+    { id: newId(), name: '古典 Aelith', abbr: 'CAe', notes: '词尾 u 已经降为 o，o 还没前化' },
+    { id: newId(), name: '现代 Aelith', abbr: 'Ae', notes: '' }
+  ]
+  // 语系节点：Proto-Aelith 和它的两门子语言都在「Ael 语系」下面，选中节点看统计与对比
+  const family = {
+    id: newId(),
+    name: 'Ael 语系',
+    abbr: 'Ael',
+    level: 'family' as const,
+    parentId: null,
+    protoLanguageId: P.id,
+    notes: '虚构的小语系：一个祖语、两门子语言'
+  }
+  p.languageGroups = [family]
+  P.groupId = family.id
   // 姊妹语：跟 Aelith 同出一个祖语，词库关系图里的「对比」拿两边的同源词比音变、语音对应和意思
   const S = createLanguage({ name: 'Merun', abbr: 'mr', color: '#d97706', parentId: P.id })
   S.notes =
@@ -763,6 +784,7 @@ function makeAelith(): void {
       'V=aeiouöü',
       '-* 祖语',
       'u > o / _# - k_ , g_',
+      '-* 古典期',
       'o > ö / _C#',
       'θ > t?s / #_',
       '-* 现代语'
@@ -770,7 +792,8 @@ function makeAelith(): void {
   )
   protoRs.notes = '「整库演化」用它把祖语的语素表整体推到 Aelith 词库。'
   protoRs.testWords = 'kasu\nteli\nnol\nkel\nsor\nkara\nθura\nmetha\ntaku'
-  protoRs.stageLanguages = { 祖语: P.id, 现代语: L.id }
+  protoRs.stageLanguages = { 祖语: P.id, 古典期: L.id, 现代语: L.id }
+  protoRs.stageLanguageStages = { 古典期: L.stages[0].id, 现代语: L.stages[1].id }
   p.ruleSets.push(protoRs)
   // 姊妹语 Merun：同一个祖语词根走了另一套音变，词库里 kaso 与 hasu、teli 与 tel 点「对比」就能并排看
   const merunRs = createRuleSet(
@@ -851,13 +874,25 @@ function makeAelith(): void {
     LOC: '¢dA',
     DAT: '¢{阴:g|k}A'
   }
+  const plNomKey = `${value(num, 'PL')}|${value(kase, 'NOM')}`
   for (const n of num.values)
     for (const k of kase.values) {
       const steps: MorphStep[] = []
-      if (n.abbr === 'PL') steps.push(step('suffix', { text: '¢lAr' }))
+      // 复数的几个格继承「复数.主格」推出来的形式（kasolar），只接格后缀
+      const inherit = n.abbr === 'PL' && k.abbr !== 'NOM'
+      if (n.abbr === 'PL' && !inherit) steps.push(step('suffix', { text: '¢lAr' }))
       if (caseSuffix[k.abbr]) steps.push(step('suffix', { text: caseSuffix[k.abbr] }))
       steps.push(sca())
-      nounP.generators[`${n.id}|${k.id}`] = pipeline('词干', ...steps)
+      const g = pipeline('词干', ...steps)
+      if (inherit && g.kind === 'pipeline') g.base = { paradigmId: null, slotKey: plNomKey }
+      // 位格勾了「影响发音」：口语里词尾 -da / -de 的 d 在元音之间读成 ð
+      if (k.abbr === 'LOC' && g.kind === 'pipeline')
+        g.pron = {
+          on: true,
+          from: 'form',
+          steps: [step('adjust', { text: 'd > ð / V_V' })]
+        }
+      nounP.generators[`${n.id}|${k.id}`] = g
     }
   N.paradigmId = nounP.id
 
@@ -1026,6 +1061,7 @@ function makeAelith(): void {
     tags: ['感知']
   })
   p.lexemes.push(sormek)
+  canonicalizeSlotKeys(p)
   deriveLexemeForms(makeContext(p, L), sormek)
 
   // ── 文字：卢恩区做一套刻文 ──
@@ -1233,15 +1269,15 @@ function makeAelith(): void {
     '',
     'Aelith 是虚构的黏着语，用来把千语集每个模块的功能摆一遍（数据都是编的，不对应任何真实语言）：',
     '',
-    '- **语言**：语系树（Proto-Aelith → Aelith 与姊妹语 Merun）、方言、字母表',
+    '- **语言**：语系树（「Ael 语系」节点下 Proto-Aelith → Aelith 与姊妹语 Merun；点语系节点看数量、音位对照、同源比例、对应词表）、Aelith 内部的两个历时阶段（古典 CAe → 现代 Ae，「Proto → Aelith」的阶段标记绑到它们）、方言、字母表',
     '- **音系**：音位与特征、由特征生成的音类、多合字母、两套正字法（罗马化转音标的最后一行 `ˈ = @ , <代词|小品词> 0 , 1` 是重音规则，转出来的音标带重音：telikaso 按词条标的特殊重音读 teliˈkaso，men、biz 这些代词不重读）、音节与重音、配列与造词；姊妹语 Merun 的「音节与韵律」用的是自定义重音规则 `@ , -2 / _CC , -1`，测试里输入 hasta、hasu 看重音落在哪，hara 在词条里标了特殊重音，重读第一个音节',
     '- **文字**：卢恩刻文、映射规则、手填的文字写法；「刻痕句读」是在手写板上画的字（打开它点「改手写」看笔画）',
     '- **音变**：四套规则集（元音和谐、Proto → Aelith、Proto → Merun、书面语 → 口语），阶段绑定语言，测试台词表；「Proto → Aelith」里有满足 / 不满足环境两路的规则（`θ > t?s / #_`：词首变 t、别处变 s）和带两个排除的规则（`u > o / _# - k_ , g_`），整库演化推出来的正是词库里的 kaso、nöl、sör-；「书面语 → 口语」演示特征（`[+浊] = b d g z v`，规则里写 `[+浊] > [-浊] / _σ`）、重音规则（`ˈ = @ , <代词|小品词> 0 , 1`，测试台每一列都带着 ˈ；biz、sen 是代词不重读，telikaso 重读 ka）和音节边界 σ（不重读的 e 弱化：`e > ə / σ(C)(C)_ - ˈ(C)(C)_`，sen → sən）',
     '- **语素**：词根 / 前缀 / 后缀 / 中缀 / 环缀 / 附着词 / 小品词，异体形环境，词源；「对重音影响」：附着词 =mU 不重读，前缀 be- 算作形容词',
-    '- **词库**：多义项、一个义项几个语域（dünar）、方言、标签、维度、复合词类与义项自己的词类（kara）、词干槽、词源链（词根 / 复合 / 派生 / 音变 / 借词 / 自己写的类别「仿译」）、自定义关系种类（押韵）、配图、手改发音、「对重音影响」（代词与小品词传递词性、telikaso 传递特殊重音）；sörmek 是从 sör- 的动名词「生成到词库」的，词源与关系都是自动填的；vesa 故意没写释义，词库里标红，底栏右边的问题统计点开能跳过去',
+    '- **词库**：显示模式里 kaso、nöl 这些从祖语来的词，例句上方有一行历史形式（PAe kasu → CAe kaso → Ae kaso）；多义项、一个义项几个语域（dünar）、方言、标签、维度、复合词类与义项自己的词类（kara）、词干槽、词源链（词根 / 复合 / 派生 / 音变 / 借词 / 自己写的类别「仿译」）、自定义关系种类（押韵）、配图、手改发音、「对重音影响」（代词与小品词传递词性、telikaso 传递特殊重音）；sörmek 是从 sör- 的动名词「生成到词库」的，词源与关系都是自动填的；vesa 故意没写释义，词库里标红，底栏右边的问题统计点开能跳过去',
     '- **关系图**：kaso 的关系图里按住空白处拖动画布，右键节点展开或收起；右上角「对比」把同一个词根 *kasu 的 kaso（Aelith）、hasu（Merun，意思变成帐篷）、kasolu、telikaso 并排：各自经过的音变、k : h 的语音对应、意思与构成的差别',
     '- **检视器模块**：「词类与维度」最下面定义的「文化注释」与「刻文异体」（用刻文的字体显示），打开 kaso、nöl、sepe 看',
-    '- **构形**：流水线的八种步骤（前缀、后缀、中缀、环缀、音变、模板、重叠、微调）、变体（基础那套改名叫「书面」）、继承、屏蔽槽位、手填表、作用于所有词的「连读浊化」（ve 后面 tovar → dovar）、一个词类绑几个构形（「动词」默认变位法一，tur-、sal- 在词条里挑了变位法二，ol- 用不规则）、按条件换字母（名词与格只写一条 ¢{阴:g|k}A：阴性的 sila、vene 是 silaga、venege，其余是 kasoka 这样）、构形套构形（「动名词」加 -mAk 之后套进「名词」的格：sörmek、sörmekde）、一个词条几个构形（sör- 既变位又有动名词）；测试台切到「自由」随便写一个形式看它变成什么',
+    '- **构形**：流水线的八种步骤（前缀、后缀、中缀、环缀、音变、模板、重叠、微调）、变体（基础那套改名叫「书面」）、继承、屏蔽槽位、手填表、作用于所有词的「连读浊化」（ve 后面 tovar → dovar）、一个词类绑几个构形（「动词」默认变位法一，tur-、sal- 在词条里挑了变位法二，ol- 用不规则）、按条件换字母（名词与格只写一条 ¢{阴:g|k}A：阴性的 sila、vene 是 silaga、venege，其余是 kasoka 这样）、构形套构形（「动名词」加 -mAk 之后套进「名词」的格：sörmek、sörmekde）、一个词条几个构形（sör- 既变位又有动名词）、槽位继承（名词复数的几个格从「复数.主格」kasolar 接着加格后缀）、影响发音（位格另写了发音流水线，元音之间的 d 读 ð：kasoda 读 ˈkasoða）、复制粘贴槽位和整套变体、双击槽位名把写错的写法挪到别的槽位；页签按词类分组；测试台切到「自由」随便写一个形式看它变成什么',
     '- **语料**：已 gloss 并确认的例句、其他正字法、手填的文字写法、自由行、出处与标签；dovar 靠「连读浊化」反推认出；ilenkasoda 是两个词连写再带格缀，没写分隔符也切得开；人名 Mira 故意没进词库，悬浮时是「没有找到」',
     '- **短语**：分类、变体、发音、方括号占位符',
     '- **文档**：项目级与语言级页面，写 `[[kaso]]` 就能点到词库里的词',

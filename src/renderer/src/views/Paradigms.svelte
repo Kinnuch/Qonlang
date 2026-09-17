@@ -24,6 +24,7 @@
     Id,
     Lexeme,
     Paradigm,
+    SlotBase,
     SlotGenerator
   } from '$lib/core/model'
   import {
@@ -389,7 +390,11 @@
     const g = resolveGenerator(active, s.key, project.paradigms, 0, editVariantId)
     if (g.kind === 'none') return ''
     if (g.kind !== 'pipeline') return t(`paradigms.kinds.${g.kind}`)
-    const stem = g.stem.trim() && g.stem.trim() !== 'lemma' ? g.stem.trim() : ''
+    const stem = g.base?.slotKey
+      ? t('paradigms.base.summary', { name: baseLabel(g.base) })
+      : g.stem.trim() && g.stem.trim() !== 'lemma'
+        ? t('paradigms.stemRef', { name: g.stem.trim() })
+        : ''
     const parts = g.steps.map((st) => {
       switch (st.kind) {
         case 'prefix':
@@ -418,9 +423,8 @@
         }
       }
     })
-    const stemRef = stem && t('paradigms.stemRef', { name: stem })
-    if (!parts.length) return stemRef || t('paradigms.onlyStem')
-    return [stemRef, ...parts].filter(Boolean).join(' · ')
+    if (!parts.length) return stem || t('paradigms.onlyStem')
+    return [stem, ...parts].filter(Boolean).join(' · ')
   }
   /** 表格：第三个维度起，每种取值组合一张表 */
   const tableGroups = $derived.by(() => {
@@ -748,6 +752,85 @@
     touch()
     ui.toast(t('paradigms.clip.variantPasted', { name: c.name, n }))
   }
+  // ── 槽位继承：起点换成另一格推出来的形式 ──
+  /** 起点下拉框的值：空是词干，`构形id:槽位键`（本构形的构形 id 留空） */
+  const baseValue = (g: { base?: SlotBase }): string =>
+    g.base?.slotKey ? `${g.base.paradigmId ?? ''}:${g.base.slotKey}` : ''
+  function setBase(key: string, value: string): void {
+    const g = active?.generators[key]
+    if (!g || g.kind !== 'pipeline') return
+    if (!value) delete g.base
+    else {
+      const at = value.indexOf(':')
+      g.base = { paradigmId: value.slice(0, at) || null, slotKey: value.slice(at + 1) }
+    }
+    touch()
+  }
+  function baseLabel(b: SlotBase): string {
+    const p = b.paradigmId ? project.paradigms.find((x) => x.id === b.paradigmId) : active
+    if (!p) return '?'
+    const slot = paradigmSlots(p, project.categories, glossLangs, true).find(
+      (s) => s.key === b.slotKey
+    )
+    const name = slot?.label ?? '?'
+    return b.paradigmId
+      ? `${pickText(p.name, glossLangs) || t('paradigms.untitled')} · ${name}`
+      : name
+  }
+  /** 本构形里能继承的格：除了自己 */
+  const ownBaseChoices = (key: string): SlotDef[] => allSlots.filter((s) => s.key !== key)
+
+  // ── 发音流水线 ──
+  function setPron(key: string, on: boolean): void {
+    const g = active?.generators[key]
+    if (!g || g.kind !== 'pipeline') return
+    if (g.pron) g.pron.on = on
+    else if (on) g.pron = { on: true, from: 'form', steps: [] }
+    touch()
+  }
+
+  // ── 重定位：写错槽位时把这一格的写法挪到别的格，这一格变回「无」 ──
+  let relocateFrom = $state<string | null>(null)
+  let relocateQuery = $state('')
+  const relocateList = $derived.by(() => {
+    if (!relocateFrom) return []
+    const q = relocateQuery.trim().toLowerCase()
+    return allSlots.filter(
+      (s) =>
+        s.key !== relocateFrom &&
+        (!q || s.label.toLowerCase().includes(q) || s.abbr.toLowerCase().includes(q))
+    )
+  })
+  function openRelocate(key: string): void {
+    const g = active?.generators[gkey(key)]
+    if (!g || g.kind === 'none') return void ui.toast(t('paradigms.relocate.empty'))
+    relocateQuery = ''
+    relocateFrom = key
+  }
+  async function relocateTo(target: SlotDef): Promise<void> {
+    if (!active || !relocateFrom) return
+    const from = gkey(relocateFrom)
+    const to = gkey(target.key)
+    const g = active.generators[from]
+    if (!g) return
+    const cur = active.generators[to]
+    if (cur && cur.kind !== 'none') {
+      const ok = await ui.confirm(
+        t('paradigms.relocate.overwrite', { name: target.label }),
+        t('paradigms.relocate.overwriteBody'),
+        t('paradigms.relocate.do')
+      )
+      if (!ok) return
+    }
+    const fromLabel = allSlots.find((s) => s.key === relocateFrom)?.label ?? ''
+    active.generators[to] = g
+    delete active.generators[from]
+    relocateFrom = null
+    touch()
+    ui.toast(t('paradigms.relocate.done', { from: fromLabel, to: target.label }))
+    void openSlot(target.key)
+  }
+
   function isInherited(key: string): boolean {
     if (!active) return false
     const own = active.generators[key]
@@ -1253,7 +1336,11 @@
                       /></span
                     ></td
                   >
-                  <td class="label">{s.label}</td>
+                  <td
+                    class="label"
+                    title={t('paradigms.relocate.hint')}
+                    ondblclick={() => openRelocate(s.key)}>{s.label}</td
+                  >
                   <td class="mono small muted">{s.abbr}</td>
                   {#if folded}
                     <td colspan="3" class="fold-cell">
@@ -1281,6 +1368,16 @@
                       {#if isInherited(gkey(s.key))}<span class="badge"
                           >{t('paradigms.inherited')}</span
                         >{/if}
+                      {#if g.kind === 'pipeline'}
+                        <label class="row small pron-check" title={t('paradigms.pron.hint')}
+                          ><input
+                            type="checkbox"
+                            checked={!!g.pron?.on}
+                            onchange={(e) =>
+                              setPron(gkey(s.key), (e.currentTarget as HTMLInputElement).checked)}
+                          />{t('paradigms.pron.toggle')}</label
+                        >
+                      {/if}
                       <div class="row slot-clip">
                         <button
                           class="btn ghost icon sm"
@@ -1296,13 +1393,78 @@
                     </td>
                     <td colspan="2">
                       {#if g.kind === 'pipeline'}
+                        {@const gp = g}
+                        {#snippet startBox()}
+                          <div class="step stem start" title={t('paradigms.base.hint')}>
+                            <select
+                              class="select sm base-sel"
+                              class:based={!!gp.base?.slotKey}
+                              value={baseValue(gp)}
+                              onchange={(e) =>
+                                setBase(gkey(s.key), (e.currentTarget as HTMLSelectElement).value)}
+                            >
+                              <option value="">{t('paradigms.stem')}</option>
+                              <optgroup label={t('paradigms.base.thisParadigm')}>
+                                {#each ownBaseChoices(s.key) as b (b.key)}<option
+                                    value={`:${b.key}`}
+                                    >{t('paradigms.base.from', { name: b.label })}</option
+                                  >{/each}
+                              </optgroup>
+                              {#each nestChoices as np (np.id)}
+                                <optgroup label={np.name}>
+                                  {#each np.slots as b (b.key)}<option value={`${np.id}:${b.key}`}
+                                      >{t('paradigms.base.from', { name: b.label })}</option
+                                    >{/each}
+                                </optgroup>
+                              {/each}
+                            </select>
+                            {#if !gp.base?.slotKey}
+                              <input
+                                class="input data"
+                                list="dl-stems"
+                                placeholder="lemma"
+                                bind:value={gp.stem}
+                                oninput={touch}
+                              />
+                            {/if}
+                          </div>
+                        {/snippet}
                         <SlotPipeline
-                          bind:stem={g.stem}
-                          bind:steps={g.steps}
+                          bind:steps={gp.steps}
                           ruleSets={project.ruleSets}
                           paradigms={nestChoices}
                           onchange={touch}
+                          start={startBox}
                         />
+                        {#if gp.pron?.on}
+                          {@const pr = gp.pron}
+                          {#snippet pronStart()}
+                            <div class="step stem start pron" title={t('paradigms.pron.startHint')}>
+                              <span class="tag">{t('paradigms.pron.label')}</span>
+                              <select
+                                class="select sm"
+                                value={pr.from}
+                                onchange={(e) => {
+                                  pr.from = (e.currentTarget as HTMLSelectElement).value as
+                                    'form' | 'lemma'
+                                  touch()
+                                }}
+                              >
+                                <option value="form">{t('paradigms.pron.fromForm')}</option>
+                                <option value="lemma">{t('paradigms.pron.fromLemma')}</option>
+                              </select>
+                            </div>
+                          {/snippet}
+                          <div class="pron-pipe">
+                            <SlotPipeline
+                              bind:steps={pr.steps}
+                              ruleSets={project.ruleSets}
+                              onchange={touch}
+                              start={pronStart}
+                              nest={false}
+                            />
+                          </div>
+                        {/if}
                       {:else if g.kind === 'table'}
                         <span class="small muted">{t('paradigms.kinds.table')}</span>
                       {/if}
@@ -1322,6 +1484,40 @@
     </div>
   {/if}
 </div>
+
+{#if relocateFrom && active}
+  {@const fromSlot = allSlots.find((x) => x.key === relocateFrom)}
+  <div class="relocate-backdrop" role="presentation" onclick={() => (relocateFrom = null)}></div>
+  <div class="relocate card" role="dialog" aria-modal="true">
+    <strong>{t('paradigms.relocate.title', { name: fromSlot?.label ?? '' })}</strong>
+    <p class="small muted">{t('paradigms.relocate.body')}</p>
+    <!-- svelte-ignore a11y_autofocus -->
+    <input
+      class="input"
+      placeholder={t('paradigms.relocate.search')}
+      bind:value={relocateQuery}
+      autofocus
+      onkeydown={(e) => {
+        if (e.key === 'Escape') relocateFrom = null
+        else if (e.key === 'Enter' && relocateList.length === 1) void relocateTo(relocateList[0])
+      }}
+    />
+    <div class="relocate-list">
+      {#each relocateList as r (r.key)}
+        {@const own = active.generators[gkey(r.key)]}
+        <button onclick={() => relocateTo(r)}
+          ><span>{r.label}</span><span class="mono small muted">{r.abbr}</span
+          >{#if own && own.kind !== 'none'}<span class="badge">{t('paradigms.relocate.taken')}</span
+            >{/if}</button
+        >
+      {/each}
+    </div>
+    <div class="row">
+      <span class="grow"></span>
+      <button class="btn sm" onclick={() => (relocateFrom = null)}>{t('common.cancel')}</button>
+    </div>
+  </div>
+{/if}
 
 {#if active}
   {@const p = active}
@@ -1445,11 +1641,18 @@
         {#if benchMode === 'compare'}<span class="small muted">{boundLexemes.length}</span>{/if}
       </div>
       {#if benchMode === 'free'}
-        <input
-          class="input data"
-          placeholder={t('paradigms.freePlaceholder')}
-          bind:value={freeInput}
-        />
+        <div class="clear-wrap">
+          <input
+            class="input data"
+            placeholder={t('paradigms.freePlaceholder')}
+            bind:value={freeInput}
+          />
+          {#if freeInput}<button
+              class="clear-x"
+              title={t('common.clear')}
+              onclick={() => (freeInput = '')}><X size={13} /></button
+            >{/if}
+        </div>
         {#if freeRows.length}
           {@const lid = language?.id ?? ''}
           {@const base =
@@ -1483,14 +1686,24 @@
           </table>
         {/if}
       {:else}
-        <input
-          class="input data"
-          placeholder={t('paradigms.pickLexeme')}
-          bind:value={testLemma}
-          oninput={() => (testLexemeId = null)}
-          onfocus={() => (testFocused = true)}
-          onblur={() => setTimeout(() => (testFocused = false), 180)}
-        />
+        <div class="clear-wrap">
+          <input
+            class="input data"
+            placeholder={t('paradigms.pickLexeme')}
+            bind:value={testLemma}
+            oninput={() => (testLexemeId = null)}
+            onfocus={() => (testFocused = true)}
+            onblur={() => setTimeout(() => (testFocused = false), 180)}
+          />
+          {#if testLemma}<button
+              class="clear-x"
+              title={t('common.clear')}
+              onclick={() => {
+                testLemma = ''
+                testLexemeId = null
+              }}><X size={13} /></button
+            >{/if}
+        </div>
         {#if testMatches.length}
           <div class="matches">
             {#each testMatches as l (l.id)}
@@ -1900,9 +2113,121 @@
   .slots .kind {
     margin-top: 13px;
   }
+  /* 测试台输入框里有字时右边一个叉，一下清空 */
+  .clear-wrap {
+    position: relative;
+  }
+  .clear-wrap .input {
+    width: 100%;
+    padding-right: 28px;
+  }
+  .clear-x {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--text-3);
+    cursor: pointer;
+  }
+  .clear-x:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
   .slot-clip {
     gap: 2px;
     margin-top: 4px;
+  }
+  .pron-check {
+    gap: 4px;
+    margin-top: 6px;
+    white-space: nowrap;
+    color: var(--text-2);
+  }
+  .slots td.label {
+    cursor: default;
+    user-select: none;
+  }
+  /* 流水线的起点（在这里画的，SlotPipeline 里 .step 的样式够不着，照着写一份） */
+  .start {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 4px 2px 6px;
+    border: 1px solid var(--accent-soft);
+    border-radius: 999px;
+    background: var(--accent-soft);
+  }
+  .start .tag {
+    font-size: 11px;
+    color: var(--text-2);
+    white-space: nowrap;
+  }
+  .start .input,
+  .start .select {
+    padding: 1px 6px;
+    font-size: 12px;
+    height: 22px;
+    width: 110px;
+  }
+  .start .base-sel {
+    width: 72px;
+  }
+  .start .base-sel.based {
+    width: 160px;
+  }
+  .pron-pipe {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border);
+  }
+  .relocate {
+    position: fixed;
+    z-index: 401;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(420px, 92vw);
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow-lg);
+  }
+  .relocate-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    background: rgb(0 0 0 / 30%);
+  }
+  .relocate-list {
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .relocate-list button {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    text-align: left;
+    border: 0;
+    background: none;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+  }
+  .relocate-list button:hover {
+    background: var(--bg-hover);
   }
   .slots tr:not(.folded) td.label,
   .slots tr:not(.folded) td.mono {

@@ -11,6 +11,14 @@ export function pronText(ipa: string): string {
   return mode === 'none' ? s : mode === 'bracket' ? `[${s}]` : `/${s}/`
 }
 
+/**
+ * 发音那一栏的名字：每套正字法按自己的转音标规则推出一个 IPA，叫「基于正字法的 IPA」；
+ * 这门语言有几套正字法时后面带上正字法的名字
+ */
+export function orthoIpaLabel(orthoName: string, count: number): string {
+  return count > 1 ? t('lexicon.orthoIpaOf', { name: orthoName }) : t('lexicon.orthoIpa')
+}
+
 /** 词源类别的显示名：内置类别翻译过来，用户自己写的（导入进来的 bor. from CS 这类）原样显示 */
 export function etymologyTypeLabel(type: string): string {
   if (!type) return ''

@@ -34,11 +34,12 @@
   } from '$lib/core/pos'
   import { PREVIEW_LIMIT, scratchProject } from '$lib/importers/preview'
   import ImportPreview from '$lib/ui/ImportPreview.svelte'
-  import { pronText, relationLabel } from '$lib/ui/labels'
+  import { orthoIpaLabel, pronText, relationLabel } from '$lib/ui/labels'
   import { KeyRows, renameObjectKey, type KeyRow } from '$lib/ui/keyRows'
   import { dragColumn, fitColumns } from '$lib/ui/fitColumns'
   import { lexiconIssues } from '$lib/core/lexiconIssues'
   import LexemeExamples from '$lib/ui/LexemeExamples.svelte'
+  import LexemeHistory from '$lib/ui/LexemeHistory.svelte'
   import { lexemeScript, scriptSourceText } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
   import {
@@ -1525,6 +1526,7 @@
       >
     </div>
     <LexemeCard lexeme={l} {project} onselect={selectFromCard} controls />
+    <LexemeHistory lexeme={l} {project} />
     <LexemeExamples lexeme={l} {project} {glossLangs} />
   </Portal>
 {/if}
@@ -1612,6 +1614,25 @@
           {#each project.languages as x (x.id)}<option value={x.id}>{x.name}</option>{/each}
         </select>
       </div>
+      {#if selLang?.stages?.length}
+        <div class="field grow">
+          <label for="lx-stage">{t('lexicon.stage')}</label>
+          <select
+            id="lx-stage"
+            class="select"
+            value={l.stageId ?? ''}
+            onchange={(e) => {
+              l.stageId = (e.currentTarget as HTMLSelectElement).value || null
+              touch(l)
+            }}
+          >
+            <option value="">{t('lexicon.latestStage')}</option>
+            {#each selLang.stages as st (st.id)}<option value={st.id}
+                >{st.abbr ? `${st.abbr} · ${st.name}` : st.name}</option
+              >{/each}
+          </select>
+        </div>
+      {/if}
     </div>
 
     {#if catsFor(l).length}
@@ -1885,7 +1906,9 @@
         </div>
         {#each selLang.orthographies as o (o.id)}
           <div class="row kv">
-            <span class="small oname">{o.name}</span>
+            <span class="small oname" title={o.name}
+              >{orthoIpaLabel(o.name, selLang.orthographies.length)}</span
+            >
             <input
               class="input data"
               value={l.pronunciations[o.id]?.ipa ?? ''}
@@ -2562,7 +2585,7 @@
     flex: none;
   }
   .oname {
-    width: 90px;
+    width: 124px;
     flex: none;
     color: var(--text-2);
   }

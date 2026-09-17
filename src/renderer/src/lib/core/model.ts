@@ -33,6 +33,24 @@ export interface Project {
   /** 词条检视器里用户自己加的模块（异体字、文化注释……），在「词类与维度」里定义 */
   customFields: CustomField[]
   settings: ProjectSettings
+  /** 语言页上的语系 / 语族 / 语支节点（0.9.4 起；旧文件没有） */
+  languageGroups?: LanguageGroup[]
+}
+
+/** 语言分类节点的层级：语系 / 语族 / 语支 */
+export type LanguageGroupLevel = 'family' | 'branch' | 'subbranch'
+export const LANGUAGE_GROUP_LEVELS: LanguageGroupLevel[] = ['family', 'branch', 'subbranch']
+
+/** 语系树上的分类节点：语言和下一级节点挂在它下面；可以指一门原始语当它的代表 */
+export interface LanguageGroup {
+  id: Id
+  name: string
+  abbr: string
+  level: LanguageGroupLevel
+  /** 上一级节点；null 是最外层 */
+  parentId: Id | null
+  protoLanguageId?: Id | null
+  notes: string
 }
 
 export interface ProjectMeta {
@@ -115,6 +133,10 @@ export interface Language {
   color: string
   /** 语系树的父语言；null 表示根或平行语言 */
   parentId: Id | null
+  /** 挂在哪个语系 / 语族 / 语支节点下 */
+  groupId?: Id | null
+  /** 语言内部的历时阶段（上古 → 中古 → 现代），按时间先后排；音变的阶段标记可以绑到某一阶段 */
+  stages?: LanguageStage[]
   notes: string
   phonemes: Phoneme[]
   /** 音类 / 自然类。名称不限单字母；引擎里按最长匹配处理。 */
@@ -158,9 +180,22 @@ export interface Glyph {
   drawing?: GlyphDrawing
 }
 
-/** 手写的字：笔画是字体单位下的点列（一个 em = 1000，基线 y = 0、向上为正），带笔画粗细；advance 是字宽 */
+/**
+ * 手写的字：笔画是字体单位下的点列（一个 em = 1000，基线 y = 0、向上为正），带笔画粗细；advance 是字宽。
+ * contours 是填实的闭合轮廓（从字体载入的、画板里拉出来的形状），路径命令同样是字体单位、y 向上；
+ * 外轮廓逆时针、内洞顺时针，跟笔画叠在一起按非零规则填。
+ */
 export interface GlyphDrawing {
   strokes: { points: [number, number][]; width: number }[]
+  contours?: {
+    cmds: (
+      | ['M', number, number]
+      | ['L', number, number]
+      | ['Q', number, number, number, number]
+      | ['C', number, number, number, number, number, number]
+      | ['Z']
+    )[]
+  }[]
   advance: number
 }
 
@@ -302,6 +337,14 @@ export interface Phonotactics {
   maxSyllables: number
 }
 
+/** 语言内部的一个历时阶段：只是名字与缩写，音系、词库还是整门语言一套 */
+export interface LanguageStage {
+  id: Id
+  name: string
+  abbr: string
+  notes: string
+}
+
 export interface Dialect {
   id: Id
   name: string
@@ -322,6 +365,8 @@ export interface RuleSet {
   text: string
   /** `-* 阶段` 标记名 → 该阶段对应的语言；未绑定为 null */
   stageLanguages: Record<string, Id | null>
+  /** `-* 阶段` 标记名 → 绑定语言里的哪个历时阶段（那门语言分了阶段时才有） */
+  stageLanguageStages?: Record<string, Id | null>
   /** 测试台里的词，随项目保存 */
   testWords: string
   updatedAt: string
@@ -394,6 +439,8 @@ export interface StressSettings {
 export interface Morpheme {
   id: Id
   languageId: Id
+  /** 属于这门语言的哪个历时阶段；没有就是最新的阶段 */
+  stageId?: Id | null
   type: MorphemeType
   form: string
   /** 环缀的第二部分；中缀的插入位置描述等 */
@@ -421,6 +468,8 @@ export interface Allomorph {
 export interface Lexeme {
   id: Id
   languageId: Id
+  /** 属于这门语言的哪个历时阶段；没有就是最新的阶段 */
+  stageId?: Id | null
   lemma: string
   posId: Id | null
   /** 指定用哪个构形推导；留空则按词类绑定 */
@@ -554,6 +603,8 @@ export type EtymologySource =
 
 export interface InflectedForm {
   surface: string
+  /** 构形里勾了「影响发音」的槽位推出来的发音（基于正字法的 IPA 再经那一格的发音流水线） */
+  ipa?: string
   /** 是否由范式推导；false 表示手填 */
   derived: boolean
   /** 用户覆盖了推导值 */
@@ -628,10 +679,32 @@ export type MorphStep =
 
 export type MorphStepKind = MorphStep['kind']
 
+/** 槽位继承的起点：哪个构形（null 是本构形）的哪一格，挑了变体时用那个变体的写法 */
+export interface SlotBase {
+  paradigmId: Id | null
+  slotKey: string
+  variantId?: Id | null
+}
+
+/** 槽位的发音流水线：从这一格拼写按正字法转出来的 IPA（form）或词条的发音（lemma）开始 */
+export interface SlotPron {
+  on: boolean
+  from: 'form' | 'lemma'
+  steps: MorphStep[]
+}
+
 export type SlotGenerator =
   | { kind: 'none' }
   | { kind: 'table' }
-  | { kind: 'pipeline'; stem: string; steps: MorphStep[] }
+  | {
+      kind: 'pipeline'
+      stem: string
+      steps: MorphStep[]
+      /** 起点不从词干开始，而是另一个槽位推出来的形式（继承那一格的写法，再接着加步骤） */
+      base?: SlotBase
+      /** 对「基于正字法的 IPA」有影响：这一格另写一条流水线改发音（on 为 false 时不显示、不推导，写过的留着） */
+      pron?: SlotPron
+    }
   | ({
       kind: 'affix'
       stem: string

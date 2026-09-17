@@ -222,6 +222,8 @@ export interface PlatformAPI {
   exportPdf(html: string, suggestedName: string): Promise<boolean>
   /** 把文本存成文件；用户取消返回 false */
   saveTextFile(suggestedName: string, content: string): Promise<boolean>
+  /** 把二进制数据（导出的字体等）存成文件；用户取消返回 false */
+  saveBinaryFile(suggestedName: string, data: Uint8Array): Promise<boolean>
 
   getRecent(): Promise<RecentEntry[]>
   addRecent(entry: RecentEntry): Promise<void>

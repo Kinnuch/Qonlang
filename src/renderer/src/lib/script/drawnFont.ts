@@ -1,10 +1,14 @@
 /**
  * 手写字形 → 字体。字形表里画出来的字存成笔画（点列 + 粗细，字体单位，一个 em = 1000，基线 y = 0、向上为正），
- * 这里把每一笔描成轮廓：相邻两点之间一个矩形、每个点一个圆（圆头圆角），全都同一个绕向，叠在一起按非零规则填满。
+ * 这里把每一笔描成轮廓：相邻两点之间一个矩形、每个点一个圆（圆头圆角），全都同一个绕向，叠在一起按非零规则填满；
+ * 从字体载入或画板里拉出来的轮廓（contours）原样放进去。
  * 生成的字体只含手写的那些字，挂在这套文字字体栈的最前面，别的字照旧回落到原来的字体。
  */
 import { Font, Glyph, Path } from 'opentype.js'
 import type { GlyphDrawing, Script } from '$lib/core/model'
+import { drawingContours, hasDrawingContent } from './glyphGeometry'
+
+export { simplify } from './glyphGeometry'
 
 export const UNITS_PER_EM = 1000
 export const ASCENDER = 800
@@ -18,77 +22,17 @@ export const GUIDES = {
   descender: DESCENDER
 }
 
-type Pt = [number, number]
-
-/** 点列抽稀（Ramer–Douglas–Peucker），手抖的小弯去掉，轮廓少很多点 */
-export function simplify(points: Pt[], epsilon = 3): Pt[] {
-  if (points.length < 3) return points.slice()
-  const [ax, ay] = points[0]
-  const [bx, by] = points[points.length - 1]
-  const dx = bx - ax
-  const dy = by - ay
-  const len = Math.hypot(dx, dy)
-  let far = -1
-  let farDist = 0
-  for (let i = 1; i < points.length - 1; i++) {
-    const [px, py] = points[i]
-    const d = len
-      ? Math.abs(dy * px - dx * py + bx * ay - by * ax) / len
-      : Math.hypot(px - ax, py - ay)
-    if (d > farDist) {
-      farDist = d
-      far = i
-    }
-  }
-  if (farDist <= epsilon || far < 0) return [points[0], points[points.length - 1]]
-  const left = simplify(points.slice(0, far + 1), epsilon)
-  const right = simplify(points.slice(far), epsilon)
-  return [...left.slice(0, -1), ...right]
-}
-
-/** 圆：八段二次曲线近似，角度从 0 往上转一圈，y 向上时是逆时针 */
-function circle(path: Path, cx: number, cy: number, r: number): void {
-  const n = 8
-  const c = r / Math.cos(Math.PI / n)
-  path.moveTo(cx + r, cy)
-  for (let i = 0; i < n; i++) {
-    const a1 = ((i + 1) * 2 * Math.PI) / n
-    const am = ((i + 0.5) * 2 * Math.PI) / n
-    path.quadraticCurveTo(
-      cx + c * Math.cos(am),
-      cy + c * Math.sin(am),
-      cx + r * Math.cos(a1),
-      cy + r * Math.sin(a1)
-    )
-  }
-  path.close()
-}
-
-/** 两点之间的矩形（宽 w），逆时针 */
-function segment(path: Path, a: Pt, b: Pt, w: number): void {
-  const dx = b[0] - a[0]
-  const dy = b[1] - a[1]
-  const len = Math.hypot(dx, dy)
-  if (!len) return
-  const nx = (-dy / len) * (w / 2)
-  const ny = (dx / len) * (w / 2)
-  // a - n → b - n → b + n → a + n：法线在左边，这样走是逆时针
-  path.moveTo(a[0] - nx, a[1] - ny)
-  path.lineTo(b[0] - nx, b[1] - ny)
-  path.lineTo(b[0] + nx, b[1] + ny)
-  path.lineTo(a[0] + nx, a[1] + ny)
-  path.close()
-}
-
-/** 一个字的全部笔画 → 字形轮廓 */
+/** 一个字的全部轮廓与笔画 → 字形轮廓 */
 export function drawingPath(drawing: GlyphDrawing): Path {
   const path = new Path()
-  for (const st of drawing.strokes) {
-    const w = Math.max(4, st.width)
-    const pts = simplify(st.points)
-    if (!pts.length) continue
-    for (let i = 0; i + 1 < pts.length; i++) segment(path, pts[i], pts[i + 1], w)
-    for (const p of pts) circle(path, p[0], p[1], w / 2)
+  for (const c of drawingContours(drawing)) {
+    for (const cmd of c.cmds) {
+      if (cmd[0] === 'M') path.moveTo(cmd[1], cmd[2])
+      else if (cmd[0] === 'L') path.lineTo(cmd[1], cmd[2])
+      else if (cmd[0] === 'Q') path.quadraticCurveTo(cmd[1], cmd[2], cmd[3], cmd[4])
+      else if (cmd[0] === 'C') path.curveTo(cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6])
+      else path.close()
+    }
   }
   return path
 }
@@ -98,7 +42,7 @@ export function drawnGlyphs(script: Script): { codepoint: number; drawing: Glyph
   const out: { codepoint: number; drawing: GlyphDrawing }[] = []
   const seen = new Set<number>()
   for (const g of script.glyphs) {
-    if (!g.drawing?.strokes.length) continue
+    if (!g.drawing || !hasDrawingContent(g.drawing)) continue
     const cps = [...g.char]
     if (cps.length !== 1) continue
     const cp = cps[0].codePointAt(0)!

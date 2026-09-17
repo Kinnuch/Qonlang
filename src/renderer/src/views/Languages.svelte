@@ -7,59 +7,90 @@
   import { t } from '$lib/i18n/index.svelte'
   import {
     createLanguage,
-    languageChildren,
     languageLineage,
     wouldCreateCycle,
     LANGUAGE_COLORS,
     newId
   } from '$lib/core/factory'
-  import type { Id, Language } from '$lib/core/model'
+  import {
+    LANGUAGE_GROUP_LEVELS,
+    type Id,
+    type Language,
+    type LanguageGroup,
+    type LanguageGroupLevel
+  } from '$lib/core/model'
+  import {
+    childGroups,
+    effectiveGroupId,
+    groupAncestors,
+    groupLanguages,
+    languageTree,
+    wouldCreateGroupCycle
+  } from '$lib/core/languageTree'
+  import { mergeAsStages, stageChain } from '$lib/core/mergeStages'
   import Portal from '$lib/ui/Portal.svelte'
+  import Menu from '$lib/ui/Menu.svelte'
   import LanguageNode from './LanguageNode.svelte'
-  import { Plus, Trash2, Star, X } from '@lucide/svelte'
+  import GroupStats from './GroupStats.svelte'
+  import { Plus, Trash2, Star, X, Network, ChevronUp, ChevronDown, GitMerge } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
-  /** 回到这一页时还选着上次那门语言 */
+  /** 回到这一页时还选着上次那门语言（或那个分类节点） */
   const memo = ui.memo<{ selectedId: Id | null }>('languages')
   let selectedId = $state<Id | null>(memo.selectedId ?? null)
 
   const project = $derived(projectState.project!)
-  const children = $derived(languageChildren(project.languages))
-  /** 顶栏搜索：命中的语言与它们的祖先；没搜索时为 null（全显示） */
+  const groups = $derived(project.languageGroups ?? [])
+  const tree = $derived(languageTree(project))
+  /** 顶栏搜索：命中的语言、分类节点与它们往上的一串；命中的节点下面整个都显示。没搜索时为 null（全显示） */
   const visible = $derived.by((): Set<Id> | null => {
     const pq = parseQuery(ui.search, SEARCH_FIELDS.languages)
     if (!pq.terms.length) return null
     const byId = new Map(project.languages.map((l) => [l.id, l]))
-    const hit = (l: (typeof project.languages)[number]): boolean =>
+    const hit = (x: { name: string; abbr: string; notes?: string }): boolean =>
       matchQuery(pq, (f) =>
         f === 'name'
-          ? [l.name]
+          ? [x.name]
           : f === 'abbr'
-            ? [l.abbr]
+            ? [x.abbr]
             : f === 'note'
-              ? [l.notes ?? '']
-              : [l.name, l.abbr, l.notes ?? '']
+              ? [x.notes ?? '']
+              : [x.name, x.abbr, x.notes ?? '']
       )
     const out = new Set<Id>()
-    for (const l of project.languages) {
-      if (!hit(l)) continue
-      out.add(l.id)
-      let p = l.parentId ? byId.get(l.parentId) : null
+    const addLanguage = (l: Language): void => {
+      let p: Language | null | undefined = l
       while (p && !out.has(p.id)) {
         out.add(p.id)
-        p = p.parentId ? (byId.get(p.parentId) ?? null) : null
+        const g = effectiveGroupId(project, p.id)
+        if (g) for (const a of groupAncestors(groups, g)) out.add(a)
+        p = p.parentId ? byId.get(p.parentId) : null
       }
+    }
+    for (const l of project.languages) if (hit(l)) addLanguage(l)
+    for (const g of groups) {
+      if (!hit(g)) continue
+      for (const a of groupAncestors(groups, g.id)) out.add(a)
+      for (const d of groups) if (groupAncestors(groups, d.id).has(g.id)) out.add(d.id)
+      for (const l of groupLanguages(project, g.id)) addLanguage(l)
     }
     return out
   })
-  const roots = $derived((children.get(null) ?? []).filter((l) => !visible || visible.has(l.id)))
+  const roots = $derived(
+    tree.filter((x) => !visible || visible.has(x.kind === 'group' ? x.group.id : x.language.id))
+  )
   const selected = $derived(project.languages.find((l) => l.id === selectedId) ?? null)
+  const selectedGroup = $derived(groups.find((g) => g.id === selectedId) ?? null)
 
   $effect(() => {
-    inspectorTitle = selected ? selected.name || t('app.untitledLanguage') : t('languages.title')
+    inspectorTitle = selected
+      ? selected.name || t('app.untitledLanguage')
+      : selectedGroup
+        ? selectedGroup.name || t('languages.untitledGroup')
+        : t('languages.title')
   })
   $effect(() => {
     // 初次进入时选中当前语言
@@ -72,10 +103,11 @@
       if (cur && cur !== selectedId && project.languages.some((l) => l.id === cur)) selectedId = cur
     })
   })
-  /** 在树里、谱系里点一门语言（或者从别处跳过来）：选中它，顶栏右上角的「当前语言」也换成它 */
-  function pick(id: Id): void {
+  /** 在树里、谱系里点一门语言（或者从别处跳过来）：选中它，顶栏右上角的「当前语言」也换成它；点分类节点只选中 */
+  function pick(id: Id, kind: 'group' | 'language' = 'language'): void {
     selectedId = id
-    if (projectState.currentLanguageId !== id) projectState.currentLanguageId = id
+    if (kind === 'language' && projectState.currentLanguageId !== id)
+      projectState.currentLanguageId = id
   }
   $effect(() => {
     const id = ui.takePending('language')
@@ -105,12 +137,129 @@
     })
   }
 
-  function add(parentId: Id | null = null): void {
+  // ── 语系 / 语族 / 语支节点 ──
+  /** 新建一个分类节点：选着节点时建在它下面，选着语言时建在那门语言所在的节点下 */
+  function addGroup(level: LanguageGroupLevel): void {
+    const parentId = selectedGroup
+      ? selectedGroup.id
+      : selected
+        ? effectiveGroupId(project, selected.id)
+        : null
+    const g: LanguageGroup = {
+      id: newId(),
+      name: t(`languages.groupLevels.${level}`),
+      abbr: '',
+      level,
+      parentId,
+      protoLanguageId: null,
+      notes: ''
+    }
+    project.languageGroups = [...groups, g]
+    selectedId = g.id
+    projectState.touch()
+    queueMicrotask(() => document.getElementById('group-name')?.focus())
+  }
+  /** 删掉节点：下一级节点和挂着的语言提到它的上一级 */
+  function removeGroup(g: LanguageGroup): void {
+    const snapshot = $state.snapshot(project.languageGroups ?? []) as LanguageGroup[]
+    const langsBefore = project.languages.map((l) => [l.id, l.groupId ?? null] as const)
+    for (const c of groups) if (c.parentId === g.id) c.parentId = g.parentId
+    for (const l of project.languages) if (l.groupId === g.id) l.groupId = g.parentId
+    project.languageGroups = groups.filter((x) => x.id !== g.id)
+    if (selectedId === g.id) selectedId = null
+    projectState.touch()
+    ui.toast(t('languages.groupDeleted', { name: g.name }), {
+      action: {
+        label: t('common.undo'),
+        run: () => {
+          project.languageGroups = snapshot
+          const before = new Map(langsBefore)
+          for (const l of project.languages) if (before.has(l.id)) l.groupId = before.get(l.id)
+          selectedId = g.id
+          projectState.touch()
+        }
+      }
+    })
+  }
+  function setGroupParent(g: LanguageGroup, parentId: Id | null): void {
+    if (wouldCreateGroupCycle(groups, g.id, parentId)) return void ui.error(t('languages.cycle'))
+    g.parentId = parentId
+    projectState.touch()
+  }
+  /** 节点的全名，下拉框里用：「语系名 › 语族名」 */
+  function groupPath(g: LanguageGroup): string {
+    const chain: LanguageGroup[] = []
+    const byId = new Map(groups.map((x) => [x.id, x]))
+    let cur: LanguageGroup | undefined = g
+    const seen = new Set<Id>()
+    while (cur && !seen.has(cur.id)) {
+      seen.add(cur.id)
+      chain.unshift(cur)
+      cur = cur.parentId ? byId.get(cur.parentId) : undefined
+    }
+    return chain.map((x) => x.name || t('languages.untitledGroup')).join(' › ')
+  }
+
+  // ── 历时阶段 ──
+  function addStage(l: Language): void {
+    l.stages = [...(l.stages ?? []), { id: newId(), name: '', abbr: '', notes: '' }]
+    projectState.touch()
+  }
+  function moveStage(l: Language, i: number, dir: -1 | 1): void {
+    const list = [...(l.stages ?? [])]
+    const j = i + dir
+    if (j < 0 || j >= list.length) return
+    ;[list[i], list[j]] = [list[j], list[i]]
+    l.stages = list
+    projectState.touch()
+  }
+  function removeStage(l: Language, id: Id): void {
+    l.stages = (l.stages ?? []).filter((s) => s.id !== id)
+    for (const x of project.lexemes) if (x.stageId === id) x.stageId = null
+    for (const x of project.morphemes) if (x.stageId === id) x.stageId = null
+    for (const rs of project.ruleSets)
+      for (const [m, sid] of Object.entries(rs.stageLanguageStages ?? {}))
+        if (sid === id) rs.stageLanguageStages![m] = null
+    projectState.touch()
+  }
+  /** 合并为阶段：从选中的祖先一直到这门语言 */
+  let mergeFrom = $state<Id | ''>('')
+  async function mergeStages(l: Language): Promise<void> {
+    if (!mergeFrom) return
+    const chain = stageChain(project, mergeFrom, l.id)
+    if (!chain) return
+    const ok = await ui.confirm(
+      t('languages.merge.confirm', {
+        names: chain.map((x) => x.name).join(' → '),
+        target: l.name
+      }),
+      t('languages.merge.confirmBody'),
+      t('languages.merge.do')
+    )
+    if (!ok) return
+    const r = mergeAsStages(project, chain)
+    mergeFrom = ''
+    selectedId = l.id
+    projectState.currentLanguageId = l.id
+    projectState.touch()
+    ui.toast(
+      t('languages.merge.done', {
+        stages: r.stages,
+        lexemes: r.lexemes,
+        morphemes: r.morphemes,
+        dropped: r.droppedPronunciations
+      }),
+      { timeout: 8000 }
+    )
+  }
+
+  function add(parentId: Id | null = null, groupId: Id | null = null): void {
     const used = new Set(project.languages.map((l) => l.color))
     const color =
       LANGUAGE_COLORS.find((c) => !used.has(c)) ??
       LANGUAGE_COLORS[project.languages.length % LANGUAGE_COLORS.length]
     const l = createLanguage({ name: t('app.untitledLanguage'), parentId, color })
+    if (groupId) l.groupId = groupId
     project.languages.push(l)
     if (!project.settings.defaultLanguageId) project.settings.defaultLanguageId = l.id
     if (!projectState.currentLanguageId) projectState.currentLanguageId = l.id
@@ -161,6 +310,11 @@
     <h1>{t('languages.title')}</h1>
     <GuideLink section="languages" />
     <span class="grow"></span>
+    <Menu label={t('languages.addGroup')} icon={Network}>
+      {#each LANGUAGE_GROUP_LEVELS as lv (lv)}
+        <button onclick={() => addGroup(lv)}>{t(`languages.groupLevels.${lv}`)}</button>
+      {/each}
+    </Menu>
     <button class="btn primary" onclick={() => add(null)}
       ><Plus size={16} />{t('languages.addLanguage')}</button
     >
@@ -170,20 +324,124 @@
     <p class="muted">{t('languages.empty')}</p>
   {:else}
     <div class="tree">
-      {#each roots as l (l.id)}
+      {#each roots as x (x.kind === 'group' ? 'g:' + x.group.id : x.language.id)}
         <LanguageNode
           {visible}
-          language={l}
-          {children}
+          item={x}
           {selectedId}
           defaultId={project.settings.defaultLanguageId}
           onselect={pick}
-          onaddchild={(id) => add(id)}
+          onaddchild={(id, kind) => (kind === 'group' ? add(null, id) : add(id))}
         />
       {/each}
     </div>
   {/if}
+  {#if selectedGroup}
+    <GroupStats
+      {project}
+      group={selectedGroup}
+      languages={groupLanguages(project, selectedGroup.id)}
+      onpicklanguage={(id) => pick(id)}
+      onpicklexeme={(id) => {
+        const l = project.lexemes.find((x) => x.id === id)
+        ui.jump('lexicon', 'lexeme', id, l?.languageId)
+      }}
+    />
+  {/if}
 </div>
+
+{#if selectedGroup}
+  {@const g = selectedGroup}
+  <Portal>
+    <div class="field">
+      <label for="group-name">{t('common.name')}</label>
+      <input
+        id="group-name"
+        class="input"
+        bind:value={g.name}
+        oninput={() => projectState.touch()}
+      />
+    </div>
+    <div class="row two">
+      <div class="field grow">
+        <label for="group-abbr">{t('common.abbr')}</label>
+        <input
+          id="group-abbr"
+          class="input"
+          bind:value={g.abbr}
+          oninput={() => projectState.touch()}
+        />
+      </div>
+      <div class="field grow">
+        <label for="group-level">{t('languages.groupLevel')}</label>
+        <select
+          id="group-level"
+          class="select"
+          bind:value={g.level}
+          onchange={() => projectState.touch()}
+        >
+          {#each LANGUAGE_GROUP_LEVELS as lv (lv)}<option value={lv}
+              >{t(`languages.groupLevels.${lv}`)}</option
+            >{/each}
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="group-parent">{t('languages.groupParent')}</label>
+      <select
+        id="group-parent"
+        class="select"
+        value={g.parentId ?? ''}
+        onchange={(e) => setGroupParent(g, (e.currentTarget as HTMLSelectElement).value || null)}
+      >
+        <option value="">{t('languages.noGroup')}</option>
+        {#each groups.filter((x) => !groupAncestors(groups, x.id).has(g.id)) as x (x.id)}
+          <option value={x.id}>{groupPath(x)}</option>
+        {/each}
+      </select>
+    </div>
+    <div class="field">
+      <label for="group-proto"
+        >{t('languages.protoLanguage')} <HelpDot tip={t('languages.protoHint')} /></label
+      >
+      <select
+        id="group-proto"
+        class="select"
+        value={g.protoLanguageId ?? ''}
+        onchange={(e) => {
+          g.protoLanguageId = (e.currentTarget as HTMLSelectElement).value || null
+          projectState.touch()
+        }}
+      >
+        <option value="">{t('common.none')}</option>
+        {#each project.languages as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+      </select>
+    </div>
+    <div class="field">
+      <label for="group-notes">{t('common.notes')}</label>
+      <textarea
+        id="group-notes"
+        class="textarea"
+        bind:value={g.notes}
+        oninput={() => projectState.touch()}
+      ></textarea>
+    </div>
+    <p class="small muted">
+      {t('languages.groupCounts', {
+        groups: childGroups(project, g.id).length,
+        languages: groupLanguages(project, g.id).length
+      })}
+    </p>
+    <div class="actions">
+      <button class="btn sm" onclick={() => add(null, g.id)}
+        ><Plus size={14} />{t('languages.addLanguageHere')}</button
+      >
+      <button class="btn sm danger" onclick={() => removeGroup(g)}
+        ><Trash2 size={14} />{t('common.delete')}</button
+      >
+    </div>
+  </Portal>
+{/if}
 
 {#if selected}
   {@const lang = selected}
@@ -219,6 +477,77 @@
           <option value={x.id}>{x.name}</option>
         {/each}
       </select>
+    </div>
+    <div class="field">
+      <label for="lang-group">{t('languages.group')}</label>
+      <select
+        id="lang-group"
+        class="select"
+        value={lang.groupId ?? ''}
+        onchange={(e) => {
+          lang.groupId = (e.currentTarget as HTMLSelectElement).value || null
+          projectState.touch()
+        }}
+      >
+        <option value=""
+          >{lang.parentId && effectiveGroupId(project, lang.id)
+            ? t('languages.groupFromParent')
+            : t('languages.noGroup')}</option
+        >
+        {#each groups as x (x.id)}<option value={x.id}>{groupPath(x)}</option>{/each}
+      </select>
+    </div>
+    <div class="field">
+      <div class="row">
+        <span class="small muted">{t('languages.stages')}</span><HelpDot
+          tip={t('languages.stagesHint')}
+        /><span class="grow"></span><button class="btn ghost sm" onclick={() => addStage(lang)}
+          ><Plus size={14} />{t('languages.addStage')}</button
+        >
+      </div>
+      {#each lang.stages ?? [] as st, i (st.id)}
+        <div class="row dia">
+          <input
+            class="input"
+            placeholder={t('languages.stageName')}
+            bind:value={st.name}
+            oninput={() => projectState.touch()}
+          />
+          <input
+            class="input abbr"
+            placeholder={t('common.abbr')}
+            bind:value={st.abbr}
+            oninput={() => projectState.touch()}
+          />
+          <button
+            class="btn ghost icon sm"
+            title={t('soundChanges.moveUp')}
+            disabled={i === 0}
+            onclick={() => moveStage(lang, i, -1)}><ChevronUp size={14} /></button
+          >
+          <button
+            class="btn ghost icon sm"
+            title={t('soundChanges.moveDown')}
+            disabled={i === (lang.stages?.length ?? 0) - 1}
+            onclick={() => moveStage(lang, i, 1)}><ChevronDown size={14} /></button
+          >
+          <button class="btn ghost icon sm" onclick={() => removeStage(lang, st.id)}
+            ><X size={14} /></button
+          >
+        </div>
+      {/each}
+      {#if lang.parentId}
+        {@const ancestors = languageLineage(project.languages, lang.id).slice(0, -1).reverse()}
+        <div class="row merge">
+          <select class="select sm" bind:value={mergeFrom} title={t('languages.merge.hint')}>
+            <option value="">{t('languages.merge.pick')}</option>
+            {#each ancestors as a (a.id)}<option value={a.id}>{a.name}</option>{/each}
+          </select>
+          <button class="btn sm" disabled={!mergeFrom} onclick={() => mergeStages(lang)}
+            ><GitMerge size={14} />{t('languages.merge.button')}</button
+          >
+        </div>
+      {/if}
     </div>
     <div class="field">
       <span class="small muted">{t('common.color')}</span>
@@ -410,5 +739,17 @@
   }
   .dia .abbr {
     width: 90px;
+  }
+  .two {
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .merge {
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .merge .select {
+    flex: 1;
+    min-width: 0;
   }
 </style>

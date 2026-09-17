@@ -19,9 +19,12 @@ export function setExportGuard(fn: (content?: string) => boolean): void {
 const rawSaveText = platform.saveTextFile.bind(platform)
 const rawExportFolder = platform.exportFolder.bind(platform)
 const rawExportPdf = platform.exportPdf.bind(platform)
+const rawSaveBinary = platform.saveBinaryFile.bind(platform)
 platform.saveTextFile = (name, content) =>
   exportGuard?.(content) ? Promise.resolve(false) : rawSaveText(name, content)
 platform.exportFolder = (files, name) =>
   exportGuard?.() ? Promise.resolve(false) : rawExportFolder(files, name)
 platform.exportPdf = (html, name) =>
   exportGuard?.() ? Promise.resolve(false) : rawExportPdf(html, name)
+platform.saveBinaryFile = (name, data) =>
+  exportGuard?.() ? Promise.resolve(false) : rawSaveBinary(name, data)
