@@ -1,9 +1,4 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/lockup-full-white.svg" />
-    <img alt="Qonlang · 千语集" src="docs/brand/lockup-full-teal.svg" width="440" />
-  </picture>
-</p>
+<img alt="Qonlang · 千语集" src="docs/brand/banner.svg" width="100%" />
 
 # 千语集 · Qonlang
 
