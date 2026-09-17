@@ -102,7 +102,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph.',
+        'Agglutinative a priori language: proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (syllables and sound counts follow the spelling), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font.'
     },
@@ -1677,8 +1677,10 @@ const en: Dict = {
     pickCandidate: 'This word has {n} candidates that can’t be told apart — pick one to lock it in',
     pickThis: 'This one',
     notFound: 'Nothing found for “{w}”',
-    notFoundHint: 'Search for an entry or morpheme to assign.',
+    notFoundHint:
+      'Search for an entry or morpheme to assign; if the spelling can be split, pick a segmentation.',
     assignSearch: 'Search lexemes or morphemes…',
+    assignSplit: 'Split',
     assignNone: 'No matching lexeme or morpheme — try another spelling or meaning',
     editWord: 'Fix',
     editWordTitle: 'Wrong match? Change it to another lexeme or morpheme',

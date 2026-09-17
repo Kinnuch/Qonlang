@@ -1158,7 +1158,14 @@ function makeAelith(): void {
       '民歌',
       ['连读']
     ],
-    ['Mira kasoda jatdu', 'Mira 在房子里睡了。', 'Mira slept in the house.', '民歌', ['人名']]
+    ['Mira kasoda jatdu', 'Mira 在房子里睡了。', 'Mira slept in the house.', '民歌', ['人名']],
+    [
+      'ilenkasoda jatdu',
+      '（他们）在孩子的房子里睡了。',
+      'They slept in the children’s house.',
+      '语法书 · 复合词连写',
+      ['复合词', '位格']
+    ]
   ]
   const sents: Sentence[] = []
   for (const [text, zh, en, source, tags] of sentences) {
@@ -1178,6 +1185,8 @@ function makeAelith(): void {
   sents[6].notes = 'dovar 是 tovar 在 ve 后面浊化的样子，靠构形「连读浊化」反推认出来。'
   sents[7].notes =
     'Mira 是人名，词库里没有：悬浮时写明「没有找到」，可以在搜索框里指定一个词条，也可以留着不管。'
+  sents[8].notes =
+    'ilenkasoda 是 ilen（孩子）与 kaso 的位格 kasoda 连写，中间没写分隔符，自动切成 ilen-kasoda；拼了两个词干，确认之前标成猜测。'
   const badAe = analyzeAll(p, sents)
   kaso.senses[0].examples.push(sents[0].id)
   lex.get('ilen')!.senses[0].examples.push(sents[0].id, sents[5].id)
@@ -1233,7 +1242,7 @@ function makeAelith(): void {
     '- **关系图**：kaso 的关系图里按住空白处拖动画布，右键节点展开或收起；右上角「对比」把同一个词根 *kasu 的 kaso（Aelith）、hasu（Merun，意思变成帐篷）、kasolu、telikaso 并排：各自经过的音变、k : h 的语音对应、意思与构成的差别',
     '- **检视器模块**：「词类与维度」最下面定义的「文化注释」与「刻文异体」（用刻文的字体显示），打开 kaso、nöl、sepe 看',
     '- **构形**：流水线的八种步骤（前缀、后缀、中缀、环缀、音变、模板、重叠、微调）、变体（基础那套改名叫「书面」）、继承、屏蔽槽位、手填表、作用于所有词的「连读浊化」（ve 后面 tovar → dovar）、一个词类绑几个构形（「动词」默认变位法一，tur-、sal- 在词条里挑了变位法二，ol- 用不规则）、按条件换字母（名词与格只写一条 ¢{阴:g|k}A：阴性的 sila、vene 是 silaga、venege，其余是 kasoka 这样）、构形套构形（「动名词」加 -mAk 之后套进「名词」的格：sörmek、sörmekde）、一个词条几个构形（sör- 既变位又有动名词）；测试台切到「自由」随便写一个形式看它变成什么',
-    '- **语料**：已 gloss 并确认的例句、其他正字法、手填的文字写法、自由行、出处与标签；dovar 靠「连读浊化」反推认出；人名 Mira 故意没进词库，悬浮时是「没有找到」',
+    '- **语料**：已 gloss 并确认的例句、其他正字法、手填的文字写法、自由行、出处与标签；dovar 靠「连读浊化」反推认出；ilenkasoda 是两个词连写再带格缀，没写分隔符也切得开；人名 Mira 故意没进词库，悬浮时是「没有找到」',
     '- **短语**：分类、变体、发音、方括号占位符',
     '- **文档**：项目级与语言级页面，写 `[[kaso]]` 就能点到词库里的词',
     '- **设置**：导出模板、缩写表',

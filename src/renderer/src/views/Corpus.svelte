@@ -466,6 +466,29 @@
   ): void {
     const tk = project.sentences.find((x) => x.id === sid)?.tokens[at]
     if (!tk || tk.surface !== surface) return
+    // 挑了一种切法：整个词换成它，或者把没找到的那一段拆成这几段
+    if (c.analysis) {
+      const picked: Analysis = {
+        lexemeId: c.analysis.lexemeId,
+        slot: c.analysis.slot,
+        morphs: c.analysis.morphs
+      }
+      const cur = tk.analyses[tk.chosen]
+      if (index === null || !cur?.morphs[index]) {
+        tk.analyses.push(picked)
+        tk.chosen = tk.analyses.length - 1
+      } else {
+        tk.analyses[tk.chosen] = {
+          lexemeId: cur.lexemeId ?? picked.lexemeId,
+          slot: cur.slot,
+          morphs: [...cur.morphs.slice(0, index), ...picked.morphs, ...cur.morphs.slice(index + 1)]
+        }
+      }
+      if (!tk.analyses[tk.chosen].morphs.some((x) => !x.gloss || x.gloss === '?'))
+        tk.confirmed = true
+      touch()
+      return
+    }
     const l = c.lexemeId ? project.lexemes.find((x) => x.id === c.lexemeId) : undefined
     const m = c.morphemeId ? project.morphemes.find((x) => x.id === c.morphemeId) : undefined
     if (!l && !m) return

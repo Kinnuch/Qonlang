@@ -12,6 +12,8 @@
   import { etymologyText, morphemeLabel } from '$lib/core/etymology'
   import { posText, sensePos } from '$lib/core/pos'
   import type { Id } from '$lib/core/model'
+  import type { HoverChoice } from '$lib/state/wordHover.svelte'
+  import { analyzeToken, glossIndexFor } from '$lib/engine/gloss'
   import { BookOpen, Blocks, X, TriangleAlert, SearchX, Pencil } from '@lucide/svelte'
 
   // 开始页的画廊没打开项目：用悬浮时带来的那个项目查词
@@ -85,7 +87,7 @@
     label: string
     kind: string
     gloss: string
-    choice: { lexemeId?: Id; morphemeId?: Id }
+    choice: HoverChoice
     score: number
   }
   /** 这门语言里写法或释义对得上的词条与语素：写法完全一样的排前面，最多八个 */
@@ -103,6 +105,24 @@
       return text.toLowerCase().includes(lq) ? 3 : -1
     }
     const hits: AssignHit[] = []
+    // 写法能切开（几个词、词根加一串词缀连写）：先列出切法，挑一个就整个换成这几段
+    const segs = analyzeToken(
+      glossIndexFor(project, ctx.languageId),
+      q,
+      project.settings.morphemeBoundaries
+    )
+      .filter((a) => a.morphs.length > 1)
+      .slice(0, 3)
+    segs.forEach((a, i) =>
+      hits.push({
+        key: `s${i}`,
+        label: a.morphs.map((m) => m.form).join('-'),
+        kind: t('corpus.assignSplit'),
+        gloss: a.morphs.map((m) => m.gloss).join('-'),
+        choice: { analysis: a },
+        score: -1
+      })
+    )
     for (const l of project.lexemes) {
       if (l.languageId !== ctx.languageId) continue
       const defs = l.senses.map((se) => pickText(se.definition, glossLangs)).filter(Boolean)

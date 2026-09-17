@@ -56,6 +56,9 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     const tovar = p.lexemes.find((l) => l.lemma === 'tovar')!
     const dovar = p.sentences.flatMap((s) => s.tokens).find((t) => t.surface === 'dovar')!
     expect(dovar.analyses[dovar.chosen].lexemeId).toBe(tovar.id)
+    // 两个词连写再带格缀，没写分隔符也切得开
+    const compound = p.sentences.flatMap((s) => s.tokens).find((t) => t.surface === 'ilenkasoda')!
+    expect(compound.analyses[compound.chosen].morphs.map((m) => m.form)).toEqual(['ilen', 'kasoda'])
     expect(p.paradigms.some((x) => x.appliesToAll)).toBe(true)
     // 复合词类与义项的词类、一个义项几个语域、基础变体改名、检视器模块
     const kara = p.lexemes.find((l) => l.lemma === 'kara')!

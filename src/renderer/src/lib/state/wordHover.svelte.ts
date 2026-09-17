@@ -1,4 +1,4 @@
-import type { Id, Project } from '$lib/core/model'
+import type { Analysis, Id, Project } from '$lib/core/model'
 
 /** 悬浮卡底部可以点开的组成部分：语料里已确认的切分、词源里的来源等 */
 export interface HoverPart {
@@ -10,10 +10,11 @@ export interface HoverPart {
   missing?: boolean
 }
 
-/** 挑中的词条或语素 */
+/** 挑中的词条或语素；或者一种切法（搜索框里输入的写法能切开时，整个换成这几段） */
 export interface HoverChoice {
   lexemeId?: Id | null
   morphemeId?: Id | null
+  analysis?: Analysis
 }
 
 /** 语料里悬浮时带上：没找到的整个词（index 为 null）或切分里的第 index 段可以手动指定 */
@@ -152,6 +153,11 @@ class WordHover {
     const m = this.missing
     if (!m || !this.assign) return
     this.assign.onAssign(m.index, c)
+    // 挑的是一种切法：列表里马上换成新的几段，卡片收起
+    if (c.analysis) {
+      this.hide(true)
+      return
+    }
     if (m.index !== null)
       this.parts = this.parts.map((p, i) =>
         i === m.index
