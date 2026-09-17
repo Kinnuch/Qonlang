@@ -1,5 +1,8 @@
 <script lang="ts">
   import RuleSyntax from '$lib/ui/RuleSyntax.svelte'
+  import appIconSvg from '../assets/brand/app-icon.svg?raw'
+  import wordmarkZh from '../assets/brand/wordmark-zh.svg?raw'
+  import wordmarkEn from '../assets/brand/wordmark-en.svg?raw'
   import DailyGallery from '$lib/ui/DailyGallery.svelte'
   import WordPopover from '$lib/ui/WordPopover.svelte'
   import GuideTour from '$lib/ui/GuideTour.svelte'
@@ -228,9 +231,11 @@
 <div class="welcome">
   <aside class="side">
     <div class="brand">
-      <div class="logo">千</div>
+      <div class="logo">{@html appIconSvg}</div>
       <div>
-        <h1>{t('app.name')}</h1>
+        <h1 class="wordmark" class:en={!i18n.locale.startsWith('zh')} aria-label={t('app.name')}>
+          {@html i18n.locale.startsWith('zh') ? wordmarkZh : wordmarkEn}
+        </h1>
         <p class="muted small">{t('app.tagline')}</p>
       </div>
     </div>
@@ -582,13 +587,26 @@
   .logo {
     width: 44px;
     height: 44px;
-    border-radius: 12px;
-    background: var(--accent);
-    color: #fff;
-    display: grid;
-    place-items: center;
-    font-size: 22px;
-    font-weight: 600;
+    flex: none;
+  }
+  .logo :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  /* 字标：中文按字高、英文连着 Q 的尾巴和 g 的下伸，高一些才一样大 */
+  .wordmark {
+    margin: 0 0 4px;
+    color: var(--text);
+    line-height: 0;
+  }
+  .wordmark :global(svg) {
+    display: block;
+    height: 19px;
+    width: auto;
+  }
+  .wordmark.en :global(svg) {
+    height: 27px;
   }
   .actions {
     display: flex;

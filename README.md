@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/lockup-full-white.svg" />
+    <img alt="Qonlang · 千语集" src="docs/brand/lockup-full-teal.svg" width="440" />
+  </picture>
+</p>
+
 # 千语集 · Qonlang
 
 给所有造语者的工作台：录入词汇与词根、制订音变规则、按音系自动标音、自动 gloss 例句、自定义文字与皮肤。

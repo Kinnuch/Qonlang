@@ -1,5 +1,6 @@
 <script lang="ts">
   import { hintTitles } from '$lib/ui/hintTitles'
+  import markSvg from '../assets/brand/mark.svg?raw'
   import type { Component } from 'svelte'
   import { ui, SECTIONS, type Section } from '$lib/state/ui.svelte'
   import { projectState } from '$lib/state/project.svelte'
@@ -238,7 +239,7 @@
   style:--inspector-w={`${inspectorW}px`}
 >
   <nav class="nav">
-    <button class="nav-logo" title={t('nav.home')} onclick={closeProject}>千</button>
+    <button class="nav-logo" title={t('nav.home')} onclick={closeProject}>{@html markSvg}</button>
     {#each SECTIONS.filter((s) => s !== 'settings' && s !== 'skin') as s (s)}
       {@const Icon = icons[s]}
       <button
@@ -511,9 +512,7 @@
     margin: 0 0 8px;
     display: grid;
     place-items: center;
-    font-weight: 600;
-    font-size: 18px;
-    color: var(--accent);
+    color: var(--brand-mark);
     border: 0;
     background: transparent;
     border-radius: var(--radius-sm);
@@ -521,6 +520,11 @@
   }
   .nav-logo:hover {
     background: var(--accent-soft);
+  }
+  .nav-logo :global(svg) {
+    display: block;
+    width: 26px;
+    height: auto;
   }
   .nav-btn {
     display: flex;

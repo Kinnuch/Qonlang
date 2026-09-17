@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import lockupSvg from '../assets/brand/lockup-full.svg?raw'
   import { platform, type AppInfo } from '$lib/platform'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
@@ -412,6 +413,7 @@
 
   <section class="about" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
     <h3>{t('settings.about')}</h3>
+    <div class="lockup" aria-label={t('app.name')}>{@html lockupSvg}</div>
     <p>{t('app.name')} · {t('settings.version')} {info?.version ?? ''} · {t('settings.license')}</p>
     {#if info?.userDataPath}
       <p class="small muted">{t('settings.userData')}: {info.userDataPath}</p>
@@ -441,5 +443,15 @@
   .check {
     gap: 8px;
     margin-bottom: 12px;
+  }
+  /* 关于：整套标志（图标 + Qonlang + 千语集） */
+  .lockup {
+    margin: 6px 0 12px;
+    color: var(--brand-mark);
+    line-height: 0;
+  }
+  .lockup :global(svg) {
+    height: 30px;
+    width: auto;
   }
 </style>

@@ -35,12 +35,15 @@
   --nav-w: 72px;
   --topbar-h: 44px;
   --inspector-w: 360px;
+  /* 标志（Q 字形与字标）的颜色：品牌色值见 docs/brand/README.md */
+  --brand-mark: #0e9f8a;
   color-scheme: light;
 }
 
 /* 深色：强调色比浅色压暗、降饱和——近黑的底上亮青绿太扎眼，主按钮上的白字也看不清（原来 2.3:1，现在 4.5:1）；
    弱文字提亮一点，面板上的小字够 4.5:1 */
 [data-theme='dark'] {
+  --brand-mark: #ffde80;
   --bg: #161715;
   --bg-elev: #1e1f1c;
   --bg-sunken: #111210;
