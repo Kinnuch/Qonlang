@@ -39,6 +39,7 @@
   import iconKikomas from '../assets/friends/kikomas.png'
   import iconCathamos from '../assets/friends/cathamos.png'
   import iconScarps from '../assets/credits/scarps.png'
+  import logoArt from '../assets/brand/app-icon.svg'
 
   const WIKI_URL = 'https://wiki.gilatod.art'
   const DEV = {
@@ -67,10 +68,12 @@
   ]
   /** 致谢：名字原样写，不跟着界面语言翻译 */
   const CREDITS: {
-    role: 'pixelArt' | 'sponsors' | 'testing' | 'other'
-    names: { name: string; icon?: string }[]
+    role: 'logoDesign' | 'pixelArt' | 'sponsors' | 'testing' | 'other'
+    /** art：作品图怎么放——像素画按整数倍放大，logo 是矢量图 */
+    names: { name: string; icon?: string; art?: 'pixel' | 'logo' }[]
   }[] = [
-    { role: 'pixelArt', names: [{ name: 'scarps', icon: iconScarps }] },
+    { role: 'logoDesign', names: [{ name: 'Kikomas', icon: logoArt, art: 'logo' }] },
+    { role: 'pixelArt', names: [{ name: 'scarps', icon: iconScarps, art: 'pixel' }] },
     { role: 'sponsors', names: [{ name: 'Kikomas' }, { name: 'Cathamos' }] },
     {
       role: 'testing',
@@ -488,9 +491,12 @@
                 <div class="names">
                   {#each c.names as n (n.name)}
                     <span class="credit-name"
-                      >{#if n.icon}<img class="pixel" src={n.icon} alt={n.name} />{/if}<strong
-                        >{n.name}</strong
-                      ></span
+                      >{#if n.icon}<img
+                          class:pixel={n.art === 'pixel'}
+                          class:logo-art={n.art === 'logo'}
+                          src={n.icon}
+                          alt={n.name}
+                        />{/if}<strong>{n.name}</strong></span
                     >
                   {/each}
                 </div>
@@ -544,6 +550,11 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
+  }
+  /* 千语集的 logo（矢量图） */
+  .logo-art {
+    width: 64px;
+    height: 64px;
   }
   /* 像素画按整数倍放大，不要糊 */
   .pixel {

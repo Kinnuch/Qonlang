@@ -113,6 +113,7 @@ const en: Dict = {
     syntax: 'Rule syntax',
     credits: 'Credits',
     creditRoles: {
+      logoDesign: 'Logo design',
       pixelArt: 'Pixel art',
       sponsors: 'Sponsors',
       testing: 'Testing & feedback',

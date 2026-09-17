@@ -105,6 +105,7 @@ export default {
     syntax: '规则语法',
     credits: '致谢',
     creditRoles: {
+      logoDesign: 'logo 设计',
       pixelArt: '像素画创作',
       sponsors: '赞助',
       testing: '测试和意见反馈',
