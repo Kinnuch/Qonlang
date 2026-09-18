@@ -1748,7 +1748,6 @@ const en: Dict = {
       summary: 'based on “{name}”'
     },
     pron: {
-      toggle: 'Affects pronunciation',
       hint: 'With “Pipeline + affects pronunciation”, this slot also gets a pipeline that changes the pronunciation (orthography-based IPA); the result is stored on the form',
       label: 'Pron.',
       startHint:
