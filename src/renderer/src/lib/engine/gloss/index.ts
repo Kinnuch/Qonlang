@@ -751,9 +751,6 @@ function splitAt(idx: GlossIndex, surface: string, seps: string[], hint?: string
  * 确认过的 → 词里写了边界就按边界切 → 通用切分（整词、词缀、复合、构形推出的形式、词首音变、去附加符都在里面按代价排）。
  * hint：本句译文切好的片段，几种切法里词条释义对得上译文的排前面。
  */
-/** 一个词最多给多少条候选：同形词加上各义项、各种切分，十来条就够挑了 */
-const MAX_CANDIDATES = 16
-
 export function analyzeToken(
   idx: GlossIndex,
   surface: string,
@@ -808,7 +805,9 @@ export function analyzeToken(
         if (out.length) break
       }
   }
-  return out.slice(0, MAX_CANDIDATES)
+  // 不再截断：义项是用户自己写的，几个就该给几个（截断过，Cathine 的 leka 第三个义项就没了）。
+  // 会爆的是切分候选，那边本来就有上限（segmentWord 的 limit 12 与 BEAM）
+  return out
 }
 
 /**
