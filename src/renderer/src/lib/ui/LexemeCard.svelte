@@ -1,6 +1,13 @@
 <script lang="ts">
   /** 显示模式下的词条卡：只读、简约，把录入模式记录的信息排版出来 */
-  import type { CustomFieldPosition, Id, Lexeme, Project, Sense } from '$lib/core/model'
+  import type {
+    CustomFieldPosition,
+    Id,
+    Lexeme,
+    PartOfSpeech,
+    Project,
+    Sense
+  } from '$lib/core/model'
   import type { FormsLayout } from '$lib/platform/types'
   import { ChevronDown, ChevronRight, List, ListTree, Table } from '@lucide/svelte'
   import { lexemeSlotGroups, paradigmDims, type LexemeSlot } from '$lib/engine/morph'
@@ -25,12 +32,15 @@
     lexeme,
     project,
     onselect,
+    onpicksense,
     highlight = '',
     controls = false
   }: {
     lexeme: Lexeme
     project: Project
     onselect?: (id: Id) => void
+    /** 给了就让义项能点：语料里点一个义项，就把这个词（或这一段）换成这个义项 */
+    onpicksense?: (index: number) => void
     /** 皮肤页预览：描边标出正在调的那一块（header 或 cardBlocks 里的键） */
     highlight?: string
     /** 词库的显示模式：屈折形那一块能收起、能换成表格或树形图（预览、悬浮卡里不给） */
@@ -220,29 +230,50 @@
   {#snippet blockSenses()}
     {@render customBlocks('beforeSenses')}
 
+    {#snippet senseBody(s: Sense, firstLang: string | undefined, sp: PartOfSpeech | undefined)}
+      {#each glossLangs as g (g)}
+        {#if s.definition[g]}<p class="def" lang={g}>
+            {#if g === firstLang}{#if sp}<span class="spos" title={pickText(sp.name, glossLangs)}
+                  >{posText(sp, glossLangs)}</span
+                >{/if}{#each regsOf(s) as r (r)}<span class="reg" title={r}>{regLabel(r)}</span
+                >{/each}{/if}{s.definition[g]}
+          </p>{/if}
+      {/each}
+      {#if !firstLang && (regsOf(s).length || sp)}
+        <p class="def">
+          {#if sp}<span class="spos">{posText(sp, glossLangs)}</span
+            >{/if}{#each regsOf(s) as r (r)}<span class="reg" title={r}>{regLabel(r)}</span>{/each}
+        </p>
+      {/if}
+      {#if s.tags.length}
+        <p class="tiny muted tags">{s.tags.join(' · ')}</p>
+      {/if}
+    {/snippet}
+
     <ol class="senses">
-      {#each l.senses as s (s.id)}
+      {#each l.senses as s, si (s.id)}
         {@const firstLang = glossLangs.find((g) => s.definition[g])}
         {@const sp = sensePos(project, l, s)}
         <li>
-          {#each glossLangs as g (g)}
-            {#if s.definition[g]}<p class="def" lang={g}>
-                {#if g === firstLang}{#if sp}<span
-                      class="spos"
-                      title={pickText(sp.name, glossLangs)}>{posText(sp, glossLangs)}</span
-                    >{/if}{#each regsOf(s) as r (r)}<span class="reg" title={r}>{regLabel(r)}</span
-                    >{/each}{/if}{s.definition[g]}
-              </p>{/if}
-          {/each}
-          {#if !firstLang && (regsOf(s).length || sp)}
-            <p class="def">
-              {#if sp}<span class="spos">{posText(sp, glossLangs)}</span
-                >{/if}{#each regsOf(s) as r (r)}<span class="reg" title={r}>{regLabel(r)}</span
-                >{/each}
-            </p>
-          {/if}
-          {#if s.tags.length}
-            <p class="tiny muted tags">{s.tags.join(' · ')}</p>
+          {#if onpicksense}
+            <!-- 语料里悬浮时：点一个义项就把这个词（或正看着的那一段）换成它 -->
+            <div
+              class="pick"
+              role="button"
+              tabindex="0"
+              title={t('corpus.pickSense')}
+              onclick={() => onpicksense(si)}
+              onkeydown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onpicksense(si)
+                }
+              }}
+            >
+              {@render senseBody(s, firstLang, sp)}
+            </div>
+          {:else}
+            {@render senseBody(s, firstLang, sp)}
           {/if}
         </li>
       {/each}
@@ -530,6 +561,15 @@
   .chip.tag {
     border: 1px solid var(--border);
     background: transparent;
+  }
+  .pick {
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    padding: 2px 4px;
+    margin: -2px -4px;
+  }
+  .pick:hover {
+    background: var(--bg-hover);
   }
   .senses {
     margin: 0;

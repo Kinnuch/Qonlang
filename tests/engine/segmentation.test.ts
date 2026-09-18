@@ -65,7 +65,24 @@ describe('通用切分', () => {
     lex(p, lid, 'nae', '本')
     const idx = buildIndex(p, lid)
     const list = analyzeToken(idx, 'nae', p.settings.morphemeBoundaries)
-    expect(list.map((a) => a.morphs[0].gloss)).toEqual(['种子', '本', '生成物', '人民'])
+    // 义项紧挨着它自己那个词条排（排在最后的话，切分候选一多就会被条数上限挤掉）
+    expect(list.map((a) => a.morphs[0].gloss)).toEqual(['种子', '生成物', '人民', '本'])
+  })
+
+  it('切分候选很多时，义项也不会被挤掉', () => {
+    const { p, lid } = setup()
+    // 整词一条，外加一堆能拼出这个词的语素组合
+    const l = createLexeme(lid, 'leka')
+    l.senses[0].definition = { zh: '垂竖' }
+    l.senses.push({ ...l.senses[0], id: newId(), definition: { zh: '地下' } })
+    l.senses.push({ ...l.senses[0], id: newId(), definition: { zh: '坏了的钟楼表' } })
+    p.lexemes.push(l)
+    for (const g of ['光', '枝条']) lex(p, lid, 'le', g)
+    for (const g of ['三', '十', '舞蹈', '三星', '站立']) lex(p, lid, 'ka', g)
+    const idx = buildIndex(p, lid)
+    const list = analyzeToken(idx, 'leka', p.settings.morphemeBoundaries)
+    const whole = list.filter((a) => a.morphs.length === 1).map((a) => a.morphs[0].gloss)
+    expect(whole).toContain('坏了的钟楼表')
   })
 
   it('附着词单独成词也给 gloss（悬浮认得出，下拉里也得有）', () => {

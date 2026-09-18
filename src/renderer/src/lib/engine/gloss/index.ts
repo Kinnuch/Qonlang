@@ -751,6 +751,9 @@ function splitAt(idx: GlossIndex, surface: string, seps: string[], hint?: string
  * 确认过的 → 词里写了边界就按边界切 → 通用切分（整词、词缀、复合、构形推出的形式、词首音变、去附加符都在里面按代价排）。
  * hint：本句译文切好的片段，几种切法里词条释义对得上译文的排前面。
  */
+/** 一个词最多给多少条候选：同形词加上各义项、各种切分，十来条就够挑了 */
+const MAX_CANDIDATES = 16
+
 export function analyzeToken(
   idx: GlossIndex,
   surface: string,
@@ -775,18 +778,27 @@ export function analyzeToken(
   const plain = norm(surface)
   for (const seg of segmentWord(idx.source, plain, { requireStem: true, hint }))
     add(toAnalysis(seg))
-  // 一个词条几个义项：整词对上它时每个义项各给一条候选，语料里挑得出是哪个意思
-  for (const a of [...out]) {
+  // 一个词条几个义项：整词对上它时每个义项各给一条候选，语料里挑得出是哪个意思。
+  // 紧挨着它自己那条排——排在最后的话，切分候选一多就会被条数上限挤掉（Cathine 的 leka 第三个义项）
+  const withSenses: Analysis[] = []
+  for (const a of out) {
+    withSenses.push(a)
     if (a.morphs.length !== 1 || !a.lexemeId) continue
     const l = idx.lexemeById.get(a.lexemeId)
     if (!l || l.senses.length < 2) continue
     const base = a.morphs[0]
-    for (let i = 1; i < l.senses.length; i++) {
+    for (let i = 0; i < l.senses.length; i++) {
       const g = senseGloss(l, i, idx.glossLangs)
       if (!g || g === base.gloss) continue
-      add({ ...a, morphs: [{ ...base, gloss: g }] })
+      const cand = { ...a, morphs: [{ ...base, gloss: g }] }
+      const k = key(cand)
+      if (seen.has(k)) continue
+      seen.add(k)
+      withSenses.push(cand)
     }
   }
+  out.length = 0
+  out.push(...withSenses)
   // 语料里也写了几个异写（`Degnes/Degnant`）：整串认不出时逐个异写去认
   if (!out.length) {
     const alts = variants(surface)
@@ -796,7 +808,7 @@ export function analyzeToken(
         if (out.length) break
       }
   }
-  return out.slice(0, 12)
+  return out.slice(0, MAX_CANDIDATES)
 }
 
 /**

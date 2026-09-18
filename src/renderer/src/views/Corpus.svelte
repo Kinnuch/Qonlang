@@ -42,7 +42,8 @@
     coverage,
     glossIndexFor,
     LEIPZIG,
-    lexemeGloss
+    lexemeGloss,
+    senseGloss
   } from '$lib/engine/gloss'
   import { matchCase, replaceWordAt, wordAt, wordRangeOfToken } from '$lib/engine/gloss/rewrite'
   import type { TokenizeOptions } from '$lib/engine/gloss/tokens'
@@ -503,7 +504,8 @@
     const m = c.morphemeId ? project.morphemes.find((x) => x.id === c.morphemeId) : undefined
     if (!l && !m) return false
     const gloss = l
-      ? lexemeGloss(l, glossLangs)
+      ? (c.senseIndex != null ? senseGloss(l, c.senseIndex, glossLangs) : '') ||
+        lexemeGloss(l, glossLangs)
       : m!.gloss || Object.values(m!.meaning).find(Boolean) || m!.form
     const cur = tk.analyses[tk.chosen]
     if (index === null || !cur?.morphs[index]) {

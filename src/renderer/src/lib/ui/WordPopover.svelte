@@ -373,7 +373,11 @@
           {/if}
         </div>
       {:else if lexeme}
-        <LexemeCard {lexeme} project={project!} />
+        <LexemeCard
+          {lexeme}
+          project={project!}
+          onpicksense={wordHover.assign ? (i) => wordHover.chooseSense(i) : undefined}
+        />
       {:else if morpheme}
         <div class="mor">
           <div class="row">

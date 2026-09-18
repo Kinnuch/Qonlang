@@ -15,6 +15,8 @@ export interface HoverChoice {
   lexemeId?: Id | null
   morphemeId?: Id | null
   analysis?: Analysis
+  /** 挑的是这个词条的第几个义项；不写就用第一个义项 */
+  senseIndex?: number | null
 }
 
 /** 语料里悬浮时带上：没找到的整个词（index 为 null）或切分里的第 index 段可以手动指定 */
@@ -170,6 +172,17 @@ class WordHover {
           : p
       )
     this.swap(c)
+  }
+  /**
+   * 卡片里点了某个义项：把这个词换成这个义项的意思。
+   * 卡片正显示切分里的某一段时只改那一段——一个词由几个语素组成时，也挑得出某一段是哪个义项。
+   */
+  chooseSense(senseIndex: number): void {
+    const lexemeId = this.lexemeId
+    if (!this.assign || !lexemeId) return
+    const i = this.parts.findIndex((p) => !!p.lexemeId && p.lexemeId === lexemeId)
+    this.assign.onAssign(i >= 0 ? i : null, { lexemeId, senseIndex })
+    this.pinned = true
   }
   /** 卡片上点了铅笔：换成搜索框挑正确的词；index 为 null 是整个词，否则是切分里的第几段 */
   startEdit(index: number | null, label: string): void {

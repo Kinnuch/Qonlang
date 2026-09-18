@@ -1941,6 +1941,7 @@ const en: Dict = {
     editWord: 'Fix',
     editWordTitle: 'Wrong match? Change it to another lexeme or morpheme',
     editWordHead: 'Which word is “{w}”?',
+    pickSense: 'Click to give this word (or the piece currently shown) this sense',
     editWordHint: 'Search by spelling or meaning; click one to use it and confirm.',
     rewriteText: 'Also rewrite the word in the sentence',
     rewriteTextTitle:

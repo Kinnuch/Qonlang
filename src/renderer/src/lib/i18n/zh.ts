@@ -1868,6 +1868,7 @@ export default {
     editWord: '改',
     editWordTitle: '认错了？改成别的词或语素',
     editWordHead: '「{w}」应该是哪个词？',
+    pickSense: '点一下把这个词（或切分里正看着的那一段）换成这个义项',
     editWordHint: '搜写法或意思，点一下就换成它并确认。',
     rewriteText: '同时改语料原文',
     rewriteTextTitle: '把例句原文里的这一处换成挑中词条的写法，同一句里别处的同一个词不动',
