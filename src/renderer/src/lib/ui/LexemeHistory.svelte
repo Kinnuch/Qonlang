@@ -33,8 +33,18 @@
     editing = marker
     draft = form
   }
-  /** 存成词源的中间态：跟推出来的一样就不记，空着就把原来记的去掉 */
+  /** Esc 取消：失焦时别再存一遍 */
+  let cancelled = false
+  /**
+   * 存成词源的中间态：跟推出来的一样就不记，空着就把原来记的去掉。
+   * 回车走的也是失焦这一条路——存完链就重算了，再存一次「新值 = 推导值」反而会把刚存的删掉
+   */
   function commit(marker: string, derived: string): void {
+    if (cancelled) {
+      cancelled = false
+      editing = null
+      return
+    }
     const value = draft.trim()
     const stages = lexeme.etymology.stages
     const at = stages.findIndex((s) => s.stage === marker)
@@ -86,8 +96,11 @@
               bind:value={draft}
               onblur={() => commit(s.marker, s.form)}
               onkeydown={(e) => {
-                if (e.key === 'Enter') commit(s.marker, s.form)
-                else if (e.key === 'Escape') editing = null
+                if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur()
+                else if (e.key === 'Escape') {
+                  cancelled = true
+                  ;(e.currentTarget as HTMLInputElement).blur()
+                }
               }}
             />
           {:else}

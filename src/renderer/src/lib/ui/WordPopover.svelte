@@ -363,6 +363,13 @@
                 <p class="small muted">{t('corpus.assignNone')}</p>
               {/each}
             </div>
+            <!-- 整个词才好换：切分里的一段换了写法，整句的词就对不上了 -->
+            {#if miss.index === null}
+              <label class="rewrite small" title={t('corpus.rewriteTextTitle')}>
+                <input type="checkbox" bind:checked={wordHover.rewriteText} />
+                {t('corpus.rewriteText')}
+              </label>
+            {/if}
           {/if}
         </div>
       {:else if lexeme}
@@ -585,6 +592,13 @@
   }
   .assign-item:hover {
     border-color: var(--accent);
+  }
+  .rewrite {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    color: var(--text-2);
   }
   .ellipsis {
     min-width: 0;

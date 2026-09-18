@@ -6,6 +6,7 @@
   import type { Id } from '$lib/core/model'
   import { stageShort, type TreeItem } from '$lib/core/languageTree'
   import { t } from '$lib/i18n/index.svelte'
+  import { sectionCollapsed, toggleSection } from '$lib/ui/section.svelte'
   import { ZoomIn, ZoomOut, Maximize2 } from '@lucide/svelte'
 
   let {
@@ -51,6 +52,8 @@
     depth: number
     x: number
     y: number
+    /** 这个节点底下收起来了：底下有几个节点没画 */
+    hidden: number
   }
 
   const nodeKey = (kind: 'group' | 'language', id: Id): string =>
@@ -67,7 +70,21 @@
     const nextX: number[] = []
     const rightHalf = (n: GNode): number => NW / 2 + stagesWidth(n.stages)
     const walk = (item: TreeItem, depth: number): { node: GNode; all: GNode[] } => {
-      const kids = item.children.filter((c) => !visible || visible.has(itemId(c)))
+      const shown = item.children.filter((c) => !visible || visible.has(itemId(c)))
+      const key0 = nodeKey(item.kind, itemId(item))
+      // 右键收起来的节点：底下不画，牌子上写还有几个
+      const off = sectionCollapsed(`langNode:${key0}`)
+      const kids = off ? [] : shown
+      let hidden = 0
+      if (off) {
+        const count = (list: TreeItem[]): void => {
+          for (const x of list) {
+            hidden++
+            count(x.children)
+          }
+        }
+        count(shown)
+      }
       const parts = kids.map((k) => walk(k, depth + 1))
       const all: GNode[] = []
       for (const p of parts) all.push(...p.all)
@@ -84,7 +101,8 @@
               stages: [],
               depth,
               x: 0,
-              y: depth * (NH + VGAP)
+              y: depth * (NH + VGAP),
+              hidden
             }
           : {
               key: nodeKey('language', item.language.id),
@@ -97,7 +115,8 @@
               stages: (item.language.stages ?? []).map(stageShort).filter(Boolean),
               depth,
               x: 0,
-              y: depth * (NH + VGAP)
+              y: depth * (NH + VGAP),
+              hidden
             }
       const kidNodes = parts.map((p) => p.node)
       const minLeft = nextX[depth] ?? 0
@@ -222,6 +241,10 @@
               tabindex="0"
               onclick={(e) => onselect(n.id, n.kind, e.ctrlKey || e.metaKey)}
               onkeydown={(e) => e.key === 'Enter' && onselect(n.id, n.kind, false)}
+              oncontextmenu={(e) => {
+                e.preventDefault()
+                toggleSection(`langNode:${n.key}`)
+              }}
             >
               <rect class="box" x={-NW / 2} y={-NH / 2} width={NW} height={NH} rx="9" />
               {#if n.kind === 'language'}
@@ -235,6 +258,12 @@
                   ? n.level + (n.abbr ? ' · ' + n.abbr : '')
                   : n.abbr || (defaultId === n.id ? t('languages.isDefault') : '')}</text
               >
+              {#if n.hidden}
+                <g class="more" aria-hidden="true">
+                  <rect x={-14} y={NH / 2 - 2} width="28" height="16" rx="8" />
+                  <text class="mtext" x="0" y={NH / 2 + 10}>+{n.hidden}</text>
+                </g>
+              {/if}
               {#each n.stages as s, i (i)}
                 {@const sx =
                   NW / 2 + 10 + n.stages.slice(0, i).reduce((w, p) => w + 16 + p.length * 8, 0)}
@@ -306,6 +335,16 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     padding: 2px;
+  }
+  /* 右键收起来的节点：下面挂一个「+n」的小牌子 */
+  .more rect {
+    fill: var(--bg-sunken);
+    stroke: var(--border-strong);
+  }
+  .mtext {
+    fill: var(--text-2);
+    font-size: 11px;
+    text-anchor: middle;
   }
   .ghint {
     position: absolute;

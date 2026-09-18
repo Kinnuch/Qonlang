@@ -27,6 +27,12 @@ export interface QueryTerm {
   /** 这个条件的原文 */
   raw: string
   test: (value: string) => boolean
+  /** 按文字找时搜的那段字；高亮命中处要用 */
+  needle?: string
+  /** 整段完全相等（== 写法） */
+  exact?: boolean
+  /** 按正则找时的正则；高亮命中处要用 */
+  regex?: RegExp
 }
 
 export interface ParsedQuery {
@@ -35,7 +41,7 @@ export interface ParsedQuery {
   errors: string[]
 }
 
-const fold = (s: string): string =>
+export const foldMarks = (s: string): string =>
   s
     .normalize('NFD')
     .replace(/\p{M}+/gu, '')
@@ -44,13 +50,13 @@ const fold = (s: string): string =>
 function textTest(needle: string, exact: boolean): (value: string) => boolean {
   const n = needle.normalize('NFC').toLowerCase()
   // 搜的词里没写附加符：被搜的文字也去掉附加符再比（kam 能搜到 kâm）
-  const loose = fold(n) === n
+  const loose = foldMarks(n) === n
   return (value) => {
     // 纯 ASCII 的文字没有附加符可去，省掉规范化（每敲一个字要比几万次）
     const ascii = isAscii(value)
     const v = ascii ? value.toLowerCase() : value.normalize('NFC').toLowerCase()
-    if (exact) return v === n || (loose && !ascii && fold(v) === n)
-    return v.includes(n) || (loose && !ascii && fold(v).includes(n))
+    if (exact) return v === n || (loose && !ascii && foldMarks(v) === n)
+    return v.includes(n) || (loose && !ascii && foldMarks(v).includes(n))
   }
 }
 
@@ -128,16 +134,23 @@ export function parseQuery(input: string, fields: SearchField[] = []): ParsedQue
       }
       if (rx) {
         const r = rx
-        terms.push({ field, raw, test: (v) => r.test(v) })
+        terms.push({ field, raw, test: (v) => r.test(v), regex: r })
       } else {
         errors.push(raw)
-        terms.push({ field, raw, test: textTest(re.source, exact) })
+        terms.push({ field, raw, test: textTest(re.source, exact), needle: re.source, exact })
       }
       i = re.end
       continue
     }
     const v = readValue(s, i)
-    if (v.text) terms.push({ field, raw: s.slice(start, v.end), test: textTest(v.text, exact) })
+    if (v.text)
+      terms.push({
+        field,
+        raw: s.slice(start, v.end),
+        test: textTest(v.text, exact),
+        needle: v.text,
+        exact
+      })
     i = Math.max(v.end, i + 1)
   }
   return { terms, errors }

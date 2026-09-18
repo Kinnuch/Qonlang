@@ -151,6 +151,9 @@ const en: Dict = {
     lineage: 'Lineage',
     addGroup: 'Add group',
     untitledGroup: 'Untitled group',
+    collapseGroup: 'Collapse this group',
+    expandGroup: 'Expand this group',
+    groupInside: '{n} languages',
     groupLevels: { family: 'Family', branch: 'Branch', subbranch: 'Sub-branch' },
     groupLevel: 'Level',
     group: 'Group',
@@ -185,7 +188,7 @@ const en: Dict = {
     dropRoot: 'Move to the top level',
     graph: {
       empty: 'Nothing to draw yet.',
-      hint: 'Wheel to zoom, drag the background to pan; Ctrl-click a language to compare',
+      hint: 'Wheel to zoom, drag the background to pan; Ctrl-click a language to compare; right-click a node to collapse or expand what is under it',
       zoomIn: 'Zoom in',
       zoomOut: 'Zoom out',
       fit: 'Fit to window'
@@ -1939,6 +1942,9 @@ const en: Dict = {
     editWordTitle: 'Wrong match? Change it to another lexeme or morpheme',
     editWordHead: 'Which word is “{w}”?',
     editWordHint: 'Search by spelling or meaning; click one to use it and confirm.',
+    rewriteText: 'Also rewrite the word in the sentence',
+    rewriteTextTitle:
+      'Replace this one occurrence in the sentence text with the chosen entry’s spelling; the same word elsewhere in the sentence stays as it is',
     noneOfThese: 'None of these — search',
     partMissing: 'This part was not found — click to assign it',
     title: 'Corpus',
@@ -2172,8 +2178,13 @@ const en: Dict = {
     showHelpDots: 'Show the “?” usage hints next to panels',
     guideTourAlways:
       'Show the guided tour every time “Guide” is clicked (otherwise once per module)',
+    showHistory: 'Show the history row on entry cards',
+    showHistoryHint:
+      'When the etymology can be run through the sound changes down to this entry, the card lists the form at every stage; turn it off to hide that block.',
     showDerivedMark: 'Mark paradigm-derived forms with a gear ⚙ on the entry card',
     examplesPerEntry: 'Examples shown under an entry',
+    examplesShowScript:
+      'Examples under an entry also show the script line and where they come from (like the corpus page)',
     updateCheckMinutes: 'Check for new versions every … minutes',
     checkNow: 'Check for updates now',
     latestVersion: 'latest version {v}',

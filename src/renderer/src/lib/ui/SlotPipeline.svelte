@@ -18,6 +18,8 @@
     name: string
     slots: { key: string; label: string }[]
     variants: { id: Id; name: string }[]
+    /** 这个构形里没挑变体的那一套叫什么（用户改过就用改的，默认「通用」） */
+    baseName: string
   }
 
   let {
@@ -295,7 +297,7 @@
                 onchange()
               }}
             >
-              <option value="">{t('paradigms.variantBase')}</option>
+              <option value="">{chosen.baseName || t('paradigms.variantBase')}</option>
               {#each chosen.variants as v (v.id)}<option value={v.id}>{v.name}</option>{/each}
             </select>
           {/if}

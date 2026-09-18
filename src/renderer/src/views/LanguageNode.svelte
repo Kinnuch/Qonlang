@@ -6,7 +6,8 @@
   import type { TreeDragProps } from '$lib/ui/treeDrag.svelte'
   import { t } from '$lib/i18n/index.svelte'
   import LanguageNode from './LanguageNode.svelte'
-  import { Plus, Network, GitCompare } from '@lucide/svelte'
+  import { sectionCollapsed, toggleSection } from '$lib/ui/section.svelte'
+  import { Plus, Network, GitCompare, ChevronDown, ChevronRight } from '@lucide/svelte'
 
   let {
     item,
@@ -45,9 +46,24 @@
       (c) => !visible || visible.has(c.kind === 'group' ? c.group.id : c.language.id)
     )
   )
+  /** 分类节点收起 / 展开（记在本机） */
+  const foldId = $derived(`langGroup:${id}`)
+  const folded = $derived(item.kind === 'group' && sectionCollapsed(foldId))
+  /** 收起时写有几门语言（含各级下面的） */
+  const inside = $derived.by(() => {
+    let n = 0
+    const walk = (list: TreeItem[]): void => {
+      for (const x of list) {
+        if (x.kind === 'language') n++
+        walk(x.children)
+      }
+    }
+    walk(item.children)
+    return n
+  })
 </script>
 
-<div class="node" style:--depth={depth}>
+<div class="node" class:boxed={item.kind === 'group'} style:--depth={depth}>
   <div
     class="card lang"
     class:group={item.kind === 'group'}
@@ -62,10 +78,23 @@
   >
     {#if item.kind === 'group'}
       {@const g = item.group}
+      <button
+        class="fold"
+        title={folded ? t('languages.expandGroup') : t('languages.collapseGroup')}
+        aria-expanded={!folded}
+        onclick={(e) => {
+          e.stopPropagation()
+          toggleSection(foldId)
+        }}
+        >{#if folded}<ChevronRight size={14} />{:else}<ChevronDown size={14} />{/if}</button
+      >
       <span class="gicon"><Network size={15} /></span>
       <span class="badge level">{t(`languages.groupLevels.${g.level}`)}</span>
       <span class="name">{g.name || t('languages.untitledGroup')}</span>
       {#if g.abbr}<span class="badge">{g.abbr}</span>{/if}
+      {#if folded && inside}<span class="small muted"
+          >{t('languages.groupInside', { n: inside })}</span
+        >{/if}
     {:else}
       {@const l = item.language}
       <span class="dot" style:background={l.color}></span>
@@ -101,7 +130,7 @@
       }}><Plus size={14} /></button
     >
   </div>
-  {#if kids.length}
+  {#if kids.length && !folded}
     <div class="kids" class:in-group={item.kind === 'group'}>
       {#each kids as k (k.kind === 'group' ? 'g:' + k.group.id : k.language.id)}
         <LanguageNode
@@ -127,6 +156,24 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+  /* 分类节点：整块包起来，里面的语言、下一级节点都在这个框里 */
+  .node.boxed {
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius);
+    padding: 6px;
+    background: color-mix(in srgb, var(--bg-sunken) 55%, transparent);
+  }
+  .fold {
+    display: inline-flex;
+    border: 0;
+    background: none;
+    padding: 0;
+    color: var(--text-3);
+    cursor: pointer;
+  }
+  .fold:hover {
+    color: var(--text);
   }
   .lang {
     display: flex;
@@ -241,7 +288,10 @@
     flex-direction: column;
     gap: 6px;
   }
+  /* 语系、语支只是分类节点：里面的东西跟标题这一行对齐，层级靠外面那个框看 */
   .kids.in-group {
-    border-left-style: dashed;
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
   }
 </style>

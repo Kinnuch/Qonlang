@@ -278,6 +278,22 @@
           />
           {t('settings.showDerivedMark')}
         </label>
+        <label class="row check">
+          <input
+            type="checkbox"
+            bind:checked={ui.prefs.showHistory}
+            onchange={() => ui.savePrefs()}
+          />
+          {t('settings.showHistory')}<HelpDot tip={t('settings.showHistoryHint')} />
+        </label>
+        <label class="row check">
+          <input
+            type="checkbox"
+            bind:checked={ui.prefs.examplesShowScript}
+            onchange={() => ui.savePrefs()}
+          />
+          {t('settings.examplesShowScript')}
+        </label>
       </div>
     </section>
   </div>

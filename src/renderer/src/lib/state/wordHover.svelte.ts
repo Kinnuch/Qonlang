@@ -68,6 +68,11 @@ class WordHover {
   missing = $state<{ label: string; index: number | null; edit?: boolean } | null>(null)
   /** 能不能手动指定（语料里悬浮才带） */
   assign = $state<HoverAssign | null>(null)
+  /**
+   * 改成别的词时顺带把语料原文里的这个词也换成新词条的写法。
+   * 记在这里：这一次运行里一直记着，不写进项目（卡片收起也不清）。
+   */
+  rewriteText = $state(false)
   private onPick: ((c: HoverChoice) => void) | null = null
   private showTimer: ReturnType<typeof setTimeout> | null = null
   private hideTimer: ReturnType<typeof setTimeout> | null = null

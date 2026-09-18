@@ -316,7 +316,9 @@
   {/snippet}
 
   {#snippet blockHistory()}
-    <LexemeHistory lexeme={l} {project} {controls} />
+    {#if ui.prefs.showHistory !== false}
+      <LexemeHistory lexeme={l} {project} {controls} />
+    {/if}
   {/snippet}
 
   {#snippet blockForms()}

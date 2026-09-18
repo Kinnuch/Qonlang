@@ -320,6 +320,12 @@ kbd {
     box-shadow: 0 0 0 0 transparent;
   }
 }
+/* 顶栏搜出来的结果里，命中的那几个字 */
+::highlight(q-hit) {
+  background-color: color-mix(in srgb, var(--warn) 45%, transparent);
+  color: var(--text);
+}
+
 .flash-ok {
   animation: flash-ok 0.9s ease-out;
 }

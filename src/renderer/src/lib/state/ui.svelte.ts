@@ -311,6 +311,7 @@ class UiState {
     this.prefs.highlightDuplicates ??= true
     this.prefs.showHelpDots ??= true
     this.prefs.examplesPerEntry ??= 3
+    this.prefs.examplesShowScript ??= false
     this.prefs.showDerivedMark ??= true
     if (this.prefs.registerDisplay !== 'full') this.prefs.registerDisplay = 'short'
     if (!Array.isArray(this.prefs.cardOrder)) this.prefs.cardOrder = []

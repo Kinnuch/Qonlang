@@ -431,7 +431,8 @@
           key: s.key,
           label: s.label
         })),
-        variants: p.variants.map((v) => ({ id: v.id, name: v.name }))
+        variants: p.variants.map((v) => ({ id: v.id, name: v.name })),
+        baseName: p.baseVariantName?.trim() || t('paradigms.variantBase')
       }))
   )
   /** 一格的写法缩成一行：流水线每一步的词缀、跑哪套音变……（没有测试词时格子里就显示它） */
@@ -1135,18 +1136,35 @@
             {@const c = project.categories.find((x) => x.id === id)}
             <span
               class="chip on"
+              class:locked-dim={locked}
+              class:filtering={locked && dimFilter.includes(id)}
               {...sortable(`dims-${active.id}`, i, (from, to) => {
                 if (!active) return
                 const order = [...active.dimensionIds]
                 if (moveItem(order, from, to)) reorderDimensions(order)
               })}
             >
+              {#if locked}<Lock size={10} />{/if}
               <b>{i + 1}</b>
-              {c ? pickText(c.name, glossLangs) : '?'}
-              <button class="x" onclick={() => moveDimension(i, -1)}><ChevronUp size={11} /></button
+              <button
+                class="dim-name"
+                disabled={!locked}
+                title={locked ? t('paradigms.filterHint') : ''}
+                onclick={() => toggleFilter(id)}>{c ? pickText(c.name, glossLangs) : '?'}</button
               >
-              <button class="x" onclick={() => moveDimension(i, 1)}
-                ><ChevronDown size={11} /></button
+              <button
+                class="x"
+                onclick={(e) => {
+                  e.stopPropagation()
+                  moveDimension(i, -1)
+                }}><ChevronUp size={11} /></button
+              >
+              <button
+                class="x"
+                onclick={(e) => {
+                  e.stopPropagation()
+                  moveDimension(i, 1)
+                }}><ChevronDown size={11} /></button
               >
               {#if !locked}<button class="x" onclick={() => toggleDimension(id)}
                   ><X size={11} /></button
@@ -2096,6 +2114,33 @@
     border-color: var(--accent);
     background: var(--accent-soft);
     cursor: default;
+  }
+  /* 上锁之后：这几个维度锁着（有锁的小图标、底色更沉），点一下也能拿来筛选 */
+  .chip.locked-dim {
+    background: var(--bg-sunken);
+    border-color: var(--border-strong);
+    color: var(--text-2);
+    cursor: pointer;
+  }
+  .chip.locked-dim :global(svg) {
+    color: var(--text-3);
+  }
+  /* 圆框里的维度名：上锁之后点它筛选 */
+  .dim-name {
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  .dim-name:disabled {
+    cursor: default;
+  }
+  .chip.on.filtering {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-text);
   }
   .chip b {
     font-size: 11px;

@@ -46,6 +46,7 @@
   import { errorMessage } from '$lib/ui/errorText'
   import GuideTour from '$lib/ui/GuideTour.svelte'
   import SearchBar from '$lib/ui/SearchBar.svelte'
+  import { searchMark } from '$lib/ui/searchMark'
   import RuleSyntax from '$lib/ui/RuleSyntax.svelte'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
   import SentenceMergeDialog from '$lib/ui/SentenceMergeDialog.svelte'
@@ -239,6 +240,7 @@
   class:readonly={projectState.readOnly}
   class:dragging
   style:--inspector-w={`${inspectorW}px`}
+  use:searchMark={ui.search}
 >
   <nav class="nav">
     <button class="nav-logo" title={t('nav.home')} onclick={closeProject}>{@html markSvg}</button>

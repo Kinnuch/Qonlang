@@ -35,6 +35,17 @@ export function languageTree(project: Project): TreeItem[] {
     else if (parent) langItems.get(parent.id)!.children.push(item)
     else roots.push(item)
   }
+  // 一个分类节点下面：代表原始语排最前（语系与下一级语支之间），再是下一级节点，最后是别的语言
+  for (const g of groups) {
+    const item = groupItems.get(g.id)
+    if (!item) continue
+    const rank = (x: TreeItem): number =>
+      x.kind === 'language' && x.language.id === g.protoLanguageId ? 0 : x.kind === 'group' ? 1 : 2
+    item.children = item.children
+      .map((x, i) => ({ x, i }))
+      .sort((a, b) => rank(a.x) - rank(b.x) || a.i - b.i)
+      .map((e) => e.x)
+  }
   return roots
 }
 

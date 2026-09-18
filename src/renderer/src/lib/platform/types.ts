@@ -65,6 +65,8 @@ export interface Prefs {
   showHelpDots: boolean
   /** 词条下方默认显示的例句条数 */
   examplesPerEntry: number
+  /** 词条下方的例句也显示文字行与出处（像语料页那样） */
+  examplesShowScript: boolean
   /** 各类可拖动面板的尺寸记忆：键 → 像素 */
   panelSizes: Record<string, number>
   /** 自动检查新版本（启动后一次，之后按 updateCheckMinutes 的间隔一直查，默认 20 分钟） */
@@ -75,6 +77,8 @@ export interface Prefs {
   skippedVersion: string
   /** 词条卡里给构形推导出来的形式标一个齿轮 */
   showDerivedMark: boolean
+  /** 词条卡里显示历史形式那一块 */
+  showHistory: boolean
   /** 点「使用指南」时每次都先看图文引导（关着时每个模块只自动讲一次） */
   guideTourAlways: boolean
   /** 已经讲过图文引导的模块 */
@@ -141,8 +145,10 @@ export const DEFAULT_PREFS: Prefs = {
   highlightDuplicates: true,
   showHelpDots: true,
   examplesPerEntry: 3,
+  examplesShowScript: false,
   panelSizes: {},
   showDerivedMark: true,
+  showHistory: true,
   checkUpdates: true,
   updateCheckMinutes: 20,
   updateCheckV: 2,
