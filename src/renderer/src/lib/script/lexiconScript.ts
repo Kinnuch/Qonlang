@@ -100,7 +100,15 @@ function tokenScript(
   const single = a?.lexemeId ?? (a?.morphs.length === 1 ? a.morphs[0].lexemeId : null)
   const id = single ?? lookup?.(tk) ?? null
   const whole = (id ? index.byId.get(id) : undefined) ?? lexemeByWord(index, lang.id, tk.surface)
-  if (whole) return lexemeScript(lang, script, whole)
+  if (whole) {
+    const written = lexemeScript(lang, script, whole)
+    // 隔开写的词（`ma…gò`）：这个词只是其中一段，文字也只写那一段
+    if (a?.part && written) {
+      const parts = written.split(/…+|\.{3,}/u)
+      if (parts.length === a.part.n) return parts[a.part.i].trim()
+    }
+    return written
+  }
   if (a && a.morphs.length > 1) {
     const parts = a.morphs.map((m) => {
       const l =

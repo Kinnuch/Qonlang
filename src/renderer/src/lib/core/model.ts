@@ -778,6 +778,8 @@ export interface Token {
 export interface Analysis {
   lexemeId: Id | null
   slot: string | null
+  /** 隔开写的词（`ma…gò`）：这个词是它的第几段、一共几段 */
+  part?: { i: number; n: number }
   /**
    * lexemeId：手动指定给这一段的词条（悬浮卡里「没有找到」时挑的）；
    * sep：这一段前面的分隔符（`-` 或 `=`），没写就按语素类型定。

@@ -59,6 +59,7 @@ export interface GlossIndex {
   project: Project
 }
 
+import { discontinuousEntries, matchDiscontinuous } from './discontinuous'
 import { tokenize } from './tokens'
 export { tokenize, type TokenizeOptions } from './tokens'
 
@@ -857,6 +858,27 @@ export function analyzeSentence(
     return { surface: w, analyses, chosen: 0, confirmed: false }
   })
   sentence.tokens = tokens
+  // 隔开写的词（`ma…gò`）：段跟段之间隔着几个词，挨个挂上同一个词条
+  const entries = discontinuousEntries(project, sentence.languageId)
+  if (entries.length) {
+    const taken = (i: number): boolean => tokens[i].confirmed && !opts.force
+    for (const hit of matchDiscontinuous(entries, tokens, taken)) {
+      const gloss = lexemeGloss(hit.lexeme, idx.glossLangs)
+      hit.positions.forEach((at, i) => {
+        const tk = tokens[at]
+        const a: Analysis = {
+          lexemeId: hit.lexeme.id,
+          slot: null,
+          part: { i, n: hit.positions.length },
+          morphs: [{ form: tk.surface, gloss, morphemeId: null, lexemeId: hit.lexeme.id }]
+        }
+        const already = tk.analyses.findIndex((x) => key(x) === key(a))
+        if (already >= 0) tk.analyses.splice(already, 1)
+        tk.analyses = [a, ...tk.analyses].slice(0, 12)
+        tk.chosen = 0
+      })
+    }
+  }
   return sentence
 }
 

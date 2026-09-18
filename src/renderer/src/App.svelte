@@ -79,6 +79,13 @@
     }
   })
 
+  /** 这套皮肤有没有花纹（星月夜的星点）：没有就不画那一层 */
+  const hasPattern = $derived(
+    !!ui.prefs.skin?.[ui.resolvedTheme]?.['--skin-pattern'] ||
+      !!ui.prefs.skin?.light?.['--skin-pattern'] ||
+      !!ui.prefs.skin?.dark?.['--skin-pattern']
+  )
+
   // 标题栏
   $effect(() => {
     const name = projectState.project?.meta.name || ''
@@ -173,8 +180,11 @@
     />
   </svelte:boundary>
 {/if}
-<!-- 皮肤盖在窗口上的两层：预设的花纹（星月夜的星点）和自定义背景图，都不接鼠标 -->
-<div class="skin-pattern" aria-hidden="true"></div>
+<!-- 皮肤盖在窗口上的两层：预设的花纹（星月夜的星点）和自定义背景图，都不接鼠标。
+     没花纹时这一层不画，省一层盖住整个窗口的合成层 -->
+{#if hasPattern}
+  <div class="skin-pattern" aria-hidden="true"></div>
+{/if}
 {#if ui.prefs.skin?.background?.image}
   <div class="skin-bg" aria-hidden="true" style={backgroundStyle(ui.prefs.skin.background)}></div>
 {/if}

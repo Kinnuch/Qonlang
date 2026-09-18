@@ -4,11 +4,19 @@
  * 没画过的按一个估计的行高算（第一次量完就定下来，免得估计一变整段空白跟着伸缩）；
  * 可见区域上面的行量出来跟估计不一样时，滚动位置补上差值，眼前的内容不跳。
  * 量好的高度按行 id 记在模块里，离开页面再回来还用得上。
+ * 行高都对齐到整数个物理像素：上面那截空白是各行高度之和，带小数的话整张表就落在半个像素上，
+ * 字会糊成一片（滚得越深越明显）。
  *
  * 用法：滚动容器 `use:rows.box`，每一行 `use:rows.row` 且带 `data-id`，
  * 只画 `rows.range.start` 到 `rows.range.end` 这一段，前后各放一行高度为 `rows.before` / `rows.after` 的空白。
  */
 const remembered = new Map<string, Map<string, number>>()
+
+/** 对齐到整数个物理像素：1.5 倍缩放下 27.33px 记成 27.33…→ 27.333 的整数倍，累加起来仍然落在像素格上 */
+function snap(h: number): number {
+  const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1
+  return Math.round(h * dpr) / dpr
+}
 
 export class VirtualRows {
   /** 滚动容器的 scrollTop */
@@ -37,7 +45,7 @@ export class VirtualRows {
       remembered.set(key, known)
     }
     this.heights = known
-    this.estimate = known.size ? average(known) : guess
+    this.estimate = snap(known.size ? average(known) : guess)
     this.estimateFixed = known.size > 0
   }
 
@@ -123,7 +131,7 @@ export class VirtualRows {
     for (const e of entries) {
       const target = e.target as HTMLElement
       const id = target.dataset.id
-      const h = e.borderBoxSize?.[0]?.blockSize ?? target.offsetHeight
+      const h = snap(e.borderBoxSize?.[0]?.blockSize ?? target.offsetHeight)
       if (!id || !h) continue
       const old = this.heights.get(id)
       if (old !== undefined && Math.abs(old - h) < 0.5) continue
@@ -135,7 +143,7 @@ export class VirtualRows {
     if (!changed) return
     // 第一次量到行高：用它们的平均值当估计，此后不再改；上面没量过的行跟着新估计变高变矮，也补进滚动位置
     if (!this.estimateFixed) {
-      const next = average(this.heights)
+      const next = snap(average(this.heights))
       let unmeasured = 0
       for (let i = 0; i < first; i++) if (!this.heights.has(ids[i])) unmeasured++
       shift += unmeasured * (next - this.estimate)
