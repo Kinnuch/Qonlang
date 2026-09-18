@@ -405,6 +405,10 @@
       stroke-opacity: 0.3;
     }
   }
+  /* 图里的字跟界面别处一套字体 */
+  .ltree text {
+    font-family: var(--font-ui);
+  }
   .label {
     fill: var(--text);
     font-size: 12.5px;

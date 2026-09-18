@@ -1181,21 +1181,24 @@
               <span class="muted small">({c.values.length})</span></button
             >
           {/each}
-          {#if locked && dimFilter.length}
-            <button class="btn ghost sm" onclick={() => (dimFilter = [])}
-              >{t('paradigms.clearFilter')}</button
-            >
-            <button class="btn ghost sm" onclick={() => setShownEnabled(true)}
-              >{t('paradigms.batchEnable')}</button
-            >
-            <button class="btn ghost sm" onclick={() => setShownEnabled(false)}
-              >{t('paradigms.batchDisable')}</button
-            >
-          {/if}
           {#if project.categories.length === 0}<span class="small muted"
               >{t('lexicon.noFeatures')}</span
             >{/if}
         </div>
+        <!-- 筛着的时候：按钮另起一行，样式跟别处的按钮一样 -->
+        {#if locked && dimFilter.length}
+          <div class="row wrap filter-acts">
+            <button class="btn sm" onclick={() => (dimFilter = [])}
+              >{t('paradigms.clearFilter')}</button
+            >
+            <button class="btn sm" onclick={() => setShownEnabled(true)}
+              >{t('paradigms.batchEnable')}</button
+            >
+            <button class="btn sm" onclick={() => setShownEnabled(false)}
+              >{t('paradigms.batchDisable')}</button
+            >
+          </div>
+        {/if}
       </section>
 
       <section class="block">
@@ -2092,6 +2095,10 @@
   }
   .warn-text {
     color: var(--warn);
+  }
+  .filter-acts {
+    gap: 8px;
+    margin-top: 8px;
   }
   .dims {
     display: flex;

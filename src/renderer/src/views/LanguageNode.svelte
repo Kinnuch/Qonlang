@@ -20,7 +20,8 @@
     onselect,
     onaddchild,
     oncompare,
-    depth = 0
+    depth = 0,
+    flush = false
   }: {
     item: TreeItem
     /** 顶栏搜索筛出来的可见节点（语言与分类节点的 id）；null 表示不筛 */
@@ -37,6 +38,8 @@
     onaddchild: (id: Id, kind: 'group' | 'language') => void
     oncompare: (id: Id) => void
     depth?: number
+    /** 分组的原始语：跟分组标题那一行对齐，不跟着里面的内容缩进 */
+    flush?: boolean
   } = $props()
 
   const id = $derived(item.kind === 'group' ? item.group.id : item.language.id)
@@ -63,7 +66,7 @@
   })
 </script>
 
-<div class="node" class:boxed={item.kind === 'group'} style:--depth={depth}>
+<div class="node" class:boxed={item.kind === 'group'} class:flush style:--depth={depth}>
   <div
     class="card lang"
     class:group={item.kind === 'group'}
@@ -136,6 +139,9 @@
         <LanguageNode
           {visible}
           item={k}
+          flush={item.kind === 'group' &&
+            k.kind === 'language' &&
+            k.language.id === item.group.protoLanguageId}
           {selectedId}
           {defaultId}
           {compareIds}
@@ -288,10 +294,13 @@
     flex-direction: column;
     gap: 6px;
   }
-  /* 语系、语支只是分类节点：里面的东西跟标题这一行对齐，层级靠外面那个框看 */
+  /* 分类节点里的东西往里缩一格（框本身已经圈住了，不再画那条竖线）；原始语除外，它跟标题对齐 */
   .kids.in-group {
     margin-left: 0;
-    padding-left: 0;
+    padding-left: 18px;
     border-left: 0;
+  }
+  .node.flush {
+    margin-left: -18px;
   }
 </style>
