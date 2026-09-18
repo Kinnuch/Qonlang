@@ -16,6 +16,7 @@
     RefreshCw,
     Save,
     Scissors,
+    Table,
     Trash2
   } from '@lucide/svelte'
   import { updates } from '$lib/state/updates.svelte'
@@ -424,6 +425,24 @@
             <span class="small muted">{t('settings.tokenizerPatternHint')}</span>
           </div>
         {/if}
+      </div>
+    </section>
+
+    <section class="card group" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
+      <h3><Table size={15} />{t('settings.groups.paradigms')}</h3>
+      <div class="grid">
+        <label class="row check wide">
+          <input
+            type="checkbox"
+            checked={!!project.settings.complexSlots}
+            onchange={(e) => {
+              project.settings.complexSlots =
+                (e.currentTarget as HTMLInputElement).checked || undefined
+              projectState.touch()
+            }}
+          />
+          {t('settings.complexSlots')}<HelpDot tip={t('settings.complexSlotsHint')} />
+        </label>
       </div>
     </section>
   </div>

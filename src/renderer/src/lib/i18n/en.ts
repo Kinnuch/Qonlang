@@ -179,6 +179,25 @@ const en: Dict = {
       do: 'Merge',
       done: 'Merged: {stages} stages, moved {lexemes} entries and {morphemes} morphemes; {dropped} pronunciations dropped (no matching orthography)'
     },
+    views: { list: 'List', tree: 'Tree diagram' },
+    dragHint:
+      'Cards can be dragged: onto a card to place it under that card, between two cards to reorder, or into the box at the bottom to move it to the top level.',
+    dropRoot: 'Move to the top level',
+    graph: {
+      empty: 'Nothing to draw yet.',
+      hint: 'Wheel to zoom, drag the background to pan; Ctrl-click a language to compare',
+      zoomIn: 'Zoom in',
+      zoomOut: 'Zoom out',
+      fit: 'Fit to window'
+    },
+    compare: {
+      toggle: 'Compare',
+      title: 'Comparison: {a} and {b}',
+      hint: 'Ctrl-click a second language, or use the compare button on a card',
+      clear: 'Clear comparison',
+      ancestor: 'Nearest common ancestor: {name}',
+      noAncestor: 'Nearest common ancestor: none, the two lineages never meet'
+    },
     stats: {
       title: 'Statistics and comparison: “{name}”',
       tabs: {
@@ -197,6 +216,7 @@ const en: Dict = {
       total: 'Total ({n} languages)',
       noPhonemes: 'None of these languages has phonemes yet.',
       phonemeCount: 'Phonemes',
+      pairPhonemes: '{shared} shared · {onlyA} only in {a} · {onlyB} only in {b}',
       needTwo: 'Pick at least two languages to compare.',
       cognatesHint:
         'Share of the row language’s entries that have a cognate in the column language (traced to the same source through etymology)',
@@ -450,6 +470,11 @@ const en: Dict = {
     environmentHint:
       'Environments use rule syntax and _ is the morpheme itself: suffixes look before it (V_ after a vowel), prefixes look after it (_CC before any two consonants, _C1C1 before a doubled consonant). The first matching row wins; an empty environment is the default.',
     environment: 'Environment, e.g. V_ or _CC',
+    alloValues: 'Only with these values',
+    alloValuesHint:
+      'These are the values of the slot being generated, plus the lexeme’s own features: pick “accusative” and this form is used in every accusative slot. Empty means any; when an environment is set too, both must match. Several values together mean all of them, which also makes the row more specific and picked first.',
+    alloValuesAdd: 'Add value',
+    alloValueRemove: 'Remove this value',
     gloss: 'Gloss abbreviation',
     meaning: 'Meaning',
     usedBy: 'Lexemes using it',
@@ -970,7 +995,9 @@ const en: Dict = {
     history: {
       title: 'History',
       openRuleSet: 'Open this rule set',
-      mismatch: 'differs from the entry',
+      mismatch: 'mismatch',
+      edit: 'Click to correct this step (the following steps continue from it)',
+      reset: 'Back to the derived form',
       mismatchHint:
         'Running the sound changes to the end does not give this entry’s spelling; check the rules or the etymology'
     },
@@ -995,8 +1022,13 @@ const en: Dict = {
     resizeCol: 'Drag to resize',
     selectedN: '{n} selected',
     clearSel: 'Clear selection',
-    bulkTag: 'Tag selected',
-    bulkTagPrompt: 'Tag to add to the selected entries?',
+    bulkTag: 'Tags',
+    tagAdd: 'Add',
+    tagAddPlaceholder: 'Type a tag, Enter adds it to the selected entries',
+    tagAddAllHint: 'Add this tag to every selected entry',
+    tagRename: 'Rename (only on the selected entries)',
+    tagRemoveAll: 'Remove from the selected entries',
+    tagNone: 'The selected entries have no tags yet.',
     bulkDeleted: 'Deleted {n} entries',
     examples: 'Examples',
     examplesAll: 'See all examples',
@@ -1111,6 +1143,9 @@ const en: Dict = {
     derivedWords: 'Derived words',
     formsDerived: 'derived',
     formsOverride: 'overridden',
+    deriveAllForms: 'Re-derive all',
+    deriveAllHint: 'Re-derive every slot from the paradigm, including the ones you edited by hand',
+    deriveAllDone: 'Re-derived {n} slots',
     resetDerived: 'Restore derived value',
     deriveForms: 'Derive from paradigm',
     paradigmByPos: 'Paradigm: by part of speech',
@@ -1440,12 +1475,12 @@ const en: Dict = {
     untitledGlyph: 'new glyph',
     exportFont: 'Export font',
     exportFontHint:
-      "Rebuild a font from the embedded font's glyphs plus every drawn or edited glyph (drawn ones replace the originals); kerning, ligatures and hinting of the original font are not kept",
+      'If the embedded font is TrueType, only the glyphs you drew or edited are swapped inside the original font, so kerning, ligatures and the hinting of every other glyph stay (the hinting of the glyphs you edited no longer matches their new outlines, so it is dropped for those); if it is an OTF (CFF outlines) or there is no embedded font, the font has to be written from scratch and kerning, ligatures and hinting cannot be kept',
     exportTtf: 'Export TTF',
     exportWoff: 'Export WOFF',
     writeBackFont: 'Update embedded font',
     writeBackFontHint:
-      "Replace this script's embedded font with the rebuilt TTF so the project carries the edited font; kerning, ligatures and hinting of the original font are not kept",
+      "Put the edited font back as this script's embedded font, so the project carries the edited one; what is kept and what is lost is the same as for export",
     fontNothing: 'This script has no embedded font and no drawn glyphs',
     fontBuildFailed: 'Could not build the font: {err}',
     fontWrittenBack: 'Embedded font updated to {name}',
@@ -1714,7 +1749,7 @@ const en: Dict = {
     },
     pron: {
       toggle: 'Affects pronunciation',
-      hint: 'When ticked, this slot gets a second pipeline that changes the pronunciation (orthography-based IPA); the result is stored on the form',
+      hint: 'With “Pipeline + affects pronunciation”, this slot also gets a pipeline that changes the pronunciation (orthography-based IPA); the result is stored on the form',
       label: 'Pron.',
       startHint:
         'Where the pronunciation starts: this slot’s spelling converted to IPA, or the entry’s own pronunciation',
@@ -1722,7 +1757,8 @@ const en: Dict = {
       fromLemma: 'Entry pronunciation'
     },
     relocate: {
-      hint: 'Double-click: this setup is in the wrong slot, move it',
+      hint: 'Double-click the slot name, or use the arrow on the right: this setup is in the wrong slot, move it',
+      button: 'Move to another slot',
       title: 'Move the setup of “{name}” to…',
       body: 'This slot goes back to “None” afterwards.',
       search: 'Search slot name or abbreviation',
@@ -1751,6 +1787,19 @@ const en: Dict = {
     variantName: 'Variant name (e.g. A-form, literary)',
     variantHint:
       'A variant only overrides the slots you change; entries can pick which variant to use.',
+    locked: 'Dimensions locked',
+    unlocked: 'Dimensions editable',
+    lockHint:
+      'Lock the dimensions: clicking one then only filters which slots you see, and the paradigm keeps its slots; the current slots are fixed (shaded)',
+    unlockHint: 'Unlock: clicking a dimension changes the paradigm’s slots again',
+    lockedExplain:
+      'Dimensions are locked, so clicking one only filters: {n} slots shown, {total} fixed in total.',
+    filterHint: 'Click to filter the slots by this dimension',
+    clearFilter: 'Clear filter',
+    batchEnable: 'Enable the filtered slots',
+    batchDisable: 'Disable the filtered slots',
+    batchEnabled: 'Enabled {n} slots',
+    batchDisabled: 'Disabled {n} slots',
     slotsExplain:
       'One value from each dimension makes a slot ({dims}); {n} remain once disabled ones are dropped. Each slot is one form to generate.',
     infixPresets: {
@@ -1809,6 +1858,7 @@ const en: Dict = {
     generator: 'Generator',
     params: 'Parameters',
     kinds: {
+      pipelinePron: 'Pipeline + affects pronunciation',
       pipeline: 'pipeline',
       none: 'None',
       table: 'Table (manual)',
@@ -2049,7 +2099,9 @@ const en: Dict = {
       header: 'Headword & pronunciation',
       tags: 'Tags',
       etymology: 'Etymology',
-      forms: 'Stems & forms',
+      history: 'History',
+      stems: 'Stems',
+      forms: 'Inflected forms',
       relations: 'Relations',
       derived: 'Derived words',
       notes: 'Notes'
@@ -2104,6 +2156,7 @@ const en: Dict = {
       info: 'Basics',
       languages: 'Languages & fonts',
       words: 'Word splitting & gloss',
+      paradigms: 'Paradigms',
       data: 'Data'
     },
     uiLanguage: 'Interface language',
@@ -2155,6 +2208,9 @@ const en: Dict = {
     tokenizerHint:
       'How corpus text is split into words. Whitespace by default; pick by-character for scripts written without spaces.',
     tokenizerPattern: 'Separator pattern',
+    complexSlots: 'Complex mode: slots with more dimensions stand on their own',
+    complexSlotsHint:
+      'Default (simple mode): a slot with more dimensions (tense-aspect-person) that has no setup continues from the one with fewer (tense-aspect). Ticked, each slot stands alone and an empty one produces no form.',
     tokenizerPatternHint:
       'A JS regular expression without the slashes; an invalid one falls back to whitespace.',
     tokenizerLetters: 'Symbols that count as letters',

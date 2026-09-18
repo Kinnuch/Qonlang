@@ -102,6 +102,11 @@ export interface ProjectSettings {
   imageSize: { width: number; height: number }
   /** 音变、构形页签的分组（像浏览器的标签页分组，可以收起）；没写时按默认分法显示 */
   tabGroups?: { ruleSets?: TabGroupSet; paradigms?: TabGroupSet }
+  /**
+   * 构形的槽位算法：默认简洁——维度多的槽位（时-体-人称）没写法时，自动接着维度少的那个（时-体）往下变；
+   * 勾了复杂模式就各算各的，维度多的不写就没有
+   */
+  complexSlots?: boolean
 }
 
 /** 一排页签的分组：分组本身按顺序排，members 记每个页签（规则集 / 构形 id）在哪个组 */
@@ -461,6 +466,11 @@ export interface Allomorph {
   form: string
   /** 出现环境，规则语言写法 */
   environment: string
+  /**
+   * 只在这些维度取值下用（取值 id）：要全都在正在生成的那一格的取值里这一条才算数。
+   * 没写（或者是空的）就是任何取值都行；跟 environment 都写了时两边都要对上。
+   */
+  values?: Id[]
 }
 
 // ───────────────────────── 词位 ─────────────────────────
@@ -580,6 +590,8 @@ export interface EtymologyStage {
   id: Id
   /** 中间形式 */
   form: string
+  /** 绑到音变里的哪个阶段标记（历史形式链上手改这一步时记下来，后面几步从它接着推） */
+  stage?: string
   /** 走到这一步的类别，留空沿用整体类别 */
   type: string
   notes: string
@@ -641,6 +653,13 @@ export interface Paradigm {
   generators: Record<string, SlotGenerator>
   /** 继承自哪个范式，只覆盖差异槽位 */
   inheritsFrom: Id | null
+  /**
+   * 维度上了锁：点维度只是筛选要看哪些槽位，不再改动构形的槽位范围（见 lockedSlots）。
+   * 没上锁时点维度跟以前一样，直接改这个构形的维度
+   */
+  slotsLocked?: boolean
+  /** 固定下来的槽位（上锁时把当时的槽位记下来）：维度怎么筛都还在，写法也一直有效 */
+  lockedSlots?: string[]
   /**
    * 作用于所有词（词首音变、连读变化这类）：不绑定词类、不往词条里写屈折形，
    * 语料分词时拿它反推（见 engine/morph/mutation.ts）。

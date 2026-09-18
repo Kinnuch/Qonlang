@@ -233,7 +233,15 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     const noun = p.paradigms.find((x) => x.name.zh === '名词')!
     expect(
       Object.values(noun.generators).filter((g) => g.kind === 'pipeline' && g.base)
-    ).toHaveLength(3)
+    ).toHaveLength(2)
+    // 复数的与格自己拼复数：复数标记在与格前用异体形 -lAn
+    expect(kaso.forms['复数.与格'].surface).toBe('kasolanka')
+    // 第三人称那几格不写，接着「极性-时」两个维度的槽位往下变（简洁模式）
+    const verb = p.paradigms.find((x) => x.name.zh === '动词（变位法一）')!
+    const jat = p.lexemes.find((l) => l.lemma === 'jat-')!
+    expect(jat.forms['肯定.现在'].surface).toBe('jat')
+    expect(jat.forms['肯定.现在.第三人称'].surface).toBe('jat')
+    expect(Object.keys(verb.generators).some((k) => k.split('|').length === 2)).toBe(true)
     expect(kaso.forms['单数.位格']).toMatchObject({ surface: 'kasoda', ipa: 'ˈkasoða' })
     expect(kaso.forms['复数.位格'].surface).toBe('kasolarda')
   })

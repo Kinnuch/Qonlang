@@ -258,6 +258,34 @@ describe('构形：槽位键、继承、发音流水线', () => {
     expect(generateForm(ctx, w, para, prs3)?.surface).toBe('kolant')
   })
 
+  it('简洁模式：维度多的槽位没写法时接着维度少的那个；复杂模式各算各的', () => {
+    const { p, L, para, suf } = setup()
+    // 只有「时」这一维的槽位写了法，「时 + 人称」的没写
+    para.dimensionIds = ['tense']
+    const tenseOnly = paradigmSlots(para, p.categories, ['zh'])
+    para.generators[tenseOnly[0].key] = { kind: 'pipeline', stem: '', steps: [suf('-ba')] }
+    para.dimensionIds = ['tense', 'person']
+    const full = paradigmSlots(para, p.categories, ['zh']).find((s) => s.label === '现在.第一人称')!
+    const w = createLexeme(L.id, 'kal')
+    p.lexemes.push(w)
+    const ctx = makeContext(p, L)
+    expect(generateForm(ctx, w, para, full)?.surface).toBe('kalba')
+    p.settings.complexSlots = true
+    expect(generateForm(ctx, w, para, full)).toBeNull()
+  })
+
+  it('写了写法的槽位一直算数：维度改了也还在，重新挑维度不会丢', () => {
+    const { p, para, suf } = setup()
+    para.dimensionIds = ['tense', 'person']
+    const slots = paradigmSlots(para, p.categories, ['zh'])
+    para.generators[slots[0].key] = { kind: 'pipeline', stem: '', steps: [suf('-x')] }
+    // 只留「时」一维：那一格照样在（排在后面）
+    para.dimensionIds = ['tense']
+    const after = paradigmSlots(para, p.categories, ['zh'])
+    expect(after.some((s) => s.key === slots[0].key)).toBe(true)
+    expect(after.find((s) => s.key === slots[0].key)!.label).toBe(slots[0].label)
+  })
+
   it('勾了影响发音的槽位：从这一格的拼写转 IPA 开始，再跑发音流水线，存在形式上', () => {
     const { p, L, para, suf } = setup()
     L.orthographies[0].rulesToIpa = 'c > k'

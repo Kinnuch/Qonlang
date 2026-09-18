@@ -1,9 +1,9 @@
 <script lang="ts">
   /**
-   * 语系 / 语族 / 语支节点下各语言的统计与对比（语言页主区，选中节点时显示）：
-   * 数量、音位对照、同源比例、对应词表。算得慢的两项切到那一页才算。
+   * 几门语言的统计与对比（语言页主区）：数量、音位对照、同源比例、对应词表。算得慢的两项切到那一页才算。
+   * 谁进来都行：选中分类节点时是它下面的全部语言，挑了两门对比时就是这两门。
    */
-  import type { Id, Language, LanguageGroup, Project } from '$lib/core/model'
+  import type { Id, Language, Project } from '$lib/core/model'
   import { t } from '$lib/i18n/index.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import {
@@ -16,13 +16,17 @@
 
   let {
     project,
-    group,
+    title,
+    note = '',
     languages,
     onpicklanguage,
     onpicklexeme
   }: {
     project: Project
-    group: LanguageGroup
+    /** 卡片标题 */
+    title: string
+    /** 标题下面多加的一行（对比时写最近公共祖先） */
+    note?: string
     languages: Language[]
     onpicklanguage: (id: Id) => void
     onpicklexeme: (id: Id) => void
@@ -56,6 +60,20 @@
   const table = $derived(
     tab === 'table' && tableLangs.length >= 2 ? correspondenceTable(project, tableLangs) : null
   )
+  /** 正好两门语言时，音位表上面多报一句共有 / 各自独有多少 */
+  const pairPhonemes = $derived.by(() => {
+    if (languages.length !== 2 || !phonemes.length) return null
+    const [a, b] = languages
+    const only = (x: Language, y: Language): number =>
+      phonemes.filter((p) => p.in.has(x.id) && !p.in.has(y.id)).length
+    return {
+      shared: phonemes.filter((p) => p.in.size === 2).length,
+      onlyA: only(a, b),
+      onlyB: only(b, a),
+      a,
+      b
+    }
+  })
   const pct = (x: number): string => `${Math.round(x * 100)}%`
   /** 比例越高底色越深 */
   const heat = (x: number): string =>
@@ -64,11 +82,7 @@
 
 <section class="stats card">
   <div class="row head">
-    <strong class="grow"
-      >{t('languages.stats.title', {
-        name: group.name || t(`languages.groupLevels.${group.level}`)
-      })}</strong
-    >
+    <strong class="grow">{title}</strong>
     <div class="seg">
       {#each ['counts', 'phonemes', 'cognates', 'table'] as const as k (k)}
         <button class:active={tab === k} onclick={() => (tab = k)}
@@ -77,6 +91,8 @@
       {/each}
     </div>
   </div>
+
+  {#if note}<p class="small muted anc">{note}</p>{/if}
 
   {#if languages.length === 0}
     <p class="small muted">{t('languages.stats.noLanguages')}</p>
@@ -125,6 +141,17 @@
     {#if phonemes.length === 0}
       <p class="small muted">{t('languages.stats.noPhonemes')}</p>
     {:else}
+      {#if pairPhonemes}
+        <p class="small muted">
+          {t('languages.stats.pairPhonemes', {
+            shared: pairPhonemes.shared,
+            a: pairPhonemes.a.name,
+            onlyA: pairPhonemes.onlyA,
+            b: pairPhonemes.b.name,
+            onlyB: pairPhonemes.onlyB
+          })}
+        </p>
+      {/if}
       <div class="table-wrap">
         <table class="tbl small ph">
           <thead>
@@ -262,6 +289,9 @@
   .head {
     gap: 10px;
     flex-wrap: wrap;
+  }
+  .anc {
+    margin: -6px 0 0;
   }
   .num {
     text-align: right;

@@ -6,6 +6,8 @@ export const CARD_BLOCKS = [
   'senses',
   'tags',
   'etymology',
+  'history',
+  'stems',
   'forms',
   'relations',
   'derived',

@@ -44,6 +44,30 @@ const forms = (a: Analysis | undefined): string[] => a?.morphs.map((m) => m.form
 const glosses = (a: Analysis | undefined): string[] => a?.morphs.map((m) => m.gloss) ?? []
 
 describe('通用切分', () => {
+  it('一处写了几个异写（斜线、逗号分开）：哪个写法都认得出', () => {
+    const { p, lid } = setup()
+    lex(p, lid, 'fóros/fauros', '门')
+    const idx = buildIndex(p, lid)
+    const b = p.settings.morphemeBoundaries
+    expect(glosses(analyzeToken(idx, 'fauros', b)[0])).toEqual(['门'])
+    expect(glosses(analyzeToken(idx, 'fóros', b)[0])).toEqual(['门'])
+    // 语料里也写成两个异写：整串认不出时逐个异写去认
+    expect(glosses(analyzeToken(idx, 'fóros/fauros', b)[0])).toEqual(['门'])
+  })
+
+  it('一个词条几个义项：每个义项各给一条候选', () => {
+    const { p, lid } = setup()
+    const l = createLexeme(lid, 'nae')
+    l.senses[0].definition = { zh: '种子，希望' }
+    l.senses.push({ ...l.senses[0], id: newId(), definition: { zh: '生成物' } })
+    l.senses.push({ ...l.senses[0], id: newId(), definition: { zh: '人民' } })
+    p.lexemes.push(l)
+    lex(p, lid, 'nae', '本')
+    const idx = buildIndex(p, lid)
+    const list = analyzeToken(idx, 'nae', p.settings.morphemeBoundaries)
+    expect(list.map((a) => a.morphs[0].gloss)).toEqual(['种子', '本', '生成物', '人民'])
+  })
+
   it('附着词单独成词也给 gloss（悬浮认得出，下拉里也得有）', () => {
     const { p, lid } = setup()
     const of = morph(p, lid, 'clitic', 'jehr', '属于')

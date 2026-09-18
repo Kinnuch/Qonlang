@@ -16,6 +16,10 @@ export interface HistoryStep {
   /** 悬浮时的全名 */
   title: string
   form: string
+  /** 这一步对应的阶段标记名（手改中间形式时记在词源的中间态上） */
+  marker: string
+  /** 这一步是手改过的（词源里记了中间形式），后面几步从它接着推 */
+  edited: boolean
 }
 
 export interface HistoryChain {
@@ -109,18 +113,42 @@ export function historyChain(project: Project, lexeme: Lexeme): HistoryChain | n
         .map((m, i) => ({ m, i }))
         .filter((x) => x.i > iFrom && fits(x.m, lexeme.languageId, lexeme.stageId ?? null, true))
       if (!targets.length) continue
-      let run
-      try {
-        run = runRules(program, input, {
-          startAt: iFrom === 0 ? undefined : markers[iFrom],
-          trace: false
-        })
-      } catch {
-        continue
+      // 手改过的中间形式：词源的中间态里记了阶段名的那几条
+      const edits = new Map(
+        lexeme.etymology.stages
+          .filter((st) => st.stage && st.form.trim())
+          .map((st) => [st.stage!, st.form.trim()])
+      )
+      /** 一段一段地推：每到一个阶段，手改过就用手改的，后面几步从它接着推 */
+      const formsOf = (upto: number): Map<string, string> | null => {
+        const out = new Map<string, string>()
+        let cur = edits.get(markers[iFrom]) ?? input
+        out.set(markers[iFrom], cur)
+        for (let i = iFrom; i < upto; i++) {
+          const edited = edits.get(markers[i + 1])
+          if (edited !== undefined) {
+            cur = edited
+          } else {
+            try {
+              const r = runRules(program, cur, {
+                startAt: i === 0 ? undefined : markers[i],
+                stopAt: markers[i + 1],
+                trace: false
+              })
+              cur = r.stages[r.stages.length - 1]?.form ?? cur
+            } catch {
+              return null
+            }
+          }
+          out.set(markers[i + 1], cur)
+        }
+        return out
       }
-      const formAt = (m: string): string => run.stages.find((s) => s.name === m)?.form ?? ''
       const want = loose(lexeme.lemma)
-      const chosen = targets.find((x) => loose(formAt(x.m)) === want) ?? targets[targets.length - 1]
+      const last = targets[targets.length - 1]
+      const forms = formsOf(last.i)
+      if (!forms) continue
+      const chosen = targets.find((x) => loose(forms.get(x.m) ?? '') === want) ?? last
       const span = markers.slice(iFrom, chosen.i + 1)
       // 中间每个阶段都得绑上语言，链才完整
       if (span.some((m) => !bind(m).lang)) continue
@@ -129,20 +157,20 @@ export function historyChain(project: Project, lexeme: Lexeme): HistoryChain | n
         const b = bind(m)
         let label = b.stage ? stageShort(b.stage) : b.lang?.abbr.trim() || m
         const title = [b.lang?.name, b.stage?.name].filter(Boolean).join(' · ') || m
-        const form = k === 0 ? origin.form.trim() : formAt(m)
+        const form = k === 0 ? (edits.get(m) ?? origin.form.trim()) : (forms.get(m) ?? '')
         const prev = steps[steps.length - 1]
         if (prev && prev.label === label) {
           // 同一阶段绑了两个标记：形式也一样就并掉，不一样的后一个用标记名区分（比如最后一步转写法）
           if (prev.form === form) return
           label = m
         }
-        steps.push({ label, title, form })
+        steps.push({ label, title, form, marker: m, edited: edits.has(m) })
       })
       return {
         ruleSetId: rs.id,
         ruleSetName: rs.name,
         steps,
-        matches: loose(formAt(chosen.m)) === want
+        matches: loose(forms.get(chosen.m) ?? '') === want
       }
     }
   }

@@ -1,7 +1,8 @@
 /**
  * 从零写一个 TrueType 字体（glyf 轮廓）：cmap（格式 4 + 12）、glyf、head、hhea、hmtx、loca、maxp、name、OS/2、post。
  * 轮廓只能是二次曲线，三次曲线按容差递归切开换成二次的；坐标取整。0 号字形是空的 .notdef。
- * 不带字距、连字、hinting——那些要原字体软件去做。另附 toWoff：把写好的 TTF 包成 WOFF 1.0。
+ * 从零写的字体不带字距、连字、hinting——原字体里有这些的走 fontPatch 在原字体上改。
+ * 另附 toWoff：把写好的 TTF 包成 WOFF 1.0。
  */
 import type { GlyphContour, Pt } from './glyphGeometry'
 import { cmdEnd, cubicAt, reverseContour } from './glyphGeometry'
@@ -122,7 +123,7 @@ export function contourToTt(c: GlyphContour, tolerance = 1, clockwise = true): T
 
 // ───── 字节 ─────
 
-class Bytes {
+export class Bytes {
   private buf = new Uint8Array(1024)
   length = 0
   private grow(n: number): void {
@@ -167,7 +168,7 @@ class Bytes {
 }
 
 /** 表的校验和：按 4 字节大端相加（不足 4 字节补 0） */
-function checksum(data: Uint8Array): number {
+export function checksum(data: Uint8Array): number {
   let sum = 0
   for (let i = 0; i < data.length; i += 4) {
     const v =
@@ -189,7 +190,7 @@ const clampU16 = (v: number): number => Math.max(0, Math.min(65535, Math.round(v
 
 // ───── 各表 ─────
 
-interface BuiltGlyph {
+export interface BuiltGlyph {
   data: Uint8Array
   advance: number
   xMin: number
@@ -201,7 +202,8 @@ interface BuiltGlyph {
   empty: boolean
 }
 
-function buildGlyph(g: WriterGlyph, tolerance: number): BuiltGlyph {
+/** 一个字形的 glyf 记录（简单字形、不带指令；已补齐到 4 字节） */
+export function buildGlyph(g: WriterGlyph, tolerance: number): BuiltGlyph {
   const contours = g.contours.map((c) => contourToTt(c, tolerance)).filter((c) => c.length)
   const advance = clampU16(g.advance)
   if (!contours.length)
@@ -282,7 +284,8 @@ function buildGlyph(g: WriterGlyph, tolerance: number): BuiltGlyph {
   }
 }
 
-function buildCmap(map: [number, number][]): Uint8Array {
+/** cmap（格式 4 + 12）；map 是按码位排好序的「码位 → 字形号」 */
+export function buildCmap(map: [number, number][]): Uint8Array {
   // 格式 4：只收 BMP；连续码位、字形号差值不变的归一段
   const bmp = map.filter(([cp]) => cp < 0xffff)
   const segs: { start: number; end: number; delta: number }[] = []
@@ -558,28 +561,45 @@ export function writeTtf(font: WriterFont): ArrayBuffer {
     ] as [string, Uint8Array][]
   ).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
 
-  const n = tables.length
-  const entrySel = Math.floor(Math.log2(n))
+  return assembleSfnt(0x00010000, tables)
+}
+
+/**
+ * 表目录 + 各表拼成一个 sfnt 文件：表按标签排序，每张表补齐到 4 字节，
+ * head 的 checkSumAdjustment 先清零算校验和，最后回填。
+ */
+export function assembleSfnt(flavor: number, tables: [string, Uint8Array][]): ArrayBuffer {
+  const list = tables
+    .map(([tag, data]): [string, Uint8Array] => {
+      if (tag !== 'head' || data.length < 12) return [tag, data]
+      const copy = new Uint8Array(data)
+      copy[8] = copy[9] = copy[10] = copy[11] = 0
+      return [tag, copy]
+    })
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+  const n = list.length
+  const entrySel = Math.max(0, Math.floor(Math.log2(n)))
   const search = 2 ** entrySel * 16
   const file = new Bytes()
   file
-    .u32(0x00010000)
+    .u32(flavor)
     .u16(n)
     .u16(search)
     .u16(entrySel)
     .u16(n * 16 - search)
   let offset = 12 + n * 16
-  let headAt = 0
-  for (const [tag, data] of tables) {
+  let headAt = -1
+  for (const [tag, data] of list) {
     if (tag === 'head') headAt = offset
     file.tag(tag).u32(checksum(data)).u32(offset).u32(data.length)
     offset += Math.ceil(data.length / 4) * 4
   }
-  for (const [, data] of tables) file.bytes(data).pad4()
+  for (const [, data] of list) file.bytes(data).pad4()
   const out = file.out()
-  const adj = (0xb1b0afba - checksum(out) + 0x100000000) % 0x100000000
-  const view = new DataView(out.buffer)
-  view.setUint32(headAt + 8, adj)
+  if (headAt >= 0) {
+    const adj = (0xb1b0afba - checksum(out) + 0x100000000) % 0x100000000
+    new DataView(out.buffer).setUint32(headAt + 8, adj)
+  }
   return out.buffer
 }
 

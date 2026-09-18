@@ -7,6 +7,7 @@
   import { sectionCollapsed, toggleSection } from '$lib/ui/section.svelte'
   import FormsView from '$lib/ui/FormsView.svelte'
   import { etymologyTypeLabel, orthoIpaLabel, pronText, relationLabel } from '$lib/ui/labels'
+  import LexemeHistory from './LexemeHistory.svelte'
   import { blockSize, cardBlocks } from '$lib/ui/cardBlocks'
   import { customFieldScript, customFieldsFor, customItems } from '$lib/core/customFields'
   import { morphemeLabel } from '$lib/core/etymology'
@@ -39,16 +40,15 @@
   const l = $derived(lexeme)
   const glossLangs = $derived(project.settings.glossLanguages)
   /** 屈折形：列表、表格、树形图三选一（跟录入模式共用一个选择，记在本机） */
-  const layout = $derived(controls ? (ui.prefs.formsLayout ?? 'list') : 'list')
+  // 表格 / 树形图是词库里挑的看法，悬浮卡、画廊里的卡片也照着显示
+  const layout = $derived(ui.prefs.formsLayout ?? 'list')
   const setLayout = (v: FormsLayout): void => {
     ui.prefs.formsLayout = v
     void ui.savePrefs()
   }
   const formsFolded = $derived(controls && sectionCollapsed(FORMS_FOLD_ID))
   /** 按「这一套」（构形 + 变体）分组，表格 / 树形图按各自构形的维度排 */
-  const groups = $derived(
-    layout === 'list' || !controls ? [] : lexemeSlotGroups(project, l, glossLangs)
-  )
+  const groups = $derived(layout === 'list' ? [] : lexemeSlotGroups(project, l, glossLangs))
   /** 不在任何槽位里的屈折形（自己加的）：表格、树形图下面照旧列出来 */
   const looseForms = $derived.by(() => {
     const keys = new Set(groups.flatMap((g) => g.slots.map((s) => s.key)))
@@ -68,21 +68,14 @@
       .map((x) => x.e)
   })
   const filledForms = $derived(Object.entries(l.forms).filter(([, f]) => f.surface.trim()))
-  /** 词干与屈折形排在一张表里：名字、写法、是不是推导出来的 */
-  const formRows = $derived([
-    ...filledStems.map(([k, v]) => ({
-      k,
-      v,
-      derived: false,
-      ipa: undefined as string | undefined
-    })),
-    ...filledForms.map(([k, f]) => ({ k, v: f.surface, derived: f.derived, ipa: f.ipa }))
-  ])
-  /** 表格、树形图下面照旧列出来的：词干和不属于任何槽位的屈折形 */
-  const looseRows = $derived([
-    ...filledStems.map(([k, v]) => ({ k, v, derived: false, ipa: undefined })),
-    ...looseForms.map(([k, f]) => ({ k, v: f.surface, derived: f.derived, ipa: f.ipa }))
-  ])
+  /** 屈折形：构形推出来的那些（词干另算一块） */
+  const formRows = $derived(
+    filledForms.map(([k, f]) => ({ k, v: f.surface, derived: f.derived, ipa: f.ipa }))
+  )
+  /** 表格、树形图下面照旧列出来的：不属于任何槽位的屈折形 */
+  const looseRows = $derived(
+    looseForms.map(([k, f]) => ({ k, v: f.surface, derived: f.derived, ipa: f.ipa }))
+  )
   const lang = $derived(project.languages.find((x) => x.id === l.languageId))
   const pos = $derived(project.posList.find((p) => p.id === l.posId))
   /** 各块的顺序：皮肤页里拖着排，没排过就用默认顺序 */
@@ -306,8 +299,28 @@
     {/if}
   {/snippet}
 
+  {#snippet blockStems()}
+    {#if filledStems.length}
+      <section>
+        <h4>{t('lexicon.stems')}</h4>
+        <div class="forms">
+          {#each filledStems as [k, v], i (k)}
+            <span class="fk" class:alt={i % 2 === 1}>{k}</span><span
+              class="fv data"
+              class:alt={i % 2 === 1}>{v}</span
+            >
+          {/each}
+        </div>
+      </section>
+    {/if}
+  {/snippet}
+
+  {#snippet blockHistory()}
+    <LexemeHistory lexeme={l} {project} {controls} />
+  {/snippet}
+
   {#snippet blockForms()}
-    {#if filledStems.length || filledForms.length || (controls && groups.length)}
+    {#if filledForms.length || (controls && groups.length)}
       <section>
         <h4>
           {t('lexicon.forms')}{#if controls}<button
@@ -346,7 +359,7 @@
             {/each}
           {/if}
           <!-- 名字一栏按最长的名字定宽、最多占 55%，更长的在 . 后面折行，不会压到右边的形式上 -->
-          {#if layout === 'list' ? formRows.length : filledStems.length + looseForms.length}
+          {#if layout === 'list' ? formRows.length : looseForms.length}
             <div class="forms">
               {#each layout === 'list' ? formRows : looseRows as row, i (i)}
                 <span class="fk" class:alt={i % 2 === 1}
@@ -408,7 +421,7 @@
   {#each blocks as b (b)}
     <!-- display:contents：不占布局，只把这一块的字号传给里面 -->
     <div class="blk-scale" style:font-size={px(b)} data-block={b} class:hl={highlight === b}>
-      {#if b === 'senses'}{@render blockSenses()}{:else if b === 'tags'}{@render blockTags()}{:else if b === 'etymology'}{@render blockEtymology()}{:else if b === 'forms'}{@render blockForms()}{:else if b === 'relations'}{@render blockRelations()}{:else if b === 'derived'}{@render blockDerived()}{:else}{@render blockNotes()}{/if}
+      {#if b === 'senses'}{@render blockSenses()}{:else if b === 'tags'}{@render blockTags()}{:else if b === 'etymology'}{@render blockEtymology()}{:else if b === 'history'}{@render blockHistory()}{:else if b === 'stems'}{@render blockStems()}{:else if b === 'forms'}{@render blockForms()}{:else if b === 'relations'}{@render blockRelations()}{:else if b === 'derived'}{@render blockDerived()}{:else}{@render blockNotes()}{/if}
     </div>
   {/each}
   {@render customBlocks('end')}

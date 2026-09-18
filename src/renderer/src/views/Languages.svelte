@@ -25,22 +25,47 @@
     groupAncestors,
     groupLanguages,
     languageTree,
-    wouldCreateGroupCycle
+    nearestCommonNode,
+    wouldCreateGroupCycle,
+    type TreeRef
   } from '$lib/core/languageTree'
+  import {
+    draggingRef,
+    treeDragProps,
+    treeRootDropProps,
+    type DropZone
+  } from '$lib/ui/treeDrag.svelte'
   import { mergeAsStages, stageChain } from '$lib/core/mergeStages'
   import Portal from '$lib/ui/Portal.svelte'
   import Menu from '$lib/ui/Menu.svelte'
   import LanguageNode from './LanguageNode.svelte'
+  import LanguageGraph from './LanguageGraph.svelte'
   import GroupStats from './GroupStats.svelte'
-  import { Plus, Trash2, Star, X, Network, ChevronUp, ChevronDown, GitMerge } from '@lucide/svelte'
+  import {
+    Plus,
+    Trash2,
+    Star,
+    X,
+    Network,
+    ChevronUp,
+    ChevronDown,
+    GitMerge,
+    List,
+    ListTree,
+    GitCompare
+  } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
-  /** 回到这一页时还选着上次那门语言（或那个分类节点） */
-  const memo = ui.memo<{ selectedId: Id | null }>('languages')
+  /** 回到这一页时还选着上次那门语言（或那个分类节点）、还是上次那种看法、还比着上次那两门 */
+  const memo = ui.memo<{ selectedId: Id | null; view: PageLayout; compareIds: Id[] }>('languages')
   let selectedId = $state<Id | null>(memo.selectedId ?? null)
+  type PageLayout = 'list' | 'tree'
+  let layout = $state<PageLayout>(memo.view === 'tree' ? 'tree' : 'list')
+  /** 挑出来对比的两门语言 */
+  let compareIds = $state<Id[]>(memo.compareIds ?? [])
 
   const project = $derived(projectState.project!)
   const groups = $derived(project.languageGroups ?? [])
@@ -103,8 +128,12 @@
       if (cur && cur !== selectedId && project.languages.some((l) => l.id === cur)) selectedId = cur
     })
   })
-  /** 在树里、谱系里点一门语言（或者从别处跳过来）：选中它，顶栏右上角的「当前语言」也换成它；点分类节点只选中 */
-  function pick(id: Id, kind: 'group' | 'language' = 'language'): void {
+  /**
+   * 在树里、谱系里点一门语言（或者从别处跳过来）：选中它，顶栏右上角的「当前语言」也换成它；点分类节点只选中。
+   * 按着 Ctrl / Cmd 点语言是挑出来对比。
+   */
+  function pick(id: Id, kind: 'group' | 'language' = 'language', addToCompare = false): void {
+    if (addToCompare && kind === 'language') return toggleCompare(id)
     selectedId = id
     if (kind === 'language' && projectState.currentLanguageId !== id)
       projectState.currentLanguageId = id
@@ -127,7 +156,134 @@
   })
   $effect(() => {
     memo.selectedId = selectedId
+    memo.view = layout
+    memo.compareIds = compareIds
   })
+
+  // ── 挑两门语言对比 ──
+  /** 点一下加进来 / 再点一下去掉；已经有两门了就顶掉先挑的那门 */
+  function toggleCompare(id: Id): void {
+    compareIds = compareIds.includes(id)
+      ? compareIds.filter((x) => x !== id)
+      : [...compareIds, id].slice(-2)
+  }
+  const compareLangs = $derived(
+    compareIds
+      .map((id) => project.languages.find((l) => l.id === id))
+      .filter((l): l is Language => !!l)
+  )
+  // 挑着的语言被删了：跟着清掉
+  $effect(() => {
+    if (compareLangs.length !== compareIds.length) compareIds = compareLangs.map((l) => l.id)
+  })
+  const common = $derived(
+    compareLangs.length === 2
+      ? nearestCommonNode(project, compareLangs[0].id, compareLangs[1].id)
+      : null
+  )
+  const refKey = (r: TreeRef): string => (r.kind === 'group' ? 'g:' : 'l:') + r.id
+  /** 两条路径上的节点，列表里描虚线、树状图里也描 */
+  const hlNodes = $derived(new Set(common ? [...common.pathA, ...common.pathB].map(refKey) : []))
+  /** 两条路径上的连线（`父key>子key`），树状图用 */
+  const hlEdges = $derived.by(() => {
+    const out = new Set<string>()
+    if (!common) return out
+    for (const p of [common.pathA, common.pathB])
+      for (let i = 0; i + 1 < p.length; i++) out.add(refKey(p[i + 1]) + '>' + refKey(p[i]))
+    return out
+  })
+  /** 最近公共祖先那一行 */
+  const commonName = $derived.by(() => {
+    if (!common) return ''
+    if (common.node.kind === 'group')
+      return groups.find((g) => g.id === common.node.id)?.name || t('languages.untitledGroup')
+    return project.languages.find((l) => l.id === common.node.id)?.name || t('app.untitledLanguage')
+  })
+  const commonLine = $derived(
+    common
+      ? t('languages.compare.ancestor', { name: commonName })
+      : t('languages.compare.noAncestor')
+  )
+
+  // ── 拖着换挂靠、换顺序 ──
+  const langOf = (id: Id): Language | undefined => project.languages.find((l) => l.id === id)
+  const groupOf = (id: Id): LanguageGroup | undefined => groups.find((g) => g.id === id)
+  /** 这一下放得下去吗：挂到自己的后代下面、分类节点挂到语言下面都不行 */
+  function canDrop(src: TreeRef, target: TreeRef | null, zone: DropZone): boolean {
+    if (!target) return true
+    if (src.kind === target.kind && src.id === target.id) return false
+    if (zone === 'into') {
+      if (src.kind === 'language')
+        return target.kind === 'group' || !wouldCreateCycle(project.languages, src.id, target.id)
+      return target.kind === 'group' && !wouldCreateGroupCycle(groups, src.id, target.id)
+    }
+    // 插到兄弟中间：跟目标同一级（两边一定是同一类，见 treeDrag 的 zoneOf）
+    if (src.kind === 'language')
+      return !wouldCreateCycle(project.languages, src.id, langOf(target.id)?.parentId ?? null)
+    return !wouldCreateGroupCycle(groups, src.id, groupOf(target.id)?.parentId ?? null)
+  }
+  /** 把 srcId 那一项挪到 targetId 的前面或后面 */
+  function reorderSibling<T extends { id: Id }>(
+    arr: T[],
+    srcId: Id,
+    targetId: Id,
+    zone: DropZone
+  ): void {
+    const from = arr.findIndex((x) => x.id === srcId)
+    if (from < 0) return
+    const [item] = arr.splice(from, 1)
+    const at = arr.findIndex((x) => x.id === targetId)
+    if (at < 0) arr.splice(from, 0, item)
+    else arr.splice(zone === 'before' ? at : at + 1, 0, item)
+  }
+  function applyDrop(src: TreeRef, target: TreeRef | null, zone: DropZone): void {
+    if (!canDrop(src, target, zone)) return void ui.error(t('languages.cycle'))
+    if (!target) {
+      // 最外层：谁也不挂
+      if (src.kind === 'language') {
+        const l = langOf(src.id)
+        if (!l) return
+        l.parentId = null
+        l.groupId = null
+      } else {
+        const g = groupOf(src.id)
+        if (!g) return
+        g.parentId = null
+      }
+    } else if (zone === 'into') {
+      if (src.kind === 'language') {
+        const l = langOf(src.id)
+        if (!l) return
+        if (target.kind === 'group') l.groupId = target.id
+        else {
+          l.parentId = target.id
+          // 自己另写着所属节点的话会被挂回那个节点去，看着像没动：跟着父语言算
+          l.groupId = null
+        }
+      } else {
+        const g = groupOf(src.id)
+        if (!g) return
+        g.parentId = target.id
+      }
+    } else if (src.kind === 'language') {
+      const l = langOf(src.id)
+      const tg = langOf(target.id)
+      if (!l || !tg) return
+      l.parentId = tg.parentId
+      l.groupId = tg.groupId ?? null
+      reorderSibling(project.languages, src.id, target.id, zone)
+    } else {
+      const g = groupOf(src.id)
+      const tg = groupOf(target.id)
+      if (!g || !tg) return
+      g.parentId = tg.parentId
+      reorderSibling(project.languageGroups ?? [], src.id, target.id, zone)
+    }
+    selectedId = src.id
+    projectState.touch()
+  }
+  const dragOpt = { canDrop, onDrop: applyDrop }
+  const dragProps = (ref: TreeRef): ReturnType<typeof treeDragProps> => treeDragProps(ref, dragOpt)
 
   function counts(l: Language): string {
     return t('languages.counts', {
@@ -310,6 +466,15 @@
     <h1>{t('languages.title')}</h1>
     <GuideLink section="languages" />
     <span class="grow"></span>
+    <div class="seg">
+      <button class:active={layout === 'list'} onclick={() => (layout = 'list')}
+        ><List size={14} />{t('languages.views.list')}</button
+      >
+      <button class:active={layout === 'tree'} onclick={() => (layout = 'tree')}
+        ><ListTree size={14} />{t('languages.views.tree')}</button
+      >
+    </div>
+    <HelpDot tip={t('languages.dragHint')} />
     <Menu label={t('languages.addGroup')} icon={Network}>
       {#each LANGUAGE_GROUP_LEVELS as lv (lv)}
         <button onclick={() => addGroup(lv)}>{t(`languages.groupLevels.${lv}`)}</button>
@@ -320,8 +485,38 @@
     >
   </div>
 
+  {#if compareLangs.length}
+    <div class="card row cbar">
+      <GitCompare size={15} />
+      {#each compareLangs as l, i (l.id)}
+        {#if i}<span class="muted">↔</span>{/if}
+        <button class="link data" onclick={() => pick(l.id)}
+          >{l.name || t('app.untitledLanguage')}</button
+        >
+      {/each}
+      <span class="small muted"
+        >{compareLangs.length < 2 ? t('languages.compare.hint') : commonLine}</span
+      >
+      <span class="grow"></span>
+      <button class="btn ghost sm" onclick={() => (compareIds = [])}
+        ><X size={14} />{t('languages.compare.clear')}</button
+      >
+    </div>
+  {/if}
+
   {#if project.languages.length === 0}
     <p class="muted">{t('languages.empty')}</p>
+  {:else if layout === 'tree'}
+    <LanguageGraph
+      items={roots}
+      {visible}
+      {selectedId}
+      defaultId={project.settings.defaultLanguageId}
+      {compareIds}
+      {hlNodes}
+      {hlEdges}
+      onselect={pick}
+    />
   {:else}
     <div class="tree">
       {#each roots as x (x.kind === 'group' ? 'g:' + x.group.id : x.language.id)}
@@ -330,16 +525,42 @@
           item={x}
           {selectedId}
           defaultId={project.settings.defaultLanguageId}
+          {compareIds}
+          {hlNodes}
+          {dragProps}
           onselect={pick}
           onaddchild={(id, kind) => (kind === 'group' ? add(null, id) : add(id))}
+          oncompare={toggleCompare}
         />
       {/each}
+      {#if draggingRef()}
+        <div class="rootdrop small muted" {...treeRootDropProps(dragOpt)}>
+          {t('languages.dropRoot')}
+        </div>
+      {/if}
     </div>
   {/if}
-  {#if selectedGroup}
+  {#if compareLangs.length === 2}
     <GroupStats
       {project}
-      group={selectedGroup}
+      title={t('languages.compare.title', {
+        a: compareLangs[0].name || t('app.untitledLanguage'),
+        b: compareLangs[1].name || t('app.untitledLanguage')
+      })}
+      note={commonLine}
+      languages={compareLangs}
+      onpicklanguage={(id) => pick(id)}
+      onpicklexeme={(id) => {
+        const l = project.lexemes.find((x) => x.id === id)
+        ui.jump('lexicon', 'lexeme', id, l?.languageId)
+      }}
+    />
+  {:else if selectedGroup}
+    <GroupStats
+      {project}
+      title={t('languages.stats.title', {
+        name: selectedGroup.name || t(`languages.groupLevels.${selectedGroup.level}`)
+      })}
       languages={groupLanguages(project, selectedGroup.id)}
       onpicklanguage={(id) => pick(id)}
       onpicklexeme={(id) => {
@@ -690,6 +911,27 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+  /* 对比条：挑了语言才出来 */
+  .cbar {
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  /* 拖东西的时候才露出来的最外层落点 */
+  .rootdrop {
+    border: 1.5px dashed var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    text-align: center;
+  }
+  .rootdrop[data-drop] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .rootdrop[data-drop-bad] {
+    border-color: var(--danger);
   }
   .swatches {
     display: flex;

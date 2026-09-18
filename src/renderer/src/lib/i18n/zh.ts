@@ -95,7 +95,7 @@ export default {
     galleryNext: '下一张',
     exampleDesc: {
       aelith:
-        '黏着先验语：语系节点与分组统计、语言内部的历时阶段与词条的历史形式链、祖语→现代语的语系与姊妹语（关系图里对比同源词的音变与意思）、满足 / 不满足环境两路的音变规则、特征与重音规则、音节边界 σ、自定义重音、元音和谐、流水线构形的九种步骤（含构形套构形）、变体与继承、槽位继承与影响发音的槽位、一个词类几个构形、一个词条几个构形、按阴阳换字母、连读浊化反推、连写复合词自动切分、复合词类、检视器模块、词源链、从构形生成的词条、已 gloss 的语料、卢恩刻文与手写字形。',
+        '黏着先验语：语系节点与分组统计、语言内部的历时阶段与词条的历史形式链、祖语→现代语的语系与姊妹语（关系图里对比同源词的音变与意思）、满足 / 不满足环境两路的音变规则、特征与重音规则、音节边界 σ、自定义重音、元音和谐、流水线构形的九种步骤（含构形套构形）、变体与继承、槽位继承与影响发音的槽位、按维度取值挑异体形、一个词类几个构形、一个词条几个构形、按阴阳换字母、连读浊化反推、连写复合词自动切分、复合词类、检视器模块、词源链、从构形生成的词条、已 gloss 的语料、卢恩刻文与手写字形。',
       tsahun:
         '孤立声调语：五个声调与连读变调、罗马化与西里尔双正字法（按写法切音节、数音）、音节文字的拼合与竖排、按字号逐词写的意音文字、重叠构形、带空格的屈折形、同形词候选、用文字字体显示的异体字模块。'
     },
@@ -169,6 +169,25 @@ export default {
       do: '合并',
       done: '已合并：{stages} 个阶段，挪过来 {lexemes} 个词条、{morphemes} 个语素；正字法对不上丢掉的发音 {dropped} 条'
     },
+    views: { list: '列表', tree: '树状图' },
+    dragHint:
+      '卡片可以拖：拖到一张卡片上就挂到它下面，拖到两张中间就换顺序，拖到最下面的框里放到最外层。',
+    dropRoot: '放到最外层',
+    graph: {
+      empty: '这里还没有东西可画。',
+      hint: '滚轮缩放，按住空白处拖动；Ctrl 点语言加入对比',
+      zoomIn: '放大',
+      zoomOut: '缩小',
+      fit: '适应窗口'
+    },
+    compare: {
+      toggle: '加入对比',
+      title: '{a} 与 {b} 的对比',
+      hint: 'Ctrl 点第二门语言，或者点卡片上的对比按钮',
+      clear: '清除对比',
+      ancestor: '最近公共祖先：{name}',
+      noAncestor: '最近公共祖先：没有，两条谱系碰不到一起'
+    },
     stats: {
       title: '「{name}」统计与对比',
       tabs: { counts: '数量', phonemes: '音位对照', cognates: '同源比例', table: '对应词表' },
@@ -182,6 +201,7 @@ export default {
       total: '合计（{n} 门）',
       noPhonemes: '这些语言都还没有音位。',
       phonemeCount: '音位数',
+      pairPhonemes: '共有 {shared} 个 · 只有 {a} 有 {onlyA} 个 · 只有 {b} 有 {onlyB} 个',
       needTwo: '至少要两门语言才能对比。',
       cognatesHint: '行语言的词条里，有同源词在列语言里的占多少（按词源追到同一个来源）',
       cognateCell: '{a} 里有 {n} 个词在 {b} 里有同源词',
@@ -430,6 +450,11 @@ export default {
     environmentHint:
       '环境用规则语法写，_ 是这个语素本身：后缀看前面（V_ 在元音后），前缀看后面（_CC 在任意两个辅音前，_C1C1 在同一个辅音双写前）。从上往下挑第一条对得上的，环境留空的是默认形。',
     environment: '出现环境，如 V_、_CC',
+    alloValues: '只在这些维度取值下用',
+    alloValuesHint:
+      '看的是正在推导的那一格的维度取值，加上词条自己的语法特征：选了「宾格」，就是凡是宾格的那些格用这一形。留空是不限；跟出现环境都写了时两边都要对上。几个取值选在一起是「都要」，也更具体、优先挑。',
+    alloValuesAdd: '加取值',
+    alloValueRemove: '不要这个取值',
     gloss: 'gloss 缩写',
     meaning: '意义',
     usedBy: '引用它的词位',
@@ -932,7 +957,9 @@ export default {
     history: {
       title: '历史形式',
       openRuleSet: '打开这套音变',
-      mismatch: '推出来的跟词库写法不一样',
+      mismatch: '不一致',
+      edit: '点一下改这一步的形式（后面几步从改过的接着推）',
+      reset: '改回推出来的形式',
       mismatchHint: '按音变推到最后跟这个词的写法对不上，检查规则或词源'
     },
     orthoIpa: '基于正字法的 IPA',
@@ -955,8 +982,13 @@ export default {
     resizeCol: '拖动改列宽',
     selectedN: '已选 {n} 项',
     clearSel: '取消选择',
-    bulkTag: '批量加标签',
-    bulkTagPrompt: '给选中的词条加什么标签？',
+    bulkTag: '批量标签',
+    tagAdd: '加上',
+    tagAddPlaceholder: '输入标签，回车加给选中的词条',
+    tagAddAllHint: '选中的词条都加上这个标签',
+    tagRename: '改名（只改选中的词条）',
+    tagRemoveAll: '从选中的词条上去掉',
+    tagNone: '选中的词条还没有标签。',
     bulkDeleted: '已删除 {n} 条',
     examples: '例句',
     examplesAll: '查看全部例句',
@@ -1067,6 +1099,9 @@ export default {
     formsDerived: '推导',
     formsOverride: '已覆盖',
     resetDerived: '恢复推导值',
+    deriveAllForms: '全部重推',
+    deriveAllHint: '连手改过的形式一起，按构形重新推一遍',
+    deriveAllDone: '已按构形重推 {n} 个槽位',
     deriveForms: '按构形推导',
     paradigmByPos: '构形：按词类',
     addParadigm: '加一个构形',
@@ -1389,12 +1424,12 @@ export default {
     untitledGlyph: '新字形',
     exportFont: '导出字体',
     exportFontHint:
-      '内嵌字体里的字连同画过、改过的字（画过的盖掉原来的）重新写成一份字体；原字体的字距、连字、hinting 不保留',
+      '内嵌字体是 TrueType 的，就直接在原字体上换掉画过、改过的那几个字，字距、连字、别的字的 hinting 原样留着（改过的那几个字自己的 hinting 跟新轮廓对不上，只能去掉）；内嵌的是 OTF（CFF 轮廓）或者没有内嵌字体，就只能从零写一份，字距、连字、hinting 都留不住',
     exportTtf: '导出 TTF',
     exportWoff: '导出 WOFF',
     writeBackFont: '写回内嵌字体',
     writeBackFontHint:
-      '用重新写成的 TTF 换掉这套文字的内嵌字体，项目里带的就是改好的字体；原字体的字距、连字、hinting 不保留',
+      '把改好的字体换回这套文字的内嵌字体，项目里带的就是改好的；保留什么、丢什么和导出一样',
     fontNothing: '这套文字没有内嵌字体，也没有画过的字',
     fontBuildFailed: '字体生成失败：{err}',
     fontWrittenBack: '内嵌字体已更新为 {name}',
@@ -1653,14 +1688,15 @@ export default {
     },
     pron: {
       toggle: '影响发音',
-      hint: '勾上后这一格另写一条流水线改发音（基于正字法的 IPA），推导时存在这一格的形式上',
+      hint: '选「组合（流水线）+ 影响发音」时，这一格除了拼写再写一条流水线改发音（基于正字法的 IPA），推导时存在这一格的形式上',
       label: '发音',
       startHint: '发音从哪开始：这一格的拼写按正字法转成 IPA，或者词条自己的发音',
       fromForm: '这一格转 IPA',
       fromLemma: '词条发音'
     },
     relocate: {
-      hint: '双击：这一格写错地方了，挪到别的槽位',
+      hint: '双击槽位名，或者点右边的箭头：这一格写错地方了，挪到别的槽位',
+      button: '挪到别的槽位',
       title: '把「{name}」的写法挪到…',
       body: '挪过去之后这一格变回「无」。',
       search: '搜槽位名或缩写',
@@ -1685,6 +1721,18 @@ export default {
       noVariant: '剪贴板里没有复制过的一整套',
       noMatch: '复制的那套跟这个构形的槽位对不上（维度不同）'
     },
+    locked: '维度已锁',
+    unlocked: '维度可改',
+    lockHint:
+      '锁上维度：点维度只筛选要看哪些槽位，构形的槽位范围不再跟着变；眼下这些槽位会固定下来（底色深一点）',
+    unlockHint: '解锁：点维度又会真的改动这个构形的槽位范围',
+    lockedExplain: '维度锁着，点维度只是筛选：眼下显示 {n} 个槽位，固定下来的一共 {total} 个。',
+    filterHint: '点一下按这个维度筛选要看的槽位',
+    clearFilter: '清空筛选',
+    batchEnable: '筛出来的都启用',
+    batchDisable: '筛出来的都停用',
+    batchEnabled: '已启用 {n} 个槽位',
+    batchDisabled: '已停用 {n} 个槽位',
     slotsExplain:
       '每个维度各取一个值凑成一个槽位（{dims}），去掉禁用的还剩 {n} 个；一个槽位就是一个要生成的形式。',
     infixPresets: {
@@ -1740,6 +1788,7 @@ export default {
     params: '参数',
     kinds: {
       pipeline: '组合（流水线）',
+      pipelinePron: '组合（流水线）+ 影响发音',
       none: '无',
       table: '查表（手填）',
       affix: '拼接',
@@ -1973,7 +2022,9 @@ export default {
       header: '词头与发音',
       tags: '标签',
       etymology: '词源',
-      forms: '词干与屈折形',
+      history: '历史形式',
+      stems: '词干',
+      forms: '屈折形',
       relations: '关系',
       derived: '派生词',
       notes: '备注'
@@ -2026,6 +2077,7 @@ export default {
       info: '基本信息',
       languages: '语言与字体',
       words: '分词与 gloss',
+      paradigms: '构形',
       data: '数据'
     },
     uiLanguage: '界面语言',
@@ -2069,6 +2121,9 @@ export default {
     tokenizers: { whitespace: '按空白', character: '逐字', custom: '自定义分隔符' },
     tokenizerHint: '语料的原文怎么切成词。默认按空白；不用空格的表记（汉语式、日语式）选逐字。',
     tokenizerPattern: '分隔符正则',
+    complexSlots: '复杂模式：维度多的槽位各写各的',
+    complexSlotsHint:
+      '默认（简洁模式）：维度多的槽位（时-体-人称）没写法时，自动接着维度少的那个（时-体）往下变；勾上之后各算各的，维度多的那格不写就没有形式。',
     tokenizerPatternHint: 'JS 正则，不带两边的斜杠；写错了会退回按空白切。',
     tokenizerLetters: '算作字母的符号',
     tokenizerLettersHint:

@@ -13,7 +13,7 @@ describe('entry card block sizes', () => {
     const all = sizesFromScales(1.2, { header: 1.5 })
     expect(all.header).toBe(27)
     expect(all.senses).toBe(18)
-    expect(Object.keys(all)).toHaveLength(8)
+    expect(Object.keys(all)).toHaveLength(10)
     expect(sizesFromScales('x', null)).toEqual({})
   })
 })

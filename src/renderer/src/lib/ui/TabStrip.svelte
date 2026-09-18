@@ -165,11 +165,13 @@
       <button
         class="tg-chip tg-{g.color}"
         class:folded
-        title={folded ? t('tabGroups.expand') : t('tabGroups.collapse')}
+        title={g.name + ' · ' + (folded ? t('tabGroups.expand') : t('tabGroups.collapse'))}
         aria-expanded={!folded}
         onclick={() => toggleSection(foldId(g.id))}
         oncontextmenu={(e) => openMenu(e, { group: g.id })}
-        >{g.name}{#if folded}<span class="tg-n">{row.items.length}</span>{/if}</button
+        ><span class="tg-first">{Array.from(g.name)[0] ?? '·'}</span><span class="tg-rest"
+          >{Array.from(g.name).slice(1).join('')}</span
+        >{#if folded}<span class="tg-n">{row.items.length}</span>{/if}</button
       >
     {/if}
     <!-- 收起的组里只留正在看的那个页签，免得看不出现在开着哪个 -->
@@ -282,6 +284,25 @@
   }
   .tg-chip:hover {
     background: color-mix(in srgb, var(--tg) 32%, var(--bg-elev));
+  }
+  /* 页签上头地方紧张：组名平时只留一个字，鼠标放上去（或者组收起着）再展开 */
+  .tg-rest {
+    display: inline-block;
+    max-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    vertical-align: bottom;
+    transition: max-width 0.16s ease;
+  }
+  .tg-chip:hover .tg-rest,
+  .tg-chip:focus-visible .tg-rest,
+  .tg-chip.folded .tg-rest {
+    max-width: 10em;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tg-rest {
+      transition: none;
+    }
   }
   .tg-chip.folded {
     background: var(--tg);

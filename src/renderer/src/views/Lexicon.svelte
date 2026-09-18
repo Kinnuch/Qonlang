@@ -39,7 +39,6 @@
   import { dragColumn, fitColumns } from '$lib/ui/fitColumns'
   import { lexiconIssues } from '$lib/core/lexiconIssues'
   import LexemeExamples from '$lib/ui/LexemeExamples.svelte'
-  import LexemeHistory from '$lib/ui/LexemeHistory.svelte'
   import { lexemeScript, scriptSourceText } from '$lib/script/render'
   import { fontCss } from '$lib/script/fonts'
   import {
@@ -104,7 +103,8 @@
     ImagePlus,
     FilePlus2,
     Merge,
-    ListOrdered
+    ListOrdered,
+    Tags
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
@@ -499,6 +499,17 @@
   const selLang = $derived(
     selected ? project.languages.find((x) => x.id === selected.languageId) : null
   )
+  /** 自己写关系种类时的草稿（下标 → 正在打的字），打完才写回词条 */
+  let kindDraft = $state<Record<number, string>>({})
+  function commitKind(l: Lexeme, r: { kind: string }, i: number): void {
+    const v = (kindDraft[i] ?? '').trim()
+    const { [i]: _drop, ...rest } = kindDraft
+    void _drop
+    kindDraft = rest
+    if (!v || v === r.kind) return
+    r.kind = v
+    touch(l)
+  }
   const relationKinds = $derived(
     [
       ...new Set([
@@ -852,6 +863,13 @@
     const filled = Object.values(l.forms).filter((f) => f.surface.trim()).length
     return t('lexicon.formsCount', { n: String(slotsOf(l).length), filled: String(filled) })
   }
+  /** 连手改过的一起重推：先把槽位上的形式都去掉，再照构形推一遍 */
+  function deriveAllForms(l: Lexeme): void {
+    const keys = new Set(slotsOf(l).map((s) => s.key))
+    for (const k of Object.keys(l.forms)) if (keys.has(k)) delete l.forms[k]
+    deriveNow(l)
+    ui.toast(t('lexicon.deriveAllDone', { n: keys.size }))
+  }
   function deriveNow(l: Lexeme): void {
     const lg = project.languages.find((x) => x.id === l.languageId)
     if (!lg || !paradigmsFor(project, l).length) return
@@ -1070,14 +1088,49 @@
       }
     })
   }
-  async function tagSelected(): Promise<void> {
-    const tag = (await ui.prompt(t('lexicon.bulkTagPrompt'), ''))?.trim()
-    if (!tag) return
-    for (const l of project.lexemes)
-      if (multiIds.includes(l.id) && !l.tags.includes(tag)) {
-        l.tags.push(tag)
+  // ── 批量标签：选中几条之后一起加、一起去掉、一起改名 ──
+  let tagBoxOpen = $state(false)
+  let newTag = $state('')
+  const selectedLexemes = $derived(project.lexemes.filter((l) => multiIds.includes(l.id)))
+  /** 选中的这些词条上出现过的标签：标签 → 有几条带着它 */
+  const selectedTags = $derived.by(() => {
+    const m = new Map<string, number>()
+    for (const l of selectedLexemes) for (const tg of l.tags) m.set(tg, (m.get(tg) ?? 0) + 1)
+    return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  })
+  /** 这门语言里用过的标签，加标签时给提示 */
+  const knownTags = $derived([...new Set(inLang.flatMap((l) => l.tags))].sort())
+  function addTagToSelected(tag: string): void {
+    const tg = tag.trim()
+    if (!tg) return
+    for (const l of selectedLexemes)
+      if (!l.tags.includes(tg)) {
+        l.tags.push(tg)
         l.updatedAt = now()
       }
+    newTag = ''
+    touch()
+  }
+  function removeTagFromSelected(tag: string): void {
+    for (const l of selectedLexemes) {
+      const i = l.tags.indexOf(tag)
+      if (i >= 0) {
+        l.tags.splice(i, 1)
+        l.updatedAt = now()
+      }
+    }
+    touch()
+  }
+  async function renameTagInSelected(tag: string): Promise<void> {
+    const name = (await ui.prompt(t('lexicon.tagRename'), tag))?.trim()
+    if (!name || name === tag) return
+    for (const l of selectedLexemes) {
+      const i = l.tags.indexOf(tag)
+      if (i < 0) continue
+      if (l.tags.includes(name)) l.tags.splice(i, 1)
+      else l.tags[i] = name
+      l.updatedAt = now()
+    }
     touch()
   }
 </script>
@@ -1309,13 +1362,72 @@
     {#if multiIds.length > 1}
       <div class="row bulk">
         <span class="small">{t('lexicon.selectedN', { n: multiIds.length })}</span>
-        <button class="btn ghost sm" onclick={tagSelected}>{t('lexicon.bulkTag')}</button>
+        <button class="btn ghost sm" onclick={() => (tagBoxOpen = !tagBoxOpen)}
+          ><Tags size={14} />{t('lexicon.bulkTag')}</button
+        >
         <button class="btn ghost sm danger" onclick={removeSelected}
           ><Trash2 size={14} />{t('common.delete')}</button
         >
         <button class="btn ghost sm" onclick={() => (multiIds = [])}>{t('lexicon.clearSel')}</button
         >
       </div>
+      {#if tagBoxOpen}
+        <div class="card tagbox">
+          <div class="row">
+            <input
+              class="input grow"
+              list="dl-tags"
+              placeholder={t('lexicon.tagAddPlaceholder')}
+              bind:value={newTag}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') addTagToSelected(newTag)
+              }}
+            />
+            <button
+              class="btn sm primary"
+              disabled={!newTag.trim()}
+              onclick={() => addTagToSelected(newTag)}>{t('lexicon.tagAdd')}</button
+            >
+            <button
+              class="btn ghost icon sm"
+              title={t('common.close')}
+              onclick={() => (tagBoxOpen = false)}><X size={14} /></button
+            >
+          </div>
+          <datalist id="dl-tags"
+            >{#each knownTags as tg (tg)}<option value={tg}></option>{/each}</datalist
+          >
+          {#if selectedTags.length}
+            <div class="row wrap tagrows">
+              {#each selectedTags as [tg, n] (tg)}
+                <span class="tagrow">
+                  <span class="badge">{tg}</span>
+                  <span class="small muted">{n}/{selectedLexemes.length}</span>
+                  {#if n < selectedLexemes.length}
+                    <button
+                      class="btn ghost icon sm"
+                      title={t('lexicon.tagAddAllHint')}
+                      onclick={() => addTagToSelected(tg)}><Plus size={12} /></button
+                    >
+                  {/if}
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('lexicon.tagRename')}
+                    onclick={() => renameTagInSelected(tg)}><Pencil size={12} /></button
+                  >
+                  <button
+                    class="btn ghost icon sm danger"
+                    title={t('lexicon.tagRemoveAll')}
+                    onclick={() => removeTagFromSelected(tg)}><X size={12} /></button
+                  >
+                </span>
+              {/each}
+            </div>
+          {:else}
+            <span class="small muted">{t('lexicon.tagNone')}</span>
+          {/if}
+        </div>
+      {/if}
     {/if}
     <div
       class="scroll"
@@ -1526,7 +1638,6 @@
       >
     </div>
     <LexemeCard lexeme={l} {project} onselect={selectFromCard} controls />
-    <LexemeHistory lexeme={l} {project} />
     <LexemeExamples lexeme={l} {project} {glossLangs} />
   </Portal>
 {/if}
@@ -1800,14 +1911,21 @@
         >
       </div>
       {#each l.relations as r, i (i)}
-        {@const known = relationKinds.includes(r.kind)}
+        {@const known = relationKinds.includes(r.kind) && !(i in kindDraft)}
         <div class="row kv">
           <select
             class="select kind"
             value={known ? r.kind : '__custom__'}
             onchange={(e) => {
               const v = (e.currentTarget as HTMLSelectElement).value
-              r.kind = v === '__custom__' ? '' : v
+              if (v === '__custom__') {
+                kindDraft = { ...kindDraft, [i]: r.kind }
+                return
+              }
+              const { [i]: _drop, ...rest } = kindDraft
+              void _drop
+              kindDraft = rest
+              r.kind = v
               touch(l)
             }}
           >
@@ -1815,11 +1933,22 @@
             <option value="__custom__">{t('lexicon.customKind')}</option>
           </select>
           {#if !known}
+            <!-- 自己写的种类：边打字边写回去的话，刚打一个字母这个种类就进了下拉表、输入框跟着消失；打完回车或者移开焦点才算 -->
             <input
               class="input kind"
-              bind:value={r.kind}
+              value={kindDraft[i] ?? r.kind}
               placeholder={t('lexicon.relationKind')}
-              onchange={() => touch(l)}
+              oninput={(e) =>
+                (kindDraft = { ...kindDraft, [i]: (e.currentTarget as HTMLInputElement).value })}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur()
+                else if (e.key === 'Escape') {
+                  const { [i]: _drop, ...rest } = kindDraft
+                  void _drop
+                  kindDraft = rest
+                }
+              }}
+              onblur={() => commitKind(l, r, i)}
             />
           {/if}
           <input
@@ -2094,6 +2223,11 @@
           >{/if}
         {#if slotsOf(l).length}<button class="btn ghost sm" onclick={() => deriveNow(l)}
             ><Wand2 size={14} />{t('lexicon.deriveForms')}</button
+          ><button
+            class="btn ghost sm"
+            title={t('lexicon.deriveAllHint')}
+            onclick={() => deriveAllForms(l)}
+            ><RotateCcw size={14} />{t('lexicon.deriveAllForms')}</button
           >{/if}
         <button
           class="btn ghost sm"
@@ -2120,22 +2254,34 @@
               {#snippet cell(s: LexemeSlot | null)}
                 {#if s}
                   {@const f = l.forms[s.key]}
-                  <input
-                    class="input data cell"
-                    class:derived={f && !f.override}
-                    value={f?.surface ?? ''}
-                    placeholder="—"
-                    title={[s.slot.label, ...(f?.trace ?? [])].filter(Boolean).join('\n')}
-                    oninput={(e) => {
-                      l.forms[s.key] = {
-                        surface: (e.currentTarget as HTMLInputElement).value,
-                        derived: false,
-                        override: true,
-                        trace: []
-                      }
-                      touch(l)
-                    }}
-                  />
+                  <span class="cellwrap">
+                    <input
+                      class="input data cell"
+                      class:derived={f && !f.override}
+                      value={f?.surface ?? ''}
+                      placeholder="—"
+                      title={[s.slot.label, ...(f?.trace ?? [])].filter(Boolean).join('\n')}
+                      oninput={(e) => {
+                        l.forms[s.key] = {
+                          surface: (e.currentTarget as HTMLInputElement).value,
+                          derived: false,
+                          override: true,
+                          trace: []
+                        }
+                        touch(l)
+                      }}
+                    />
+                    {#if f?.override}
+                      <button
+                        class="cell-reset"
+                        title={t('lexicon.resetDerived')}
+                        onclick={() => {
+                          delete l.forms[s.key]
+                          deriveNow(l)
+                        }}><RotateCcw size={11} /></button
+                      >
+                    {/if}
+                  </span>
                 {/if}
               {/snippet}
             </FormsView>
@@ -2401,6 +2547,48 @@
     100% {
       background: transparent;
     }
+  }
+  /* 表格 / 树形图里手改过的格子：右上角一个小 ↺ 回到推导值 */
+  .cellwrap {
+    position: relative;
+    display: block;
+  }
+  .cell-reset {
+    position: absolute;
+    right: 2px;
+    top: 2px;
+    display: none;
+    border: 0;
+    background: var(--bg-elev);
+    border-radius: 4px;
+    padding: 1px;
+    color: var(--text-3);
+    cursor: pointer;
+  }
+  .cellwrap:hover .cell-reset {
+    display: block;
+  }
+  .cell-reset:hover {
+    color: var(--text);
+  }
+  /* 批量标签：选中几条之后展开的小面板 */
+  .tagbox {
+    padding: 10px 12px;
+    margin: 0 0 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .tagrows {
+    gap: 8px;
+  }
+  .tagrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 4px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
   }
   .bulk {
     gap: 8px;

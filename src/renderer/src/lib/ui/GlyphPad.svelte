@@ -543,18 +543,38 @@
     clearSelection()
   }
 
+  /**
+   * 不让浏览器把按下拖动当成「拖拽」：一旦开了原生拖拽，光标变成禁止符号、
+   * 指针事件被 pointercancel 掐断，笔就断在半路。
+   */
+  function noDrag(e: Event): boolean {
+    e.preventDefault()
+    return false
+  }
+  /**
+   * 指针一律捕获到 <svg> 本身：捕获在子元素上的话，拖到元素外面事件就跟着走了，
+   * 笔画会断在半路；捕获在 svg 上，指针跑出画布照样一路画到松手。
+   */
+  function grab(e: PointerEvent): void {
+    try {
+      svg?.setPointerCapture(e.pointerId)
+    } catch {
+      // 指针已经没了（比如被浏览器取消），忽略
+    }
+  }
+
   function down(e: PointerEvent): void {
     measure()
     if (e.button === 1) {
       e.preventDefault()
-      ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
+      grab(e)
       drag = { kind: 'pan', from: [e.clientX, e.clientY], center: [...viewCenter] }
       return
     }
     if (e.button !== 0) return
     const p = toFont(e)
     msg = ''
-    ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
+    grab(e)
     if (tool === 'pen') {
       pointer = p
       ink = p
@@ -615,7 +635,7 @@
     if (e.button !== 0 || !selBox) return
     const geom = boxOf({ s: selS, c: selC }, false)
     if (!geom) return
-    ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
+    grab(e)
     pending = snap()
     drag = {
       kind: 'scale',
@@ -628,7 +648,7 @@
   function startAdvance(e: PointerEvent): void {
     e.stopPropagation()
     if (e.button !== 0) return
-    ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
+    grab(e)
     pending = snap()
     drag = { kind: 'advance' }
   }
@@ -975,7 +995,14 @@
 </script>
 
 <div class="backdrop" role="presentation" onclick={oncancel}></div>
-<div class="pad card" role="dialog" aria-modal="true" aria-label={title}>
+<div
+  class="pad card"
+  role="dialog"
+  aria-modal="true"
+  aria-label={title}
+  tabindex="-1"
+  ondragstart={noDrag}
+>
   <div class="row head">
     <strong class="grow">{title}</strong>
     {#if canLoad}
@@ -1169,8 +1196,10 @@
     onpointermove={move}
     onpointerup={up}
     onpointercancel={up}
+    onlostpointercapture={up}
     onwheel={onWheel}
     onauxclick={(e) => e.preventDefault()}
+    ondragstart={noDrag}
   >
     <!-- 字身框、参考线 -->
     <rect
@@ -1433,6 +1462,13 @@
     border-radius: var(--radius-sm);
     touch-action: none;
     cursor: default;
+    /* 画布上不选中、不拖拽：不然浏览器会把「按下拖动」接管成原生拖拽，光标变禁止符号、笔断掉 */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+  }
+  .canvas * {
+    -webkit-user-drag: none;
   }
   .canvas.pen {
     cursor: crosshair;

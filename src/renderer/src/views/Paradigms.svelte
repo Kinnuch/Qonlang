@@ -70,7 +70,10 @@
     FilePlus2,
     CornerDownRight,
     Copy,
-    ClipboardPaste
+    ClipboardPaste,
+    MoveRight,
+    Lock,
+    LockOpen
   } from '@lucide/svelte'
   import { morphClip } from '$lib/state/morphClip.svelte'
   import { pastedGenerator } from '$lib/core/pasteGenerator'
@@ -118,6 +121,8 @@
     layout: SlotLayout
     benchMode: 'compare' | 'free'
     freeInput: string
+    /** 上锁时按维度筛选要看哪些槽位（只影响显示，不进项目） */
+    dimFilter: Id[]
   }>('paradigms')
   let activeId = $state<Id | null>(memo.activeId ?? null)
   const active = $derived(
@@ -180,11 +185,56 @@
   const allSlots = $derived(
     active ? paradigmSlots(active, project.categories, glossLangs, true) : []
   )
+  // ── 维度上锁与筛选 ──
+  const locked = $derived(!!active?.slotsLocked)
+  let dimFilter = $state<Id[]>(memo.dimFilter ?? [])
+  $effect(() => {
+    memo.dimFilter = dimFilter
+  })
+  const catOfValue = $derived.by(() => {
+    const m = new Map<Id, Id>()
+    for (const c of project.categories) for (const v of c.values) m.set(v.id, c.id)
+    return m
+  })
+  /** 固定下来的槽位：怎么筛都在，底色深一点 */
+  const fixedKeys = $derived(new Set(active?.lockedSlots ?? []))
+  /** 上锁时按选中的维度筛：槽位得用上这几个维度 */
+  const inFilter = (s: SlotDef): boolean =>
+    !locked ||
+    !dimFilter.length ||
+    dimFilter.every((d) => s.values.some((v) => catOfValue.get(v.valueId) === d))
+  /** 上锁：把眼下这些槽位固定下来，之后点维度只当筛选 */
+  function toggleLock(): void {
+    if (!active) return
+    if (active.slotsLocked) {
+      active.slotsLocked = false
+      dimFilter = []
+    } else {
+      active.slotsLocked = true
+      active.lockedSlots = [...new Set(allSlots.map((s) => s.key))]
+      dimFilter = []
+    }
+    touch()
+  }
+  /** 上锁时点维度：只改筛选 */
+  function toggleFilter(id: Id): void {
+    dimFilter = dimFilter.includes(id) ? dimFilter.filter((x) => x !== id) : [...dimFilter, id]
+  }
+  /** 按眼下筛出来的这批槽位批量启用 / 停用 */
+  function setShownEnabled(on: boolean): void {
+    if (!active) return
+    const keys = new Set(slots.map((s) => s.key))
+    const rest = active.disabledSlots.filter((k) => !keys.has(k))
+    active.disabledSlots = on ? rest : [...rest, ...keys]
+    touch()
+    ui.toast(t(on ? 'paradigms.batchEnabled' : 'paradigms.batchDisabled', { n: keys.size }))
+  }
   /** 顶栏搜索：按槽位名或 gloss 缩写筛（推导与检查仍然跑全部槽位） */
   const slots = $derived.by(() => {
+    const shown = allSlots.filter(inFilter)
     const pq = parseQuery(ui.search, SEARCH_FIELDS.paradigms)
-    if (!pq.terms.length) return allSlots
-    return allSlots.filter((s) =>
+    if (!pq.terms.length) return shown
+    return shown.filter((s) =>
       matchQuery(pq, (f) =>
         f === 'slot' ? [s.label] : f === 'gloss' ? [s.abbr] : [s.label, s.abbr]
       )
@@ -698,14 +748,30 @@
     else active.disabledSlots.push(key)
     touch()
   }
-  function setKind(key: string, kind: SlotGenerator['kind']): void {
+  /** 生成器下拉里的四项：无 / 查表 / 组合 / 组合 + 影响发音 */
+  const KIND_OPTIONS = ['none', 'table', 'pipeline', 'pipelinePron'] as const
+  type KindOption = (typeof KIND_OPTIONS)[number]
+  const kindOf = (g: SlotGenerator): KindOption =>
+    g.kind === 'pipeline' && g.pron?.on ? 'pipelinePron' : (g.kind as KindOption)
+  function setKind(key: string, option: KindOption): void {
     if (!active) return
     const cur = active.generators[key]
     const stem = cur && 'stem' in cur ? cur.stem : ''
-    active.generators[key] =
-      kind === 'pipeline'
-        ? { kind, stem, steps: cur && cur.kind === 'pipeline' ? cur.steps : [] }
-        : ({ kind } as SlotGenerator)
+    if (option === 'none' || option === 'table') {
+      active.generators[key] = { kind: option } as SlotGenerator
+      touch()
+      return
+    }
+    const steps = cur && cur.kind === 'pipeline' ? cur.steps : []
+    const base = cur && cur.kind === 'pipeline' ? cur.base : undefined
+    // 写过的发音流水线留着：换回「组合（流水线）」只是不再推导发音
+    const pron = cur && cur.kind === 'pipeline' ? cur.pron : undefined
+    const next: SlotGenerator = { kind: 'pipeline', stem, steps }
+    if (base) next.base = base
+    if (option === 'pipelinePron')
+      next.pron = pron ? { ...pron, on: true } : { on: true, from: 'form', steps: [] }
+    else if (pron) next.pron = { ...pron, on: false }
+    active.generators[key] = next
     touch()
   }
   /** 复制一个槽位的生成方式（当前变体下的；变体没写的复制通用那套） */
@@ -779,15 +845,6 @@
   }
   /** 本构形里能继承的格：除了自己 */
   const ownBaseChoices = (key: string): SlotDef[] => allSlots.filter((s) => s.key !== key)
-
-  // ── 发音流水线 ──
-  function setPron(key: string, on: boolean): void {
-    const g = active?.generators[key]
-    if (!g || g.kind !== 'pipeline') return
-    if (g.pron) g.pron.on = on
-    else if (on) g.pron = { on: true, from: 'form', steps: [] }
-    touch()
-  }
 
   // ── 重定位：写错槽位时把这一格的写法挪到别的格，这一格变回「无」 ──
   let relocateFrom = $state<string | null>(null)
@@ -1053,9 +1110,25 @@
   {:else}
     <div class="scroll">
       <section class="block">
-        <h3>{t('paradigms.dimensions')} <HelpDot tip={t('paradigms.dimensionsHint')} /></h3>
+        <div class="row">
+          <h3 class="grow">
+            {t('paradigms.dimensions')}
+            <HelpDot tip={t('paradigms.dimensionsHint')} />
+          </h3>
+          <button
+            class="btn ghost sm"
+            class:active={locked}
+            title={t(locked ? 'paradigms.unlockHint' : 'paradigms.lockHint')}
+            onclick={toggleLock}
+            >{#if locked}<Lock size={13} />{:else}<LockOpen size={13} />{/if}{t(
+              locked ? 'paradigms.locked' : 'paradigms.unlocked'
+            )}</button
+          >
+        </div>
         <p class="small muted" class:warn-text={slots.length > SLOT_WARN}>
-          {t('paradigms.slotsExplain', { n: slots.length, dims: dimSizes })}
+          {locked
+            ? t('paradigms.lockedExplain', { n: slots.length, total: allSlots.length })
+            : t('paradigms.slotsExplain', { n: slots.length, dims: dimSizes })}
         </p>
         <div class="dims">
           {#each active.dimensionIds as id, i (id)}
@@ -1075,15 +1148,32 @@
               <button class="x" onclick={() => moveDimension(i, 1)}
                 ><ChevronDown size={11} /></button
               >
-              <button class="x" onclick={() => toggleDimension(id)}><X size={11} /></button>
+              {#if !locked}<button class="x" onclick={() => toggleDimension(id)}
+                  ><X size={11} /></button
+                >{/if}
             </span>
           {/each}
           {#each project.categories.filter((c) => !active!.dimensionIds.includes(c.id)) as c (c.id)}
-            <button class="chip" onclick={() => toggleDimension(c.id)}
+            <button
+              class="chip"
+              class:filtering={locked && dimFilter.includes(c.id)}
+              title={locked ? t('paradigms.filterHint') : ''}
+              onclick={() => (locked ? toggleFilter(c.id) : toggleDimension(c.id))}
               ><Plus size={11} />{pickText(c.name, glossLangs)}
               <span class="muted small">({c.values.length})</span></button
             >
           {/each}
+          {#if locked && dimFilter.length}
+            <button class="btn ghost sm" onclick={() => (dimFilter = [])}
+              >{t('paradigms.clearFilter')}</button
+            >
+            <button class="btn ghost sm" onclick={() => setShownEnabled(true)}
+              >{t('paradigms.batchEnable')}</button
+            >
+            <button class="btn ghost sm" onclick={() => setShownEnabled(false)}
+              >{t('paradigms.batchDisable')}</button
+            >
+          {/if}
           {#if project.categories.length === 0}<span class="small muted"
               >{t('lexicon.noFeatures')}</span
             >{/if}
@@ -1317,7 +1407,12 @@
                 {@const disabled = active.disabledSlots.includes(s.key)}
                 {@const g = active.generators[gkey(s.key)] ?? { kind: 'none' }}
                 {@const folded = sectionCollapsed(foldId(s.key))}
-                <tr class:off={disabled} class:folded data-slot={s.key}>
+                <tr
+                  class:off={disabled}
+                  class:folded
+                  class:fixed-slot={locked && fixedKeys.has(s.key)}
+                  data-slot={s.key}
+                >
                   <td class="lead"
                     ><span class="lead-in"
                       ><button
@@ -1336,11 +1431,17 @@
                       /></span
                     ></td
                   >
-                  <td
-                    class="label"
-                    title={t('paradigms.relocate.hint')}
-                    ondblclick={() => openRelocate(s.key)}>{s.label}</td
-                  >
+                  <td class="label" title={t('paradigms.relocate.hint')}>
+                    <span
+                      class="label-in"
+                      ondblclick={() => openRelocate(s.key)}
+                      role="presentation">{s.label}</span
+                    ><button
+                      class="btn ghost icon sm relocate-btn"
+                      title={t('paradigms.relocate.button')}
+                      onclick={() => openRelocate(s.key)}><MoveRight size={13} /></button
+                    >
+                  </td>
                   <td class="mono small muted">{s.abbr}</td>
                   {#if folded}
                     <td colspan="3" class="fold-cell">
@@ -1354,30 +1455,21 @@
                     <td>
                       <select
                         class="select kind"
-                        value={g.kind}
+                        value={kindOf(g)}
+                        title={t('paradigms.pron.hint')}
                         onchange={(e) =>
                           setKind(
                             gkey(s.key),
-                            (e.currentTarget as HTMLSelectElement).value as SlotGenerator['kind']
+                            (e.currentTarget as HTMLSelectElement).value as KindOption
                           )}
                       >
-                        {#each ['none', 'table', 'pipeline'] as k (k)}<option value={k}
+                        {#each KIND_OPTIONS as k (k)}<option value={k}
                             >{t(`paradigms.kinds.${k}`)}</option
                           >{/each}
                       </select>
                       {#if isInherited(gkey(s.key))}<span class="badge"
                           >{t('paradigms.inherited')}</span
                         >{/if}
-                      {#if g.kind === 'pipeline'}
-                        <label class="row small pron-check" title={t('paradigms.pron.hint')}
-                          ><input
-                            type="checkbox"
-                            checked={!!g.pron?.on}
-                            onchange={(e) =>
-                              setPron(gkey(s.key), (e.currentTarget as HTMLInputElement).checked)}
-                          />{t('paradigms.pron.toggle')}</label
-                        >
-                      {/if}
                       <div class="row slot-clip">
                         <button
                           class="btn ghost icon sm"
@@ -2144,11 +2236,23 @@
     gap: 2px;
     margin-top: 4px;
   }
-  .pron-check {
-    gap: 4px;
-    margin-top: 6px;
-    white-space: nowrap;
-    color: var(--text-2);
+  /* 槽位名旁边的「挪到别的槽位」：鼠标放到这一行才出现，双击槽位名也行 */
+  .relocate-btn {
+    opacity: 0;
+    vertical-align: middle;
+  }
+  /* 上锁后固定下来的槽位：底色深一点，维度怎么筛它都在 */
+  .slots tr.fixed-slot > td {
+    background: var(--bg-sunken);
+  }
+  .chip.filtering {
+    border-color: var(--accent);
+    color: var(--accent-text);
+    background: var(--accent-soft);
+  }
+  .slots tr:hover .relocate-btn,
+  .relocate-btn:focus-visible {
+    opacity: 1;
   }
   .slots td.label {
     cursor: default;

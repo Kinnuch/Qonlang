@@ -14,7 +14,8 @@
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { createMorpheme, MORPHEME_TYPES } from '$lib/core/factory'
-  import type { Id, Morpheme, MorphemeType } from '$lib/core/model'
+  import type { Allomorph, Id, Morpheme, MorphemeType } from '$lib/core/model'
+  import { findValue, valueLabel } from '$lib/engine/morph/allomorph'
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import { makeCollator } from '$lib/core/collate'
@@ -212,6 +213,31 @@
       : []
   )
   const glossLangs = $derived(project.settings.glossLanguages)
+
+  // ── 异体形的语法条件：只在这些维度取值下用 ──
+  /** 小方块上写的取值名 */
+  function valueName(vid: Id): string {
+    return valueLabel(project.categories, vid, glossLangs)
+  }
+  /** 悬浮时写全「维度 · 取值」，免得两个维度有同名取值时分不清 */
+  function valueTitle(vid: Id): string {
+    const hit = findValue(project.categories, vid)
+    return hit
+      ? `${pickText(hit.category.name, glossLangs) || '?'} · ${valueName(vid)}`
+      : valueName(vid)
+  }
+  function addAlloValue(a: Allomorph, vid: Id): void {
+    if (!vid || (a.values ?? []).includes(vid)) return
+    a.values = [...(a.values ?? []), vid]
+    projectState.touch()
+  }
+  function dropAlloValue(a: Allomorph, vid: Id): void {
+    const left = (a.values ?? []).filter((x) => x !== vid)
+    // 一个都不剩就把字段去掉：老文件里本来就没有这一项
+    if (left.length) a.values = left
+    else delete a.values
+    projectState.touch()
+  }
 
   $effect(() => {
     inspectorTitle =
@@ -657,6 +683,45 @@
             }}><X size={14} /></button
           >
         </div>
+        {#if project.categories.length}
+          <!-- 这一形只在哪些维度取值下用：选的是正在推导的那一格的取值，留空是不限 -->
+          <div class="row allo-vals">
+            {#if i === 0}
+              <span class="small muted">{t('morphemes.alloValues')}</span><HelpDot
+                tip={t('morphemes.alloValuesHint')}
+              />
+            {/if}
+            {#each a.values ?? [] as vid (vid)}
+              <span class="badge val" title={valueTitle(vid)}
+                >{valueName(vid)}<button
+                  class="vx"
+                  title={t('morphemes.alloValueRemove')}
+                  onclick={() => dropAlloValue(a, vid)}><X size={11} /></button
+                ></span
+              >
+            {/each}
+            <select
+              class="select vpick"
+              value=""
+              title={t('morphemes.alloValues')}
+              onchange={(e) => {
+                addAlloValue(a, (e.currentTarget as HTMLSelectElement).value)
+                e.currentTarget.value = ''
+              }}
+            >
+              <option value="">＋{t('morphemes.alloValuesAdd')}</option>
+              {#each project.categories as c (c.id)}
+                <optgroup label={pickText(c.name, glossLangs) || '?'}>
+                  {#each c.values as v (v.id)}
+                    <option value={v.id} disabled={(a.values ?? []).includes(v.id)}
+                      >{pickText(v.name, glossLangs) || v.abbr || '?'}</option
+                    >
+                  {/each}
+                </optgroup>
+              {/each}
+            </select>
+          </div>
+        {/if}
       {/each}
       <button
         class="btn ghost sm self-start"
@@ -846,6 +911,38 @@
   .allo {
     gap: 6px;
     margin-bottom: 4px;
+  }
+  /** 异体形下面那一行：取值小方块 + 挑取值的下拉，挤不下就折行 */
+  .allo-vals {
+    gap: 4px;
+    flex-wrap: wrap;
+    margin: -1px 0 6px;
+  }
+  .allo-vals .badge.val {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding-right: 2px;
+  }
+  .allo-vals .vx {
+    display: inline-flex;
+    align-items: center;
+    border: 0;
+    background: none;
+    padding: 0 1px;
+    color: inherit;
+    opacity: 0.6;
+    cursor: pointer;
+  }
+  .allo-vals .vx:hover {
+    opacity: 1;
+  }
+  .allo-vals .vpick {
+    width: auto;
+    max-width: 150px;
+    padding: 1px 4px;
+    font-size: 12px;
+    color: var(--text-3);
   }
   .feat {
     gap: 8px;

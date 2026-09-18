@@ -54,6 +54,8 @@ export interface GlossIndex {
   readonly virtual: Map<string, { lexeme: Lexeme; slot: string; abbr: string }[]>
   /** 切分用的词典接口（segment.ts） */
   readonly source: SegmentSource
+  /** 词条 id → 词条（挑义项时用，第一次问才建） */
+  readonly lexemeById: Map<Id, Lexeme>
   project: Project
 }
 
@@ -78,6 +80,15 @@ export function shortGloss(d: string): string {
   return cut(d) || cut(d.replace(/[（(][^）)]*[）)]/g, '')) || d.trim()
 }
 
+/** 词位某个义项的简短 gloss（见 shortGloss） */
+export function senseGloss(l: Lexeme, i: number, glossLangs: string[]): string {
+  const def = l.senses[i]?.definition
+  if (!def) return ''
+  for (const g of glossLangs) if (def[g]) return shortGloss(def[g])
+  const any = Object.values(def).find(Boolean)
+  return any ? shortGloss(any) : ''
+}
+
 /** 词位的简短 gloss：第一义项的第一小段（见 shortGloss） */
 export function lexemeGloss(l: Lexeme, glossLangs: string[]): string {
   for (const g of glossLangs) {
@@ -86,6 +97,17 @@ export function lexemeGloss(l: Lexeme, glossLangs: string[]): string {
   }
   const any = Object.values(l.senses[0]?.definition ?? {}).find(Boolean)
   return any ? shortGloss(any) : l.lemma
+}
+
+/**
+ * 一处写了几个异写（`fóros/fauros`、`eñgan//eñgaun`、逗号分号分开的）：拆成一个个写法。
+ * 词头、词干、屈折形都这样入索引，语料里写哪一个都认得出
+ */
+export function variants(text: string): string[] {
+  return text
+    .split(/[,，;；/]+\s*/)
+    .map((x) => x.trim())
+    .filter(Boolean)
 }
 
 function push<K, V>(m: Map<K, V[]>, k: K, v: V): void {
@@ -149,6 +171,7 @@ export function buildIndex(
   )
   if (!vowels.size) for (const v of FALLBACK_VOWELS) vowels.add(v)
   let mutations: MutationTable[] | null = null
+  let lexemeById: Map<Id, Lexeme> | null = null
   let virtual: GlossIndex['virtual'] | null = null
   let source: SegmentSource | null = null
   let morphCtx: MorphContext | null = null
@@ -176,6 +199,10 @@ export function buildIndex(
     wordChars: '',
     learn: { formKey: new Map(), keyCount: new Map(), next: new Map(), chunks: new Map() },
     project,
+    get lexemeById() {
+      lexemeById ??= new Map(project.lexemes.map((l) => [l.id, l]))
+      return lexemeById
+    },
     get virtual() {
       virtual ??= virtualForms(project, languageId, ctxOf)
       return virtual
@@ -205,13 +232,15 @@ export function buildIndex(
   for (const l of project.lexemes) {
     if (l.languageId !== languageId) continue
     noteEdges(l.lemma)
-    for (const k of formKeys(l.lemma, boundaries, prefixForms)) push(idx.lemma, k, l)
+    for (const v of variants(l.lemma))
+      for (const k of formKeys(v, boundaries, prefixForms)) push(idx.lemma, k, l)
     for (const st of Object.values(l.stems))
-      for (const k of formKeys(st, boundaries, prefixForms)) push(idx.stems, k, l)
+      for (const v of variants(st))
+        for (const k of formKeys(v, boundaries, prefixForms)) push(idx.stems, k, l)
     const abbrs = new Map<string, string>()
     for (const s of lexemeSlots(project, l, glossLangs)) abbrs.set(s.key, s.slot.abbr)
     for (const [slot, f] of Object.entries(l.forms)) {
-      for (const v of f.surface.split(/[,，;；/]\s*/)) {
+      for (const v of variants(f.surface)) {
         noteEdges(v)
         for (const k of formKeys(v.trim().replace(/^\*/, ''), boundaries, prefixForms))
           push(idx.forms, k, { lexeme: l, slot, abbr: abbrs.get(slot) ?? slot })
@@ -348,7 +377,7 @@ function virtualForms(
       } catch {
         continue
       }
-      for (const v of surface.split(/[,，;；/]\s*/))
+      for (const v of variants(surface))
         for (const k of formKeys(v.trim(), boundaries, []))
           push(out, k, { lexeme: l, slot: s.key, abbr: s.slot.abbr })
     }
@@ -745,6 +774,27 @@ export function analyzeToken(
   const plain = norm(surface)
   for (const seg of segmentWord(idx.source, plain, { requireStem: true, hint }))
     add(toAnalysis(seg))
+  // 一个词条几个义项：整词对上它时每个义项各给一条候选，语料里挑得出是哪个意思
+  for (const a of [...out]) {
+    if (a.morphs.length !== 1 || !a.lexemeId) continue
+    const l = idx.lexemeById.get(a.lexemeId)
+    if (!l || l.senses.length < 2) continue
+    const base = a.morphs[0]
+    for (let i = 1; i < l.senses.length; i++) {
+      const g = senseGloss(l, i, idx.glossLangs)
+      if (!g || g === base.gloss) continue
+      add({ ...a, morphs: [{ ...base, gloss: g }] })
+    }
+  }
+  // 语料里也写了几个异写（`Degnes/Degnant`）：整串认不出时逐个异写去认
+  if (!out.length) {
+    const alts = variants(surface)
+    if (alts.length > 1)
+      for (const alt of alts) {
+        for (const a of analyzeToken(idx, alt, boundaries, hint)) add(a)
+        if (out.length) break
+      }
+  }
   return out.slice(0, 12)
 }
 

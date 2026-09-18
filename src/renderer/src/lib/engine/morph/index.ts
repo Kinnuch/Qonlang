@@ -3,6 +3,7 @@
  * 生成器只做机械拼接 / 替换；语音层面的调整交给规则引擎（affix-sca）。
  */
 import type {
+  Allomorph,
   GrammaticalCategory,
   MorphStep,
   Id,
@@ -22,6 +23,7 @@ import { languageParseOptions, segment, spellingUnits } from '../phon'
 import { transcribe } from '$lib/core/pronounce'
 import { posParadigmId } from '$lib/core/pos'
 import { activeValues, conditionVariants, resolveConditions } from './conditions'
+import { activeValueIds, alloValues, valueLabel, valueMatch } from './allomorph'
 import type { LayoutDim } from './layout'
 
 export interface SlotDef {
@@ -38,10 +40,64 @@ function pick(text: Record<string, string>, langs: string[]): string {
   return Object.values(text).find(Boolean) ?? ''
 }
 
-import { slotKey } from '$lib/core/slotKeys'
+import { slotKey, slotKeySubset } from '$lib/core/slotKeys'
 export { slotKey, canonicalSlotKey, canonicalizeSlotKeys } from '$lib/core/slotKeys'
 
-/** 维度笛卡尔积 → 槽位（已屏蔽的除外） */
+/**
+ * 一个槽位键还原成槽位（取值按构形里维度的先后排，再按维度表的顺序）：
+ * 键里有取值已经不在维度表里时返回 null
+ */
+export function slotFromKey(
+  p: Paradigm,
+  categories: GrammaticalCategory[],
+  glossLangs: string[],
+  key: string
+): SlotDef | null {
+  const catOf = new Map<Id, GrammaticalCategory>()
+  for (const c of categories) for (const v of c.values) catOf.set(v.id, c)
+  const values: { categoryId: Id; valueId: Id }[] = []
+  for (const valueId of key.split('#')[0].split('|')) {
+    const cat = catOf.get(valueId)
+    if (!cat) return null
+    values.push({ categoryId: cat.id, valueId })
+  }
+  if (!values.length) return null
+  const rank = (cid: Id): number => {
+    const i = p.dimensionIds.indexOf(cid)
+    return i >= 0 ? i : p.dimensionIds.length + categories.findIndex((c) => c.id === cid)
+  }
+  const ordered = [...values].sort((a, b) => rank(a.categoryId) - rank(b.categoryId))
+  const names = ordered.map((v) => {
+    const cat = catOf.get(v.valueId)!
+    const val = cat.values.find((x) => x.id === v.valueId)!
+    return {
+      name: pick(val.name, glossLangs) || val.abbr || '?',
+      abbr: val.abbr || pick(val.name, glossLangs)
+    }
+  })
+  return {
+    key: slotKey(values),
+    values: ordered,
+    label: names.map((n) => n.name).join('.'),
+    abbr: names.map((n) => n.abbr).join('.')
+  }
+}
+
+/** 这个构形里维度笛卡尔积之外、还留着的槽位键：固定下来的，和写了生成器的 */
+export function extraSlotKeys(p: Paradigm): string[] {
+  const keys = new Set<string>(p.lockedSlots ?? [])
+  for (const k of Object.keys(p.generators)) {
+    const g = p.generators[k]
+    if (g && g.kind !== 'none') keys.add(k.split('#')[0])
+  }
+  return [...keys]
+}
+
+/**
+ * 维度笛卡尔积 → 槽位（已屏蔽的除外）。
+ * 除了眼下这几个维度组出来的，固定下来的槽位和写了生成器的槽位（维度改过之后留下的、
+ * 维度多一层的「时-体-人称」这种）也一直算数，排在后面
+ */
 export function paradigmSlots(
   p: Paradigm,
   categories: GrammaticalCategory[],
@@ -51,8 +107,9 @@ export function paradigmSlots(
   const dims = p.dimensionIds
     .map((id) => categories.find((c) => c.id === id))
     .filter((c): c is GrammaticalCategory => !!c)
-  if (!dims.length) return []
-  let combos: { categoryId: Id; valueId: Id }[][] = [[]]
+  const extras = extraSlotKeys(p)
+  if (!dims.length && !extras.length) return []
+  let combos: { categoryId: Id; valueId: Id }[][] = dims.length ? [[]] : []
   for (const d of dims) {
     const next: { categoryId: Id; valueId: Id }[][] = []
     for (const c of combos)
@@ -77,6 +134,15 @@ export function paradigmSlots(
       label: names.map((n) => n.name).join('.'),
       abbr: names.map((n) => n.abbr).join('.')
     })
+  }
+  const seen = new Set(out.map((x) => x.key))
+  for (const key of extras) {
+    if (seen.has(key)) continue
+    if (!includeDisabled && p.disabledSlots.includes(key)) continue
+    const def = slotFromKey(p, categories, glossLangs, key)
+    if (!def) continue
+    seen.add(def.key)
+    out.push(def)
   }
   return out
 }
@@ -314,12 +380,14 @@ export function stemOf(lexeme: Lexeme, name: string): { value: string; note: str
 /**
  * 词缀文本：以 @ 开头表示引用语素（按形式或 gloss 查找），按异体形环境挑选；否则按字面。
  * 环境用规则语言写，如后缀异体形 `-lar / {Back}[^aeouöü]*_`：左侧是词干末尾的条件。
+ * active 是正在生成的那一格的取值，异体形写了语法取值时按它挑（没有就只看环境）。
  */
 function resolveAffix(
   ctx: MorphContext,
   text: string,
   stem: string,
-  side: 'prefix' | 'suffix'
+  side: 'prefix' | 'suffix',
+  active?: ReadonlyMap<Id, Id>
 ): { form: string; note: string; morpheme?: Morpheme } {
   // 只有全是空白才算没写；写进去的空格、中点这些要原样留着（`ė ` + derg → ė derg）
   if (!text.trim()) return { form: '', note: '' }
@@ -333,7 +401,7 @@ function resolveAffix(
       note: lex ? `引用词条 ${lex.lemma}` : `未找到语素 ${r.ref}`
     }
   }
-  const allo = selectAllomorph(ctx, r.morpheme, stem, side)
+  const allo = selectAllomorph(ctx, r.morpheme, stem, side, active)
   // 引用前后写的空格、中点照样拼上（@定指· + derg → sa·derg）
   return {
     form: trimHyphens(r.lead + trimHyphens(allo.form) + r.tail),
@@ -497,16 +565,30 @@ function spokenForm(ctx: MorphContext, stem: string): string | null {
   return cache.get(stem) ?? null
 }
 
+/**
+ * 挑一个异体形。一条异体形写了的条件都要对上才算候选：
+ * - 语法取值（`values`）：要全都在 active 里（正在生成的那一格的维度取值 + 词条自己的语法特征）；
+ *   没传 active 的地方（语素页自己的预览、语料分词）写了取值的一律挑不到，行为跟以前一样；
+ * - 环境（`environment`）：拿词干的拼写和按主正字法转出来的读音各比一次。
+ *
+ * 几条都对上时「越具体越优先」，这个顺序是定死的：
+ *   1. 对上的语法取值多的先（宾格+复数 先于 只宾格）；
+ *   2. 一样多时，写了环境又对上的，排在没写环境的前面；
+ *   3. 还一样就按语素里写的先后，靠前的先。
+ * 一条都没对上时用默认形：既没写取值也没写环境的那条（也是按上面这个顺序挑出来的），
+ * 一条都没有就用语素本身的形式。
+ */
 export function selectAllomorph(
   ctx: MorphContext,
   m: Morpheme,
   stem: string,
-  side: 'prefix' | 'suffix'
+  side: 'prefix' | 'suffix',
+  active?: ReadonlyMap<Id, Id>
 ): { form: string; note: string } {
   const spoken = spokenForm(ctx, stem)
-  for (const a of m.allomorphs) {
-    const env = a.environment.trim()
-    if (!env) continue
+  const activeIds = active ? activeValueIds(active) : null
+  /** 环境对不对得上：写成 `> ¤ / 环境` 跑一遍，看标记有没有落在词干那一头 */
+  const envHits = (env: string): boolean => {
     const idx = env.indexOf('_')
     const left = idx >= 0 ? env.slice(0, idx) : env
     const right = idx >= 0 ? env.slice(idx + 1) : ''
@@ -517,11 +599,29 @@ export function selectAllomorph(
       const out = runRules(prog, form, { trace: false }).output
       return side === 'suffix' ? out.endsWith('¤') : out.startsWith('¤')
     }
-    if (hits(stem) || (spoken !== null && hits(spoken)))
-      return { form: a.form, note: `${m.form} → ${a.form} (${env})` }
+    return hits(stem) || (spoken !== null && hits(spoken))
   }
-  const fallback = m.allomorphs.find((a) => !a.environment.trim())?.form ?? m.form
-  return { form: fallback, note: `${m.form} → ${fallback}` }
+  let best: { a: Allomorph; vals: number; env: string } | null = null
+  for (const a of m.allomorphs) {
+    const vals = valueMatch(a, activeIds)
+    if (vals === null) continue
+    const env = a.environment.trim()
+    if (env && !envHits(env)) continue
+    // 严格大于：并列时留着先写的那条
+    const better = best === null || vals > best.vals || (vals === best.vals && !!env && !best.env)
+    if (better) best = { a, vals, env }
+  }
+  if (!best) return { form: m.form, note: `${m.form} → ${m.form}` }
+  const langs = ctx.project.settings.glossLanguages
+  const why = [
+    ...alloValues(best.a).map((v) => valueLabel(ctx.project.categories, v, langs)),
+    best.env
+  ].filter(Boolean)
+  const form = best.a.form
+  return {
+    form,
+    note: why.length ? `${m.form} → ${form} (${why.join(' · ')})` : `${m.form} → ${form}`
+  }
 }
 
 function insertInfix(
@@ -652,7 +752,8 @@ const shown = (raw: string, got: string): string => (raw === got ? raw : `${raw}
 
 /**
  * 跑一步：把上一步的结果变成这一步的结果，并记一条轨迹。
- * pick 把词缀、微调里按条件换字母的写法（`{阴:g|k}`）按这个词条、这个槽位挑好。
+ * pick 把词缀、微调里按条件换字母的写法（`{阴:g|k}`）按这个词条、这个槽位挑好；
+ * active 是同一份取值，`@语素` 引用的异体形写了语法取值时按它挑。
  */
 function runStep(
   ctx: MorphContext,
@@ -660,14 +761,15 @@ function runStep(
   surface: string,
   trace: string[],
   pick: (text: string) => string = (x) => x,
-  word: { current?: WordStress } = {}
+  word: { current?: WordStress } = {},
+  active?: ReadonlyMap<Id, Id>
 ): string {
   // 按音段数的地方用拼写单位：设了正字法时 th、eu 这类写法是一个音
   const { units: inventory, isVowel } = spellingUnits(ctx.language)
   switch (step.kind) {
     case 'prefix': {
       const text = pick(step.text)
-      const a = resolveAffix(ctx, text, surface, 'prefix')
+      const a = resolveAffix(ctx, text, surface, 'prefix', active)
       if (a.note) trace.push(a.note)
       stressAfterAffix(ctx, word, a.form, a.morpheme, 'prefix')
       surface = a.form + surface
@@ -676,7 +778,7 @@ function runStep(
     }
     case 'suffix': {
       const text = pick(step.text)
-      const a = resolveAffix(ctx, text, surface, 'suffix')
+      const a = resolveAffix(ctx, text, surface, 'suffix', active)
       if (a.note) trace.push(a.note)
       stressAfterAffix(ctx, word, a.form, a.morpheme, 'suffix')
       surface = surface + a.form
@@ -686,8 +788,8 @@ function runStep(
     case 'circumfix': {
       const t1 = pick(step.text)
       const t2 = pick(step.text2)
-      const a = resolveAffix(ctx, t1, surface, 'prefix')
-      const b = resolveAffix(ctx, t2, surface, 'suffix')
+      const a = resolveAffix(ctx, t1, surface, 'prefix', active)
+      const b = resolveAffix(ctx, t2, surface, 'suffix', active)
       if (a.note) trace.push(a.note)
       if (b.note) trace.push(b.note)
       stressAfterAffix(ctx, word, a.form, a.morpheme, 'prefix')
@@ -698,7 +800,7 @@ function runStep(
     }
     case 'infix': {
       const text = pick(step.text)
-      const a = resolveAffix(ctx, text, surface, 'prefix')
+      const a = resolveAffix(ctx, text, surface, 'prefix', active)
       surface = insertInfix(surface, trimHyphens(a.form), step.at, isVowel, inventory)
       trace.push(`中缀 ${shown(step.text, text)} @ ${step.at || 'V1'}: ${surface}`)
       return surface
@@ -855,7 +957,8 @@ function slotPron(
   surface: string,
   pron: SlotPron,
   trace: string[],
-  pick: (text: string) => string
+  pick: (text: string) => string,
+  active?: ReadonlyMap<Id, Id>
 ): string {
   const lang = ctx.language
   const ortho = lang.orthographies.find((o) => o.isPrimary) ?? lang.orthographies[0]
@@ -868,9 +971,37 @@ function slotPron(
   } else out = (ortho ? transcribe(lang, ortho, surface, word.current) : null) ?? surface
   trace.push(`发音起点: ${out}`)
   for (const step of pron.steps)
-    if (step.kind !== 'paradigm') out = runStep(ctx, step, out, trace, pick, word)
+    if (step.kind !== 'paradigm') out = runStep(ctx, step, out, trace, pick, word, active)
   trace.push(`发音: ${out}`)
   return out
+}
+
+/**
+ * 这一格实际用哪份写法：先按槽位键找（含变体、继承的构形）；
+ * 简洁模式（默认）下这一格没写法时，按维度少一点的槽位往上找——「时-体-人称」接着「时-体」往下变，
+ * 取值仍按这一格自己的（条件换字母、异体形都按这一格算）。复杂模式各算各的
+ */
+export function effectiveGenerator(
+  project: Project,
+  paradigm: Paradigm,
+  slot: SlotDef,
+  variantId?: Id | null
+): { generator: SlotGenerator; fromKey: string | null } {
+  const own = resolveGenerator(paradigm, slot.key, project.paradigms, 0, variantId)
+  if (own.kind !== 'none' || project.settings.complexSlots) return { generator: own, fromKey: null }
+  const catOf = new Map<Id, Id>()
+  for (const c of project.categories) for (const v of c.values) catOf.set(v.id, c.id)
+  // 按构形里维度的先后，从后往前一个个去掉
+  const dims = [...new Set(slot.values.map((v) => v.categoryId))].sort(
+    (a, b) => paradigm.dimensionIds.indexOf(a) - paradigm.dimensionIds.indexOf(b)
+  )
+  for (let n = dims.length - 1; n >= 1; n--) {
+    const key = slotKeySubset(slot.key, catOf, new Set(dims.slice(0, n)))
+    if (!key) continue
+    const g = resolveGenerator(paradigm, key, project.paradigms, 0, variantId)
+    if (g.kind !== 'none') return { generator: g, fromKey: key }
+  }
+  return { generator: own, fromKey: null }
 }
 
 export function generateForm(
@@ -881,11 +1012,10 @@ export function generateForm(
   variantId?: Id | null,
   depth = 0
 ): Generated | null {
-  const g = resolveGenerator(
+  const { generator: g } = effectiveGenerator(
+    ctx.project,
     paradigm,
-    slot.key,
-    ctx.project.paradigms,
-    0,
+    slot,
     variantId ?? lexeme.paradigmVariantId
   )
   if (g.kind === 'none' || g.kind === 'table') return null
@@ -914,16 +1044,16 @@ export function generateForm(
       out =
         step.kind === 'paradigm'
           ? nestParadigm(ctx, lexeme, step, out, trace, depth)
-          : runStep(ctx, step, out, trace, pick, word)
+          : runStep(ctx, step, out, trace, pick, word, active)
     noteUnknown()
     if (!g.pron?.on) return { surface: out, trace }
-    return { surface: out, trace, ipa: slotPron(ctx, lexeme, out, g.pron, trace, pick) }
+    return { surface: out, trace, ipa: slotPron(ctx, lexeme, out, g.pron, trace, pick, active) }
   }
   const { units: inventory, isVowel } = spellingUnits(ctx.language)
   let surface = stem.value
   if (g.kind === 'affix' || g.kind === 'affix-sca') {
-    const pre = resolveAffix(ctx, pick(g.prefix ?? ''), surface, 'prefix')
-    const suf = resolveAffix(ctx, pick(g.suffix ?? ''), surface, 'suffix')
+    const pre = resolveAffix(ctx, pick(g.prefix ?? ''), surface, 'prefix', active)
+    const suf = resolveAffix(ctx, pick(g.suffix ?? ''), surface, 'suffix', active)
     if (pre.note) trace.push(pre.note)
     if (suf.note) trace.push(suf.note)
     if (g.kind === 'affix' && g.infix) {

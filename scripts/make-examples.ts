@@ -409,6 +409,8 @@ function makeAelith(): void {
     en: string,
     opts: {
       allo?: [string, string][]
+      /** 按维度取值挑的异体形：这一格的取值里有这些值时用 */
+      alloValues?: [string, Id[]][]
       feats?: Record<Id, Id>
       form2?: string
       tags?: string[]
@@ -420,7 +422,10 @@ function makeAelith(): void {
     m.form2 = opts.form2 ?? ''
     m.gloss = gloss
     m.meaning = { zh, en }
-    m.allomorphs = (opts.allo ?? []).map(([f, env]) => ({ form: f, environment: env }))
+    m.allomorphs = [
+      ...(opts.allo ?? []).map(([f, env]) => ({ form: f, environment: env })),
+      ...(opts.alloValues ?? []).map(([f, values]) => ({ form: f, environment: '', values }))
+    ]
     m.features = opts.feats ?? {}
     m.tags = opts.tags ?? []
     m.notes = opts.notes ?? ''
@@ -434,9 +439,11 @@ function makeAelith(): void {
       ['-lar', backEnv],
       ['-ler', frontEnv]
     ],
+    alloValues: [['-lAn', [value(kase, 'DAT')]]],
     feats: { [num.id]: value(num, 'PL') },
     tags: ['名词后缀'],
-    notes: '大写 A 是原音位，按和谐实现（见规则集「元音和谐」）。'
+    notes:
+      '大写 A 是原音位，按和谐实现（见规则集「元音和谐」）；与格前另有一形 -lAn（异体形里按维度取值挑）。'
   })
   morph('suffix', '-(U)m', 'ACC', '宾格', 'accusative', {
     allo: [
@@ -878,9 +885,10 @@ function makeAelith(): void {
   for (const n of num.values)
     for (const k of kase.values) {
       const steps: MorphStep[] = []
-      // 复数的几个格继承「复数.主格」推出来的形式（kasolar），只接格后缀
-      const inherit = n.abbr === 'PL' && k.abbr !== 'NOM'
-      if (n.abbr === 'PL' && !inherit) steps.push(step('suffix', { text: '¢lAr' }))
+      // 复数的宾格、位格继承「复数.主格」推出来的形式（kasolar），只接格后缀；
+      // 与格自己拼复数：复数标记在与格前是 -lAn（语素的异体形按维度取值挑）
+      const inherit = n.abbr === 'PL' && (k.abbr === 'ACC' || k.abbr === 'LOC')
+      if (n.abbr === 'PL' && !inherit) steps.push(step('suffix', { text: '@-lAr' }))
       if (caseSuffix[k.abbr]) steps.push(step('suffix', { text: caseSuffix[k.abbr] }))
       steps.push(sca())
       const g = pipeline('词干', ...steps)
@@ -912,12 +920,12 @@ function makeAelith(): void {
         if (po.abbr === 'NEG') base.push(step('suffix', { text: '¢mA' }))
         if (te.abbr === 'PST') base.push(step('suffix', { text: '¢dU' }))
         const tail = personSuffix[pe.abbr]
-        verbP.generators[key] = pipeline(
-          '词干',
-          ...base,
-          ...(tail ? [step('suffix', { text: tail })] : []),
-          sca()
-        )
+        // 第三人称没有人称后缀：这一格干脆不写，让它接着「极性-时」两个维度的槽位往下变（简洁模式）
+        if (!tail) {
+          verbP.generators[`${po.id}|${te.id}`] = pipeline('词干', ...base, sca())
+          continue
+        }
+        verbP.generators[key] = pipeline('词干', ...base, step('suffix', { text: tail }), sca())
         if (pe.abbr === '1')
           verbP.generators[`${key}#${spoken.id}`] = pipeline(
             '词干',
@@ -1277,7 +1285,7 @@ function makeAelith(): void {
     '- **词库**：显示模式里 kaso、nöl 这些从祖语来的词，例句上方有一行历史形式（PAe kasu → CAe kaso → Ae kaso）；多义项、一个义项几个语域（dünar）、方言、标签、维度、复合词类与义项自己的词类（kara）、词干槽、词源链（词根 / 复合 / 派生 / 音变 / 借词 / 自己写的类别「仿译」）、自定义关系种类（押韵）、配图、手改发音、「对重音影响」（代词与小品词传递词性、telikaso 传递特殊重音）；sörmek 是从 sör- 的动名词「生成到词库」的，词源与关系都是自动填的；vesa 故意没写释义，词库里标红，底栏右边的问题统计点开能跳过去',
     '- **关系图**：kaso 的关系图里按住空白处拖动画布，右键节点展开或收起；右上角「对比」把同一个词根 *kasu 的 kaso（Aelith）、hasu（Merun，意思变成帐篷）、kasolu、telikaso 并排：各自经过的音变、k : h 的语音对应、意思与构成的差别',
     '- **检视器模块**：「词类与维度」最下面定义的「文化注释」与「刻文异体」（用刻文的字体显示），打开 kaso、nöl、sepe 看',
-    '- **构形**：流水线的八种步骤（前缀、后缀、中缀、环缀、音变、模板、重叠、微调）、变体（基础那套改名叫「书面」）、继承、屏蔽槽位、手填表、作用于所有词的「连读浊化」（ve 后面 tovar → dovar）、一个词类绑几个构形（「动词」默认变位法一，tur-、sal- 在词条里挑了变位法二，ol- 用不规则）、按条件换字母（名词与格只写一条 ¢{阴:g|k}A：阴性的 sila、vene 是 silaga、venege，其余是 kasoka 这样）、构形套构形（「动名词」加 -mAk 之后套进「名词」的格：sörmek、sörmekde）、一个词条几个构形（sör- 既变位又有动名词）、槽位继承（名词复数的几个格从「复数.主格」kasolar 接着加格后缀）、影响发音（位格另写了发音流水线，元音之间的 d 读 ð：kasoda 读 ˈkasoða）、复制粘贴槽位和整套变体、双击槽位名把写错的写法挪到别的槽位；页签按词类分组；测试台切到「自由」随便写一个形式看它变成什么',
+    '- **构形**：流水线的八种步骤（前缀、后缀、中缀、环缀、音变、模板、重叠、微调）、变体（基础那套改名叫「书面」）、继承、屏蔽槽位、手填表、作用于所有词的「连读浊化」（ve 后面 tovar → dovar）、一个词类绑几个构形（「动词」默认变位法一，tur-、sal- 在词条里挑了变位法二，ol- 用不规则）、按条件换字母（名词与格只写一条 ¢{阴:g|k}A：阴性的 sila、vene 是 silaga、venege，其余是 kasoka 这样）、构形套构形（「动名词」加 -mAk 之后套进「名词」的格：sörmek、sörmekde）、一个词条几个构形（sör- 既变位又有动名词）、槽位继承（名词复数的宾格、位格从「复数.主格」kasolar 接着加格后缀）、按维度取值挑异体形（复数标记在与格前是 -lAn：kasolanka）、简洁模式的槽位继承（动词第三人称那几格不写，接着「极性-时」两个维度的槽位往下变）、影响发音（位格另写了发音流水线，元音之间的 d 读 ð：kasoda 读 ˈkasoða）、复制粘贴槽位和整套变体、双击槽位名把写错的写法挪到别的槽位；页签按词类分组；测试台切到「自由」随便写一个形式看它变成什么',
     '- **语料**：已 gloss 并确认的例句、其他正字法、手填的文字写法、自由行、出处与标签；dovar 靠「连读浊化」反推认出；ilenkasoda 是两个词连写再带格缀，没写分隔符也切得开；人名 Mira 故意没进词库，悬浮时是「没有找到」',
     '- **短语**：分类、变体、发音、方括号占位符',
     '- **文档**：项目级与语言级页面，写 `[[kaso]]` 就能点到词库里的词',
