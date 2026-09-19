@@ -375,7 +375,23 @@ export function languageParseOptions(
   const replacements = lang.digraphs
     .filter((d) => d.from && d.to)
     .map((d) => [d.from, d.to] as [string, string])
-  return { classes, replacements, morphemes, syllables: syllableScheme(lang, replacements) }
+  return {
+    classes,
+    replacements,
+    morphemes,
+    syllables: syllableScheme(lang, replacements),
+    // `-@ 别的音变 : 阶段 .. 阶段`：按名字找那一套（引用的那套按它自己绑的语言解析）
+    resolveInclude: project
+      ? (name: string) => {
+          const key = name.trim().toLowerCase()
+          const rs = project.ruleSets.find((r) => r.name.trim().toLowerCase() === key)
+          if (!rs) return null
+          const boundId = Object.values(rs.stageLanguages ?? {}).find((id) => !!id)
+          const bound = boundId ? project.languages.find((l) => l.id === boundId) : null
+          return { text: rs.text, options: languageParseOptions(bound ?? lang, project) }
+        }
+      : undefined
+  }
 }
 
 /** 规则里切音节（σ、重音规则）用的设置：音位表、音节核、确定是辅音的音、起首表与模板 */

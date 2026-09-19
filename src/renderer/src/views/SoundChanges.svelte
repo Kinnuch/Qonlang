@@ -187,6 +187,13 @@
     projectState.touch()
   }
 
+  /** 引用行上的「打开」：跳到被引用的那套音变 */
+  function openRef(name: string): void {
+    const key = name.trim().toLowerCase()
+    const rs = project.ruleSets.find((r) => r.name.trim().toLowerCase() === key)
+    if (rs) activeId = rs.id
+  }
+
   function addSet(text = '', name = t('soundChanges.untitledSet')): void {
     const rs = createRuleSet(name, text)
     project.ruleSets.push(rs)
@@ -433,6 +440,7 @@
             bind:selectedLine
             onchange={() => touch(rs)}
             foldKey={rs.id}
+            onopenref={openRef}
           />
         </div>
       {/if}

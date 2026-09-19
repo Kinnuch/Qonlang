@@ -246,6 +246,13 @@ export default {
     noTrace: '没有规则命中。',
     pickWord: '点击结果表中的一行查看逐条轨迹。',
     setName: '规则集名称',
+    include: {
+      label: '引用 {name} · {range}',
+      whole: '整套',
+      missing: '找不到叫「{name}」的音变',
+      open: '打开',
+      hint: '引用另一套音变的一段：-@ 规则集名 : 起始阶段 .. 终止阶段（冒号后面不写就是整套）'
+    },
     stageBindings: '阶段对应的语言',
     noStages: '文本里还没有 -* 阶段标记。',
     stageOfLanguage: '绑到这门语言的哪个历时阶段',

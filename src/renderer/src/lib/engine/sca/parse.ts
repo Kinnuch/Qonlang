@@ -90,6 +90,28 @@ export interface MarkerLine {
   name: string
 }
 
+/**
+ * 引用另一套音变的一段：`-@ 规则集名 : 起始阶段 .. 终止阶段`（冒号后面可以不写 = 整套）。
+ * 跑到这一行时，就在这里把那一段原样跑一遍；那边改了，这边跟着变。
+ */
+export interface IncludeLine {
+  kind: 'include'
+  line: number
+  raw: string
+  comment: string
+  /** 写在这一行里的那套音变的名字 */
+  ref: string
+  /** 从那套的哪个阶段起、到哪个阶段止；没写就是整套 */
+  from: string | null
+  to: string | null
+  /** 引用到的那一套（解析好的）；找不到时为 null */
+  program: RuleProgram | null
+  /** 这一段里会经过的阶段名（引用过来的阶段在这边也算数） */
+  markers: string[]
+  /** 这一行写得不对时的说明（找不到那套、没有那个阶段、转圈引用…） */
+  error?: string
+}
+
 export interface OtherLine {
   kind: 'blank' | 'comment' | 'class' | 'replacement' | 'error'
   line: number
@@ -239,7 +261,8 @@ function classMembers(key: string, value: string): string[] {
   return dedupe(parts.map(literalEscapes))
 }
 
-export type ParsedLine = ParsedRule | MarkerLine | OtherLine | FeatureLine | StressLine
+export type ParsedLine =
+  ParsedRule | MarkerLine | OtherLine | FeatureLine | StressLine | IncludeLine
 
 export interface Diagnostic {
   line: number
@@ -251,8 +274,8 @@ export interface RuleProgram {
   classes: Map<string, string[]>
   replacements: [string, string][]
   lines: ParsedLine[]
-  /** 只含规则、重音规则和标记，按出现顺序 */
-  steps: (ParsedRule | MarkerLine | StressLine)[]
+  /** 只含规则、重音规则、标记和引用，按出现顺序 */
+  steps: (ParsedRule | MarkerLine | StressLine | IncludeLine)[]
   markers: string[]
   diagnostics: Diagnostic[]
   /** 切音节用的设置：语言给的加上规则文本里的音类 */
@@ -270,6 +293,10 @@ export interface ParseOptions {
   morphemes?: Record<string, string[]>
   /** 切音节用的设置（σ、重音规则）；不给时只靠规则里的音类和 IPA 表推断 */
   syllables?: SyllableScheme
+  /** `-@ 规则集名` 怎么找到那套音变：给出它的文本与自己的解析设置 */
+  resolveInclude?: (name: string) => { text: string; options?: ParseOptions } | null
+  /** 引用链上已经用过的名字（防止 A 引用 B、B 又引用 A 转不出来）；内部用 */
+  includeStack?: readonly string[]
 }
 
 /**
@@ -988,6 +1015,71 @@ export function formatFeatureLine(
 
 // ───────────────────────── 解析 ─────────────────────────
 
+/** `-@ 规则集名 : 起始阶段 .. 终止阶段`（冒号与阶段都可以不写） */
+const INCLUDE_LINE = /^-@\s*([^:：]+?)\s*(?:[:：]\s*(.*))?$/u
+
+/** 引用行：找到那套音变、解析它，并算出这一段会经过哪些阶段 */
+function parseInclude(
+  content: string,
+  line: number,
+  raw: string,
+  comment: string,
+  options: ParseOptions,
+  fail: (message: string) => void
+): IncludeLine {
+  const empty: IncludeLine = {
+    kind: 'include',
+    line,
+    raw,
+    comment,
+    ref: '',
+    from: null,
+    to: null,
+    program: null,
+    markers: []
+  }
+  const say = (msg: string): void => {
+    fail(msg)
+  }
+  const m = INCLUDE_LINE.exec(content)
+  if (!m || !m[1].trim()) {
+    say('引用要写成 `-@ 规则集名 : 起始阶段 .. 终止阶段`')
+    return { ...empty, error: '引用要写成 `-@ 规则集名 : 起始阶段 .. 终止阶段`' }
+  }
+  const ref = decodeEscapes(m[1].trim())
+  const range = (m[2] ?? '').trim()
+  const parts = range ? range.split(/\s*(?:\.\.|…|→|->)\s*/u).filter(Boolean) : []
+  const from = parts.length ? decodeEscapes(parts[0]) : null
+  const to = parts.length > 1 ? decodeEscapes(parts[1]) : null
+  const out: IncludeLine = { ...empty, ref, from, to }
+  const stack = options.includeStack ?? []
+  const bail = (msg: string): IncludeLine => {
+    say(msg)
+    out.error = msg
+    return out
+  }
+  if (stack.includes(ref)) return bail(`「${ref}」转着圈引用了自己`)
+  if (stack.length >= 4) return bail('引用套得太深了（最多四层）')
+  const found = options.resolveInclude?.(ref)
+  if (!found) return bail(`找不到叫「${ref}」的音变`)
+  out.program = parseRuleText(found.text, {
+    ...(found.options ?? {}),
+    resolveInclude: options.resolveInclude,
+    includeStack: [...stack, ref]
+  })
+  // 引用的那套自己有错（包括它再往下引用出的错）：在这一行上提一句，省得看不见
+  const inner = out.program.diagnostics.find((d) => d.severity === 'error')
+  if (inner) bail(`「${ref}」里第 ${inner.line} 行：${inner.message}`)
+  const names = out.program.markers
+  if (from && !names.includes(from)) bail(`「${ref}」里没有叫「${from}」的阶段`)
+  if (to && !names.includes(to)) bail(`「${ref}」里没有叫「${to}」的阶段`)
+  // 这一段经过的阶段：从 from（含）到 to（含）
+  const a = from ? names.indexOf(from) : 0
+  const b = to ? names.indexOf(to) : names.length - 1
+  out.markers = a >= 0 && b >= a ? names.slice(a, b + 1) : []
+  return out
+}
+
 export function parseRuleText(text: string, options: ParseOptions = {}): RuleProgram {
   const classes = new Map<string, string[]>()
   for (const [k, v] of Object.entries(options.classes ?? {}))
@@ -1001,7 +1093,15 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
 
   // 第一遍：收集音类与多合字母（允许写在任何位置）
   const kinds: (
-    'blank' | 'comment' | 'class' | 'replacement' | 'marker' | 'rule' | 'stress' | 'feature'
+    | 'blank'
+    | 'comment'
+    | 'class'
+    | 'replacement'
+    | 'marker'
+    | 'rule'
+    | 'stress'
+    | 'feature'
+    | 'include'
   )[] = []
   const contents: string[] = []
   rawLines.forEach((raw) => {
@@ -1017,6 +1117,10 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     }
     if (content.startsWith('-*')) {
       kinds.push('marker')
+      return
+    }
+    if (content.startsWith('-@')) {
+      kinds.push('include')
       return
     }
     if (STRESS_LINE.test(content)) {
@@ -1073,7 +1177,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
   }
 
   const lines: ParsedLine[] = []
-  const steps: (ParsedRule | MarkerLine | StressLine)[] = []
+  const steps: (ParsedRule | MarkerLine | StressLine | IncludeLine)[] = []
   const markers: string[] = []
   /** 特征按行生效：每遇到一行定义换一张新表，前面的规则仍用旧表 */
   let features: FeatureTable = new Map()
@@ -1095,6 +1199,15 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
       lines.push(m)
       steps.push(m)
       if (!markers.includes(name)) markers.push(name)
+      return
+    }
+    if (kind === 'include') {
+      const inc = parseInclude(content, line, raw, comment, options, (msg) =>
+        diagnostics.push({ line, severity: 'error', message: msg })
+      )
+      lines.push(inc)
+      steps.push(inc)
+      for (const name of inc.markers) if (!markers.includes(name)) markers.push(name)
       return
     }
     const warn = (message: string): void => {

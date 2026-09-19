@@ -45,7 +45,8 @@
     RotateCcw,
     ChevronRight,
     ChevronsDownUp,
-    ChevronsUpDown
+    ChevronsUpDown,
+    Link2
   } from '@lucide/svelte'
   import { sectionCollapsed, setSectionsCollapsed, toggleSection } from './section.svelte'
 
@@ -56,7 +57,8 @@
     hits = new Map<number, number>(),
     selectedLine = $bindable<number | null>(null),
     onchange,
-    foldKey = ''
+    foldKey = '',
+    onopenref
   }: {
     text?: string
     program: RuleProgram | null
@@ -67,6 +69,8 @@
     onchange?: () => void
     /** 各阶段收起状态记在本机时用的名字（规则集 id 这类），不同的规则列表各记各的 */
     foldKey?: string
+    /** 点「打开」跳到被引用的那套音变（`-@` 引用行上才有） */
+    onopenref?: (name: string) => void
   } = $props()
 
   const ordinals = $derived(program ? ruleOrdinals(program) : new Map<number, number>())
@@ -1177,6 +1181,41 @@
         {:else if item.kind === 'comment'}
           <div class="note row" data-line={item.line}>
             <span class="small muted">{item.raw.replace(/^\s*[;#]\s?/, '')}</span>
+          </div>
+        {:else if item.kind === 'include'}
+          <!-- 引用另一套音变的一段：这里只占一行，跑的时候把那一段原样跑一遍 -->
+          <div class="rule card special row" class:err={!!item.error} data-line={item.line}>
+            <span class="num mono">{item.line}</span>
+            {#if item.error}<AlertTriangle size={14} />{:else}<Link2 size={14} />{/if}
+            <span class="grow"
+              >{item.error
+                ? item.error
+                : item.program
+                  ? t('soundChanges.include.label', {
+                      name: item.ref,
+                      range: item.markers.length
+                        ? item.markers[0] +
+                          (item.markers.length > 1
+                            ? ' → ' + item.markers[item.markers.length - 1]
+                            : '')
+                        : t('soundChanges.include.whole')
+                    })
+                  : t('soundChanges.include.missing', { name: item.ref })}</span
+            >
+            {#if item.program && onopenref}
+              <button class="btn ghost sm" onclick={() => onopenref?.(item.ref)}
+                >{t('soundChanges.include.open')}</button
+              >
+            {/if}
+            <input
+              class="input data"
+              value={item.raw}
+              title={t('soundChanges.include.hint')}
+              onchange={(e) => replaceLine(item.line, (e.currentTarget as HTMLInputElement).value)}
+            />
+            <button class="btn ghost icon sm danger" onclick={() => removeRule(item.line)}
+              ><Trash2 size={14} /></button
+            >
           </div>
         {/if}
       {/each}

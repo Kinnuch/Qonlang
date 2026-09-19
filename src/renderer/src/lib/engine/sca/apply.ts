@@ -19,6 +19,8 @@ export interface TraceEntry {
   replacement: string
   /** stress：这一步是重音规则（target 是 ˈ 或 ˌ，replacement 是规则原文） */
   kind?: 'rule' | 'stress'
+  /** 这一步来自引用的那套音变（`-@`）：line 指的是那边的行号 */
+  ref?: string
 }
 
 /** 去掉重音记号（有重音规则的规则集，输出要当拼写用时） */
@@ -317,6 +319,28 @@ export function runRules(program: RuleProgram, word: string, options: RunOptions
       stage = step.name
       stages.push({ name: step.name, form: revertReplacements(current, replacements) })
       if (options.stopAt && step.name === options.stopAt) break
+      continue
+    }
+    if (step.kind === 'include') {
+      if (!active) continue
+      const sub = step.program
+      if (!sub) continue
+      // 引用的那套有自己的音类与多合字母：先换回写法交给它，跑完再按这边的换回去
+      const sr = runRules(sub, revertReplacements(current, replacements), {
+        ...options,
+        startAt: step.from ?? undefined,
+        stopAt: step.to ?? undefined,
+        stopAtLine: undefined,
+        trace: options.trace
+      })
+      for (const st of sr.stages) {
+        stage = st.name
+        stages.push(st)
+      }
+      if (options.trace !== false) for (const t of sr.trace) trace.push({ ...t, ref: step.ref })
+      current = applyReplacements(sr.output, program.replacements, options.keepDots)
+      // 外面要停在引用段里的某个阶段：停在这里
+      if (options.stopAt && sr.stages.some((x) => x.name === options.stopAt)) break
       continue
     }
     if (!active) continue

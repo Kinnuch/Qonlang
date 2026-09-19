@@ -262,6 +262,13 @@ const en: Dict = {
     noTrace: 'No rule applied.',
     pickWord: 'Click a row in the results to see its rule-by-rule trace.',
     setName: 'Rule set name',
+    include: {
+      label: 'Uses {name} · {range}',
+      whole: 'the whole set',
+      missing: 'No sound-change set named “{name}”',
+      open: 'Open',
+      hint: 'Run a stretch of another set here: -@ set name : from stage .. to stage (leave the range out for the whole set)'
+    },
     stageBindings: 'Languages for stages',
     noStages: 'No -* stage markers in the text yet.',
     stageOfLanguage: 'Which historical stage of this language',

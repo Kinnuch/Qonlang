@@ -26,6 +26,7 @@ Rules apply top to bottom, and each rule matches repeatedly from left to right a
 | `[+asp] = ph th kh` | feature: from this line on, rules can write `[+asp]` and `[-asp]` (see "Features" below) |
 | `ˈ = -2 , -3` | stress rule: words reaching this line get stress marks (see "Stress rules" below) |
 | `-* name` | stage snapshot: record the form at this point |
+| `-@ set name : stage .. stage` | run a stretch of another sound-change set here (see “Using another set” below) |
 
 Classes and multigraphs defined on the Phonology page are available everywhere; declarations with the same name in a rule text override them.
 
@@ -146,6 +147,21 @@ Using stress in rules: `ˈ` matches the start of the stressed syllable (the mark
 | `ˈ > ` | delete the stress marks (like `ˈ =`, but only at this step) |
 
 When the Phonology page's stress position is set to "Custom stress rule", you write the part after `=` (`-2 {long} , -2 / _CC , -3`); the test and the lexicon samples are stressed by it, and IPA that already carries ˈ (marked by orthography rules or typed by hand) keeps its marks.
+
+## Using another set {#include}
+
+When two sets share a stretch of history (two sister languages coming down the same proto stage, say), there is no need to copy the rules. Write one line:
+
+```
+-@ set name : from stage .. to stage
+```
+
+When the run reaches that line, the rules of that set between the two stages run right there. The colon and the stages are optional (`-@ set name`), which runs the whole set.
+
+- Change the other set and everything that uses it follows — the shared stretch is maintained in one place.
+- Stages that come in this way count here too: the test bench, the **Sound change** step in paradigms and an entry's history row can all pick them; a stage with the same name as one of your own counts as the same stage.
+- The set being used is parsed with **its own** language: its classes and digraphs are its own and are not affected by this side.
+- A set may use another set in turn (up to four levels); using each other in a circle is an error, and renaming a set means fixing the line that refers to it.
 
 ## Features {#features}
 
