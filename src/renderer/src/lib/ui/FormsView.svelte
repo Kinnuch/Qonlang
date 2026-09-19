@@ -31,6 +31,33 @@
   const byKey = $derived(new Map(slots.map((s) => [s.slot.key, s])))
   const tables = $derived(layout === 'table' ? slotTables(dims) : [])
   const tree = $derived(layout === 'tree' ? slotTree(dims) : [])
+  /**
+   * 停用的槽位不占位置：整行、整列、整张表都没有槽位就不画。
+   * 表格是按维度铺格子的，不筛的话停用的那一格会画成空的「—」
+   */
+  const shown = $derived.by(() =>
+    tables
+      .map((tb) => ({
+        ...tb,
+        rows: dims[0].values.filter((r) =>
+          dims[1]
+            ? dims[1].values.some((c) => byKey.has(cellKey(dims, r, c, tb.fixed)))
+            : byKey.has(cellKey(dims, r, null, tb.fixed))
+        ),
+        cols: dims[1]
+          ? dims[1].values.filter((c) =>
+              dims[0].values.some((r) => byKey.has(cellKey(dims, r, c, tb.fixed)))
+            )
+          : []
+      }))
+      .filter((tb) => tb.rows.length)
+  )
+  /** 树形图同理：整支没有槽位就不画 */
+  const prune = (nodes: SlotTreeNode[]): SlotTreeNode[] =>
+    nodes
+      .map((n) => (n.leaf ? n : { ...n, children: prune(n.children) }))
+      .filter((n) => (n.leaf ? byKey.has(n.key) : n.children.length))
+  const shownTree = $derived(prune(tree))
   /** 树的分叉点开 / 收起；槽位多（200 个以上）时默认收着，点开哪支画哪支 */
   let toggled = $state<Set<string>>(new Set())
   const big = $derived(slots.length > 200)
@@ -68,7 +95,7 @@
 
 {#if layout === 'table'}
   <div class="ftables">
-    {#each tables as tb (tb.key)}
+    {#each shown as tb (tb.key)}
       <div>
         {#if tb.caption}<div class="ftable-cap small">{tb.caption}</div>{/if}
         <div class="table-wrap">
@@ -80,18 +107,18 @@
                     ＼ {dims[1].name}{/if}</th
                 >
                 {#if dims[1]}
-                  {#each dims[1].values as c (c.id)}<th>{c.name}</th>{/each}
+                  {#each tb.cols as c (c.id)}<th>{c.name}</th>{/each}
                 {:else}
                   <th></th>
                 {/if}
               </tr>
             </thead>
             <tbody>
-              {#each dims[0].values as r (r.id)}
+              {#each tb.rows as r (r.id)}
                 <tr>
                   <th>{r.name}</th>
                   {#if dims[1]}
-                    {#each dims[1].values as c (c.id)}<td
+                    {#each tb.cols as c (c.id)}<td
                         >{@render cell(byKey.get(cellKey(dims, r, c, tb.fixed)) ?? null)}</td
                       >{/each}
                   {:else}
@@ -106,7 +133,7 @@
     {/each}
   </div>
 {:else}
-  <div class="ftree-wrap">{@render branch(tree)}</div>
+  <div class="ftree-wrap">{@render branch(shownTree)}</div>
 {/if}
 
 <style>

@@ -274,6 +274,27 @@ describe('构形：槽位键、继承、发音流水线', () => {
     expect(generateForm(ctx, w, para, full)).toBeNull()
   })
 
+  it('加了维度之后，维度少一层的旧槽位不单独列出来（简洁模式），但写法还在、被继承', () => {
+    const { p, L, para, suf } = setup()
+    // 先只有「时」，给它写了法
+    para.dimensionIds = ['tense']
+    const tenseOnly = paradigmSlots(para, p.categories, ['zh'])
+    const oldKey = tenseOnly[0].key
+    para.generators[oldKey] = { kind: 'pipeline', stem: '', steps: [suf('-ba')] }
+    // 加上「人称」：列表里应该只有「时 + 人称」的组合，旧的那一格不再单独占一行
+    para.dimensionIds = ['tense', 'person']
+    const shown = paradigmSlots(para, p.categories, ['zh'], true, true)
+    expect(shown.some((s) => s.key === oldKey)).toBe(false)
+    expect(shown.every((s) => s.values.length === 2)).toBe(true)
+    // 复杂模式（不隐藏）照旧列出来
+    expect(paradigmSlots(para, p.categories, ['zh'], true).some((s) => s.key === oldKey)).toBe(true)
+    // 写法没丢：新的那一格继承过去
+    const full = shown.find((s) => s.label === '现在.第一人称')!
+    const w = createLexeme(L.id, 'kal')
+    p.lexemes.push(w)
+    expect(generateForm(makeContext(p, L), w, para, full)?.surface).toBe('kalba')
+  })
+
   it('写了写法的槽位一直算数：维度改了也还在，重新挑维度不会丢', () => {
     const { p, para, suf } = setup()
     para.dimensionIds = ['tense', 'person']

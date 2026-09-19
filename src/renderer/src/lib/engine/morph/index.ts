@@ -40,7 +40,7 @@ function pick(text: Record<string, string>, langs: string[]): string {
   return Object.values(text).find(Boolean) ?? ''
 }
 
-import { slotKey, slotKeySubset } from '$lib/core/slotKeys'
+import { slotKey, slotKeyDims, slotKeySubset } from '$lib/core/slotKeys'
 export { slotKey, canonicalSlotKey, canonicalizeSlotKeys } from '$lib/core/slotKeys'
 
 /**
@@ -102,7 +102,12 @@ export function paradigmSlots(
   p: Paradigm,
   categories: GrammaticalCategory[],
   glossLangs: string[],
-  includeDisabled = false
+  includeDisabled = false,
+  /**
+   * 简洁模式下：维度比眼下少一层的旧槽位不单独列出来（加了维度之后残留的「只有 ABC」那些）。
+   * 它们的写法仍然算数——新的每一格按 effectiveGenerator 继承过去
+   */
+  hideSubsets = false
 ): SlotDef[] {
   const dims = p.dimensionIds
     .map((id) => categories.find((c) => c.id === id))
@@ -136,9 +141,17 @@ export function paradigmSlots(
     })
   }
   const seen = new Set(out.map((x) => x.key))
+  const catOf = new Map<Id, Id>()
+  if (hideSubsets) for (const c of categories) for (const v of c.values) catOf.set(v.id, c.id)
+  const dimSet = new Set(p.dimensionIds)
   for (const key of extras) {
     if (seen.has(key)) continue
     if (!includeDisabled && p.disabledSlots.includes(key)) continue
+    // 维度是眼下这几个维度的真子集：它只是回退用的写法，不单独占一格
+    if (hideSubsets) {
+      const kd = slotKeyDims(key, catOf)
+      if (kd.length && kd.length < dimSet.size && kd.every((d) => dimSet.has(d))) continue
+    }
     const def = slotFromKey(p, categories, glossLangs, key)
     if (!def) continue
     seen.add(def.key)
@@ -230,7 +243,13 @@ export function lexemeSlots(
   const used = new Set<string>()
   for (const lp of paradigmsFor(project, lexeme)) {
     const name = lexemeParadigmLabel(lp, glossLangs)
-    for (const slot of paradigmSlots(lp.paradigm, project.categories, glossLangs)) {
+    for (const slot of paradigmSlots(
+      lp.paradigm,
+      project.categories,
+      glossLangs,
+      false,
+      !project.settings.complexSlots
+    )) {
       // 跟前面重名的槽位，名字前面加这一套的名字；还重名就再加个序号
       let key = slot.label
       if (used.has(key)) key = `${name}·${slot.label}`

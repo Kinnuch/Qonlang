@@ -10,7 +10,7 @@
   } from '$lib/core/model'
   import type { FormsLayout } from '$lib/platform/types'
   import { ChevronDown, ChevronRight, List, ListTree, Table } from '@lucide/svelte'
-  import { lexemeSlotGroups, paradigmDims, type LexemeSlot } from '$lib/engine/morph'
+  import { lexemeSlotGroups, lexemeSlots, paradigmDims, type LexemeSlot } from '$lib/engine/morph'
   import { sectionCollapsed, toggleSection } from '$lib/ui/section.svelte'
   import FormsView from '$lib/ui/FormsView.svelte'
   import { etymologyTypeLabel, orthoIpaLabel, pronText, relationLabel } from '$lib/ui/labels'
@@ -59,6 +59,8 @@
   const formsFolded = $derived(controls && sectionCollapsed(FORMS_FOLD_ID))
   /** 按「这一套」（构形 + 变体）分组，表格 / 树形图按各自构形的维度排 */
   const groups = $derived(layout === 'list' ? [] : lexemeSlotGroups(project, l, glossLangs))
+  /** 槽位在构形里的先后：列表、表格、树形图都照它排，三种看法顺序一致 */
+  const slotOrder = $derived(new Map(lexemeSlots(project, l, glossLangs).map((s, i) => [s.key, i])))
   /** 不在任何槽位里的屈折形（自己加的）：表格、树形图下面照旧列出来 */
   const looseForms = $derived.by(() => {
     const keys = new Set(groups.flatMap((g) => g.slots.map((s) => s.key)))
@@ -78,9 +80,15 @@
       .map((x) => x.e)
   })
   const filledForms = $derived(Object.entries(l.forms).filter(([, f]) => f.surface.trim()))
-  /** 屈折形：构形推出来的那些（词干另算一块） */
+  /** 屈折形：构形推出来的那些（词干另算一块）；按构形里的槽位顺序排，不在槽位里的排最后 */
   const formRows = $derived(
-    filledForms.map(([k, f]) => ({ k, v: f.surface, derived: f.derived, ipa: f.ipa }))
+    filledForms
+      .map(([k, f], i) => ({ k, v: f.surface, derived: f.derived, ipa: f.ipa, i }))
+      .sort(
+        (a, b) =>
+          (slotOrder.get(a.k) ?? slotOrder.size + a.i) -
+          (slotOrder.get(b.k) ?? slotOrder.size + b.i)
+      )
   )
   /** 表格、树形图下面照旧列出来的：不属于任何槽位的屈折形 */
   const looseRows = $derived(

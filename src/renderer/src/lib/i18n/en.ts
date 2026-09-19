@@ -1796,6 +1796,12 @@ const en: Dict = {
     unlockHint: 'Unlock: clicking a dimension changes the paradigm’s slots again',
     lockedExplain:
       'Dimensions are locked, so clicking one only filters: {n} slots shown, {total} fixed in total.',
+    fallbackFrom: 'Inherited from {slot}',
+    fallbackHint:
+      'In simple mode a cell with no rule of its own follows the cell one dimension shorter; that cell is not listed separately.',
+    fallbackTake: "Make it this cell's own",
+    fallbackTakeHint:
+      'Copy the inherited rule into this cell; from then on the two are independent.',
     filterHint: 'Click to filter the slots by this dimension',
     clearFilter: 'Clear filter',
     batchEnable: 'Enable the filtered slots',

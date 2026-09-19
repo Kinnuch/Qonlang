@@ -33,6 +33,8 @@
     paradigmsFor,
     paradigmSlots,
     resolveGenerator,
+    effectiveGenerator,
+    slotFromKey,
     generateForm,
     deriveForms,
     reconcileSlot,
@@ -183,7 +185,9 @@
   let freeInput = $state(memo.freeInput ?? '')
 
   const allSlots = $derived(
-    active ? paradigmSlots(active, project.categories, glossLangs, true) : []
+    active
+      ? paradigmSlots(active, project.categories, glossLangs, true, !project.settings.complexSlots)
+      : []
   )
   // ── 维度上锁与筛选 ──
   const locked = $derived(!!active?.slotsLocked)
@@ -889,6 +893,27 @@
     void openSlot(target.key)
   }
 
+  /**
+   * 简洁模式下这一格自己没写法、按维度少一层的那一格推：返回那一格的名字。
+   * 少一层的槽位不单独列出来（见 paradigmSlots 的 hideSubsets），所以在这里标出来源
+   */
+  function fallbackFrom(s: SlotDef): { label: string; key: string } | null {
+    if (!active || project.settings.complexSlots) return null
+    const own = active.generators[gkey(s.key)]
+    if (own && own.kind !== 'none') return null
+    const { generator, fromKey } = effectiveGenerator(project, active, s, editVariantId)
+    if (!fromKey || generator.kind === 'none') return null
+    const def = slotFromKey(active, project.categories, glossLangs, fromKey)
+    return { label: def?.label ?? fromKey, key: fromKey }
+  }
+  /** 把继承来的写法变成这一格自己的（改了之后跟来源那一格各走各的） */
+  function takeFallback(s: SlotDef): void {
+    if (!active) return
+    const { generator } = effectiveGenerator(project, active, s, editVariantId)
+    if (generator.kind === 'none') return
+    active.generators[gkey(s.key)] = pastedGenerator(generator)
+    touch()
+  }
   function isInherited(key: string): boolean {
     if (!active) return false
     const own = active.generators[key]
@@ -1427,6 +1452,7 @@
               {#each slots.slice(0, lzSlots.shown) as s (s.key)}
                 {@const disabled = active.disabledSlots.includes(s.key)}
                 {@const g = active.generators[gkey(s.key)] ?? { kind: 'none' }}
+                {@const fb = fallbackFrom(s)}
                 {@const folded = sectionCollapsed(foldId(s.key))}
                 <tr
                   class:off={disabled}
@@ -1470,6 +1496,8 @@
                         >{foldedSummary(s)}</button
                       >{#if isInherited(gkey(s.key))}<span class="badge"
                           >{t('paradigms.inherited')}</span
+                        >{/if}{#if fb}<span class="badge from"
+                          >{t('paradigms.fallbackFrom', { slot: fb.label })}</span
                         >{/if}
                     </td>
                   {:else}
@@ -1490,6 +1518,13 @@
                       </select>
                       {#if isInherited(gkey(s.key))}<span class="badge"
                           >{t('paradigms.inherited')}</span
+                        >{/if}
+                      {#if fb}<span class="badge from" title={t('paradigms.fallbackHint')}
+                          >{t('paradigms.fallbackFrom', { slot: fb.label })}</span
+                        ><button
+                          class="btn ghost sm"
+                          title={t('paradigms.fallbackTakeHint')}
+                          onclick={() => takeFallback(s)}>{t('paradigms.fallbackTake')}</button
                         >{/if}
                       <div class="row slot-clip">
                         <button
