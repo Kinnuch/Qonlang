@@ -122,7 +122,8 @@
         kind === 'sentence'
           ? sentenceScriptText(src.project, lang, sc, sen)
           : textScript(src.project, lang, sc, sen.text, sen.tokens)
-      if (text.trim()) out.push({ id: sc.id, text, css: fontCss(sc), rtl: sc.direction === 'rtl', name: sc.name })
+      if (text.trim())
+        out.push({ id: sc.id, text, css: fontCss(sc), rtl: sc.direction === 'rtl', name: sc.name })
     }
     return out
   }
