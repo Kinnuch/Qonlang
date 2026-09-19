@@ -66,6 +66,63 @@ const en: Dict = {
     welcome: 'Start',
     backTo: 'Back to “{name}”'
   },
+  games: {
+    title: 'Games',
+    hint: 'Practise your own language: pick a game, then a project and a language.',
+    pickProject: 'Pick a project first (read only, it is not opened or changed)',
+    pickLanguage: 'Which language?',
+    wordCount: '{n} entries',
+    example: 'Example project',
+    cantOpen: "Can't open this project",
+    noWords: 'This language has no entries with both a spelling and a definition yet.',
+    again: 'New round',
+    reshuffle: 'Reshuffle',
+    flashcard: {
+      name: 'Flashcards',
+      desc: 'Word on the front, meaning on the back — flip to check',
+      word: 'Word',
+      meaning: 'Meaning',
+      flip: 'Click the card to flip it',
+      reverse: 'Other way round (meaning first)',
+      yes: 'Knew it',
+      no: "Didn't know",
+      done: 'Got {known} of {total} this round'
+    },
+    sage: {
+      name: 'Sage',
+      desc: 'A few meanings and a pile of letters — spell the words',
+      count: 'Words',
+      noWords: 'Needs at least {n} words; this language does not have enough yet.',
+      tapLetters: 'Tap the letters below to spell a word',
+      check: 'Check',
+      reveal: 'Reveal',
+      done: 'All spelled!'
+    },
+    wordle: {
+      name: 'Word guess',
+      desc: "Six tries to guess today's word",
+      len: 'Letters',
+      noWords: 'This language has no {n}-letter words.',
+      won: 'Got it in {n}',
+      lost: 'Out of tries — the word was'
+    },
+    crossword: {
+      name: 'Crossword',
+      desc: 'Built from your lexicon; export it for others to play',
+      count: 'Words',
+      placed: '{n} placed',
+      noWords: 'Not enough words for a crossword (at least four words of three letters or more).',
+      across: 'Across',
+      down: 'Down',
+      check: 'Check',
+      reveal: 'Reveal',
+      allRight: 'All correct!',
+      notYet: 'Still blank or wrong squares',
+      exportHtml: 'Export web page',
+      exportPng: 'Export image',
+      exportTitle: '{lang} crossword'
+    }
+  },
   welcome: {
     title: 'Start',
     newProject: 'New project',

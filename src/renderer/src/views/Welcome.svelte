@@ -6,6 +6,7 @@
   import DailyGallery from '$lib/ui/DailyGallery.svelte'
   import WordPopover from '$lib/ui/WordPopover.svelte'
   import GuideTour from '$lib/ui/GuideTour.svelte'
+  import GamePanel, { type GameId } from '$lib/games/GamePanel.svelte'
   import { tour } from '$lib/state/tour.svelte'
   import { onMount } from 'svelte'
   import { platform, type RecentEntry } from '$lib/platform'
@@ -142,6 +143,10 @@
       loadingExample = ''
     }
   }
+
+  /** 小游戏：点一个玩法，面板里先挑项目、再挑语言 */
+  const GAMES: GameId[] = ['flashcard', 'sage', 'wordle', 'crossword']
+  let game = $state<GameId | null>(null)
 
   /** 极简 Markdown：标题、列表、段落 */
   const changelogHtml = mdToHtml(changelogRaw)
@@ -343,6 +348,17 @@
       {/each}
     </div>
 
+    <h2>{t('games.title')}</h2>
+    <p class="small muted games-hint">{t('games.hint')}</p>
+    <div class="templates games">
+      {#each GAMES as g (g)}
+        <button class="tpl card" onclick={() => (game = g)}>
+          <strong>{t(`games.${g}.name`)}</strong>
+          <span class="muted small">{t(`games.${g}.desc`)}</span>
+        </button>
+      {/each}
+    </div>
+
     {#if template}
       <form
         class="form card"
@@ -532,6 +548,10 @@
 <GuideTour />
 <!-- 开始页自己挂一个悬浮词卡：画廊里的词悬浮时用（项目里的那个在 Shell 里） -->
 <WordPopover />
+
+{#if game}
+  <GamePanel {game} {recent} examples={EXAMPLES} onclose={() => (game = null)} />
+{/if}
 
 <style>
   .welcome {

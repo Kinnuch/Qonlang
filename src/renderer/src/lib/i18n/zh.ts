@@ -62,6 +62,63 @@ export default {
     welcome: '开始',
     backTo: '返回「{name}」'
   },
+  games: {
+    title: '小游戏',
+    hint: '用自己的语言练词：点一个玩法，先挑项目再挑语言。',
+    pickProject: '先挑一个项目（只读来出题，不会打开、也不会改动）',
+    pickLanguage: '用哪门语言？',
+    wordCount: '{n} 个词条',
+    example: '示例工程',
+    cantOpen: '打不开这个项目',
+    noWords: '这门语言还没有「有写法又有释义」的词。',
+    again: '再来一局',
+    reshuffle: '重新洗牌',
+    flashcard: {
+      name: '单词卡',
+      desc: '正面词、背面义，翻过来看看记住没有',
+      word: '词',
+      meaning: '释义',
+      flip: '点卡片翻面',
+      reverse: '反过来（先看释义）',
+      yes: '记得',
+      no: '没记住',
+      done: '这一轮过了 {known} 张，一共 {total} 张'
+    },
+    sage: {
+      name: 'Sage 拼词',
+      desc: '给几条释义和一堆字母，把词拼出来',
+      count: '几个词',
+      noWords: '够 {n} 个词才玩得起来，这门语言的词还不够。',
+      tapLetters: '点下面的字母拼词',
+      check: '对一下',
+      reveal: '看答案',
+      done: '全拼出来了！'
+    },
+    wordle: {
+      name: '猜词',
+      desc: '六次机会猜出今天这个词',
+      len: '几个字母',
+      noWords: '这门语言没有 {n} 个字母的词。',
+      won: '{n} 次就猜到了',
+      lost: '没猜出来，答案是'
+    },
+    crossword: {
+      name: '填字',
+      desc: '用词库排一张填字盘，可以导出给别人玩',
+      count: '放几个词',
+      placed: '排下了 {n} 个',
+      noWords: '词还不够排一张填字盘（至少要四个三字母以上的词）。',
+      across: '横',
+      down: '竖',
+      check: '对答案',
+      reveal: '看答案',
+      allRight: '全对！',
+      notYet: '还有没填或填错的',
+      exportHtml: '导出网页',
+      exportPng: '导出图片',
+      exportTitle: '{lang} 填字'
+    }
+  },
   welcome: {
     title: '开始',
     newProject: '新建项目',
