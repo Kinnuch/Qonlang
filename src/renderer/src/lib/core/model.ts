@@ -715,6 +715,8 @@ export interface SlotPron {
 export type SlotGenerator =
   | { kind: 'none' }
   | { kind: 'table' }
+  /** 交给插件算这一格的形式（插件用 rules.registerGenerator 注册；插件没装时这一格推不出来） */
+  | { kind: 'plugin'; pluginGeneratorId: string; stem: string }
   | {
       kind: 'pipeline'
       stem: string

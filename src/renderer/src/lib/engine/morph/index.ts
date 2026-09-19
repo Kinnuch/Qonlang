@@ -1023,6 +1023,28 @@ export function effectiveGenerator(
   return { generator: own, fromKey: null }
 }
 
+/**
+ * 插件注册的生成器：引擎本身不认插件（也不 import 渲染层的东西），
+ * 由渲染层启动时用 setPluginGenerators 装进来
+ */
+let pluginGenerators:
+  | ((
+      id: string,
+      ctx: { project: Project; lexeme: Lexeme; slot: SlotDef; stem: string }
+    ) => string | null)
+  | null = null
+
+export function setPluginGenerators(
+  fn:
+    | ((
+        id: string,
+        ctx: { project: Project; lexeme: Lexeme; slot: SlotDef; stem: string }
+      ) => string | null)
+    | null
+): void {
+  pluginGenerators = fn
+}
+
 export function generateForm(
   ctx: MorphContext,
   lexeme: Lexeme,
@@ -1038,6 +1060,18 @@ export function generateForm(
     variantId ?? lexeme.paradigmVariantId
   )
   if (g.kind === 'none' || g.kind === 'table') return null
+  if (g.kind === 'plugin') {
+    // 交给插件算：插件没装（或没注册这个生成器）时这一格就推不出来
+    const run = pluginGenerators
+    const stemV = stemOf(lexeme, g.stem)
+    const out = run?.(g.pluginGeneratorId, {
+      project: ctx.project,
+      lexeme,
+      slot,
+      stem: stemV.value
+    })
+    return out ? { surface: out, trace: [`插件生成器 ${g.pluginGeneratorId}: ${out}`] } : null
+  }
   const trace: string[] = []
   const stem = stemOf(lexeme, g.stem)
   const based = g.kind === 'pipeline' && g.base?.slotKey

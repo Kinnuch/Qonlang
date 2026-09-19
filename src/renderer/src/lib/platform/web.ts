@@ -256,6 +256,32 @@ export const webPlatform: PlatformAPI = {
       })
     )
   },
+  // 网页版没有 MCP 服务，也没有插件目录
+  async mcpStart() {
+    return { ok: false, error: 'web' }
+  },
+  async mcpStop() {
+    // 网页版没有服务可停
+  },
+  async mcpStatus() {
+    return { running: false }
+  },
+  async mcpReply() {
+    // 网页版没有主进程可回话
+  },
+  onMcpRequest() {
+    // 网页版收不到请求
+  },
+  // 网页版没有插件目录
+  async listPlugins() {
+    return [] as { dir: string; manifest: unknown; error?: string }[]
+  },
+  async pluginsDir() {
+    return ''
+  },
+  async openPluginsFolder() {
+    return ''
+  },
   async listFonts() {
     return (await kvGet<{ file: string; size: number }[]>('fonts:index')) ?? []
   },

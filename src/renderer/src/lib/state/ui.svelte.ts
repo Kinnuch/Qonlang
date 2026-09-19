@@ -204,7 +204,18 @@ class UiState {
   }
   /** 刷新当前页：主区按它重新挂一遍（页面状态照旧从记忆里读回来） */
   pageNonce = $state(0)
+  /** 眼下在哪个插件页（不在插件页时为 null）；插件页占着主区，模块按钮一点就回去 */
+  pluginPage = $state<string | null>(null)
+  /** 打开插件注册的页面 */
+  goPlugin(id: string): void {
+    if (this.pluginPage === id) return
+    this.push(this.snapshot())
+    this.quiet()
+    this.search = ''
+    this.pluginPage = id
+  }
   go(s: Section): void {
+    this.pluginPage = null
     if (s === this.section) {
       // 再点一次当前页的导航按钮：皮肤、设置回到上一个页面；语言、词库这些模块停在原地不动
       if (TOGGLE_BACK_SECTIONS.has(s) && this.previousSection && this.previousSection !== s) {

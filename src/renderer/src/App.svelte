@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { pluginHost } from '$lib/plugins/host.svelte'
+  import { wireMcp } from '$lib/mcp/bridge.svelte'
   import { platform } from '$lib/platform'
   import { ui } from '$lib/state/ui.svelte'
   import { projectState } from '$lib/state/project.svelte'
@@ -48,6 +50,12 @@
       await ui.loadPrefs()
       fontLibrary.onProgress()
       void fontLibrary.refresh()
+      // 插件：设置读出来之后再载（要看 disabledPlugins），失败不挡启动
+      void pluginHost.loadAll().catch(() => {})
+      // MCP：接上主进程转来的请求；设置里开着就把服务起起来
+      wireMcp()
+      if (ui.prefs.mcpEnabled && ui.prefs.mcpToken)
+        void platform.mcpStart(ui.prefs.mcpPort ?? 7421, ui.prefs.mcpToken)
       snapshot = await platform.loadSnapshot()
       if (!snapshot && ui.prefs.reopenLast) {
         const recent = await platform.getRecent()

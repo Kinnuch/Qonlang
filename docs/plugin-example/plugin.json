@@ -1,0 +1,8 @@
+{
+  "id": "example-toolkit",
+  "name": "示例插件 · 小工具",
+  "version": "1.0.0",
+  "description": "把四种扩展点各用一遍：检视器面板、导航页、命令、导入导出、构形生成器。",
+  "author": "Qonlang",
+  "main": "index.js"
+}

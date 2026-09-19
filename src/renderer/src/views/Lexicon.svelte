@@ -8,6 +8,8 @@
   import { SEARCH_FIELDS, categoryFields, featureValueTexts } from '$lib/core/searchFields'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
+  import { pluginRegistry } from '$lib/plugins/registry.svelte'
+  import type { PluginExporter, PluginImporter } from '$lib/plugins/types'
   import { platform } from '$lib/platform'
   import { i18n, t, pickText } from '$lib/i18n/index.svelte'
   import { createLexeme, createSense, now } from '$lib/core/factory'
@@ -958,6 +960,42 @@
       ui.error((e as Error).message)
     }
   }
+  /** 插件注册的导入：让用户挑文件，把内容交给插件 */
+  async function runPluginImport(im: PluginImporter): Promise<void> {
+    const exts = im.extensions.map((e) => e.replace(/^\./, ''))
+    const [f] = await platform.readTextFiles({ multiple: false, extensions: exts })
+    if (!f) return
+    try {
+      await im.run(f.content, {
+        project,
+        languageId: projectState.currentLanguageId,
+        edit: (fn) => {
+          fn(project)
+          projectState.touch()
+        }
+      })
+      ui.toast(t('plugins.imported', { name: im.name }))
+    } catch (e) {
+      ui.error((e as Error).message)
+    }
+  }
+  /** 插件注册的导出：拿到文本后问用户存到哪 */
+  async function runPluginExport(ex: PluginExporter): Promise<void> {
+    try {
+      const text = await ex.run({
+        project,
+        languageId: projectState.currentLanguageId,
+        edit: (fn) => {
+          fn(project)
+          projectState.touch()
+        }
+      })
+      await platform.saveTextFile(`${project.meta.name}${ex.extension ?? '.txt'}`, text)
+    } catch (e) {
+      ui.error((e as Error).message)
+    }
+  }
+
   /** Lexicanter 导入样例：在项目副本上试着并进去 */
   const lexcPreview = $derived.by(() => {
     if (!lexc) return null
@@ -1185,11 +1223,18 @@
       <Menu label={t('lexicon.import')} icon={Download}>
         <button onclick={() => (mode = 'csv')}>{t('lexicon.importCsv')}</button>
         <button onclick={importLexicanter}>{t('lexicon.importLexicanter')}</button>
+        <!-- 插件注册的导入格式 -->
+        {#each pluginRegistry.importers as im (im.pluginId + im.item.id)}
+          <button onclick={() => void runPluginImport(im.item)}>{im.item.name}</button>
+        {/each}
       </Menu>
       <Menu label={t('common.export')} icon={Upload}>
         <button onclick={() => exportCsv('lexemes')}>{t('lexicon.exportCsv')}</button>
         <button onclick={() => exportCsv('morphemes')}>{t('lexicon.exportMorphemesCsv')}</button>
         {#if language}<button onclick={() => (mode = 'export')}>{t('dict.menu')}</button>{/if}
+        {#each pluginRegistry.exporters as ex (ex.pluginId + ex.item.id)}
+          <button onclick={() => void runPluginExport(ex.item)}>{ex.item.name}</button>
+        {/each}
       </Menu>
       <button class="btn primary" onclick={add}><Plus size={16} />{t('lexicon.add')}</button>
     {/if}

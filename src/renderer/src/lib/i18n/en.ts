@@ -123,6 +123,38 @@ const en: Dict = {
       exportTitle: '{lang} crossword'
     }
   },
+  mcp: {
+    cat: 'MCP (let an LLM in)',
+    title: 'MCP server',
+    hint: 'With this on, MCP clients such as Claude or Cursor can reach Qonlang to look words up, run sound changes and read paradigms, and — once you confirm — change the project. The server listens on this computer only (127.0.0.1) and requires the token.',
+    enable: 'Allow LLM access',
+    port: 'Port',
+    portHint: 'Use 0 to let the system pick a free port.',
+    token: 'Token',
+    regen: 'New token',
+    copy: 'Copy address and token',
+    copied: 'Copied',
+    confirmWrites: 'Ask before writes',
+    confirmWritesHint:
+      'With this off, adding entries or sentences happens without a prompt (changes still go on the undo stack).',
+    running: 'Running: {url}',
+    stopped: 'Off',
+    failed: "Couldn't start: {error}",
+    tools: '{n} tools',
+    recent: 'Recent calls',
+    noProject: 'No project is open in Qonlang',
+    unknownTool: 'No tool named “{name}”',
+    writeSuffix: ' (changes the project; the user is asked to confirm by default)',
+    confirmTitle: 'An LLM wants to change the project',
+    confirmBody: 'Tool: {name}\nArguments: {args}',
+    declined: 'The user declined this change',
+    wrote: 'Change written',
+    clientHint: 'In your client, use:'
+  },
+  plugins: {
+    fromPlugin: 'From a plugin',
+    imported: 'Imported with “{name}”'
+  },
   welcome: {
     title: 'Start',
     newProject: 'New project',
@@ -2249,6 +2281,17 @@ const en: Dict = {
     showHelpDots: 'Show the “?” usage hints next to panels',
     guideTourAlways:
       'Show the guided tour every time “Guide” is clicked (otherwise once per module)',
+    plugins: {
+      cat: 'Plugins',
+      title: 'Installed plugins',
+      hint: "Plugins live in the folder below, one folder each (plugin.json + an entry js). They run with the same privileges as the app, so read the code before installing someone else's.",
+      openFolder: 'Open plugins folder',
+      reload: 'Reload',
+      none: 'No plugins installed yet.',
+      loaded: 'Loaded',
+      failed: 'Failed to load',
+      counts: 'Panels {views} · Commands {commands} · Import/export {io} · Generators {generators}'
+    },
     showHistory: 'Show the history row on entry cards',
     showHistoryHint:
       'When the etymology can be run through the sound changes down to this entry, the card lists the form at every stage; turn it off to hide that block.',

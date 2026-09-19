@@ -119,6 +119,37 @@ export default {
       exportTitle: '{lang} 填字'
     }
   },
+  mcp: {
+    cat: 'MCP（让 LLM 接进来）',
+    title: 'MCP 服务',
+    hint: '开了之后，Claude、Cursor 这类支持 MCP 的客户端就能连上千语集，查词、跑音变、看构形，也能在你确认后改项目。服务只监听本机（127.0.0.1），要带令牌才认。',
+    enable: '允许 LLM 接入',
+    port: '端口',
+    portHint: '填 0 就随便挑一个空闲端口。',
+    token: '令牌',
+    regen: '换一个',
+    copy: '复制地址与令牌',
+    copied: '已复制',
+    confirmWrites: '写操作先问一下',
+    confirmWritesHint: '关掉之后，LLM 加词条、改例句不再弹确认（改动仍然进撤销栈）。',
+    running: '正在跑：{url}',
+    stopped: '没开',
+    failed: '起不来：{error}',
+    tools: '{n} 个工具',
+    recent: '最近的调用',
+    noProject: '千语集里还没有打开项目',
+    unknownTool: '没有叫「{name}」的工具',
+    writeSuffix: '（会改动项目，默认需要用户确认）',
+    confirmTitle: 'LLM 想改动项目',
+    confirmBody: '工具：{name}\n参数：{args}',
+    declined: '用户拒绝了这次改动',
+    wrote: '改动已写入',
+    clientHint: '客户端里这样填：'
+  },
+  plugins: {
+    fromPlugin: '来自插件',
+    imported: '「{name}」导入完成'
+  },
   welcome: {
     title: '开始',
     newProject: '新建项目',
@@ -2165,6 +2196,17 @@ export default {
     highlightDuplicates: '高亮重复词条（关掉只留黄色叹号）',
     showHelpDots: '显示板块旁的「?」用法提示',
     guideTourAlways: '点「使用指南」时每次都先看图文引导（关着时每个模块只自动讲一次）',
+    plugins: {
+      cat: '插件',
+      title: '已装的插件',
+      hint: '插件放在下面这个目录里，一个插件一个文件夹（plugin.json + 入口 js）。插件跟软件同权限跑，装别人的插件前先看看代码。',
+      openFolder: '打开插件目录',
+      reload: '重新载入',
+      none: '还没有装插件。',
+      loaded: '已载入',
+      failed: '载入失败',
+      counts: '面板 {views} · 命令 {commands} · 导入导出 {io} · 生成器 {generators}'
+    },
     showHistory: '词条卡里显示历史形式',
     showHistoryHint:
       '词源能按音变一路推到这个词时，词条卡里列出每个阶段的形式；关掉就不显示这一块。',

@@ -12,7 +12,10 @@
     FileText,
     FolderOutput,
     Languages,
+    Copy,
     Palette,
+    Plug,
+    Puzzle,
     RefreshCw,
     Save,
     Scissors,
@@ -23,6 +26,10 @@
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { filterRows } from '$lib/ui/filterRows'
+  import { pluginHost } from '$lib/plugins/host.svelte'
+  import { mcpTools } from '$lib/mcp/tools'
+  import { mcpLog } from '$lib/mcp/bridge.svelte'
+  import { pluginRegistry } from '$lib/plugins/registry.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
   $effect(() => {
@@ -41,7 +48,72 @@
   }
   onMount(async () => {
     info = await platform.info()
+    mcpStatus = await platform.mcpStatus()
   })
+
+  // ── MCP ──
+  let mcpStatus = $state<{ running: boolean; url?: string; port?: number }>({ running: false })
+  let mcpError = $state('')
+  const mcpToolCount = $derived(mcpTools().length)
+  const mcpConfig = $derived(
+    JSON.stringify(
+      {
+        mcpServers: {
+          qonlang: {
+            type: 'http',
+            url: mcpStatus.url ?? '',
+            headers: { Authorization: `Bearer ${ui.prefs.mcpToken ?? ''}` }
+          }
+        }
+      },
+      null,
+      2
+    )
+  )
+  /** 令牌：够长的随机串就行，本机服务不用更复杂的东西 */
+  function newToken(): string {
+    const a = new Uint8Array(18)
+    crypto.getRandomValues(a)
+    return 'qnl_' + [...a].map((x) => x.toString(16).padStart(2, '0')).join('')
+  }
+  async function startMcp(): Promise<void> {
+    mcpError = ''
+    if (!ui.prefs.mcpToken) {
+      // 令牌是这时候现生成的：先存下来，不然重启后连不上
+      ui.prefs.mcpToken = newToken()
+      await ui.savePrefs()
+    }
+    const r = await platform.mcpStart(ui.prefs.mcpPort ?? 7421, ui.prefs.mcpToken)
+    if (r.ok) mcpStatus = { running: true, url: r.url, port: r.port }
+    else {
+      mcpError = r.error ?? ''
+      mcpStatus = { running: false }
+    }
+  }
+  async function toggleMcp(e: Event): Promise<void> {
+    const on = (e.currentTarget as HTMLInputElement).checked
+    ui.prefs.mcpEnabled = on
+    await ui.savePrefs()
+    if (on) await startMcp()
+    else {
+      await platform.mcpStop()
+      mcpStatus = { running: false }
+    }
+  }
+  async function setMcpPort(port: number): Promise<void> {
+    ui.prefs.mcpPort = Number.isFinite(port) ? port : 7421
+    await ui.savePrefs()
+    if (ui.prefs.mcpEnabled) await startMcp()
+  }
+  async function regenToken(): Promise<void> {
+    ui.prefs.mcpToken = newToken()
+    await ui.savePrefs()
+    if (ui.prefs.mcpEnabled) await startMcp()
+  }
+  async function copyCfg(): Promise<void> {
+    await navigator.clipboard.writeText(mcpConfig)
+    ui.toast(t('mcp.copied'))
+  }
 
   let glossLangs = $state('')
   let boundaries = $state('')
@@ -298,6 +370,142 @@
     </section>
   </div>
 
+  <h2 class="cat">{t('mcp.cat')}</h2>
+  <div class="groups">
+    <section class="card group">
+      <h3><Plug size={15} />{t('mcp.title')}</h3>
+      <p class="small muted">{t('mcp.hint')}</p>
+      <div class="grid">
+        <label class="row check">
+          <input type="checkbox" checked={ui.prefs.mcpEnabled === true} onchange={toggleMcp} />
+          {t('mcp.enable')}
+        </label>
+        <div class="field">
+          <label for="mcp-port">{t('mcp.port')}<HelpDot tip={t('mcp.portHint')} /></label>
+          <input
+            id="mcp-port"
+            class="input"
+            type="number"
+            min="0"
+            max="65535"
+            value={ui.prefs.mcpPort ?? 7421}
+            onchange={(e) => void setMcpPort(Number((e.currentTarget as HTMLInputElement).value))}
+          />
+        </div>
+        <div class="field">
+          <label for="mcp-token">{t('mcp.token')}</label>
+          <div class="row">
+            <input
+              id="mcp-token"
+              class="input mono grow"
+              readonly
+              value={ui.prefs.mcpToken ?? ''}
+            />
+            <button class="btn sm" onclick={() => void regenToken()}>{t('mcp.regen')}</button>
+          </div>
+        </div>
+        <label class="row check">
+          <input
+            type="checkbox"
+            checked={ui.prefs.mcpConfirmWrites !== false}
+            onchange={(e) => {
+              ui.prefs.mcpConfirmWrites = (e.currentTarget as HTMLInputElement).checked
+              void ui.savePrefs()
+            }}
+          />
+          {t('mcp.confirmWrites')}<HelpDot tip={t('mcp.confirmWritesHint')} />
+        </label>
+      </div>
+      <p class="small">
+        {#if mcpStatus.running}
+          <span class="ok">{t('mcp.running', { url: mcpStatus.url ?? '' })}</span>
+        {:else if mcpError}
+          <span class="warn">{t('mcp.failed', { error: mcpError })}</span>
+        {:else}
+          <span class="muted">{t('mcp.stopped')}</span>
+        {/if}
+        <span class="muted"> · {t('mcp.tools', { n: mcpToolCount })}</span>
+      </p>
+      {#if mcpStatus.running}
+        <div class="field">
+          <label for="mcp-cfg">{t('mcp.clientHint')}</label>
+          <textarea id="mcp-cfg" class="textarea mono" rows="6" readonly>{mcpConfig}</textarea>
+          <button class="btn sm" onclick={() => void copyCfg()}
+            ><Copy size={13} />{t('mcp.copy')}</button
+          >
+        </div>
+      {/if}
+      {#if mcpLog.length}
+        <p class="small muted">{t('mcp.recent')}</p>
+        <ul class="mcp-log">
+          {#each mcpLog.slice(0, 8) as e (e.at + e.name)}
+            <li class:bad={!e.ok}>
+              <span class="mono">{new Date(e.at).toLocaleTimeString()}</span>
+              <b>{e.name}</b>
+              <span class="muted">{e.note}</span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+  </div>
+
+  <h2 class="cat">{t('settings.plugins.cat')}</h2>
+  <div class="groups">
+    <section class="card group">
+      <h3><Puzzle size={15} />{t('settings.plugins.title')}</h3>
+      <p class="small muted">{t('settings.plugins.hint')}</p>
+      <div class="row wrap plugin-acts">
+        <button class="btn sm" onclick={() => void platform.openPluginsFolder()}
+          ><FolderOutput size={13} />{t('settings.plugins.openFolder')}</button
+        >
+        <button class="btn sm" onclick={() => void pluginHost.loadAll()}
+          ><RefreshCw size={13} />{t('settings.plugins.reload')}</button
+        >
+        <span class="tiny muted path">{pluginHost.dir}</span>
+      </div>
+      {#if !pluginHost.list.length}
+        <p class="small muted">{t('settings.plugins.none')}</p>
+      {:else}
+        <ul class="plugins">
+          {#each pluginHost.list as p (p.manifest.id)}
+            {@const n = pluginRegistry.countsOf(p.manifest.id)}
+            <li class="card plugin">
+              <label class="row check">
+                <input
+                  type="checkbox"
+                  checked={p.enabled}
+                  onchange={(e) =>
+                    void pluginHost.setEnabled(p, (e.currentTarget as HTMLInputElement).checked)}
+                />
+                <strong>{p.manifest.name}</strong>
+                {#if p.manifest.version}<span class="badge">{p.manifest.version}</span>{/if}
+                {#if p.error}<span class="badge warn">{t('settings.plugins.failed')}</span>
+                {:else if p.loaded}<span class="badge ok">{t('settings.plugins.loaded')}</span>{/if}
+              </label>
+              {#if p.manifest.description}
+                <p class="small muted">{p.manifest.description}</p>
+              {/if}
+              {#if p.error}
+                <p class="small warn">{p.error}</p>
+              {:else if p.loaded}
+                <p class="tiny muted">
+                  {t('settings.plugins.counts', {
+                    views: n.views,
+                    commands: n.commands,
+                    io: n.io,
+                    generators: n.generators
+                  })}
+                </p>
+              {/if}
+              <p class="tiny muted">{p.manifest.author ? p.manifest.author + ' · ' : ''}{p.dir}</p>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+  </div>
+
   <h2 class="cat">{t('settings.project')}</h2>
   <div class="groups">
     <section class="card group" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
@@ -548,6 +756,57 @@
 </div>
 
 <style>
+  .mcp-log {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 12px;
+  }
+  .mcp-log li {
+    display: flex;
+    gap: 8px;
+  }
+  .mcp-log li.bad b {
+    color: var(--warn);
+  }
+  .ok {
+    color: var(--accent-text);
+  }
+  .plugins {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+  }
+  .plugin {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .plugin .badge.ok {
+    border-color: var(--accent);
+    color: var(--accent-text);
+  }
+  .plugin .badge.warn,
+  .warn {
+    color: var(--warn);
+  }
+  .plugin-acts {
+    gap: 8px;
+    align-items: center;
+  }
+  .plugin-acts .path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .page {
     padding: 24px 28px;
     max-width: 920px;

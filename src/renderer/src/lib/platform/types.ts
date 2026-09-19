@@ -79,6 +79,13 @@ export interface Prefs {
   showDerivedMark: boolean
   /** 词条卡里显示历史形式那一块 */
   showHistory: boolean
+  /** MCP：开着没有、端口、令牌、写操作要不要确认 */
+  mcpEnabled?: boolean
+  mcpPort?: number
+  mcpToken?: string
+  mcpConfirmWrites?: boolean
+  /** 关掉的插件 id（其余的启动时自动载入） */
+  disabledPlugins?: string[]
   /** 点「使用指南」时每次都先看图文引导（关着时每个模块只自动讲一次） */
   guideTourAlways: boolean
   /** 已经讲过图文引导的模块 */
@@ -215,6 +222,21 @@ export interface PlatformAPI {
   }): Promise<{ name: string; base64: string }[]>
   /** 用户字体库（应用数据目录 fonts/） */
   listFonts(): Promise<{ file: string; size: number }[]>
+  /** 开着的 MCP 服务：开 / 关 / 查状态 / 回话 / 收请求 */
+  mcpStart(
+    port: number,
+    token: string
+  ): Promise<{ ok: boolean; url?: string; port?: number; error?: string }>
+  mcpStop(): Promise<void>
+  mcpStatus(): Promise<{ running: boolean; url?: string; port?: number }>
+  mcpReply(id: number, result: unknown, error?: string): Promise<void>
+  onMcpRequest(cb: (req: unknown) => void): void
+  /** 装了哪些插件（读 userData/plugins 下每个目录的 plugin.json） */
+  listPlugins(): Promise<{ dir: string; manifest: unknown; error?: string }[]>
+  /** 插件目录的路径 */
+  pluginsDir(): Promise<string>
+  /** 在文件管理器里打开插件目录 */
+  openPluginsFolder(): Promise<string>
   readFont(file: string): Promise<string | null>
   saveFont(file: string, base64: string): Promise<boolean>
   deleteFont(file: string): Promise<void>

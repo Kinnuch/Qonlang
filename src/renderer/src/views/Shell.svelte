@@ -47,6 +47,11 @@
   import GuideTour from '$lib/ui/GuideTour.svelte'
   import SearchBar from '$lib/ui/SearchBar.svelte'
   import { searchMark } from '$lib/ui/searchMark'
+  import PluginViews from '$lib/plugins/PluginViews.svelte'
+  const pluginPages = $derived(
+    pluginRegistry.views.filter((v) => v.item.where === 'page').map((v) => v.item)
+  )
+  import { pluginRegistry } from '$lib/plugins/registry.svelte'
   import RuleSyntax from '$lib/ui/RuleSyntax.svelte'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
   import SentenceMergeDialog from '$lib/ui/SentenceMergeDialog.svelte'
@@ -256,6 +261,17 @@
         <span class="nav-label">{t(`nav.${s}`)}</span>
       </button>
     {/each}
+    {#each pluginPages as pv (pv.id)}
+      <button
+        class="nav-btn"
+        class:active={ui.pluginPage === pv.id}
+        title={pv.title}
+        onclick={() => ui.goPlugin(pv.id)}
+      >
+        <span class="pico">{pv.icon || pv.title.slice(0, 1)}</span>
+        <span class="nav-label">{pv.title}</span>
+      </button>
+    {/each}
     <div class="grow"></div>
     <button
       class="nav-btn"
@@ -409,7 +425,9 @@
       {/snippet}
       <!-- 刷新当前页：pageNonce 一变整页重新挂 -->
       {#key ui.pageNonce}
-        {#if ui.section === 'languages'}
+        {#if ui.pluginPage}
+          <div class="page plugin-page"><PluginViews where="page" pageId={ui.pluginPage} /></div>
+        {:else if ui.section === 'languages'}
           <Languages bind:inspectorTitle />
         {:else if ui.section === 'soundChanges'}
           <SoundChanges bind:inspectorTitle />
@@ -466,6 +484,9 @@
     </div>
     <!-- 规则语法盖在检视器上面；原来的内容只是藏起来，关掉就回来 -->
     <div class="inspector-body" id="inspector-slot" hidden={ui.syntaxOpen} use:hintTitles></div>
+    {#if !ui.syntaxOpen && pluginRegistry.views.some((v) => (v.item.where ?? 'inspector') === 'inspector')}
+      <div class="inspector-body plugins"><PluginViews where="inspector" /></div>
+    {/if}
     {#if ui.syntaxOpen}
       <div class="inspector-body">
         <RuleSyntax anchor={ui.syntaxAnchor} />
@@ -483,6 +504,16 @@
 <SentenceMergeDialog />
 
 <style>
+  .pico {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    font-size: 14px;
+  }
+  .plugin-page {
+    padding: 16px 20px;
+  }
   .badge.ro {
     display: inline-flex;
     align-items: center;

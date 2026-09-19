@@ -165,7 +165,8 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
  * 旧写法仍能跑，转过来只是为了编辑器里统一成「一步一步加」。
  */
 function toPipeline(g: SlotGenerator): SlotGenerator {
-  if (!g || g.kind === 'none' || g.kind === 'table' || g.kind === 'pipeline') return g
+  if (!g || g.kind === 'none' || g.kind === 'table' || g.kind === 'pipeline' || g.kind === 'plugin')
+    return g
   type StepBody = { [K in MorphStep as never]: never } & Record<string, unknown>
   const step = (x: StepBody): MorphStep => ({ id: newId(), ...x }) as unknown as MorphStep
   const steps: MorphStep[] = []

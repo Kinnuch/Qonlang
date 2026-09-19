@@ -64,6 +64,43 @@ export const electronPlatform: PlatformAPI = {
   async readBinaryFiles(opts) {
     return (await bridge().invoke('file:readBinary', opts)) as { name: string; base64: string }[]
   },
+  async mcpStart(port: number, token: string) {
+    return (await bridge().invoke('mcp:start', port, token)) as {
+      ok: boolean
+      url?: string
+      port?: number
+      error?: string
+    }
+  },
+  async mcpStop() {
+    await bridge().invoke('mcp:stop')
+  },
+  async mcpStatus() {
+    return (await bridge().invoke('mcp:status')) as {
+      running: boolean
+      url?: string
+      port?: number
+    }
+  },
+  async mcpReply(id: number, result: unknown, error?: string) {
+    await bridge().invoke('mcp:reply', id, result, error)
+  },
+  onMcpRequest(cb: (req: unknown) => void) {
+    bridge().on('mcp:request', (req) => cb(req))
+  },
+  async listPlugins() {
+    return (await bridge().invoke('plugins:list')) as {
+      dir: string
+      manifest: unknown
+      error?: string
+    }[]
+  },
+  async pluginsDir() {
+    return (await bridge().invoke('plugins:dir')) as string
+  },
+  async openPluginsFolder() {
+    return (await bridge().invoke('plugins:openFolder')) as string
+  },
   async listFonts() {
     return (await bridge().invoke('fonts:list')) as { file: string; size: number }[]
   },

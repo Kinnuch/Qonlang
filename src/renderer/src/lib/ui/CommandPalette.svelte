@@ -5,6 +5,7 @@
   import { chars } from '$lib/state/chars.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { Search, CornerDownLeft } from '@lucide/svelte'
+  import { pluginRegistry } from '$lib/plugins/registry.svelte'
 
   interface Item {
     kind: string
@@ -79,7 +80,16 @@
         run: () => ui.jump('lexicon', 'new', 'lexeme')
       }
     ]
-    return [...acts, ...nav]
+    // 插件注册的命令
+    const fromPlugins: Item[] = pluginRegistry.commands.map((c) => ({
+      kind: 'cmd',
+      id: `plugin:${c.pluginId}:${c.item.id}`,
+      title: c.item.title,
+      sub: c.item.detail || t('plugins.fromPlugin'),
+      section: ui.section,
+      run: () => void c.item.run()
+    }))
+    return [...acts, ...fromPlugins, ...nav]
   })
 
   const results = $derived.by((): Item[] => {

@@ -5,12 +5,14 @@ import {
   ipcMain,
   dialog,
   net,
+  protocol,
   Menu,
   clipboard,
   screen,
   type MenuItemConstructorOptions
 } from 'electron'
 import { join, basename, dirname } from 'path'
+import { startMcpServer, type McpServerHandle, type McpTool } from './mcp'
 import {
   promises as fs,
   accessSync,
@@ -127,6 +129,55 @@ const recentFile = (): string => join(userData(), 'recent.json')
 const snapshotFile = (): string => join(userData(), 'snapshot.laim.json')
 const backupsDir = (): string => join(userData(), 'Backups')
 const fontsDir = (): string => join(userData(), 'fonts')
+/** 插件目录：一个插件一个子目录，里面 plugin.json + 入口 js */
+const pluginsDir = (): string => join(userData(), 'plugins')
+
+// ───────────────────────── MCP ─────────────────────────
+/** 跑着的 MCP 服务（设置里开了才有） */
+let mcp: McpServerHandle | null = null
+/** 渲染层还没答复的 tools/call */
+const mcpPending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
+let mcpSeq = 0
+
+/** 把一次工具调用转给渲染层（项目在那边），等它回话 */
+function mcpAsk(
+  kind: 'list' | 'call',
+  name: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const win = BrowserWindow.getAllWindows()[0]
+  if (!win) return Promise.reject(new Error('千语集窗口没开'))
+  const id = ++mcpSeq
+  return new Promise((resolve, reject) => {
+    mcpPending.set(id, { resolve, reject })
+    win.webContents.send('mcp:request', { id, kind, name, args })
+    // 渲染层卡住时别让客户端一直等（写操作要用户点确认，给得宽一点）
+    setTimeout(() => {
+      if (!mcpPending.has(id)) return
+      mcpPending.delete(id)
+      reject(new Error('千语集没有在两分钟内答复'))
+    }, 120_000)
+  })
+}
+
+async function startMcp(port: number, token: string): Promise<{ url: string; port: number }> {
+  await stopMcp()
+  mcp = await startMcpServer({
+    port,
+    token,
+    version: app.getVersion(),
+    listTools: async () => (await mcpAsk('list', '', {})) as McpTool[],
+    callTool: (name, args) => mcpAsk('call', name, args),
+    onError: (e) => console.error('[mcp]', e)
+  })
+  return { url: mcp.url, port: mcp.port }
+}
+
+async function stopMcp(): Promise<void> {
+  const cur = mcp
+  mcp = null
+  await cur?.close().catch(() => {})
+}
 
 /** 跟随重定向的下载，带进度回调 */
 function downloadTo(
@@ -1094,6 +1145,56 @@ function registerIpc(): void {
     }
   })
 
+  // ── MCP ──
+  ipcMain.handle('mcp:start', async (_e, port: number, token: string) => {
+    try {
+      return { ok: true, ...(await startMcp(port, token)) }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  })
+  ipcMain.handle('mcp:stop', async () => {
+    await stopMcp()
+    return true
+  })
+  ipcMain.handle('mcp:status', () =>
+    mcp ? { running: true, url: mcp.url, port: mcp.port } : { running: false }
+  )
+  /** 渲染层做完一次工具调用后回话 */
+  ipcMain.handle('mcp:reply', (_e, id: number, result: unknown, error?: string) => {
+    const p = mcpPending.get(id)
+    if (!p) return false
+    mcpPending.delete(id)
+    if (error) p.reject(new Error(error))
+    else p.resolve(result)
+    return true
+  })
+
+  // ── 插件 ──
+  ipcMain.handle('plugins:list', async () => {
+    const dir = pluginsDir()
+    await fs.mkdir(dir, { recursive: true }).catch(() => {})
+    const out: { dir: string; manifest: unknown; error?: string }[] = []
+    for (const name of await fs.readdir(dir).catch(() => [] as string[])) {
+      const full = join(dir, name)
+      try {
+        if (!(await fs.stat(full)).isDirectory()) continue
+        const raw = await fs.readFile(join(full, 'plugin.json'), 'utf8')
+        out.push({ dir: name, manifest: JSON.parse(raw) })
+      } catch (e) {
+        out.push({ dir: name, manifest: null, error: (e as Error).message })
+      }
+    }
+    return out
+  })
+  ipcMain.handle('plugins:openFolder', async () => {
+    const dir = pluginsDir()
+    await fs.mkdir(dir, { recursive: true }).catch(() => {})
+    await shell.openPath(dir)
+    return dir
+  })
+  ipcMain.handle('plugins:dir', () => pluginsDir())
+
   ipcMain.handle('prefs:get', () => getPrefs())
   ipcMain.handle('prefs:set', (_e, p: Prefs) => writeJson(prefsFile(), p))
 
@@ -1209,8 +1310,37 @@ function buildMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(tpl))
 }
 
+// 插件用自己的协议加载（CSP 里放行了 qnlplugin:）；要在 ready 之前登记
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'qnlplugin',
+    // corsEnabled：渲染层是 file:// origin，取插件模块算跨源，不开这个 fetch / import 会被挡
+    privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true }
+  }
+])
+
 app.whenReady().then(() => {
   electronApp.setAppUserModelId(APP_ID)
+  // qnlplugin://<插件目录>/<文件>：只在插件目录里取文件，路径里不许有 ..
+  protocol.handle('qnlplugin', async (request) => {
+    try {
+      const url = new URL(request.url)
+      const rel = decodeURIComponent(url.pathname).replace(/^\/+/, '')
+      if (!url.hostname || rel.includes('..')) return new Response('bad path', { status: 400 })
+      const file = join(pluginsDir(), url.hostname, rel || 'index.js')
+      const body = await fs.readFile(file)
+      const type = file.endsWith('.css')
+        ? 'text/css'
+        : file.endsWith('.json')
+          ? 'application/json'
+          : 'text/javascript'
+      return new Response(new Uint8Array(body), {
+        headers: { 'content-type': type, 'access-control-allow-origin': '*' }
+      })
+    } catch (e) {
+      return new Response(String((e as Error).message), { status: 404 })
+    }
+  })
   buildMenu()
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
   registerIpc()
