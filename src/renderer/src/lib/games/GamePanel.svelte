@@ -89,7 +89,7 @@
 
 <div class="overlay" role="dialog" tabindex="-1">
   <div class="sheet card">
-    <div class="row head">
+    <div class="row head sticky">
       <button class="btn ghost icon sm" title={t('common.back')} onclick={back}
         ><ArrowLeft size={16} /></button
       >
@@ -165,9 +165,19 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    /* 卡片自带的内边距在这里太窄：挑项目那一屏四周留出点地方 */
+    padding: 18px 22px 22px;
   }
   .head {
     gap: 8px;
+  }
+  /* 玩法里内容长时，标题这一行留在上面 */
+  .head.sticky {
+    position: sticky;
+    top: -18px;
+    z-index: 1;
+    background: var(--bg-elev);
+    padding: 2px 0 6px;
   }
   .head h2 {
     margin: 0;
@@ -175,16 +185,19 @@
   }
   .picks {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 4px;
   }
   .pick {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
     align-items: flex-start;
     text-align: left;
-    padding: 10px 12px;
+    padding: 12px 14px;
+    min-height: 62px;
+    justify-content: center;
     cursor: pointer;
   }
   .pick:hover {

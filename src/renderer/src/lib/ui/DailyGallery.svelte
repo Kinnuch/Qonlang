@@ -10,6 +10,8 @@
   import { ChevronLeft, ChevronRight } from '@lucide/svelte'
   import { platform, type RecentEntry } from '$lib/platform'
   import { parseProject, readProjectText } from '$lib/core/serialize'
+  import { ensureScriptFont, fontCss } from '$lib/script/fonts'
+  import { sentenceScriptText, textScript } from '$lib/script/lexiconScript'
   import type { Id, LocalizedText, Project, Sentence, Token } from '$lib/core/model'
   import { analyzeToken, buildIndex, tokenize, type GlossIndex } from '$lib/engine/gloss'
   import { piecesOf } from '$lib/engine/gloss/candidates'
@@ -100,6 +102,29 @@
     sources = got
     slides = shuffled(collect(got), daySeed())
     at = 0
+  }
+
+  /**
+   * 这一句 / 这条短语的文字写法（转写按文字页的映射规则转过来的），画在原文上面一行。
+   * 这门语言有几套文字就画几行；没有文字的项目这里是空的
+   */
+  function scriptLines(
+    src: Source,
+    sen: Sentence,
+    kind: 'sentence' | 'phrase'
+  ): { id: Id; text: string; css: string; rtl: boolean; name: string }[] {
+    const lang = src.project.languages.find((l) => l.id === sen.languageId)
+    if (!lang) return []
+    const out: { id: Id; text: string; css: string; rtl: boolean; name: string }[] = []
+    for (const sc of lang.scripts ?? []) {
+      ensureScriptFont(sc)
+      const text =
+        kind === 'sentence'
+          ? sentenceScriptText(src.project, lang, sc, sen)
+          : textScript(src.project, lang, sc, sen.text, sen.tokens)
+      if (text.trim()) out.push({ id: sc.id, text, css: fontCss(sc), rtl: sc.direction === 'rtl', name: sc.name })
+    }
+    return out
   }
 
   function collect(list: Source[]): Slide[] {
@@ -354,6 +379,11 @@
             {@const sen = slide.kind === 'sentence' ? slide.sentence : phraseSentence(src, slide)}
             {@const inCorpus = slide.kind === 'sentence'}
             {@const pieces = textPieces(sen.text, sen.tokens)}
+            {#each scriptLines(src, sen, slide.kind) as sl (sl.id)}
+              <span class="script" style={sl.css} dir={sl.rtl ? 'rtl' : 'ltr'} title={sl.name}
+                >{sl.text}</span
+              >
+            {/each}
             <span class="main data"
               >{#if pieces}{#each pieces as pc, k (k)}{#if pc.at === null}{pc.text}{:else}{@const i =
                       pc.at}<span
@@ -447,6 +477,15 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  /* 文字写法那一行：按这套文字的字体画，排在原文上面 */
+  .script {
+    font-size: 22px;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
   }
   .sub {
     font-size: 13px;

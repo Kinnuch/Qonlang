@@ -65,7 +65,7 @@ export function crosswordHtml(cw: Crossword, info: ExportInfo): string {
   input.ok { color:var(--ok); } input.bad { color:var(--bad); }
   .clues { display:flex; gap:28px; flex-wrap:wrap; }
   .clues h2 { font-size:14px; text-transform:uppercase; letter-spacing:.06em; color:#888; margin:0 0 6px; }
-  ol { margin:0; padding-left:20px; max-width:320px; } li { margin:3px 0; }
+  ol { margin:0; padding-left:0; max-width:320px; list-style:none; } li { margin:3px 0; }
   .len { color:#999; font-size:12px; }
   .bar { margin-top:18px; display:flex; gap:8px; }
   button { font:inherit; padding:6px 12px; border:1px solid var(--line); border-radius:6px; background:transparent; color:inherit; cursor:pointer; }
