@@ -32,6 +32,7 @@
     ScrollText,
     User,
     Link2,
+    ChevronDown,
     ExternalLink,
     BookOpen,
     Globe,
@@ -126,6 +127,8 @@
     | 'settings'
     | null
   >('changelog')
+  /** 「新建项目」点开的起步模板下拉 */
+  let pickTemplate = $state(false)
   const togglePanel = (p: typeof footerPanel): void => {
     footerPanel = footerPanel === p ? null : p
   }
@@ -302,22 +305,33 @@
     </div>
 
     <div class="actions">
-      <button class="btn primary" onclick={() => (template = template ?? 'blank')}
-        ><FilePlus2 size={16} />{t('welcome.newProject')}</button
-      >
-      <!-- 起步模板：跟「新建项目」在一起，挑一个就在右边填名字 -->
-      <div class="tpl-list card">
-        {#each templates as tp (tp.id)}
-          <button
-            class="tpl-row"
-            class:active={template === tp.id}
-            disabled={!tp.available}
-            onclick={() => (template = tp.id)}
-          >
-            <strong>{t(`welcome.templates.${tp.id}`)}</strong>
-            <span class="muted small">{t(`welcome.templates.${tp.id}Desc`)}</span>
-          </button>
-        {/each}
+      <!-- 新建项目：点开才列起步模板，挑一个就在右边填名字 -->
+      <div class="new-wrap" role="presentation" onmouseleave={() => (pickTemplate = false)}>
+        <button
+          class="btn primary"
+          class:active={pickTemplate}
+          aria-expanded={pickTemplate}
+          onclick={() => (pickTemplate = !pickTemplate)}
+          ><FilePlus2 size={16} />{t('welcome.newProject')}<ChevronDown size={13} /></button
+        >
+        {#if pickTemplate}
+          <div class="tpl-list card">
+            {#each templates as tp (tp.id)}
+              <button
+                class="tpl-row"
+                class:active={template === tp.id}
+                disabled={!tp.available}
+                onclick={() => {
+                  template = tp.id
+                  pickTemplate = false
+                }}
+              >
+                <strong>{t(`welcome.templates.${tp.id}`)}</strong>
+                <span class="muted small">{t(`welcome.templates.${tp.id}Desc`)}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
       </div>
       <button class="btn" onclick={() => projectState.open()}
         ><FolderOpen size={16} />{t('welcome.openProject')}</button
@@ -861,15 +875,30 @@
     gap: 10px;
     margin-bottom: 16px;
   }
+  /* 最近项目：按满两排（8 张）留位子，底下的小游戏不会因为项目多少上下跳 */
   .projects {
+    min-height: 242px;
     margin-bottom: 18px;
   }
-  /* 侧栏里的起步模板：一行一个，跟「新建项目」连成一组 */
+  /* 「新建项目」点开的起步模板：浮在按钮下面，一行一个 */
+  .new-wrap {
+    position: relative;
+  }
+  .new-wrap > .btn {
+    width: 100%;
+    justify-content: center;
+  }
   .tpl-list {
+    position: absolute;
+    z-index: 20;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
     display: flex;
     flex-direction: column;
     padding: 4px;
     gap: 2px;
+    box-shadow: var(--shadow-lg);
   }
   .tpl-row {
     display: flex;

@@ -1,7 +1,13 @@
 /** 皮肤的导出与导入：记号、版本、只收认得的字段；字体库预览文字按标签挑 */
 import { describe, it, expect } from 'vitest'
 import { exportSkinFile, parseSkinFile, SKIN_FILE_MARK } from '$lib/skin/transfer'
-import { fontSample, FONT_SAMPLE_CJK, FONT_SAMPLE_LATIN, type Skin } from '$lib/skin/presets'
+import {
+  FONT_CATALOG,
+  fontSample,
+  FONT_SAMPLE_CJK,
+  FONT_SAMPLE_LATIN,
+  type Skin
+} from '$lib/skin/presets'
 
 const IMG = 'data:image/webp;base64,AAAA'
 
@@ -92,16 +98,23 @@ describe('皮肤文件', () => {
 
 describe('字体库的预览文字', () => {
   it('拉丁字体只写拉丁句', () => {
-    expect(fontSample(['latin', 'serif'])).toBe(FONT_SAMPLE_LATIN)
-    expect(fontSample([])).toBe(FONT_SAMPLE_LATIN)
+    expect(fontSample({ tags: ['latin', 'serif'] })).toBe(FONT_SAMPLE_LATIN)
+    expect(fontSample({ tags: [] })).toBe(FONT_SAMPLE_LATIN)
   })
 
   it('覆盖汉字的再带一小段汉字', () => {
-    expect(fontSample(['cjk', 'kai'])).toBe(FONT_SAMPLE_LATIN + ' ' + FONT_SAMPLE_CJK)
+    expect(fontSample({ tags: ['cjk', 'kai'] })).toBe(FONT_SAMPLE_LATIN + ' ' + FONT_SAMPLE_CJK)
   })
 
-  it('文字块与符号字体没有拉丁字形，不给预览', () => {
-    expect(fontSample(['script'])).toBe('')
-    expect(fontSample(['symbols'])).toBe('')
+  it('没有拉丁字形的文字块 / 符号字体：条目自己写了预览就用它，没写才空着', () => {
+    expect(fontSample({ tags: ['script'] })).toBe('')
+    expect(fontSample({ tags: ['symbols'] })).toBe('')
+    expect(fontSample({ tags: ['script'], sample: 'ᚦᛖ' })).toBe('ᚦᛖ')
+  })
+
+  it('目录里没有拉丁字形的字体都写了自己的预览', () => {
+    for (const f of FONT_CATALOG)
+      if (f.tags.includes('script') || f.tags.includes('symbols'))
+        expect(fontSample(f), f.family).not.toBe('')
   })
 })

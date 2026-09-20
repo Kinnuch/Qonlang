@@ -617,10 +617,10 @@
       </div>
       <div class="row wrap skin-io">
         <button class="btn ghost sm" onclick={exportSkin}
-          ><FileDown size={13} />{t('skin.exportSkin')}</button
+          ><FileUp size={13} />{t('skin.exportSkin')}</button
         >
         <button class="btn ghost sm" onclick={importSkin}
-          ><FileUp size={13} />{t('skin.importSkin')}</button
+          ><FileDown size={13} />{t('skin.importSkin')}</button
         >
         {#if bg.image}
           <label class="row small muted with-bg">
@@ -924,10 +924,10 @@
           <tbody>
             {#each catalogShown as f (f.file)}
               {@const inst = fontLibrary.fonts.find((x) => x.file === f.file)}
-              {@const samp = fontSample(f.tags)}
+              {@const samp = fontSample(f)}
               <tr>
                 <td class="fam">
-                  <div style:font-family={inst ? `"${f.family}"` : ''}>{f.family}</div>
+                  <div style:font-family={inst ? `"${inst.family}"` : ''}>{f.family}</div>
                   {#if f.zhName}<div class="small muted">{f.zhName}</div>{/if}
                 </td>
                 <td title={zh ? f.desc.zh : f.desc.en}>
@@ -935,7 +935,7 @@
                     <div
                       class="samp"
                       class:off={!inst}
-                      style:font-family={inst ? `"${f.family}"` : null}
+                      style:font-family={inst ? `"${inst.family}"` : null}
                     >
                       {samp}
                     </div>
@@ -971,7 +971,9 @@
               <tr>
                 <td class="fam" style:font-family={`"${x.family}"`}>{x.family}</td>
                 <td title={x.file}>
-                  <div class="samp" style:font-family={`"${x.family}"`}>{fontSample([])}</div>
+                  <div class="samp" style:font-family={`"${x.family}"`}>
+                    {fontSample({ tags: [] })}
+                  </div>
                 </td>
                 <td class="act">
                   <span class="badge accent"

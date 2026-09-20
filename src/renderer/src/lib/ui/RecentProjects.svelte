@@ -62,22 +62,30 @@
     }
   }
 
-  /** 挑一门有文字的语言，拿它一个词的文字写法当落款 */
+  /**
+   * 挑一门有文字的语言，拿它的词的文字写法当落款：
+   * 挑长一点的词（排得满、末端正好淡出去），太长的截一下。
+   */
+  const ART_MAX = 14
   function artOf(project: Project): Card['art'] {
     for (const lang of project.languages) {
       for (const sc of (lang.scripts ?? []) as Script[]) {
         const words = project.lexemes.filter((l) => l.languageId === lang.id && l.lemma)
-        for (const l of words.slice(0, 40)) {
+        let best = ''
+        for (const l of words.slice(0, 120)) {
           const text = textScript(project, lang, sc, l.lemma).trim()
           // 转写不出来的（没给这些字母配字形）会原样返回，跟拼写一样就不算
           if (!text || text === l.lemma) continue
-          ensureScriptFont(sc)
-          return {
-            text,
-            css: fontCss(sc),
-            vertical: sc.direction === 'ttb',
-            rtl: sc.direction === 'rtl'
-          }
+          if ([...text].length > [...best].length) best = text
+          if ([...best].length >= ART_MAX) break
+        }
+        if (!best) continue
+        ensureScriptFont(sc)
+        return {
+          text: [...best].slice(0, ART_MAX).join(''),
+          css: fontCss(sc),
+          vertical: sc.direction === 'ttb',
+          rtl: sc.direction === 'rtl'
         }
       }
     }
@@ -126,8 +134,14 @@
 <style>
   .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    /* 一排四个，最多两排（MAX = 8） */
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
+  }
+  @media (max-width: 1100px) {
+    .cards {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
   .proj {
     position: relative;
@@ -135,7 +149,7 @@
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    min-height: 104px;
+    min-height: 116px;
     padding: 12px 14px;
     text-align: left;
     cursor: pointer;
@@ -164,8 +178,8 @@
     position: absolute;
     right: 12px;
     bottom: 8px;
-    max-width: 62%;
-    font-size: 26px;
+    max-width: 72%;
+    font-size: 34px;
     line-height: 1.1;
     color: var(--text-2);
     opacity: 0.5;

@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { createLanguage, newId } from '$lib/core/factory'
-import { languageAncestors, nearestCommonNode, treePath } from '$lib/core/languageTree'
+import {
+  displayPathTo,
+  languageAncestors,
+  nearestCommonNode,
+  treePath
+} from '$lib/core/languageTree'
 import type { Language, LanguageGroup, Project } from '$lib/core/model'
 
 function group(name: string, parentId: string | null = null): LanguageGroup {
@@ -141,5 +146,37 @@ describe('treePath', () => {
       p.id,
       g.id
     ])
+  })
+})
+
+describe('displayPathTo', () => {
+  it('画出来的那条链经过语支，并且先经过语系的代表原始语', () => {
+    // 语系（原始语 P）› 语支 A / 语支 B，两门语言各挂一支下面
+    const fam = group('语系')
+    const a = group('语支A', fam.id)
+    const b = group('语支B', fam.id)
+    const proto = createLanguage({ name: 'P' })
+    proto.groupId = fam.id
+    fam.protoLanguageId = proto.id
+    const x = createLanguage({ name: 'X', parentId: proto.id })
+    x.groupId = a.id
+    const y = createLanguage({ name: 'Y', parentId: proto.id })
+    y.groupId = b.id
+    const proj = project([proto, x, y], [fam, a, b])
+    // 公共祖先是原始语本身
+    expect(nearestCommonNode(proj, x.id, y.id)?.node.id).toBe(proto.id)
+    // 链条：X → 语支A → P（到公共祖语为止，不再往上到语系）
+    expect(displayPathTo(proj, x.id, proto.id).map((r) => r.id)).toEqual([x.id, a.id, proto.id])
+    expect(displayPathTo(proj, y.id, proto.id).map((r) => r.id)).toEqual([y.id, b.id, proto.id])
+  })
+
+  it('同一个节点里的祖语与子语言：直接连上，中间不插节点', () => {
+    const g = group('语支')
+    const p = createLanguage({ name: 'P' })
+    p.groupId = g.id
+    const c = createLanguage({ name: 'C', parentId: p.id })
+    c.groupId = g.id
+    const proj = project([p, c], [g])
+    expect(displayPathTo(proj, c.id, p.id).map((r) => r.id)).toEqual([c.id, p.id])
   })
 })

@@ -132,6 +132,35 @@ export function treeParent(project: Project, ref: TreeRef): TreeRef | null {
   return null
 }
 
+/**
+ * 树上**画出来**的那条链里，这个节点挂在谁下面。
+ * 跟 languageTree 的摆法差一处：分类节点的代表原始语接手了同层的其余孩子
+ * （树状图 LanguageGraph 的 underProto 就是这么画的，列表里祖语也排在最前），
+ * 所以一个分类节点里的其他成员，画出来的上一级是那门原始语，原始语的上一级才是分类节点。
+ */
+export function displayParent(project: Project, ref: TreeRef): TreeRef | null {
+  const parent = treeParent(project, ref)
+  if (!parent || parent.kind !== 'group') return parent
+  const proto = (project.languageGroups ?? []).find((g) => g.id === parent.id)?.protoLanguageId
+  if (proto && proto !== ref.id && project.languages.some((l) => l.id === proto))
+    return { kind: 'language', id: proto }
+  return parent
+}
+
+/** 画出来的那条链：从这门语言一路往上，到 stopId 那一个为止（含两头） */
+export function displayPathTo(project: Project, fromId: Id, stopId: Id): TreeRef[] {
+  const out: TreeRef[] = []
+  const seen = new Set<string>()
+  let cur: TreeRef | null = { kind: 'language', id: fromId }
+  while (cur && !seen.has(cur.kind + cur.id)) {
+    seen.add(cur.kind + cur.id)
+    out.push(cur)
+    if (cur.kind === 'language' && cur.id === stopId) return out
+    cur = displayParent(project, cur)
+  }
+  return out
+}
+
 /** 从这个节点一路往上，含自己，最外层在最后 */
 export function treePath(project: Project, ref: TreeRef): TreeRef[] {
   const out: TreeRef[] = []

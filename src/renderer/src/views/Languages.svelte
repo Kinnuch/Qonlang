@@ -21,6 +21,7 @@
   } from '$lib/core/model'
   import {
     childGroups,
+    displayPathTo,
     effectiveGroupId,
     groupAncestors,
     groupLanguages,
@@ -182,13 +183,24 @@
       : null
   )
   const refKey = (r: TreeRef): string => (r.kind === 'group' ? 'g:' : 'l:') + r.id
-  /** 两条路径上的节点，列表里描虚线、树状图里也描 */
-  const hlNodes = $derived(new Set(common ? [...common.pathA, ...common.pathB].map(refKey) : []))
-  /** 两条路径上的连线（`父key>子key`），树状图用 */
+  /**
+   * 描出来的两条链走**画出来的树**（会经过语支这些分类节点），
+   * 公共祖先本身只在语言里找（nearestCommonNode），两者不是一回事。
+   */
+  const hlPaths = $derived(
+    common
+      ? [
+          displayPathTo(project, compareLangs[0].id, common.node.id),
+          displayPathTo(project, compareLangs[1].id, common.node.id)
+        ]
+      : []
+  )
+  /** 两条链上的节点，列表里描虚线、树状图里也描 */
+  const hlNodes = $derived(new Set(hlPaths.flat().map(refKey)))
+  /** 两条链上的连线（`父key>子key`），树状图用 */
   const hlEdges = $derived.by(() => {
     const out = new Set<string>()
-    if (!common) return out
-    for (const p of [common.pathA, common.pathB])
+    for (const p of hlPaths)
       for (let i = 0; i + 1 < p.length; i++) out.add(refKey(p[i + 1]) + '>' + refKey(p[i]))
     return out
   })

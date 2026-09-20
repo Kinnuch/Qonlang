@@ -374,7 +374,7 @@
   /** 这张卡片多高：顶上一行标签 + 文字写法每行 30 + 原文 26 + 译文 20，上下各留 12 */
   const cardH = $derived.by(() => {
     const sub = slide && (slide.kind === 'image' ? slide.gloss : slide.translation) ? 20 : 0
-    return 22 + 12 * 2 + scriptRows * 30 + 26 + sub
+    return 26 + 12 * 2 + scriptRows * 30 + 26 + sub
   })
   /** 这张卡片是哪门语言的：来源里写到具体语言（项目 · 语言） */
   const fromText = $derived.by(() => {
@@ -559,6 +559,8 @@
     gap: 3px;
     min-width: 0;
     margin-top: 10px;
+    /* 右边留给落款 */
+    padding-right: 96px;
   }
   .main {
     font-size: 18px;
@@ -582,11 +584,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  /* 落款（项目 · 语言）：贴右下角，正文那一栏给它让出地方，不会压在一起 */
   .from {
     position: absolute;
     z-index: 1;
-    right: 56px;
-    bottom: 6px;
+    right: 20px;
+    bottom: 10px;
+    max-width: 40%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: 11px;
     color: var(--text-3);
   }

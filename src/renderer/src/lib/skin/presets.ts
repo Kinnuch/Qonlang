@@ -552,6 +552,8 @@ export interface FontEntry {
   tags: string[]
   /** 随软件一起带的字体：点一下就装好，不用联网 */
   builtin?: boolean
+  /** 自己的预览文字（没有拉丁字形的文字块、符号字体写这个） */
+  sample?: string
 }
 
 /** 字体库里的预览文字：拉丁全字母句 */
@@ -561,11 +563,12 @@ export const FONT_SAMPLE_CJK = '永东国方'
 
 /**
  * 这个字体的预览文字用什么：按条目自己的标签判断覆盖范围，不看字体名。
- * 文字块、符号字体没有拉丁字形，写拉丁句只会看到回退字体，干脆不预览。
+ * 文字块、符号字体没有拉丁字形，条目里自己写一段（拉丁句转写成那套文字，或者几个代表符号）。
  */
-export function fontSample(tags: string[]): string {
-  if (tags.includes('script') || tags.includes('symbols')) return ''
-  return tags.includes('cjk') ? FONT_SAMPLE_LATIN + ' ' + FONT_SAMPLE_CJK : FONT_SAMPLE_LATIN
+export function fontSample(entry: { tags: string[]; sample?: string }): string {
+  if (entry.sample) return entry.sample
+  if (entry.tags.includes('script') || entry.tags.includes('symbols')) return ''
+  return entry.tags.includes('cjk') ? FONT_SAMPLE_LATIN + ' ' + FONT_SAMPLE_CJK : FONT_SAMPLE_LATIN
 }
 
 const GF = 'https://raw.githubusercontent.com/google/fonts/main/ofl/'
@@ -696,14 +699,18 @@ export const FONT_CATALOG: FontEntry[] = [
       zh: '卢恩文字（示例 Aelith 刻文可用）',
       en: 'Runic block (used by the Aelith example script)'
     },
-    tags: ['script']
+    tags: ['script'],
+    // 拉丁全字母句转写成如尼字母
+    sample: 'ᚦᛖ ᚲᚹᛁᚲ ᛒᚱᛟᚹᚾ ᚠᛟᛉ ᛃᚢᛗᛈᛋ ᛟᚹᛖᚱ ᚦᛖ ᛚᚨᛉᚤ ᛞᛟᚷ'
   },
   {
     family: 'Noto Sans Symbols 2',
     file: 'NotoSansSymbols2-Regular.ttf',
     url: GF + 'notosanssymbols2/NotoSansSymbols2-Regular.ttf',
     desc: { zh: '各类符号补全', en: 'Miscellaneous symbols' },
-    tags: ['symbols']
+    tags: ['symbols'],
+    // 符号字体没有字母，摆一排常用符号
+    sample: '★ ☀ ☂ ☘ ♛ ⚑ ✂ ⌘ ☯ ⚙ ✦ ⌛'
   },
   {
     family: 'JetBrains Mono',
@@ -823,7 +830,9 @@ export const FONT_CATALOG: FontEntry[] = [
     file: 'NotoSansOldTurkic-Regular.ttf',
     url: GF + 'notosansoldturkic/NotoSansOldTurkic-Regular.ttf',
     desc: { zh: '古突厥文（鄂尔浑文）字母', en: 'Old Turkic (Orkhon) letters' },
-    tags: ['script', 'oldturkic']
+    tags: ['script', 'oldturkic'],
+    // 拉丁全字母句转写成古突厥文（鄂尔浑文）
+    sample: '𐰑𐰀 𐰴𐰆𐰃𐰲 𐰋𐰺𐰆𐰇𐰣 𐰁𐰆𐰴𐰽 𐰖𐰆𐰢𐰯𐰽 𐰆𐰋𐰼 𐰑𐰀 𐰠𐰀𐰕𐰃 𐰑𐰆𐰍'
   }
 ]
 
