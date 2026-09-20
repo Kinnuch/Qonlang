@@ -2182,6 +2182,7 @@ export default {
       notes: '备注'
     },
     libraryHint: '都是可免费商用的 OFL 字体，下载后一直在；也能添加本地字体。',
+    sampleOff: '还没下载，这是界面字体的样子——点一下下载',
     installed: '已安装',
     installBuiltin: '安装',
     download: '下载',

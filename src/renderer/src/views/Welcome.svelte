@@ -886,7 +886,10 @@
   }
   .new-wrap > .btn {
     width: 100%;
-    justify-content: center;
+  }
+  /* 箭头贴右边，文字跟下面几个按钮一样靠左 */
+  .new-wrap > .btn :global(svg:last-child) {
+    margin-left: auto;
   }
   .tpl-list {
     position: absolute;

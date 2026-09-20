@@ -932,13 +932,18 @@
                 </td>
                 <td title={zh ? f.desc.zh : f.desc.en}>
                   {#if samp}
-                    <div
-                      class="samp"
-                      class:off={!inst}
-                      style:font-family={inst ? `"${inst.family}"` : null}
-                    >
-                      {samp}
-                    </div>
+                    {#if inst}
+                      <div class="samp" style:font-family={`"${inst.family}"`}>{samp}</div>
+                    {:else}
+                      <!-- 没下载的字体机器上还没有，这一行只能是界面字体：点一下就下载，装好当场换成它自己的样子 -->
+                      <button
+                        class="samp off"
+                        title={t('skin.sampleOff')}
+                        disabled={fontLibrary.isDownloading(f)}
+                        onclick={() => download(f)}>{samp}</button
+                      >
+                      <div class="small muted">{t('skin.sampleOff')}</div>
+                    {/if}
                   {:else}
                     <div class="muted small">{zh ? f.desc.zh : f.desc.en}</div>
                   {/if}
@@ -1362,6 +1367,19 @@ a > e / _i</span
   }
   .samp {
     font-size: 15px;
+  }
+  button.samp {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  button.samp:hover {
+    color: var(--accent-text);
   }
   /* 还没装的：示例写的是回退字体，淡一点 */
   .samp.off {
