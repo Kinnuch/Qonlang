@@ -208,9 +208,10 @@
     font-size: 14px;
     margin-bottom: 10px;
   }
+  /* 窄的时候（开始页右边那个面板）一行一个，宽了才两列 */
   .grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     column-gap: 20px;
   }
   .field {
