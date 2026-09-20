@@ -10,3 +10,6 @@ examples/private
 
 # TypeScript 增量编译的缓存，不该进版本库
 *.tsbuildinfo
+
+# 字体预览的中间产物（目录导出，由 npm run font-previews 生成）
+scripts/.font-catalog.json

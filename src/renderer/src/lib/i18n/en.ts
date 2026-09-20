@@ -2264,7 +2264,6 @@ const en: Dict = {
     },
     libraryHint:
       'All OFL fonts, free for commercial use and kept after download; local fonts can be added too.',
-    sampleOff: 'Not downloaded — this is your interface font; click to download',
     installed: 'Installed',
     installBuiltin: 'Install',
     download: 'Download',

@@ -24,6 +24,7 @@
     FONT_CATALOG,
     COMMON_SYSTEM_FONTS,
     fontSample,
+    previewFamily,
     DEFAULT_SKIN,
     EMPTY_FONTS,
     BACKGROUND_FITS,
@@ -932,18 +933,13 @@
                 </td>
                 <td title={zh ? f.desc.zh : f.desc.en}>
                   {#if samp}
-                    {#if inst}
-                      <div class="samp" style:font-family={`"${inst.family}"`}>{samp}</div>
-                    {:else}
-                      <!-- 没下载的字体机器上还没有，这一行只能是界面字体：点一下就下载，装好当场换成它自己的样子 -->
-                      <button
-                        class="samp off"
-                        title={t('skin.sampleOff')}
-                        disabled={fontLibrary.isDownloading(f)}
-                        onclick={() => download(f)}>{samp}</button
-                      >
-                      <div class="small muted">{t('skin.sampleOff')}</div>
-                    {/if}
+                    <!-- 装了就用装好的那一份；没装用随软件带的预览子集（同一款字，只含这一行的字） -->
+                    <div
+                      class="samp"
+                      style:font-family={`"${inst ? inst.family : previewFamily(f.file)}"`}
+                    >
+                      {samp}
+                    </div>
                   {:else}
                     <div class="muted small">{zh ? f.desc.zh : f.desc.en}</div>
                   {/if}
@@ -1367,23 +1363,6 @@ a > e / _i</span
   }
   .samp {
     font-size: 15px;
-  }
-  button.samp {
-    display: block;
-    width: 100%;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-  button.samp:hover {
-    color: var(--accent-text);
-  }
-  /* 还没装的：示例写的是回退字体，淡一点 */
-  .samp.off {
-    color: var(--text-3);
   }
   .skin-io {
     margin-top: 10px;

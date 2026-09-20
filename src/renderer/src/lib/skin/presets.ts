@@ -562,6 +562,22 @@ export const FONT_SAMPLE_LATIN = 'The quick brown fox jumps over the lazy dog'
 export const FONT_SAMPLE_CJK = '永东国方'
 
 /**
+ * 预览用的字族名：随软件带的是每款字体的子集（只含预览那一行的字），
+ * 字族名按文件名生成——跟 scripts/make-font-previews.py 里的规则一模一样，两边要改一起改。
+ * OFL 的「保留字体名称」不许改过的版本用原名，所以这里另起了 qnlpv- 这个前缀。
+ */
+export function previewFamily(file: string): string {
+  return (
+    'qnlpv-' +
+    file
+      .replace(/\.[^.]+$/, '')
+      .replace(/[^A-Za-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .toLowerCase()
+  )
+}
+
+/**
  * 这个字体的预览文字用什么：按条目自己的标签判断覆盖范围，不看字体名。
  * 文字块、符号字体没有拉丁字形，条目里自己写一段（拉丁句转写成那套文字，或者几个代表符号）。
  */

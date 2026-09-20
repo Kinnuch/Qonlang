@@ -1,0 +1,151 @@
+/* 字体库的预览字形：只含预览那一行用到的字，由 scripts/make-font-previews.py 生成，别手改 */
+@font-face {
+  font-family: 'qnlpv-lxgwwenkai-regular';
+  src: url('./preview/qnlpv-lxgwwenkai-regular.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-lxgwwenkaitc-regular';
+  src: url('./preview/qnlpv-lxgwwenkaitc-regular.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-notoserifsc-wght';
+  src: url('./preview/qnlpv-notoserifsc-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-notosanssc-wght';
+  src: url('./preview/qnlpv-notosanssc-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-mashanzheng-regular';
+  src: url('./preview/qnlpv-mashanzheng-regular.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-zhimangxing-regular';
+  src: url('./preview/qnlpv-zhimangxing-regular.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-longcang-regular';
+  src: url('./preview/qnlpv-longcang-regular.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-charissil-regular';
+  src: url('./preview/qnlpv-charissil-regular.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-gentiumplus-regular';
+  src: url('./preview/qnlpv-gentiumplus-regular.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-notoserif-wdth-wght';
+  src: url('./preview/qnlpv-notoserif-wdth-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-cinzel-wght';
+  src: url('./preview/qnlpv-cinzel-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-uncialantiqua-regular';
+  src: url('./preview/qnlpv-uncialantiqua-regular.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-medievalsharp';
+  src: url('./preview/qnlpv-medievalsharp.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-notosansrunic-regular';
+  src: url('./preview/qnlpv-notosansrunic-regular.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-notosanssymbols2-regular';
+  src: url('./preview/qnlpv-notosanssymbols2-regular.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-jetbrainsmono-wght';
+  src: url('./preview/qnlpv-jetbrainsmono-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-andika-regular';
+  src: url('./preview/qnlpv-andika-regular.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-cardo-regular';
+  src: url('./preview/qnlpv-cardo-regular.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-inter-opsz-wght';
+  src: url('./preview/qnlpv-inter-opsz-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-notosans-wdth-wght';
+  src: url('./preview/qnlpv-notosans-wdth-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-firasans-regular';
+  src: url('./preview/qnlpv-firasans-regular.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-ibmplexsans-wdth-wght';
+  src: url('./preview/qnlpv-ibmplexsans-wdth-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-ebgaramond-wght';
+  src: url('./preview/qnlpv-ebgaramond-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-librebaskerville-wght';
+  src: url('./preview/qnlpv-librebaskerville-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-lora-wght';
+  src: url('./preview/qnlpv-lora-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-sourceserif4-opsz-wght';
+  src: url('./preview/qnlpv-sourceserif4-opsz-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-merriweather-opsz-wdth-wght';
+  src: url('./preview/qnlpv-merriweather-opsz-wdth-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-firacode-wght';
+  src: url('./preview/qnlpv-firacode-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-notosansmono-wdth-wght';
+  src: url('./preview/qnlpv-notosansmono-wdth-wght.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'qnlpv-notosansoldturkic-regular';
+  src: url('./preview/qnlpv-notosansoldturkic-regular.woff2') format('woff2');
+  font-display: swap;
+}

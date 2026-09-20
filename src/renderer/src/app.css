@@ -1,4 +1,6 @@
 @import './assets/fonts/fonts.css';
+/* 字体库的预览字形（每款只含预览那一行的字，随软件带着） */
+@import './assets/fonts/preview.css';
 
 :root {
   --bg: #fafaf7;
