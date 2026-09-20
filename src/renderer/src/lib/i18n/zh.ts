@@ -120,9 +120,9 @@ export default {
     }
   },
   mcp: {
-    cat: 'MCP（让 LLM 接进来）',
+    cat: 'MCP',
     title: 'MCP 服务',
-    hint: '开了之后，Claude、Cursor 这类支持 MCP 的客户端就能连上千语集，查词、跑音变、看构形，也能在你确认后改项目。服务只监听本机（127.0.0.1），要带令牌才认。',
+    hint: '让 Claude、Cursor 这类客户端连上千语集：查词、跑音变、看构形，确认后还能改项目。只监听本机，要带令牌。',
     enable: '允许 LLM 接入',
     port: '端口',
     portHint: '填 0 就随便挑一个空闲端口。',
@@ -2199,7 +2199,7 @@ export default {
     plugins: {
       cat: '插件',
       title: '已装的插件',
-      hint: '插件放在下面这个目录里，一个插件一个文件夹（plugin.json + 入口 js）。插件跟软件同权限跑，装别人的插件前先看看代码。',
+      hint: '一个插件一个文件夹（plugin.json + 入口 js），放在下面这个目录里。插件跟软件同权限跑——装别人的先看代码。',
       openFolder: '打开插件目录',
       reload: '重新载入',
       none: '还没有装插件。',

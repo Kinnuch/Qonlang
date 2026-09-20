@@ -124,9 +124,9 @@ const en: Dict = {
     }
   },
   mcp: {
-    cat: 'MCP (let an LLM in)',
+    cat: 'MCP',
     title: 'MCP server',
-    hint: 'With this on, MCP clients such as Claude or Cursor can reach Qonlang to look words up, run sound changes and read paradigms, and — once you confirm — change the project. The server listens on this computer only (127.0.0.1) and requires the token.',
+    hint: 'Lets clients such as Claude or Cursor reach Qonlang: look words up, run sound changes, read paradigms, and change the project once you confirm. Listens on this computer only, and requires the token.',
     enable: 'Allow LLM access',
     port: 'Port',
     portHint: 'Use 0 to let the system pick a free port.',
@@ -2284,7 +2284,7 @@ const en: Dict = {
     plugins: {
       cat: 'Plugins',
       title: 'Installed plugins',
-      hint: "Plugins live in the folder below, one folder each (plugin.json + an entry js). They run with the same privileges as the app, so read the code before installing someone else's.",
+      hint: "One folder each (plugin.json + an entry js) in the folder below. Plugins run with the same privileges as the app — read the code before installing someone else's.",
       openFolder: 'Open plugins folder',
       reload: 'Reload',
       none: 'No plugins installed yet.',

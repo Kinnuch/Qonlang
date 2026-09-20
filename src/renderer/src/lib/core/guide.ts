@@ -17,6 +17,7 @@ const SLUGS: Record<string, string> = {
   skin: 'skin',
   settings: 'settings',
   chars: 'chars',
+  extending: 'extending',
   welcome: ''
 }
 

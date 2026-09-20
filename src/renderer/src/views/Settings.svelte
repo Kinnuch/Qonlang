@@ -373,7 +373,7 @@
   <h2 class="cat">{t('mcp.cat')}</h2>
   <div class="groups">
     <section class="card group">
-      <h3><Plug size={15} />{t('mcp.title')}</h3>
+      <h3><Plug size={15} />{t('mcp.title')}<GuideLink section="extending" anchor="mcp" /></h3>
       <p class="small muted">{t('mcp.hint')}</p>
       <div class="grid">
         <label class="row check">
@@ -453,7 +453,12 @@
   <h2 class="cat">{t('settings.plugins.cat')}</h2>
   <div class="groups">
     <section class="card group">
-      <h3><Puzzle size={15} />{t('settings.plugins.title')}</h3>
+      <h3>
+        <Puzzle size={15} />{t('settings.plugins.title')}<GuideLink
+          section="extending"
+          anchor="plugins"
+        />
+      </h3>
       <p class="small muted">{t('settings.plugins.hint')}</p>
       <div class="row wrap plugin-acts">
         <button class="btn sm" onclick={() => void platform.openPluginsFolder()}
