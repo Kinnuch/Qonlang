@@ -192,13 +192,12 @@
       for (let i = 0; i + 1 < p.length; i++) out.add(refKey(p[i + 1]) + '>' + refKey(p[i]))
     return out
   })
-  /** 最近公共祖先那一行 */
-  const commonName = $derived.by(() => {
-    if (!common) return ''
-    if (common.node.kind === 'group')
-      return groups.find((g) => g.id === common.node.id)?.name || t('languages.untitledGroup')
-    return project.languages.find((l) => l.id === common.node.id)?.name || t('app.untitledLanguage')
-  })
+  /** 最近公共祖先那一行（公共祖先一定是语言，分类节点不算） */
+  const commonName = $derived(
+    common
+      ? project.languages.find((l) => l.id === common.node.id)?.name || t('app.untitledLanguage')
+      : ''
+  )
   const commonLine = $derived(
     common
       ? t('languages.compare.ancestor', { name: commonName })
@@ -902,7 +901,7 @@
 <style>
   .page {
     padding: 24px 28px;
-    max-width: 960px;
+    max-width: var(--page-max, 960px);
   }
   .page-head {
     margin-bottom: 16px;

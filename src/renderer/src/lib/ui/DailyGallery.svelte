@@ -7,7 +7,13 @@
   import { onDestroy } from 'svelte'
   import { fly } from 'svelte/transition'
   import { cubicOut } from 'svelte/easing'
-  import { ChevronLeft, ChevronRight } from '@lucide/svelte'
+  import {
+    ChevronLeft,
+    ChevronRight,
+    Quote,
+    MessageSquareQuote,
+    Image as ImageIcon
+  } from '@lucide/svelte'
   import { platform, type RecentEntry } from '$lib/platform'
   import { parseProject, readProjectText } from '$lib/core/serialize'
   import { ensureScriptFont, fontCss } from '$lib/script/fonts'
@@ -357,13 +363,36 @@
     wordHover.show(id, (e.currentTarget as HTMLElement).getBoundingClientRect())
   }
 
-  /** 当前这张有没有文字行：文字字体的字普遍比拉丁字母高，有就把横条放高一点 */
-  const hasScript = $derived.by(() => {
-    if (!slide || (slide.kind !== 'sentence' && slide.kind !== 'phrase')) return false
+  /** 当前这张要画几行文字写法（一套文字一行）：几套文字就几行，卡片跟着长高 */
+  const scriptRows = $derived.by(() => {
+    if (!slide || (slide.kind !== 'sentence' && slide.kind !== 'phrase')) return 0
     const src = sources[slide.source]
-    if (!src) return false
+    if (!src) return 0
     const sen = slide.kind === 'sentence' ? slide.sentence : phraseSentence(src, slide)
-    return scriptLines(src, sen, slide.kind).length > 0
+    return scriptLines(src, sen, slide.kind).length
+  })
+  /** 这张卡片多高：顶上一行标签 + 文字写法每行 30 + 原文 26 + 译文 20，上下各留 12 */
+  const cardH = $derived.by(() => {
+    const sub = slide && (slide.kind === 'image' ? slide.gloss : slide.translation) ? 20 : 0
+    return 22 + 12 * 2 + scriptRows * 30 + 26 + sub
+  })
+  /** 这张卡片是哪门语言的：来源里写到具体语言（项目 · 语言） */
+  const fromText = $derived.by(() => {
+    if (!slide) return ''
+    const src = sources[slide.source]
+    if (!src) return ''
+    const name = src.project.meta.name
+    const lid =
+      slide.kind === 'sentence'
+        ? slide.sentence.languageId
+        : slide.kind === 'phrase'
+          ? slide.languageId
+          : slide.lexemeId
+            ? slide.languageId
+            : null
+    const lang = lid ? src.project.languages.find((l) => l.id === lid) : null
+    // 项目名跟语言名一样（一个项目就一门语言时常见）就只写一个
+    return lang?.name && lang.name !== name ? `${name} · ${lang.name}` : name
   })
 
   onDestroy(() => wordHover.hide(true))
@@ -371,7 +400,12 @@
 
 {#if slide}
   {@const src = sources[slide.source]}
-  <div class="gallery" class:tall={hasScript} role="region" aria-label={t('welcome.galleryLabel')}>
+  <div
+    class="gallery"
+    style:--card-h={`${cardH}px`}
+    role="region"
+    aria-label={t('welcome.galleryLabel')}
+  >
     {#key slide.key}
       <div
         class="slide"
@@ -384,6 +418,19 @@
           <div class="blur" style={`background-image: url("${slide.image}")`}></div>
           <div class="shade"></div>
         {/if}
+        <div class="head">
+          <span class="badge-icon" aria-hidden="true">
+            {#if slide.kind === 'image'}<ImageIcon
+                size={13}
+              />{:else if slide.kind === 'phrase'}<MessageSquareQuote size={13} />{:else}<Quote
+                size={13}
+              />{/if}
+          </span>
+          <span class="grow"></span>
+          <span class="daily"
+            >{slide.kind === 'image' ? t('welcome.dailyWord') : t('welcome.dailySentence')}</span
+          >
+        </div>
         <div class="content">
           {#if slide.kind === 'sentence' || slide.kind === 'phrase'}
             {@const sen = slide.kind === 'sentence' ? slide.sentence : phraseSentence(src, slide)}
@@ -426,7 +473,7 @@
             <span class="sub">{slide.kind === 'image' ? slide.gloss : slide.translation}</span>
           {/if}
         </div>
-        <span class="from">{src.project.meta.name}</span>
+        <span class="from">{fromText}</span>
       </div>
     {/key}
     {#if slides.length > 1}
@@ -450,7 +497,8 @@
   .gallery {
     position: relative;
     width: 100%;
-    height: 84px;
+    /* 高度按当前这张有几行算（cardH）：文字写法一套一行，多的不会被挤掉 */
+    height: var(--card-h, 84px);
     transition: height 0.2s;
     /* 开始页主栏是纵向 flex：内容比窗口高时（有恢复提示条、英文模板说明更长）会把这个 overflow:hidden 的块压扁 */
     flex-shrink: 0;
@@ -467,16 +515,41 @@
     --tint-a: 18%;
     --tint-b: 16%;
   }
-  /* 多一行文字写法时高一点：84px 里塞三行，文字那行的字会顶到上边框 */
-  .gallery.tall {
-    height: 102px;
-  }
   .slide {
     position: absolute;
     inset: 0;
     display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 12px 56px;
+  }
+  /* 顶上一行：左边一个小图标说明这张是什么，右边写「每日一句」 */
+  .head {
+    position: absolute;
+    z-index: 1;
+    top: 8px;
+    left: 14px;
+    right: 14px;
+    display: flex;
     align-items: center;
-    padding: 8px 56px;
+    gap: 6px;
+    font-size: 11.5px;
+    color: var(--text-3);
+    pointer-events: none;
+  }
+  .badge-icon {
+    display: inline-flex;
+    color: var(--accent-text);
+  }
+  .daily {
+    letter-spacing: 0.04em;
+  }
+  .photo .head,
+  .photo .daily {
+    color: rgba(255, 255, 255, 0.85);
+  }
+  .photo .badge-icon {
+    color: #fff;
   }
   .content {
     position: relative;
@@ -485,7 +558,7 @@
     flex-direction: column;
     gap: 3px;
     min-width: 0;
-    flex: 1;
+    margin-top: 10px;
   }
   .main {
     font-size: 18px;

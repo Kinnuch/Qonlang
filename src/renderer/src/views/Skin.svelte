@@ -23,14 +23,18 @@
     SKIN_VARS,
     FONT_CATALOG,
     COMMON_SYSTEM_FONTS,
+    fontSample,
     DEFAULT_SKIN,
     EMPTY_FONTS,
     BACKGROUND_FITS,
     DEFAULT_BACKGROUND,
     type FontSlot,
     type FontEntry,
+    type Skin,
     type SkinBackground
   } from '$lib/skin/presets'
+  import { exportSkinFile, parseSkinFile } from '$lib/skin/transfer'
+  import { platform } from '$lib/platform'
   import { inkTransition } from '$lib/skin/ink'
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
@@ -45,7 +49,9 @@
     Save,
     Pencil,
     GripVertical,
-    ImagePlus
+    ImagePlus,
+    FileDown,
+    FileUp
   } from '@lucide/svelte'
   import { newId } from '$lib/core/factory'
   import { interlinear } from '$lib/engine/gloss'
@@ -70,10 +76,10 @@
     FONT_CATALOG.filter((f) =>
       matchQuery(fontQuery, (field) =>
         field === 'name'
-          ? [f.family]
+          ? [f.family, f.zhName ?? '']
           : field === 'tag'
             ? f.tags
-            : [f.family, f.desc.zh, f.desc.en, ...f.tags]
+            : [f.family, f.zhName ?? '', f.desc.zh, f.desc.en, ...f.tags]
       )
     )
   )
@@ -228,6 +234,72 @@
       p.light['--accent'] || '#0e9f8a',
       p.light['--text'] || '#1f1f1f'
     ]
+  }
+  // ── 皮肤的导出与导入 ──
+  /** 导出时带上背景图（整张图嵌在文件里，会大很多） */
+  let exportBg = $state(false)
+  /** 正在试看的导入皮肤：套用前先看样子，取消就还原 */
+  let pending = $state<{ name: string } | null>(null)
+  /** 试看前的那套（普通变量：销毁时也读得到） */
+  let beforeImport: Skin | null = null
+  // 没确认就离开皮肤页：当没导过，不然界面变了又没处确认
+  $effect(() => () => {
+    if (!beforeImport) return
+    ui.prefs.skin = beforeImport
+    beforeImport = null
+    save()
+    ui.toast(t('skin.importDropped'))
+  })
+  /** 当前这套皮肤叫什么：预设名，改过的就是「自定义」 */
+  function skinName(): string {
+    const p = SKIN_PRESETS.find((x) => x.id === skin.preset)
+    if (p) return zh ? p.name.zh : p.name.en
+    return userPresets.find((x) => x.id === skin.preset)?.name ?? t('skin.custom')
+  }
+  async function exportSkin(): Promise<void> {
+    const name = skinName()
+    const text = exportSkinFile($state.snapshot(skin) as Skin, {
+      name,
+      withBackground: exportBg && !!bg.image
+    })
+    const file = name.replace(/[\\/:*?"<>|]/g, '') + '.qonlang-skin.json'
+    if (await platform.saveTextFile(file, text))
+      ui.toast(t('skin.exported', { size: mb(text.length) }))
+  }
+  async function importSkin(): Promise<void> {
+    const [f] = await platform.readTextFiles({ multiple: false, extensions: ['json'] })
+    if (!f) return
+    const r = parseSkinFile(f.content)
+    if (!r.ok) {
+      ui.error(t(r.reason === 'version' ? 'skin.importNewer' : 'skin.importBad'))
+      return
+    }
+    // 先写进界面让人看见，不落盘；文件里没背景图就留着现在这张
+    const before = $state.snapshot(skin) as Skin
+    ui.prefs.skin = {
+      ...r.skin,
+      mirror: before.mirror,
+      background: r.skin.background ?? before.background
+    }
+    beforeImport = before
+    pending = { name: r.name || f.name }
+    ui.applyTheme()
+    presetFlash++
+  }
+  function applyImport(): void {
+    pending = null
+    beforeImport = null
+    save()
+    ui.toast(t('skin.imported'))
+  }
+  function cancelImport(): void {
+    if (!beforeImport) return
+    ui.prefs.skin = beforeImport
+    beforeImport = null
+    pending = null
+    // 试看期间可能有别的改动把它写进了偏好：还原后也存一下
+    save()
+    presetFlash++
   }
   function reset(): void {
     // 背景图单独留着：挑图、调好不容易，要去掉在背景图那里点移除
@@ -471,6 +543,15 @@
   <Hint id="skin" text={t('skin.hint')} />
 
   <div class="scroll">
+    {#if pending}
+      <div class="pending row wrap">
+        <span class="grow">{t('skin.importPreviewing', { name: pending.name })}</span>
+        <button class="btn sm" onclick={applyImport}
+          ><Check size={13} />{t('skin.applyImport')}</button
+        >
+        <button class="btn ghost sm" onclick={cancelImport}>{t('common.cancel')}</button>
+      </div>
+    {/if}
     <section>
       <h3>{t('skin.presets')} <HelpDot tip={t('skin.presetHint')} /></h3>
       <div class="presets-wrap" use:flashOn={presetFlash}>
@@ -533,6 +614,19 @@
           {#if skin.preset === 'custom'}<span class="badge accent self">{t('skin.custom')}</span
             >{/if}
         </div>
+      </div>
+      <div class="row wrap skin-io">
+        <button class="btn ghost sm" onclick={exportSkin}
+          ><FileDown size={13} />{t('skin.exportSkin')}</button
+        >
+        <button class="btn ghost sm" onclick={importSkin}
+          ><FileUp size={13} />{t('skin.importSkin')}</button
+        >
+        {#if bg.image}
+          <label class="row small muted with-bg">
+            <input type="checkbox" bind:checked={exportBg} />{t('skin.exportWithBg')}
+          </label>
+        {/if}
       </div>
     </section>
 
@@ -830,9 +924,25 @@
           <tbody>
             {#each catalogShown as f (f.file)}
               {@const inst = fontLibrary.fonts.find((x) => x.file === f.file)}
+              {@const samp = fontSample(f.tags)}
               <tr>
-                <td class="fam" style:font-family={inst ? `"${f.family}"` : ''}>{f.family}</td>
-                <td class="muted small">{zh ? f.desc.zh : f.desc.en}</td>
+                <td class="fam">
+                  <div style:font-family={inst ? `"${f.family}"` : ''}>{f.family}</div>
+                  {#if f.zhName}<div class="small muted">{f.zhName}</div>{/if}
+                </td>
+                <td title={zh ? f.desc.zh : f.desc.en}>
+                  {#if samp}
+                    <div
+                      class="samp"
+                      class:off={!inst}
+                      style:font-family={inst ? `"${f.family}"` : null}
+                    >
+                      {samp}
+                    </div>
+                  {:else}
+                    <div class="muted small">{zh ? f.desc.zh : f.desc.en}</div>
+                  {/if}
+                </td>
                 <td class="act">
                   {#if inst}
                     <span class="badge accent"
@@ -860,7 +970,9 @@
             {#each fontLibrary.fonts.filter((x) => !FONT_CATALOG.some((c) => c.file === x.file)) as x (x.file)}
               <tr>
                 <td class="fam" style:font-family={`"${x.family}"`}>{x.family}</td>
-                <td class="muted small">{x.file}</td>
+                <td title={x.file}>
+                  <div class="samp" style:font-family={`"${x.family}"`}>{fontSample([])}</div>
+                </td>
                 <td class="act">
                   <span class="badge accent"
                     ><Check size={12} />{t('skin.installed')} · {mb(x.size)}</span
@@ -1242,6 +1354,29 @@ a > e / _i</span
   .fam {
     font-size: 16px;
     white-space: nowrap;
+  }
+  .fam .small {
+    font-size: 12px;
+  }
+  .samp {
+    font-size: 15px;
+  }
+  /* 还没装的：示例写的是回退字体，淡一点 */
+  .samp.off {
+    color: var(--text-3);
+  }
+  .skin-io {
+    margin-top: 10px;
+  }
+  .skin-io .with-bg {
+    gap: 5px;
+  }
+  .pending {
+    padding: 7px 12px;
+    margin-bottom: 10px;
+    border: 1px solid var(--accent);
+    background: var(--accent-soft);
+    border-radius: 8px;
   }
   .act {
     text-align: right;

@@ -2,6 +2,7 @@
   import { tick } from 'svelte'
   import type { PageView } from '$lib/state/ui.svelte'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
+  import { scrollToItem } from '$lib/ui/reveal'
   import { focusField } from '$lib/ui/focus'
   import { matchQuery, parseQuery } from '$lib/core/query'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
@@ -132,7 +133,14 @@
   )
   $effect(() => {
     const id = ui.takePending('paradigm')
-    if (id) activeId = id
+    if (!id) return
+    const slot = ui.takePendingSub()
+    activeId = id
+    // 文档里写的 [[构形:某个#某一格]]：等这个构形的槽位重算好再滚过去
+    if (slot) {
+      view = 'slots'
+      void tick().then(() => openSlot(slot))
+    }
   })
   // 「返回」用：报上当前位置，返回时原样恢复
   $effect(() => {
@@ -562,7 +570,7 @@
     return slotSummary(s) || t(`paradigms.kinds.${g.kind}`)
   }
 
-  /** 表格、树形图里点一格：回到可视化，滚到这一格并闪一下 */
+  /** 表格、树形图里点一格、文档里的链接跳过来：回到可视化，滚到这一格并闪一下 */
   async function openSlot(key: string): Promise<void> {
     const idx = slots.findIndex((s) => s.key === key)
     if (idx < 0) {
@@ -571,11 +579,11 @@
     }
     if (sectionCollapsed(foldId(key))) setSectionsCollapsed([foldId(key)], false)
     layout = 'visual'
-    while (lzSlots.shown <= idx) lzSlots.grow()
-    await tick()
-    const row = document.querySelector<HTMLElement>(`tr[data-slot="${CSS.escape(key)}"]`)
-    if (!row) return
-    row.scrollIntoView({ block: 'center' })
+    // 定位用统一那一套：先补画到目标再滚（分批画的列表里，目标可能还没画出来）
+    const row = await scrollToItem('paradigms', `tr[data-slot="${CSS.escape(key)}"]`, () => {
+      while (lzSlots.shown <= idx) lzSlots.grow()
+    })
+    if (!(row instanceof HTMLElement)) return
     row.classList.remove('flash-ok')
     void row.offsetWidth
     row.classList.add('flash-ok')

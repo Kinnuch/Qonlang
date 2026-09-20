@@ -240,6 +240,11 @@ class UiState {
   pendingLexemeId = $state<string | null>(null)
   /** 命令面板等跳转后要选中的对象：各页面按 kind 取走 */
   pendingSelect = $state<{ kind: string; id: string } | null>(null)
+  /**
+   * 选中之后还要定位到里面的哪一小块（音变的阶段、构形的槽位）：
+   * 页面 takePending 拿到 id 之后紧接着用 takePendingSub 取走
+   */
+  pendingSub: string | null = null
   /** 跳到语料某一句之后，直接打开第 at 个词的「应该是哪个词」（开始页画廊的铅笔）；index 是切分里的第几段 */
   pendingWordEdit: { sentenceId: string; at: number; index: number | null } | null = null
   /** 命令面板开关 */
@@ -279,11 +284,12 @@ class UiState {
    * 跳到某页并选中某对象。languageId：目标在哪门语言——先记下原来的位置再切语言，
    * 「返回」才回得到原来那门语言。
    */
-  jump(section: Section, kind: string, id: string, languageId?: string | null): void {
+  jump(section: Section, kind: string, id: string, languageId?: string | null, sub?: string): void {
     this.push(this.snapshot())
     this.quiet()
     if (languageId !== undefined && this.navAccess && languageId !== this.navAccess.getLanguage())
       this.navAccess.setLanguage(languageId)
+    this.pendingSub = sub || null
     if (kind === 'lexeme') this.pendingLexemeId = id
     else this.pendingSelect = { kind, id }
     if (this.section !== section) {
@@ -297,6 +303,12 @@ class UiState {
     const id = this.pendingSelect.id
     this.pendingSelect = null
     return id
+  }
+  /** 取走要定位的那一小块（紧跟在 takePending 后面调；没有就是 null） */
+  takePendingSub(): string | null {
+    const sub = this.pendingSub
+    this.pendingSub = null
+    return sub
   }
   prefs = $state<Prefs>({ ...DEFAULT_PREFS })
   prefsLoaded = $state(false)

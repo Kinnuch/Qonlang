@@ -85,6 +85,21 @@ export function replaceWordAt(
 }
 
 /**
+ * 原文里第 index 个词还是 surface 时才换成 replacement，对不上就原样返回。
+ * 短语簿里悬浮改词用：短语不存分词结果，改之前按位置核对一遍，免得改错地方。
+ */
+export function replaceWordIfSame(
+  text: string,
+  index: number,
+  surface: string,
+  replacement: string,
+  opts: TokenizeOptions = {}
+): string {
+  if (wordAt(text, index, opts) !== surface) return text
+  return replaceWordAt(text, index, replacement, opts)
+}
+
+/**
  * 第 at 个分词结果在原文的词序列里从第几个词开始、占几个词。
  * 词典里带空格的形式（`ar mae`）会并成一个词，所以两边的编号对不上号。
  */

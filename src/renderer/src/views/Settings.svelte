@@ -4,7 +4,7 @@
   import { platform, type AppInfo } from '$lib/platform'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
-  import { t, LOCALES } from '$lib/i18n/index.svelte'
+  import { t } from '$lib/i18n/index.svelte'
   import { TOKENIZER_MODES } from '$lib/core/model'
   import {
     Eye,
@@ -13,17 +13,16 @@
     FolderOutput,
     Languages,
     Copy,
-    Palette,
     Plug,
     Puzzle,
     RefreshCw,
-    Save,
     Scissors,
     Table,
     Trash2
   } from '@lucide/svelte'
   import { updates } from '$lib/state/updates.svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
+  import AppSettings from '$lib/ui/AppSettings.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { filterRows } from '$lib/ui/filterRows'
   import { pluginHost } from '$lib/plugins/host.svelte'
@@ -183,193 +182,7 @@
   </div>
 
   <h2 class="cat">{t('settings.app')}</h2>
-  <div class="groups">
-    <section class="card group" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
-      <h3><Palette size={15} />{t('settings.groups.ui')}</h3>
-      <div class="grid">
-        <div class="field">
-          <label for="s-locale">{t('settings.uiLanguage')}</label>
-          <select
-            id="s-locale"
-            class="select"
-            bind:value={ui.prefs.locale}
-            onchange={() => ui.savePrefs()}
-          >
-            {#each LOCALES as l (l.code)}<option value={l.code}>{l.label}</option>{/each}
-          </select>
-        </div>
-        <div class="field">
-          <label for="s-theme">{t('settings.theme')}</label>
-          <select
-            id="s-theme"
-            class="select"
-            bind:value={ui.prefs.theme}
-            onchange={() => ui.savePrefs()}
-          >
-            <option value="system">{t('settings.themeSystem')}</option>
-            <option value="light">{t('settings.themeLight')}</option>
-            <option value="dark">{t('settings.themeDark')}</option>
-          </select>
-        </div>
-        <label class="row check">
-          <input
-            type="checkbox"
-            bind:checked={ui.prefs.showHelpDots}
-            onchange={() => ui.savePrefs()}
-          />
-          {t('settings.showHelpDots')}
-        </label>
-        <label class="row check">
-          <input
-            type="checkbox"
-            bind:checked={ui.prefs.guideTourAlways}
-            onchange={() => ui.savePrefs()}
-          />
-          {t('settings.guideTourAlways')}
-        </label>
-      </div>
-    </section>
-    <section class="card group" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
-      <h3><Save size={15} />{t('settings.groups.saving')}</h3>
-      <div class="grid">
-        <div class="field">
-          <label for="s-autosave">{t('settings.autosave')}</label>
-          <input
-            id="s-autosave"
-            type="number"
-            min="0"
-            step="5"
-            class="input"
-            bind:value={ui.prefs.autosaveSeconds}
-            onchange={() => ui.savePrefs()}
-          />
-        </div>
-        <div class="field">
-          <label for="s-backups">{t('settings.backupCount')}</label>
-          <input
-            id="s-backups"
-            type="number"
-            min="0"
-            class="input"
-            bind:value={ui.prefs.backupCount}
-            onchange={() => ui.savePrefs()}
-          />
-        </div>
-        <label class="row check">
-          <input
-            type="checkbox"
-            bind:checked={ui.prefs.reopenLast}
-            onchange={() => ui.savePrefs()}
-          />
-          {t('settings.reopenLast')}
-        </label>
-      </div>
-    </section>
-    <section class="card group" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
-      <h3><RefreshCw size={15} />{t('settings.groups.updates')}</h3>
-      <div class="grid">
-        <label class="row check">
-          <input
-            type="checkbox"
-            bind:checked={ui.prefs.checkUpdates}
-            onchange={() => {
-              ui.prefs.skippedVersion = ''
-              void ui.savePrefs()
-            }}
-          />
-          {t('settings.checkUpdates')}
-        </label>
-        <div class="field">
-          <label for="s-update-minutes">{t('settings.updateCheckMinutes')}</label>
-          <input
-            id="s-update-minutes"
-            type="number"
-            min="1"
-            max="1440"
-            class="input"
-            disabled={!ui.prefs.checkUpdates}
-            bind:value={ui.prefs.updateCheckMinutes}
-            onchange={() => ui.savePrefs()}
-          />
-        </div>
-      </div>
-    </section>
-    <section class="card group" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
-      <h3><Eye size={15} />{t('settings.groups.display')}</h3>
-      <div class="grid">
-        <div class="field">
-          <label for="s-register">{t('settings.registerDisplay')}</label>
-          <select
-            id="s-register"
-            class="select"
-            bind:value={ui.prefs.registerDisplay}
-            onchange={() => ui.savePrefs()}
-          >
-            <option value="short">{t('settings.registerDisplayShort')}</option>
-            <option value="full">{t('settings.registerDisplayFull')}</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="s-pron">{t('settings.pronBrackets')}</label>
-          <select
-            id="s-pron"
-            class="select"
-            bind:value={ui.prefs.pronBrackets}
-            onchange={() => ui.savePrefs()}
-          >
-            <option value="slash">{t('settings.pronBracketsSlash')}</option>
-            <option value="bracket">{t('settings.pronBracketsBracket')}</option>
-            <option value="none">{t('settings.pronBracketsNone')}</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="s-examples">{t('settings.examplesPerEntry')}</label>
-          <input
-            id="s-examples"
-            type="number"
-            min="0"
-            max="20"
-            class="input"
-            bind:value={ui.prefs.examplesPerEntry}
-            onchange={() => ui.savePrefs()}
-          />
-        </div>
-        <label class="row check">
-          <input
-            type="checkbox"
-            bind:checked={ui.prefs.highlightDuplicates}
-            onchange={() => ui.savePrefs()}
-          />
-          {t('settings.highlightDuplicates')}
-        </label>
-        <label class="row check">
-          <input
-            type="checkbox"
-            bind:checked={ui.prefs.showDerivedMark}
-            onchange={() => ui.savePrefs()}
-          />
-          {t('settings.showDerivedMark')}
-        </label>
-        <label class="row check">
-          <input
-            type="checkbox"
-            bind:checked={ui.prefs.showHistory}
-            onchange={() => ui.savePrefs()}
-          />
-          {t('settings.showHistory')}<HelpDot tip={t('settings.showHistoryHint')} />
-        </label>
-        <label class="row check">
-          <input
-            type="checkbox"
-            bind:checked={ui.prefs.examplesShowScript}
-            onchange={() => ui.savePrefs()}
-          />
-          {t('settings.examplesShowScript')}
-        </label>
-      </div>
-    </section>
-  </div>
-
+  <AppSettings />
   <h2 class="cat">{t('mcp.cat')}</h2>
   <div class="groups">
     <section class="card group">
@@ -830,7 +643,7 @@
 
   .page {
     padding: 24px 28px;
-    max-width: 920px;
+    max-width: var(--page-max, 920px);
     display: flex;
     flex-direction: column;
     gap: 14px;

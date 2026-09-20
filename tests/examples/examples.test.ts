@@ -16,6 +16,7 @@ import { lexemeScript } from '$lib/script/render'
 import { sentenceScriptText } from '$lib/script/lexiconScript'
 import { groupLanguages } from '$lib/core/languageTree'
 import { historyChain } from '$lib/core/history'
+import { docLink } from '$lib/core/docLinks'
 
 const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
@@ -208,6 +209,38 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     // 同一语言里由 kaso 派生、复合的词自成一组，构成各不相同
     const derived = groups.find((g) => g.root.key === `l:${kaso.id}`)!
     expect(derived.lexemes.map((l) => l.lemma).sort()).toEqual(['kasolu', 'telikaso'])
+  })
+
+  it('Aelith 的语法概要：文档里各种写法的链接都链得到东西', () => {
+    const p = load('Aelith.laim.json')
+    const doc = p.docs.find((d) => d.title === 'Aelith 语法概要')!
+    const links = [...doc.markdown.matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1])
+    // 中文前缀、英文前缀、`#` 指到里面一条、`|` 改显示文字，各来一个
+    expect(links).toEqual(
+      expect.arrayContaining([
+        'kaso',
+        '语素:-lAr',
+        'morpheme:-(U)m',
+        '音变:Proto → Aelith#现代语',
+        '构形:名词#单数.位格|名词 · 单数位格'
+      ])
+    )
+    for (const raw of links) {
+      const hit = docLink(p, raw).hit
+      expect(hit, raw).not.toBeNull()
+      expect(hit!.subMissing, raw).toBe(false)
+    }
+    const kinds = new Set(links.map((raw) => docLink(p, raw).hit!.kind))
+    expect([...kinds].sort()).toEqual([
+      'language',
+      'lexeme',
+      'morpheme',
+      'paradigm',
+      'ruleSet',
+      'script'
+    ])
+    expect(docLink(p, '音变:Proto → Aelith#现代语').hit!.subLabel).toBe('现代语')
+    expect(docLink(p, '构形:名词#单数.位格').hit!.subLabel).toBe('单数.位格')
   })
 
   it('Aelith：语系节点、历时阶段与历史形式链、槽位继承与影响发音', () => {

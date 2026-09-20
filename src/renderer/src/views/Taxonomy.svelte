@@ -806,7 +806,7 @@
     display: flex;
     flex-direction: column;
     gap: 24px;
-    max-width: 900px;
+    max-width: var(--page-max, 900px);
   }
   .item {
     flex-wrap: wrap;

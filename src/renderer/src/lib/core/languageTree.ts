@@ -104,8 +104,6 @@ export interface TreeRef {
   id: Id
 }
 
-const sameRef = (a: TreeRef, b: TreeRef): boolean => a.kind === b.kind && a.id === b.id
-
 /** id 是语言还是分类节点；都不是返回 null */
 export function refOf(project: Project, id: Id): TreeRef | null {
   if (project.languages.some((l) => l.id === id)) return { kind: 'language', id }
@@ -147,29 +145,58 @@ export function treePath(project: Project, ref: TreeRef): TreeRef[] {
   return out
 }
 
+/**
+ * 语言层面的父语言：只认 Language.parentId，分类节点（语系 / 语族 / 语支）不算。
+ * 没写父语言、写的那门语言不在项目里、或者指着自己，都当作没有祖语。
+ */
+export function languageParent(project: Project, id: Id): Language | null {
+  const l = project.languages.find((x) => x.id === id)
+  if (!l?.parentId || l.parentId === l.id) return null
+  return project.languages.find((x) => x.id === l.parentId) ?? null
+}
+
+/** 一门语言顺着祖语往上的一串（含自己），最古的祖语排在最后；绕成圈就到此为止 */
+export function languageAncestors(project: Project, id: Id): Language[] {
+  const out: Language[] = []
+  const seen = new Set<Id>()
+  let cur = project.languages.find((x) => x.id === id)
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id)
+    out.push(cur)
+    cur = languageParent(project, cur.id) ?? undefined
+  }
+  return out
+}
+
 export interface CommonNode {
-  /** 最近的公共节点：共同的祖先语言，或者只在分类节点上碰头时的那个节点 */
+  /** 最近的公共祖语：一定是语言，分类节点不当结果 */
   node: TreeRef
-  /** a 到公共节点的一串（含两头） */
+  /** a 到公共祖语的一串（含两头） */
   pathA: TreeRef[]
-  /** b 到公共节点的一串（含两头） */
+  /** b 到公共祖语的一串（含两头） */
   pathB: TreeRef[]
 }
 
 /**
- * 两个节点在树里的最近公共节点，以及各自到它的那一串。
- * 一个是另一个的祖先时，公共节点就是那个祖先；两边碰不上返回 null。
+ * 两门语言的最近公共祖语，以及各自往上到它的那一串（只走语言，分类节点一概跳过）。
+ * 一门是另一门的祖先时，公共祖语就是那门祖先本身；两边没有共同的祖语就返回 null。
  */
 export function nearestCommonNode(project: Project, aId: Id, bId: Id): CommonNode | null {
   const a = refOf(project, aId)
   const b = refOf(project, bId)
-  if (!a || !b) return null
-  const pathA = treePath(project, a)
-  const pathB = treePath(project, b)
-  for (let i = 0; i < pathA.length; i++) {
-    const j = pathB.findIndex((x) => sameRef(x, pathA[i]))
-    if (j >= 0)
-      return { node: pathA[i], pathA: pathA.slice(0, i + 1), pathB: pathB.slice(0, j + 1) }
+  if (a?.kind !== 'language' || b?.kind !== 'language') return null
+  const chainA = languageAncestors(project, aId)
+  const chainB = languageAncestors(project, bId)
+  const atB = new Map(chainB.map((l, i) => [l.id, i]))
+  const toRef = (l: Language): TreeRef => ({ kind: 'language', id: l.id })
+  for (let i = 0; i < chainA.length; i++) {
+    const j = atB.get(chainA[i].id)
+    if (j === undefined) continue
+    return {
+      node: toRef(chainA[i]),
+      pathA: chainA.slice(0, i + 1).map(toRef),
+      pathB: chainB.slice(0, j + 1).map(toRef)
+    }
   }
   return null
 }

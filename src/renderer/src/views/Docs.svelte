@@ -2,17 +2,20 @@
   import type { PageView } from '$lib/state/ui.svelte'
   import { matchQuery, parseQuery } from '$lib/core/query'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
-  /** 文档页：项目内 Markdown 页面，编辑 / 分栏 / 预览，[[词头]] 链到词库。 */
+  /** 文档页：项目内 Markdown 页面，编辑 / 分栏 / 预览，[[…]] 链到项目里的各种东西。 */
   import { projectState } from '$lib/state/project.svelte'
-  import { ui } from '$lib/state/ui.svelte'
+  import { ui, type Section } from '$lib/state/ui.svelte'
   import { platform } from '$lib/platform'
   import { t } from '$lib/i18n/index.svelte'
   import { createDoc, now } from '$lib/core/factory'
-  import { mdToHtml } from '$lib/core/markdown'
+  import { mdToHtml, type MdLink } from '$lib/core/markdown'
+  import { docLink, DOC_LINK_TARGET, type DocLinkKind } from '$lib/core/docLinks'
   import type { DocPage, Id } from '$lib/core/model'
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
-  import { Plus, Trash2, Upload, Eye, Pencil, Columns2, FileText } from '@lucide/svelte'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
+  import DocLinkPicker from '$lib/ui/DocLinkPicker.svelte'
+  import { Plus, Trash2, Upload, Eye, Pencil, Columns2, FileText, Link } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -42,14 +45,28 @@
     )
   })
   const selected = $derived(project.docs.find((d) => d.id === selectedId) ?? null)
-  const lemmaIndex = $derived.by(() => {
-    const m = new Map<string, Id>()
-    for (const l of project.lexemes) if (l.lemma && !m.has(l.lemma)) m.set(l.lemma, l.id)
-    return m
-  })
-  const html = $derived(
-    selected ? mdToHtml(selected.markdown, { resolve: (n) => lemmaIndex.get(n) ?? null }) : ''
-  )
+  /** 这几类用数据字体（词头、语素形式这些） */
+  const DATA_KINDS = new Set<DocLinkKind>(['lexeme', 'morpheme', 'sentence', 'phrase'])
+  /** `[[…]]`：找得到就画成能点的链接，找不到画成「没找到」的样子，悬浮说清楚缺的是哪一类 */
+  function resolveLink(inner: string): MdLink {
+    const { ref, hit } = docLink(project, inner)
+    const shown = ref.name + (ref.sub ? ` › ${ref.sub}` : '')
+    if (!hit)
+      return {
+        text: shown,
+        data: DATA_KINDS.has(ref.kind),
+        title: t('docs.linkMissing', { kind: t(`docs.kinds.${ref.kind}`), name: ref.name })
+      }
+    return {
+      target: { kind: hit.kind, id: hit.id, sub: hit.sub },
+      text: shown,
+      data: DATA_KINDS.has(hit.kind),
+      title: hit.subMissing
+        ? t('docs.linkSubMissing', { name: hit.name, sub: ref.sub })
+        : `${t(`docs.kinds.${hit.kind}`)} · ${hit.name}${hit.subLabel ? ` › ${hit.subLabel}` : ''}`
+    }
+  }
+  const html = $derived(selected ? mdToHtml(selected.markdown, { resolve: resolveLink }) : '')
 
   $effect(() => {
     inspectorTitle = selected ? t('docs.page') : t('docs.title')
@@ -111,18 +128,34 @@
     await platform.saveTextFile(`${d.title || 'doc'}.md`, `# ${d.title}\n\n${d.markdown}`)
   }
   async function exportPdf(d: DocPage): Promise<void> {
-    const body = mdToHtml(d.markdown)
-    const page = `<!doctype html><html><head><meta charset="utf-8"><title>${d.title}</title><style>@page{size:A4;margin:20mm}body{font-family:'Gentium Plus','Noto Serif SC',serif;font-size:11pt;line-height:1.6;padding:24px}table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px}code{font-family:Consolas,monospace;background:#f2f2f2;padding:0 3px}pre{background:#f4f4f4;padding:8px}blockquote{border-left:3px solid #bbb;margin:0;padding-left:10px;color:#555}</style></head><body><h1>${d.title}</h1>${body}</body></html>`
+    // 链接照样解析：导出的纸面上不该留着 `语素:` 这样的前缀
+    const body = mdToHtml(d.markdown, { resolve: resolveLink })
+    const page = `<!doctype html><html><head><meta charset="utf-8"><title>${d.title}</title><style>@page{size:A4;margin:20mm}body{font-family:'Gentium Plus','Noto Serif SC',serif;font-size:11pt;line-height:1.6;padding:24px}table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px}code{font-family:Consolas,monospace;background:#f2f2f2;padding:0 3px}pre{background:#f4f4f4;padding:8px}blockquote{border-left:3px solid #bbb;margin:0;padding-left:10px;color:#555}.wl{color:inherit;text-decoration:none;border-bottom:1px solid #bbb}</style></head><body><h1>${d.title}</h1>${body}</body></html>`
     await platform.exportPdf(page, `${d.title || 'doc'}.pdf`)
   }
+  /** 点链接：跳到对应模块并定位、高亮那一条（各页面自己认 pendingSelect） */
   function onPreviewClick(e: MouseEvent): void {
-    const a = (e.target as HTMLElement).closest('a[data-lexeme]') as HTMLElement | null
+    const a = (e.target as HTMLElement).closest('a[data-kind]') as HTMLElement | null
     if (!a) return
     e.preventDefault()
-    const id = a.dataset.lexeme!
-    const lx = project.lexemes.find((l) => l.id === id)
-    ui.jump('lexicon', 'lexeme', id, lx?.languageId)
+    const kind = a.dataset.kind as DocLinkKind
+    const id = a.dataset.id!
+    const to = DOC_LINK_TARGET[kind]
+    if (!to) return
+    ui.jump(to.section as Section, to.pending, id, linkLanguage(kind, id), a.dataset.sub)
   }
+  /** 目标在哪门语言：跳之前先切过去，「返回」才回得到原来那门 */
+  function linkLanguage(kind: DocLinkKind, id: Id): Id | null | undefined {
+    if (kind === 'language') return id
+    if (kind === 'lexeme') return project.lexemes.find((x) => x.id === id)?.languageId
+    if (kind === 'morpheme') return project.morphemes.find((x) => x.id === id)?.languageId
+    if (kind === 'sentence') return project.sentences.find((x) => x.id === id)?.languageId
+    if (kind === 'phrase') return project.phrasebook.find((x) => x.id === id)?.languageId
+    if (kind === 'doc') return project.docs.find((x) => x.id === id)?.languageId ?? undefined
+    return undefined
+  }
+  /** 插入链接的选择器开着没有 */
+  let pickerOpen = $state(false)
   function insertAtCursor(text: string): void {
     const ta = document.getElementById('doc-md') as HTMLTextAreaElement | null
     if (!ta || !selected) return
@@ -178,13 +211,19 @@
         {#if view !== 'preview'}
           <div class="pane">
             <div class="row toolbar">
-              {#each [['**', '**', 'B'], ['*', '*', 'I'], ['## ', '', 'H'], ['- ', '', '•'], ['[[', ']]', '[[ ]]'], ['| a | b |\n| --- | --- |\n| 1 | 2 |', '', '⊞'], ['```\n', '\n```', '</>']] as [a, b, label] (label)}
+              {#each [['**', '**', 'B'], ['*', '*', 'I'], ['## ', '', 'H'], ['- ', '', '•'], ['| a | b |\n| --- | --- |\n| 1 | 2 |', '', '⊞'], ['```\n', '\n```', '</>']] as [a, b, label] (label)}
                 <button
                   class="btn ghost sm mono"
                   title={label}
                   onclick={() => insertAtCursor(a + b)}>{label}</button
                 >
               {/each}
+              <button
+                class="btn ghost sm"
+                title={t('docs.insertLink')}
+                onclick={() => (pickerOpen = true)}><Link size={14} />{t('docs.insertLink')}</button
+              >
+              <HelpDot tip={t('docs.linkHelp')} />
             </div>
             <textarea
               id="doc-md"
@@ -207,6 +246,10 @@
     {/if}
   </div>
 </div>
+
+{#if pickerOpen && selected}
+  <DocLinkPicker onpick={(text) => insertAtCursor(text)} onclose={() => (pickerOpen = false)} />
+{/if}
 
 {#if selected}
   {@const d = selected}
@@ -373,11 +416,15 @@
     color: var(--accent-text);
     text-decoration: none;
     border-bottom: 1px solid var(--accent);
+  }
+  /* 词条、语素这些用数据字体，语言名、文档标题照正文 */
+  .preview :global(.wl.data) {
     font-family: var(--font-data);
   }
   .preview :global(.wl.missing) {
+    color: var(--text-3);
     border-bottom: 1px dashed var(--border-strong);
-    font-family: var(--font-data);
+    cursor: help;
   }
   .center {
     display: grid;

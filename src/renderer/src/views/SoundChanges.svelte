@@ -1,5 +1,7 @@
 <script lang="ts">
   import { navScroll } from '$lib/ui/navScroll'
+  import { scrollToItem } from '$lib/ui/reveal'
+  import { sectionCollapsed, setSectionsCollapsed } from '$lib/ui/section.svelte'
   import { focusField } from '$lib/ui/focus'
   import type { PageView } from '$lib/state/ui.svelte'
   import { projectState } from '$lib/state/project.svelte'
@@ -65,8 +67,24 @@
   )
   $effect(() => {
     const id = ui.takePending('ruleSet')
-    if (id) activeId = id
+    if (!id) return
+    const stage = ui.takePendingSub()
+    activeId = id
+    // 文档里写的 [[音变:某套#某阶段]]：连阶段一起定位
+    if (stage) void revealStage(id, stage)
   })
+  /** 切到列表视图，展开这个阶段并滚过去闪一下 */
+  async function revealStage(ruleSetId: string, name: string): Promise<void> {
+    view = 'list'
+    const foldId = `rules.stage:${ruleSetId}:${name}`
+    if (sectionCollapsed(foldId)) setSectionsCollapsed([foldId], false)
+    const el = await scrollToItem('soundChanges', `section.stage[data-stage="${CSS.escape(name)}"]`)
+    if (!(el instanceof HTMLElement)) return
+    el.classList.remove('flash-ok')
+    void el.offsetWidth
+    el.classList.add('flash-ok')
+    setTimeout(() => el.classList.remove('flash-ok'), 900)
+  }
   // 「返回」用：报上当前位置，返回时原样恢复
   $effect(() => {
     ui.reportView('soundChanges', {
@@ -453,9 +471,6 @@
           >{/if}
         {#if !errorCount && !warnCount}<span class="badge">{t('soundChanges.noDiagnostics')}</span
           >{/if}
-        <button class="btn ghost sm" onclick={exportText}
-          ><Upload size={14} />{t('soundChanges.exportText')}</button
-        >
       </div>
       {#if program && program.diagnostics.length}
         <ul class="diags">

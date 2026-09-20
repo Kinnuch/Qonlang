@@ -544,12 +544,28 @@ export const SKIN_PRESETS: SkinPreset[] = [
 /** 可下载字体目录：全部 OFL（可免费商用），直链单文件 TTF */
 export interface FontEntry {
   family: string
+  /** 字体自带的中文名，有就显示在英文名下方 */
+  zhName?: string
   file: string
   url: string
   desc: { zh: string; en: string }
   tags: string[]
   /** 随软件一起带的字体：点一下就装好，不用联网 */
   builtin?: boolean
+}
+
+/** 字体库里的预览文字：拉丁全字母句 */
+export const FONT_SAMPLE_LATIN = 'The quick brown fox jumps over the lazy dog'
+/** 覆盖汉字的字体再带一小段笔画全的字 */
+export const FONT_SAMPLE_CJK = '永东国方'
+
+/**
+ * 这个字体的预览文字用什么：按条目自己的标签判断覆盖范围，不看字体名。
+ * 文字块、符号字体没有拉丁字形，写拉丁句只会看到回退字体，干脆不预览。
+ */
+export function fontSample(tags: string[]): string {
+  if (tags.includes('script') || tags.includes('symbols')) return ''
+  return tags.includes('cjk') ? FONT_SAMPLE_LATIN + ' ' + FONT_SAMPLE_CJK : FONT_SAMPLE_LATIN
 }
 
 const GF = 'https://raw.githubusercontent.com/google/fonts/main/ofl/'
@@ -567,54 +583,61 @@ export const FONT_CATALOG: FontEntry[] = [
   },
   {
     family: 'LXGW WenKai',
+    zhName: '霞鹜文楷',
     file: 'LXGWWenKai-Regular.ttf',
     url: 'https://github.com/lxgw/LxgwWenKai/releases/download/v1.510/LXGWWenKai-Regular.ttf',
     desc: {
-      zh: '霞鹜文楷：温润的楷体，适合界面与译文',
+      zh: '温润的楷体，适合界面与译文',
       en: 'A warm Kai-style CJK font, good for UI and translations'
     },
     tags: ['cjk', 'kai']
   },
   {
     family: 'LXGW WenKai TC',
+    zhName: '霞鹜文楷 TC',
     file: 'LXGWWenKaiTC-Regular.ttf',
     url: GF + 'lxgwwenkaitc/LXGWWenKaiTC-Regular.ttf',
-    desc: { zh: '霞鹜文楷 TC：繁体字形版本', en: 'Traditional-Chinese variant of LXGW WenKai' },
+    desc: { zh: '繁体字形版本', en: 'Traditional-Chinese variant of LXGW WenKai' },
     tags: ['cjk', 'kai']
   },
   {
     family: 'Noto Serif SC',
+    zhName: '思源宋体',
     file: 'NotoSerifSC[wght].ttf',
     url: GF + 'notoserifsc/NotoSerifSC%5Bwght%5D.ttf',
-    desc: { zh: '思源宋体（可变字重）', en: 'Source Han Serif SC (variable weight)' },
+    desc: { zh: '可变字重', en: 'Source Han Serif SC (variable weight)' },
     tags: ['cjk', 'serif']
   },
   {
     family: 'Noto Sans SC',
+    zhName: '思源黑体',
     file: 'NotoSansSC[wght].ttf',
     url: GF + 'notosanssc/NotoSansSC%5Bwght%5D.ttf',
-    desc: { zh: '思源黑体（可变字重）', en: 'Source Han Sans SC (variable weight)' },
+    desc: { zh: '可变字重', en: 'Source Han Sans SC (variable weight)' },
     tags: ['cjk', 'sans']
   },
   {
     family: 'Ma Shan Zheng',
+    zhName: '马善政毛笔楷书',
     file: 'MaShanZheng-Regular.ttf',
     url: GF + 'mashanzheng/MaShanZheng-Regular.ttf',
-    desc: { zh: '马善政毛笔楷书', en: 'Brush-style regular script' },
+    desc: { zh: '毛笔楷书', en: 'Brush-style regular script' },
     tags: ['cjk', 'brush']
   },
   {
     family: 'Zhi Mang Xing',
+    zhName: '志莽行书',
     file: 'ZhiMangXing-Regular.ttf',
     url: GF + 'zhimangxing/ZhiMangXing-Regular.ttf',
-    desc: { zh: '志莽行书', en: 'Semi-cursive brush script' },
+    desc: { zh: '行书风毛笔字', en: 'Semi-cursive brush script' },
     tags: ['cjk', 'brush']
   },
   {
     family: 'Long Cang',
+    zhName: '龙藏体',
     file: 'LongCang-Regular.ttf',
     url: GF + 'longcang/LongCang-Regular.ttf',
-    desc: { zh: '龙藏体：手写风', en: 'Handwritten CJK style' },
+    desc: { zh: '手写风', en: 'Handwritten CJK style' },
     tags: ['cjk', 'brush']
   },
   {

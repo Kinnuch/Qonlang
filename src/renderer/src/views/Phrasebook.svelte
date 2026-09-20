@@ -24,12 +24,20 @@
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { createPhrase } from '$lib/core/factory'
-  import type { Id, Phrase } from '$lib/core/model'
+  import type { Id, Phrase, Token } from '$lib/core/model'
   import { transcribe } from '$lib/core/pronounce'
   import { textScript } from '$lib/script/lexiconScript'
   import { fontCss } from '$lib/script/fonts'
-  import { buildIndex, analyzeToken, tokenize } from '$lib/engine/gloss'
-  import { wordHover } from '$lib/state/wordHover.svelte'
+  import { analyzeToken, glossIndexFor } from '$lib/engine/gloss'
+  import { WordResolver } from '$lib/engine/gloss/resolve'
+  import { tokenSpans, type TokenizeOptions } from '$lib/engine/gloss/tokens'
+  import { replaceWordIfSame } from '$lib/engine/gloss/rewrite'
+  import {
+    wordHover,
+    type HoverAssign,
+    type HoverChoice,
+    type HoverPart
+  } from '$lib/state/wordHover.svelte'
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
@@ -94,35 +102,97 @@
   }
   const selected = $derived(project.phrasebook.find((p) => p.id === selectedId) ?? null)
   const allTags = $derived([...new Set(project.phrasebook.flatMap((p) => p.tags))].sort())
-  const gidx = $derived(language ? buildIndex(project, language.id) : null)
-  /** 每份索引一张表：同一个词只分析一次（列表里每个词都要判断能不能点） */
-  const lexemeMemo = new WeakMap<object, Map<string, Id | null>>()
-  function lexemeFor(word: string): Id | null {
-    if (!gidx) return null
-    let memo = lexemeMemo.get(gidx)
-    if (!memo) {
-      memo = new Map()
-      lexemeMemo.set(gidx, memo)
-    }
-    const hit = memo.get(word)
-    if (hit !== undefined) return hit
-    const w = tokenize(word)[0]
-    const id = w
-      ? (analyzeToken(gidx, w, project.settings.morphemeBoundaries).find((a) => a.lexemeId)
-          ?.lexemeId ?? null)
-      : null
-    memo.set(word, id)
-    return id
+  /** 悬浮认词：跟语料页共用一套判断（engine/gloss/resolve.ts）；项目一改就换一个新的 */
+  let resolverCache: { key: string; r: WordResolver } | null = null
+  function resolver(): WordResolver {
+    const key = (langId ?? '') + '|' + project.meta.updatedAt
+    if (resolverCache?.key !== key) resolverCache = { key, r: new WordResolver(project, langId) }
+    return resolverCache.r
   }
-  function hoverWord(e: MouseEvent, word: string): void {
-    const id = lexemeFor(word)
-    if (id) wordHover.show(id, (e.currentTarget as HTMLElement).getBoundingClientRect())
+  /** 同一个写法只分析一次：列表里每个词都要判断能不能点 */
+  let tokenCache: { key: string; m: Map<string, Token> } | null = null
+  /** 把短语里的一个词当成语料里的词看：分析出来交给上面那套认词 */
+  function tokenOf(word: string): Token {
+    const key = (langId ?? '') + '|' + project.meta.updatedAt
+    if (tokenCache?.key !== key) tokenCache = { key, m: new Map() }
+    let tk = tokenCache.m.get(word)
+    if (!tk) {
+      const analyses = langId
+        ? analyzeToken(glossIndexFor(project, langId), word, project.settings.morphemeBoundaries)
+        : []
+      const i = analyses.findIndex((a) => a.lexemeId)
+      tk = { surface: word, analyses, chosen: Math.max(0, i), confirmed: false }
+      tokenCache.m.set(word, tk)
+    }
+    return tk
+  }
+  /** 短语原文切成段：word 为真的那些能悬浮，wi 是它在原文里的第几个词（改写原文按它定位） */
+  function spansOf(p: Phrase): { text: string; word: boolean; wi: number }[] {
+    let wi = -1
+    return tokenSpans(p.text, tokenizeOpts(p.languageId)).map((s) => ({
+      ...s,
+      wi: s.word ? ++wi : -1
+    }))
+  }
+  /** 跟语料一致的切法 */
+  function tokenizeOpts(languageId: Id): TokenizeOptions {
+    return {
+      mode: project.settings.tokenizer,
+      pattern: project.settings.tokenizerPattern,
+      letters:
+        glossIndexFor(project, languageId).wordChars + (project.settings.tokenizerLetters ?? '')
+    }
+  }
+  const linkable = (word: string): boolean => resolver().linkable(tokenOf(word))
+  /**
+   * 悬浮卡里「改」：短语不存分析，只改得了原文——把这一处换成挑中词条 / 语素的写法。
+   * 按位置核对过原文没变才改；原文变了发音跟着重算（手改过的不动）。
+   */
+  function rewriteWord(id: Id, wi: number, surface: string, c: HoverChoice): void {
+    const p = project.phrasebook.find((x) => x.id === id)
+    if (!p) return
+    const l = c.lexemeId ? project.lexemes.find((x) => x.id === c.lexemeId) : undefined
+    const m = c.morphemeId ? project.morphemes.find((x) => x.id === c.morphemeId) : undefined
+    const spelling = (l?.lemma ?? m?.form ?? '').replace(/^[-=·]+|[-=·]+$/g, '').trim()
+    if (!spelling) return
+    const next = replaceWordIfSame(p.text, wi, surface, spelling, tokenizeOpts(p.languageId))
+    if (next === p.text) return
+    p.text = next
+    derivePron(p)
+  }
+  function assignOf(p: Phrase, wi: number, surface: string): HoverAssign {
+    const id = p.id
+    return {
+      languageId: p.languageId,
+      surface,
+      textOnly: true,
+      onAssign: (_index, c) => rewriteWord(id, wi, surface, c)
+    }
+  }
+  function hoverWord(e: MouseEvent, p: Phrase, wi: number, word: string): void {
+    const tk = tokenOf(word)
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    // 切分只给看：短语改不了单独一段，没认出来的那一段也不标成「点开指定」
+    const parts: HoverPart[] = resolver()
+      .hoverParts(tk)
+      .map((x) => ({ ...x, missing: false }))
+    const assign = assignOf(p, wi, word)
+    const target = resolver().resolveWord(tk)
+    if (target?.lexemeId) wordHover.show(target.lexemeId, rect, parts, assign)
+    else if (target?.morphemeId) wordHover.showMorpheme(target.morphemeId, rect, parts, assign)
+    else wordHover.showMissing(word, null, rect, parts, assign)
   }
   function clickWord(e: MouseEvent, word: string): void {
-    const id = lexemeFor(word)
-    if (!id) return
+    const target = resolver().resolveWord(tokenOf(word))
+    if (!target) return
     e.stopPropagation()
     wordHover.hide(true)
+    if (target.morphemeId) {
+      const m = project.morphemes.find((x) => x.id === target.morphemeId)
+      ui.jump('morphemes', 'morpheme', target.morphemeId, m?.languageId)
+      return
+    }
+    const id = target.lexemeId!
     ui.jump('lexicon', 'lexeme', id, project.lexemes.find((l) => l.id === id)?.languageId)
   }
 
@@ -373,16 +443,16 @@
                 {/each}
                 <div class="row">
                   <span class="data text grow words"
-                    >{#each p.text.split(/(\s+)/) as w, i (i)}{#if w.trim()}<span
+                    >{#each spansOf(p) as sp, i (i)}{#if sp.word}<span
                           class="w"
-                          class:link={!!lexemeFor(w)}
+                          class:link={linkable(sp.text)}
                           role="link"
                           tabindex="-1"
-                          onmouseenter={(e) => hoverWord(e, w)}
+                          onmouseenter={(e) => hoverWord(e, p, sp.wi, sp.text)}
                           onmouseleave={() => wordHover.hide()}
-                          onclick={(e) => clickWord(e, w)}
-                          onkeydown={() => {}}>{w}</span
-                        >{:else}{w}{/if}{/each}{#if !p.text}—{/if}</span
+                          onclick={(e) => clickWord(e, sp.text)}
+                          onkeydown={() => {}}>{sp.text}</span
+                        >{:else}{sp.text}{/if}{/each}{#if !p.text}—{/if}</span
                   >
                   {#if p.category && !category}<span class="badge">{p.category}</span>{/if}
                 </div>

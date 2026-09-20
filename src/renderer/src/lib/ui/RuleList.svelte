@@ -778,10 +778,11 @@
   {/if}
   {#each sections as sec, si (sec.marker?.line ?? -si)}
     {@const folded = !!sec.marker && sectionCollapsed(stageFoldId(sec.marker.name))}
-    <!-- 整段都能接住拖过来的规则：放在这一段的末尾 -->
+    <!-- 整段都能接住拖过来的规则：放在这一段的末尾；data-stage 供别处按阶段名滚过来定位 -->
     <section
       class="stage"
       class:drop={dropStage === si && dragLine !== null}
+      data-stage={sec.marker?.name}
       role="list"
       ondragover={(e) => {
         if (dragLine === null) return

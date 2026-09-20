@@ -61,6 +61,7 @@ const en: Dict = {
     docs: 'Docs',
     settings: 'Settings',
     skin: 'Skin',
+    extending: 'Plugins & MCP',
     inspector: 'Inspector',
     home: 'Back to the start page (closes the project)',
     welcome: 'Start',
@@ -99,7 +100,7 @@ const en: Dict = {
       done: 'All spelled!'
     },
     wordle: {
-      name: 'Word guess',
+      name: 'Wordle',
       desc: "Six tries to guess today's word",
       len: 'Letters',
       noWords: 'This language has no {n}-letter words.',
@@ -107,7 +108,7 @@ const en: Dict = {
       lost: 'Out of tries — the word was'
     },
     crossword: {
-      name: 'Crossword',
+      name: 'Crosswords',
       desc: 'Built from your lexicon; export it for others to play',
       count: 'Words',
       placed: '{n} placed',
@@ -188,6 +189,13 @@ const en: Dict = {
     openExample: 'Open',
     exampleOpened: 'Opened the example project “{name}”',
     galleryLabel: 'Sentences, phrases and pictures from recent projects',
+    dailySentence: 'Sentence of the day',
+    dailyWord: 'Word of the day',
+    recentProjects: 'Recent projects',
+    noAuthor: 'No author',
+    uiLang: 'Language',
+    personalize: 'Appearance',
+    skinMore: 'Fonts, entry cards and background images live on the Skin page inside a project.',
     galleryPrev: 'Previous',
     galleryNext: 'Next',
     exampleDesc: {
@@ -333,7 +341,6 @@ const en: Dict = {
     importTitle: 'Import a rule set',
     importFormat: 'File format',
     importFiles: 'Files: {names}',
-    exportText: 'Export as text',
     editorPlaceholder: 'Write rules here. Example:\nV=aeiou\n-* Proto\na > e / _i\n-* Modern',
     diagnostics: 'Diagnostics',
     noDiagnostics: 'No problems',
@@ -999,7 +1006,7 @@ const en: Dict = {
       docs: [
         'Create a document page.',
         'The page list on the left: project-wide pages and pages of the current language.',
-        'Edit / split / preview; write [[headword]] to link to a lexicon entry.'
+        'Edit / split / preview; write [[headword]] for an entry, or a prefix such as [[morpheme:na-]] for other modules (“Insert link” is on the toolbar).'
       ],
       skin: [
         'Skin presets switch a whole set of colours and fonts at once.',
@@ -1645,7 +1652,24 @@ const en: Dict = {
     search: 'Search docs: title or body',
     title: 'Documents',
     page: 'Page',
-    hint: 'Write [[word]] to link to a lexicon entry.',
+    hint: 'Write [[word]] to link to an entry; add a prefix for other modules, e.g. [[morpheme:na-]].',
+    insertLink: 'Insert link',
+    linkSearch: 'Search by name…',
+    linkHelp:
+      '[[name]] looks for an entry first. With a prefix it looks by type: lexeme / morpheme / language / soundchange / paradigm / script / sentence / phrase / doc — Chinese prefixes (语素: and so on) work too. Sound changes and paradigms take # to point at one stage or one slot; text after | is what the link shows.',
+    linkMissing: 'No {kind} named “{name}”',
+    linkSubMissing: '“{name}” has no “{sub}”',
+    kinds: {
+      lexeme: 'entry',
+      morpheme: 'morpheme',
+      language: 'language',
+      ruleSet: 'sound change',
+      paradigm: 'paradigm',
+      script: 'script',
+      sentence: 'sentence',
+      phrase: 'phrase',
+      doc: 'page'
+    },
     add: 'New page',
     untitled: 'Untitled page',
     empty: 'No pages yet.',
@@ -1661,7 +1685,7 @@ const en: Dict = {
     placeholder:
       'Write Markdown here…\\n\\n## Heading\\n- list\\n**bold** *italic* `code` [[lemma]]\\n| table | cell |\\n| --- | --- |',
     syntax:
-      'Supported: # headings, - / 1. lists, > quotes, ``` code blocks, | tables |, **bold**, *italic*, `code`, [link](https://…), [[lemma]].'
+      'Supported: # headings, - / 1. lists, > quotes, ``` code blocks, | tables |, **bold**, *italic*, `code`, [link](https://…), [[lemma]], [[morpheme:na-]].'
   },
   palette: {
     placeholder:
@@ -2058,6 +2082,7 @@ const en: Dict = {
     editWordHead: 'Which word is “{w}”?',
     pickSense: 'Click to give this word (or the piece currently shown) this sense',
     editWordHint: 'Search by spelling or meaning; click one to use it and confirm.',
+    editWordTextHint: 'Search by spelling or meaning; click one to put it here in the text.',
     rewriteText: 'Also rewrite the word in the sentence',
     rewriteTextTitle:
       'Replace this one occurrence in the sentence text with the chosen entry’s spelling; the same word elsewhere in the sentence stays as it is',
@@ -2193,6 +2218,16 @@ const en: Dict = {
     renamePreset: 'Rename',
     deletePreset: 'Delete preset',
     presetHint: 'Save your colours and fonts as a preset.',
+    exportSkin: 'Export skin…',
+    importSkin: 'Import skin…',
+    exportWithBg: 'Include background image',
+    exported: 'Exported ({size})',
+    imported: 'Imported skin applied',
+    importBad: 'Not a skin file',
+    importNewer: 'This skin file comes from a newer Qonlang',
+    importPreviewing: 'Previewing “{name}” — confirm to keep it',
+    importDropped: 'Not confirmed — the imported skin was dropped',
+    applyImport: 'Apply',
     colors: 'Colours',
     colorsFor: 'Editing: {theme}',
     fonts: 'Fonts',

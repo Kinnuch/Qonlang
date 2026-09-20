@@ -535,6 +535,8 @@
     opacity: 0.75;
   }
   .shell {
+    /* 页面内容的宽度上限：检视器开着时留一个舒服的阅读宽度，收起来就铺满 */
+    --page-max: 960px;
     height: 100%;
     display: grid;
     grid-template-columns: var(--nav-w) 1fr var(--inspector-w);
@@ -545,6 +547,8 @@
   }
   .shell.no-inspector {
     grid-template-columns: var(--nav-w) 1fr 0;
+    /* 检视器收起来时页面不再留窄栏，内容铺满（各页的 .page 用这个变量当上限） */
+    --page-max: none;
   }
   .nav {
     grid-area: nav;
@@ -587,7 +591,8 @@
     border: 0;
     border-radius: var(--radius-sm);
     background: transparent;
-    color: var(--text-2);
+    /* 图标带一点皮肤的颜色，换皮肤时整条导航跟着变 */
+    color: var(--nav-icon);
     cursor: pointer;
   }
   .nav-btn:hover {

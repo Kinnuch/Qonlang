@@ -4,6 +4,8 @@
   import wordmarkZh from '../assets/brand/wordmark-zh.svg?raw'
   import wordmarkEn from '../assets/brand/wordmark-en.svg?raw'
   import DailyGallery from '$lib/ui/DailyGallery.svelte'
+  import RecentProjects from '$lib/ui/RecentProjects.svelte'
+  import AppSettings from '$lib/ui/AppSettings.svelte'
   import WordPopover from '$lib/ui/WordPopover.svelte'
   import GuideTour from '$lib/ui/GuideTour.svelte'
   import GamePanel, { type GameId } from '$lib/games/GamePanel.svelte'
@@ -12,12 +14,14 @@
   import { platform, type RecentEntry } from '$lib/platform'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
-  import { i18n, t, LOCALES } from '$lib/i18n/index.svelte'
+  import { i18n, t, pickText, LOCALES } from '$lib/i18n/index.svelte'
   import type { ProjectTemplate } from '$lib/core/model'
   import { createLanguage } from '$lib/core/factory'
   import { mdToHtml } from '$lib/core/markdown'
   import { parseProject } from '$lib/core/serialize'
   import { guideUrl } from '$lib/core/guide'
+  import { SKIN_PRESETS, EMPTY_FONTS } from '$lib/skin/presets'
+  import { inkTransition } from '$lib/skin/ink'
   import {
     X,
     FolderOpen,
@@ -30,6 +34,9 @@
     Link2,
     ExternalLink,
     BookOpen,
+    Globe,
+    Shirt,
+    Settings2,
     Sparkles,
     HeartHandshake,
     BookText,
@@ -43,7 +50,6 @@
   import iconScarps from '../assets/credits/scarps.png'
   import logoArt from '../assets/brand/app-icon.svg'
 
-  const WIKI_URL = 'https://wiki.gilatod.art'
   const DEV = {
     name: 'Kinnuch',
     site: 'https://kinnuch.github.io',
@@ -59,7 +65,12 @@
       icon: iconGilatod,
       blurb: 'Gilatod，长期合作的朋友的主站。'
     },
-    { name: 'Kikomas', url: 'https://kikomas.art', icon: iconKikomas, blurb: '插画与视觉创作。' },
+    {
+      name: '蓝地群岛 Wiki',
+      url: 'https://shohna.fandom.com/zh/wiki/%E8%93%9D%E5%9C%B0%E7%BE%A4%E5%B2%9B_Wiki',
+      icon: iconKikomas,
+      blurb: 'kikomas 的蓝地群岛设定资料库。'
+    },
     {
       name: 'Cathamos',
       url: 'https://cathamos.github.io',
@@ -76,15 +87,15 @@
   }[] = [
     {
       role: 'logoDesign',
-      names: [{ name: 'Kikomas', icon: logoArt, art: 'logo' }, { name: 'sgiofh' }]
+      names: [{ name: 'kikomas', icon: logoArt, art: 'logo' }, { name: 'sgiofh' }]
     },
     { role: 'pixelArt', names: [{ name: 'scarps', icon: iconScarps, art: 'pixel' }] },
-    { role: 'sponsors', names: [{ name: 'Kyiexitah' }, { name: 'Kikomas' }, { name: 'Cathamos' }] },
+    { role: 'sponsors', names: [{ name: 'Kyiexitah' }, { name: 'kikomas' }, { name: 'Cathamos' }] },
     {
       role: 'testing',
       names: [
         { name: 'Cathamos' },
-        { name: 'Kikomas' },
+        { name: 'kikomas' },
         { name: '见坂静安' },
         { name: '呼延式微1997' },
         { name: 'sgiofh' },
@@ -103,8 +114,40 @@
 
   /** 右侧面板：打开开始页时默认摊开更新日志 */
   let footerPanel = $state<
-    'examples' | 'coffee' | 'changelog' | 'dev' | 'friends' | 'credits' | 'syntax' | null
+    | 'examples'
+    | 'coffee'
+    | 'changelog'
+    | 'dev'
+    | 'friends'
+    | 'credits'
+    | 'syntax'
+    | 'locale'
+    | 'skin'
+    | 'settings'
+    | null
   >('changelog')
+  const togglePanel = (p: typeof footerPanel): void => {
+    footerPanel = footerPanel === p ? null : p
+  }
+  /** 主题三选：文案键写全，别拿模板拼（拼出来的键自检测试查不到） */
+  const THEMES = [
+    { id: 'system', key: 'settings.themeSystem' },
+    { id: 'light', key: 'settings.themeLight' },
+    { id: 'dark', key: 'settings.themeDark' }
+  ] as const
+  /** 开始页上换皮肤：跟皮肤页的「套用预设」是同一件事，这里只要配色和字体 */
+  function usePreset(id: string, e?: MouseEvent): void {
+    const preset = SKIN_PRESETS.find((x) => x.id === id)
+    const skin = ui.prefs.skin
+    if (!preset || !skin) return
+    inkTransition(e, () => {
+      skin.preset = id
+      skin.light = { ...preset.light }
+      skin.dark = { ...preset.dark }
+      skin.fonts = { ...EMPTY_FONTS, ...preset.fonts }
+      void ui.savePrefs()
+    })
+  }
 
   /**
    * 示例工程：随软件一起带的两个虚构项目，覆盖各模块的功能。
@@ -262,13 +305,27 @@
       <button class="btn primary" onclick={() => (template = template ?? 'blank')}
         ><FilePlus2 size={16} />{t('welcome.newProject')}</button
       >
+      <!-- 起步模板：跟「新建项目」在一起，挑一个就在右边填名字 -->
+      <div class="tpl-list card">
+        {#each templates as tp (tp.id)}
+          <button
+            class="tpl-row"
+            class:active={template === tp.id}
+            disabled={!tp.available}
+            onclick={() => (template = tp.id)}
+          >
+            <strong>{t(`welcome.templates.${tp.id}`)}</strong>
+            <span class="muted small">{t(`welcome.templates.${tp.id}Desc`)}</span>
+          </button>
+        {/each}
+      </div>
       <button class="btn" onclick={() => projectState.open()}
         ><FolderOpen size={16} />{t('welcome.openProject')}</button
       >
       <button
         class="btn"
         class:active={footerPanel === 'examples'}
-        onclick={() => (footerPanel = footerPanel === 'examples' ? null : 'examples')}
+        onclick={() => togglePanel('examples')}
         ><Sparkles size={16} />{t('welcome.examples')}</button
       >
       <button class="btn" onclick={() => open(guideUrl('welcome'))}
@@ -305,11 +362,28 @@
     </div>
 
     <div class="foot row">
-      <select class="select locale" bind:value={ui.prefs.locale} onchange={() => ui.savePrefs()}>
-        {#each LOCALES as l (l.code)}
-          <option value={l.code}>{l.label}</option>
-        {/each}
-      </select>
+      <button
+        class="ico"
+        class:active={footerPanel === 'locale'}
+        title={t('settings.uiLanguage')}
+        onclick={() => togglePanel('locale')}
+        ><Globe size={17} /><span>{t('welcome.uiLang')}</span></button
+      >
+      <button
+        class="ico"
+        class:active={footerPanel === 'skin'}
+        title={t('welcome.personalize')}
+        onclick={() => togglePanel('skin')}
+        ><Shirt size={17} /><span>{t('welcome.personalize')}</span></button
+      >
+      <button
+        class="ico"
+        class:active={footerPanel === 'settings'}
+        title={t('settings.title')}
+        onclick={() => togglePanel('settings')}
+        ><Settings2 size={17} /><span>{t('settings.title')}</span></button
+      >
+      <span class="grow"></span>
       <span class="muted small">v{version}</span>
     </div>
   </aside>
@@ -325,40 +399,8 @@
       </div>
     {/if}
 
-    <button class="banner card" onclick={() => open(WIKI_URL)}>
-      <span class="banner-mark">✦</span>
-      <span class="banner-text">万千世界的历史由图书管理员于此编纂，直至时间终结。</span>
-      <span class="banner-link">wiki.gilatod.art <ExternalLink size={13} /></span>
-    </button>
-
     <!-- 从最近打开的项目里抽例句、短语、带配图的词；都抽不到就不显示 -->
     <DailyGallery {recent} />
-
-    <h2>{t('welcome.templates.title')}</h2>
-    <div class="templates">
-      {#each templates as tp (tp.id)}
-        <button
-          class="tpl card"
-          class:active={template === tp.id}
-          disabled={!tp.available}
-          onclick={() => (template = tp.id)}
-        >
-          <strong>{t(`welcome.templates.${tp.id}`)}</strong>
-          <span class="muted small">{t(`welcome.templates.${tp.id}Desc`)}</span>
-        </button>
-      {/each}
-    </div>
-
-    <h2>{t('games.title')}</h2>
-    <p class="small muted games-hint">{t('games.hint')}</p>
-    <div class="templates games">
-      {#each GAMES as g (g)}
-        <button class="tpl card" onclick={() => (game = g)}>
-          <strong>{t(`games.${g}.name`)}</strong>
-          <span class="muted small">{t(`games.${g}.desc`)}</span>
-        </button>
-      {/each}
-    </div>
 
     {#if template}
       <form
@@ -403,6 +445,22 @@
         </div>
       </form>
     {/if}
+
+    {#if recent.length}
+      <h2>{t('welcome.recentProjects')}</h2>
+      <div class="projects"><RecentProjects {recent} onopen={openRecent} /></div>
+    {/if}
+
+    <h2>{t('games.title')}</h2>
+    <p class="small muted games-hint">{t('games.hint')}</p>
+    <div class="templates games">
+      {#each GAMES as g (g)}
+        <button class="tpl card" onclick={() => (game = g)}>
+          <strong>{t(`games.${g}.name`)}</strong>
+          <span class="muted small">{t(`games.${g}.desc`)}</span>
+        </button>
+      {/each}
+    </div>
 
     <div class="footer-spacer"></div>
     <div class="footer">
@@ -454,7 +512,13 @@
     <aside class="side-panel">
       <div class="panel-head row">
         <strong class="grow"
-          >{t(`welcome.${footerPanel === 'dev' ? 'developer' : footerPanel}`)}</strong
+          >{footerPanel === 'locale'
+            ? t('settings.uiLanguage')
+            : footerPanel === 'skin'
+              ? t('welcome.personalize')
+              : footerPanel === 'settings'
+                ? t('settings.title')
+                : t(`welcome.${footerPanel === 'dev' ? 'developer' : footerPanel}`)}</strong
         >
         <button class="btn ghost icon sm" onclick={() => (footerPanel = null)}
           ><X size={16} /></button
@@ -518,6 +582,55 @@
               </button>
             {/each}
           </div>
+        {:else if footerPanel === 'locale'}
+          <div class="card panel picks">
+            {#each LOCALES as l (l.code)}
+              <button
+                class="btn"
+                class:active={ui.prefs.locale === l.code}
+                onclick={() => {
+                  ui.prefs.locale = l.code
+                  void ui.savePrefs()
+                }}>{l.label}</button
+              >
+            {/each}
+          </div>
+        {:else if footerPanel === 'skin'}
+          <div class="card panel">
+            <span class="small muted">{t('settings.theme')}</span>
+            <div class="row picks">
+              {#each THEMES as th (th.id)}
+                <button
+                  class="btn"
+                  class:active={ui.prefs.theme === th.id}
+                  onclick={() => {
+                    ui.prefs.theme = th.id
+                    void ui.savePrefs()
+                  }}>{t(th.key)}</button
+                >
+              {/each}
+            </div>
+          </div>
+          <div class="card panel">
+            <span class="small muted">{t('skin.presets')}</span>
+            <div class="swatches">
+              {#each SKIN_PRESETS as p (p.id)}
+                <button
+                  class="swatch"
+                  class:active={ui.prefs.skin?.preset === p.id}
+                  title={pickText(p.name, [i18n.locale])}
+                  style={`--a:${p.swatch[0]};--b:${p.swatch[1]};--c:${p.swatch[2]}`}
+                  onclick={(e) => usePreset(p.id, e)}
+                >
+                  <span class="sw" aria-hidden="true"></span>
+                  <span class="small">{pickText(p.name, [i18n.locale])}</span>
+                </button>
+              {/each}
+            </div>
+            <p class="small muted">{t('welcome.skinMore')}</p>
+          </div>
+        {:else if footerPanel === 'settings'}
+          <AppSettings />
         {:else if footerPanel === 'syntax'}
           <RuleSyntax />
         {:else if footerPanel === 'credits'}
@@ -689,13 +802,16 @@
     margin: 6px 0 0;
     padding: 0;
   }
+  .recent-item:hover {
+    border-color: var(--accent);
+  }
   .recent-item {
     width: 100%;
     display: flex;
     gap: 8px;
     align-items: flex-start;
     padding: 6px 8px;
-    border: 0;
+    border: 1px solid transparent;
     border-radius: var(--radius-sm);
     background: transparent;
     cursor: pointer;
@@ -717,9 +833,6 @@
   }
   .foot {
     justify-content: space-between;
-  }
-  .locale {
-    width: auto;
   }
   .main {
     /* 上下留白收着点：中间这一栏尽量在常见窗口高度里不出滚动条 */
@@ -748,6 +861,114 @@
     gap: 10px;
     margin-bottom: 16px;
   }
+  .projects {
+    margin-bottom: 18px;
+  }
+  /* 侧栏里的起步模板：一行一个，跟「新建项目」连成一组 */
+  .tpl-list {
+    display: flex;
+    flex-direction: column;
+    padding: 4px;
+    gap: 2px;
+  }
+  .tpl-row {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 6px 9px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .tpl-row strong {
+    font-size: 13px;
+  }
+  .tpl-row .small {
+    font-size: 11.5px;
+    line-height: 1.35;
+  }
+  .tpl-row:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+  .tpl-row.active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    box-shadow: var(--ring);
+  }
+  .tpl-row:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+  /* 侧栏最下面那排：语言 / 个性化 / 设置 */
+  .ico {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 5px 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--nav-icon);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .ico:hover {
+    border-color: var(--accent);
+    color: var(--accent-text);
+  }
+  .ico.active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    box-shadow: var(--ring);
+  }
+  .picks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  /* 个性化面板里的皮肤色板 */
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .swatch {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 7px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-elev);
+    cursor: pointer;
+    color: var(--text);
+    text-align: left;
+  }
+  .swatch:hover {
+    border-color: var(--accent);
+  }
+  .swatch.active {
+    border-color: var(--accent);
+    box-shadow: var(--ring);
+  }
+  .swatch .sw {
+    width: 26px;
+    height: 16px;
+    flex: none;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: linear-gradient(135deg, var(--a) 0 55%, var(--b) 55% 100%);
+  }
+  .swatch .small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .tpl {
     text-align: left;
     padding: 11px 14px;
@@ -758,11 +979,7 @@
     transition: border-color 0.12s;
   }
   .tpl:hover:not(:disabled) {
-    border-color: var(--border-strong);
-  }
-  .tpl.active {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .tpl:disabled {
     opacity: 0.55;
@@ -775,43 +992,6 @@
   .main {
     display: flex;
     flex-direction: column;
-  }
-  .banner {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 14px;
-    width: 100%;
-    padding: 11px 18px;
-    margin-bottom: 16px;
-    text-align: left;
-    cursor: pointer;
-    background: linear-gradient(90deg, var(--accent-soft), var(--bg-elev));
-    border-color: var(--accent);
-    transition: box-shadow 0.15s;
-  }
-  .banner:hover {
-    box-shadow: 0 0 0 3px var(--accent-soft);
-  }
-  .banner-mark {
-    color: var(--accent);
-    font-size: 18px;
-  }
-  .banner-text {
-    flex: 1;
-    /* 窄的时候让链接换行，而不是把这句话挤成一行几个字 */
-    min-width: 220px;
-    font-family: var(--font-data);
-    font-size: 16px;
-    letter-spacing: 0.02em;
-  }
-  .banner-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    color: var(--accent-text);
-    white-space: nowrap;
   }
   .footer-spacer {
     flex: 1;

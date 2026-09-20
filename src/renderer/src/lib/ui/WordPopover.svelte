@@ -106,13 +106,12 @@
     }
     const hits: AssignHit[] = []
     // 写法能切开（几个词、词根加一串词缀连写）：先列出切法，挑一个就整个换成这几段
-    const segs = analyzeToken(
-      glossIndexFor(project, ctx.languageId),
-      q,
-      project.settings.morphemeBoundaries
-    )
-      .filter((a) => a.morphs.length > 1)
-      .slice(0, 3)
+    // 只改原文的地方（短语）不列切法：没有分析可写，切法换过去还是原来那串字
+    const segs = ctx.textOnly
+      ? []
+      : analyzeToken(glossIndexFor(project, ctx.languageId), q, project.settings.morphemeBoundaries)
+          .filter((a) => a.morphs.length > 1)
+          .slice(0, 3)
     segs.forEach((a, i) =>
       hits.push({
         key: `s${i}`,
@@ -207,7 +206,8 @@
         (!!p.lexemeId && p.lexemeId === wordHover.lexemeId) ||
         (!!p.morphemeId && p.morphemeId === wordHover.morphemeId)
     )
-    const index = i >= 0 ? i : null
+    // 只改原文的地方改不了单独一段：一律按整个词算
+    const index = i >= 0 && !wordHover.assign?.textOnly ? i : null
     if (wordHover.assign) {
       const label =
         index !== null
@@ -344,7 +344,11 @@
           </div>
           {#if wordHover.assign}
             <p class="small muted">
-              {miss.edit ? t('corpus.editWordHint') : t('corpus.notFoundHint')}
+              {wordHover.assign.textOnly
+                ? t('corpus.editWordTextHint')
+                : miss.edit
+                  ? t('corpus.editWordHint')
+                  : t('corpus.notFoundHint')}
             </p>
             <input
               class="input"
@@ -363,8 +367,8 @@
                 <p class="small muted">{t('corpus.assignNone')}</p>
               {/each}
             </div>
-            <!-- 整个词才好换：切分里的一段换了写法，整句的词就对不上了 -->
-            {#if miss.index === null}
+            <!-- 整个词才好换：切分里的一段换了写法，整句的词就对不上了；只改原文的地方本来就是在改原文 -->
+            {#if miss.index === null && !wordHover.assign.textOnly}
               <label class="rewrite small" title={t('corpus.rewriteTextTitle')}>
                 <input type="checkbox" bind:checked={wordHover.rewriteText} />
                 {t('corpus.rewriteText')}
@@ -376,7 +380,9 @@
         <LexemeCard
           {lexeme}
           project={project!}
-          onpicksense={wordHover.assign ? (i) => wordHover.chooseSense(i) : undefined}
+          onpicksense={wordHover.assign && !wordHover.assign.textOnly
+            ? (i) => wordHover.chooseSense(i)
+            : undefined}
         />
       {:else if morpheme}
         <div class="mor">

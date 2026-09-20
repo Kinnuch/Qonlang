@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createLanguage, newId } from '$lib/core/factory'
-import { nearestCommonNode, treePath } from '$lib/core/languageTree'
+import { languageAncestors, nearestCommonNode, treePath } from '$lib/core/languageTree'
 import type { Language, LanguageGroup, Project } from '$lib/core/model'
 
 function group(name: string, parentId: string | null = null): LanguageGroup {
@@ -21,7 +21,7 @@ function project(languages: Language[], languageGroups: LanguageGroup[]): Projec
 }
 
 describe('nearestCommonNode', () => {
-  it('两门语言有同一个父语言：公共节点是那门父语言', () => {
+  it('姐妹语：公共祖先是共同的那门父语言', () => {
     const p = createLanguage({ name: 'P' })
     const a = createLanguage({ name: 'A', parentId: p.id })
     const b = createLanguage({ name: 'B', parentId: p.id })
@@ -31,34 +31,7 @@ describe('nearestCommonNode', () => {
     expect(r?.pathB.map((x) => x.id)).toEqual([b.id, p.id])
   })
 
-  it('两条谱系只在分类节点上碰头：公共节点是那个节点', () => {
-    const g = group('G')
-    const x = createLanguage({ name: 'X' })
-    const y = createLanguage({ name: 'Y' })
-    x.groupId = g.id
-    y.groupId = g.id
-    const a = createLanguage({ name: 'A', parentId: x.id })
-    const b = createLanguage({ name: 'B', parentId: y.id })
-    const r = nearestCommonNode(project([x, y, a, b], [g]), a.id, b.id)
-    expect(r?.node).toEqual({ kind: 'group', id: g.id })
-    expect(r?.pathA.map((x2) => x2.id)).toEqual([a.id, x.id, g.id])
-    expect(r?.pathB.map((x2) => x2.id)).toEqual([b.id, y.id, g.id])
-  })
-
-  it('分类节点还能往上一级：碰头的是上一级节点', () => {
-    const fam = group('Fam')
-    const g1 = group('G1', fam.id)
-    const g2 = group('G2', fam.id)
-    const a = createLanguage({ name: 'A' })
-    const b = createLanguage({ name: 'B' })
-    a.groupId = g1.id
-    b.groupId = g2.id
-    const r = nearestCommonNode(project([a, b], [fam, g1, g2]), a.id, b.id)
-    expect(r?.node).toEqual({ kind: 'group', id: fam.id })
-    expect(r?.pathA.length).toBe(3)
-  })
-
-  it('一门是另一门的祖先：公共节点就是那门祖先', () => {
+  it('一门是另一门的祖先：公共祖先就是那门祖先，不再往上爬', () => {
     const a = createLanguage({ name: 'A' })
     const mid = createLanguage({ name: 'M', parentId: a.id })
     const b = createLanguage({ name: 'B', parentId: mid.id })
@@ -67,18 +40,11 @@ describe('nearestCommonNode', () => {
     expect(r?.node).toEqual({ kind: 'language', id: a.id })
     expect(r?.pathA.map((x) => x.id)).toEqual([b.id, mid.id, a.id])
     expect(r?.pathB.map((x) => x.id)).toEqual([a.id])
-    // 反过来问也是同一个节点
+    // 反过来问也是同一门祖先
     expect(nearestCommonNode(p, a.id, b.id)?.node).toEqual({ kind: 'language', id: a.id })
   })
 
-  it('八竿子打不着：返回 null', () => {
-    const a = createLanguage({ name: 'A' })
-    const b = createLanguage({ name: 'B' })
-    expect(nearestCommonNode(project([a, b], []), a.id, b.id)).toBe(null)
-    expect(nearestCommonNode(project([a, b], []), a.id, 'nope')).toBe(null)
-  })
-
-  it('语言写了所属节点、父语言又在别的节点下时按树里的摆法往上走', () => {
+  it('祖先与后代挂在不同分类节点下：照样算出那门祖先', () => {
     const g1 = group('G1')
     const g2 = group('G2')
     const p = createLanguage({ name: 'P' })
@@ -86,15 +52,84 @@ describe('nearestCommonNode', () => {
     const child = createLanguage({ name: 'C', parentId: p.id })
     child.groupId = g2.id
     const proj = project([p, child], [g1, g2])
-    // 树里 child 挂在 G2 下，不在 P 下
+    // 树里 child 摆在 G2 下（摆法没变），但公共祖先只看语言
     expect(treePath(proj, { kind: 'language', id: child.id }).map((x) => x.id)).toEqual([
       child.id,
       g2.id
     ])
-    expect(nearestCommonNode(proj, child.id, p.id)).toBe(null)
+    const r = nearestCommonNode(proj, child.id, p.id)
+    expect(r?.node).toEqual({ kind: 'language', id: p.id })
+    expect(r?.pathA.map((x) => x.id)).toEqual([child.id, p.id])
+    expect(r?.pathB.map((x) => x.id)).toEqual([p.id])
   })
 
-  it('父语言跟自己同一个节点时跟着父语言走', () => {
+  it('跨语支的两门语言：公共祖先是共同的祖语，路径里没有分类节点', () => {
+    const fam = group('Fam')
+    const g1 = group('G1', fam.id)
+    const g2 = group('G2', fam.id)
+    const proto = createLanguage({ name: 'Proto' })
+    proto.groupId = fam.id
+    const x = createLanguage({ name: 'X', parentId: proto.id })
+    x.groupId = g1.id
+    const y = createLanguage({ name: 'Y', parentId: proto.id })
+    y.groupId = g2.id
+    const a = createLanguage({ name: 'A', parentId: x.id })
+    const b = createLanguage({ name: 'B', parentId: y.id })
+    const proj = project([proto, x, y, a, b], [fam, g1, g2])
+    const r = nearestCommonNode(proj, a.id, b.id)
+    expect(r?.node).toEqual({ kind: 'language', id: proto.id })
+    expect(r?.pathA.map((n) => n.id)).toEqual([a.id, x.id, proto.id])
+    expect(r?.pathB.map((n) => n.id)).toEqual([b.id, y.id, proto.id])
+    expect([...(r?.pathA ?? []), ...(r?.pathB ?? [])].every((n) => n.kind === 'language')).toBe(
+      true
+    )
+  })
+
+  it('只在分类节点上碰得到、语言层面碰不上：返回 null', () => {
+    const g = group('G')
+    const x = createLanguage({ name: 'X' })
+    const y = createLanguage({ name: 'Y' })
+    x.groupId = g.id
+    y.groupId = g.id
+    const a = createLanguage({ name: 'A', parentId: x.id })
+    const b = createLanguage({ name: 'B', parentId: y.id })
+    expect(nearestCommonNode(project([x, y, a, b], [g]), a.id, b.id)).toBe(null)
+  })
+
+  it('八竿子打不着：返回 null；问的不是语言也返回 null', () => {
+    const g = group('G')
+    const a = createLanguage({ name: 'A' })
+    const b = createLanguage({ name: 'B' })
+    a.groupId = g.id
+    expect(nearestCommonNode(project([a, b], [g]), a.id, b.id)).toBe(null)
+    expect(nearestCommonNode(project([a, b], [g]), a.id, 'nope')).toBe(null)
+    // 分类节点本身不参与算公共祖先
+    expect(nearestCommonNode(project([a, b], [g]), a.id, g.id)).toBe(null)
+  })
+})
+
+describe('languageAncestors', () => {
+  it('顺着祖语往上排，分类节点不掺进来', () => {
+    const g = group('G')
+    const p = createLanguage({ name: 'P' })
+    const child = createLanguage({ name: 'C', parentId: p.id })
+    child.groupId = g.id
+    expect(languageAncestors(project([p, child], [g]), child.id).map((l) => l.id)).toEqual([
+      child.id,
+      p.id
+    ])
+  })
+
+  it('父语言绕成圈时到此为止，不会死循环', () => {
+    const a = createLanguage({ name: 'A' })
+    const b = createLanguage({ name: 'B', parentId: a.id })
+    a.parentId = b.id
+    expect(languageAncestors(project([a, b], []), a.id).map((l) => l.id)).toEqual([a.id, b.id])
+  })
+})
+
+describe('treePath', () => {
+  it('父语言跟自己同一个节点时跟着父语言走（树的摆法没变）', () => {
     const g = group('G')
     const p = createLanguage({ name: 'P' })
     p.groupId = g.id

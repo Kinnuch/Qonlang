@@ -7,6 +7,7 @@ import { readdirSync, readFileSync, statSync } from 'fs'
 import { join } from 'path'
 import zh from '$lib/i18n/zh'
 import en from '$lib/i18n/en'
+import { TOUR_STEPS } from '$lib/core/tourSteps'
 
 type Dict = Record<string, unknown>
 
@@ -65,6 +66,35 @@ describe('i18n keys', () => {
       }
     }
     expect(bad).toEqual([])
+  })
+
+  // GuideLink 的 title 与 GuideTour 的标题都取 nav.<section>：漏了就把键名印在界面上
+  it('resolves nav.<section> for every GuideLink', () => {
+    const missing: string[] = []
+    for (const f of files) {
+      const src = readFileSync(f, 'utf8')
+      const rel = f.slice(root.length + 1)
+      for (const m of src.matchAll(/<GuideLink[^>]*section="([^"]+)"/g)) {
+        const key = `nav.${m[1]}`
+        if (typeof get(zh as Dict, key) !== 'string' || typeof get(en as Dict, key) !== 'string')
+          missing.push(`${rel}: ${key}`)
+      }
+    }
+    expect(missing).toEqual([])
+  })
+
+  // 引导每一步的说明文案（气泡里那句）
+  it('resolves nav and tour.steps for every guided section', () => {
+    const missing: string[] = []
+    for (const [section, steps] of Object.entries(TOUR_STEPS)) {
+      for (const d of [zh, en])
+        if (typeof get(d as Dict, `nav.${section}`) !== 'string') missing.push(`nav.${section}`)
+      steps.forEach((_, i) => {
+        const key = `tour.steps.${section}.${i}`
+        for (const d of [zh, en]) if (typeof get(d as Dict, key) !== 'string') missing.push(key)
+      })
+    }
+    expect([...new Set(missing)]).toEqual([])
   })
 
   it('keeps the two locales structurally identical', () => {

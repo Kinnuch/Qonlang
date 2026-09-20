@@ -18,7 +18,12 @@ describe('markdown', () => {
   it('renders headings, lists, tables, code and wiki links', () => {
     const html = mdToHtml(
       '# T\n\n- a\n- **b**\n\n| x | y |\n| --- | --- |\n| 1 | `2` |\n\n```\ncode <x>\n```\n\n> q\n\n[[kaso]] [[zzz|Z]] [site](https://a.b)',
-      { resolve: (n) => (n === 'kaso' ? 'id1' : null) }
+      {
+        resolve: (inner) =>
+          inner === 'kaso'
+            ? { target: { kind: 'lexeme', id: 'id1' }, text: inner, data: true }
+            : { text: inner.split('|')[0] }
+      }
     )
     expect(html).toContain('<h2>T</h2>')
     expect(html).toContain('<ul><li>a</li><li><strong>b</strong></li></ul>')
@@ -27,7 +32,7 @@ describe('markdown', () => {
     )
     expect(html).toContain('<pre><code>code &lt;x&gt;</code></pre>')
     expect(html).toContain('<blockquote><p>q</p></blockquote>')
-    expect(html).toContain('data-lexeme="id1"')
+    expect(html).toContain('data-kind="lexeme" data-id="id1"')
     expect(html).toContain('<span class="wl missing">Z</span>')
     expect(html).toContain('href="https://a.b"')
   })

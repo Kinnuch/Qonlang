@@ -57,6 +57,7 @@ export default {
     docs: '文档',
     settings: '设置',
     skin: '皮肤',
+    extending: '插件与 MCP',
     inspector: '检视器',
     home: '返回开始页（关闭当前项目）',
     welcome: '开始',
@@ -74,7 +75,7 @@ export default {
     again: '再来一局',
     reshuffle: '重新洗牌',
     flashcard: {
-      name: '单词卡',
+      name: '单词卡 Flashcards',
       desc: '正面词、背面义，翻过来看看记住没有',
       word: '词',
       meaning: '释义',
@@ -95,7 +96,7 @@ export default {
       done: '全拼出来了！'
     },
     wordle: {
-      name: '猜词',
+      name: '猜词 Wordle',
       desc: '六次机会猜出今天这个词',
       len: '几个字母',
       noWords: '这门语言没有 {n} 个字母的词。',
@@ -103,7 +104,7 @@ export default {
       lost: '没猜出来，答案是'
     },
     crossword: {
-      name: '填字',
+      name: '交叉填字 Crosswords',
       desc: '用词库排一张填字盘，可以导出给别人玩',
       count: '放几个词',
       placed: '排下了 {n} 个',
@@ -179,6 +180,13 @@ export default {
     openExample: '打开',
     exampleOpened: '已打开示例工程「{name}」',
     galleryLabel: '最近项目里的例句、短语与配图',
+    dailySentence: '每日一句',
+    dailyWord: '每日一词',
+    recentProjects: '最近项目',
+    noAuthor: '未署名',
+    uiLang: '语言',
+    personalize: '个性化',
+    skinMore: '字体、词条卡、背景图这些在项目里的「皮肤」页调。',
     galleryPrev: '上一张',
     galleryNext: '下一张',
     exampleDesc: {
@@ -316,7 +324,6 @@ export default {
     importTitle: '导入规则集',
     importFormat: '文件格式',
     importFiles: '文件：{names}',
-    exportText: '导出为文本',
     editorPlaceholder: '在这里写规则。示例：\nV=aeiou\n-* 祖语\na > e / _i\n-* 现代语',
     diagnostics: '诊断',
     noDiagnostics: '没有问题',
@@ -968,7 +975,7 @@ export default {
       docs: [
         '新建一页文档。',
         '左侧是页面列表：项目通用的页面和当前语言的页面。',
-        '编辑 / 分栏 / 预览；写 [[词头]] 可以链接到词库词条。'
+        '编辑 / 分栏 / 预览；写 [[词头]] 链到词条，[[语素:na-]] 这样带前缀链到别的模块（工具条上有「插入链接」）。'
       ],
       skin: [
         '皮肤预设：一键换一整套配色与字体。',
@@ -1589,7 +1596,24 @@ export default {
     search: '搜索文档：标题或正文',
     title: '文档',
     page: '文档页',
-    hint: '写 [[单词]] 链到词库词条。',
+    hint: '写 [[单词]] 链到词条；带前缀能链到别的模块，比如 [[语素:na-]]。',
+    insertLink: '插入链接',
+    linkSearch: '搜名字……',
+    linkHelp:
+      '[[名字]] 先当词条找。带前缀按类型找：词条 / 语素 / 语言 / 音变 / 构形 / 文字 / 例句 / 短语 / 文档，英文前缀（morpheme: 这些）一样认。音变和构形可以用 # 再指到某个阶段或某一格，| 后面写显示文字。',
+    linkMissing: '没找到{kind}：{name}',
+    linkSubMissing: '「{name}」里没有「{sub}」',
+    kinds: {
+      lexeme: '词条',
+      morpheme: '语素',
+      language: '语言',
+      ruleSet: '音变',
+      paradigm: '构形',
+      script: '文字',
+      sentence: '例句',
+      phrase: '短语',
+      doc: '文档'
+    },
     add: '新建页面',
     untitled: '未命名页面',
     empty: '还没有文档页。',
@@ -1605,7 +1629,7 @@ export default {
     placeholder:
       '在这里写 Markdown……\n\n## 标题\n- 列表\n**粗体** *斜体* `代码` [[词头]]\n| 表 | 格 |\n| --- | --- |',
     syntax:
-      '支持：# 标题、- / 1. 列表、> 引用、``` 代码块、| 表格 |、**粗体**、*斜体*、`代码`、[链接](https://…)、[[词头]]。'
+      '支持：# 标题、- / 1. 列表、> 引用、``` 代码块、| 表格 |、**粗体**、*斜体*、`代码`、[链接](https://…)、[[词头]]、[[语素:na-]]。'
   },
   palette: {
     placeholder: '搜索词条、语素、例句、短语、文档、规则集，或输入页面名……',
@@ -1982,6 +2006,7 @@ export default {
     editWordHead: '「{w}」应该是哪个词？',
     pickSense: '点一下把这个词（或切分里正看着的那一段）换成这个义项',
     editWordHint: '搜写法或意思，点一下就换成它并确认。',
+    editWordTextHint: '搜写法或意思，点一下就把原文里这处换成它。',
     rewriteText: '同时改语料原文',
     rewriteTextTitle: '把例句原文里的这一处换成挑中词条的写法，同一句里别处的同一个词不动',
     noneOfThese: '都不对，自己找',
@@ -2113,6 +2138,16 @@ export default {
     renamePreset: '重命名',
     deletePreset: '删除预设',
     presetHint: '调好颜色和字体后可以存成自己的预设。',
+    exportSkin: '导出皮肤…',
+    importSkin: '导入皮肤…',
+    exportWithBg: '带上背景图',
+    exported: '已导出（{size}）',
+    imported: '已套用导入的皮肤',
+    importBad: '这不是皮肤文件',
+    importNewer: '这个皮肤文件来自更新版本的千语集',
+    importPreviewing: '正在试看导入的「{name}」，确认后才保存',
+    importDropped: '没确认，导入的皮肤没留下',
+    applyImport: '套用',
     colors: '颜色',
     colorsFor: '当前编辑：{theme}',
     fonts: '字体',

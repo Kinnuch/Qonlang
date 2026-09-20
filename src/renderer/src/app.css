@@ -35,15 +35,17 @@
   --nav-w: 72px;
   --topbar-h: 44px;
   --inspector-w: 360px;
-  /* 标志（Q 字形与字标）的颜色：品牌色值见 docs/brand/README.md */
-  --brand-mark: #0e9f8a;
+  /* 标志（Q 字形与字标）与左侧模块图标都跟着皮肤的强调色走（品牌色值见 docs/brand/README.md） */
+  --brand-mark: var(--accent);
+  --nav-icon: color-mix(in srgb, var(--accent) 30%, var(--text-2));
+  /* 选中 / 点开时边框外的那圈晕染 */
+  --ring: 0 0 0 3px var(--accent-soft);
   color-scheme: light;
 }
 
 /* 深色：强调色比浅色压暗、降饱和——近黑的底上亮青绿太扎眼，主按钮上的白字也看不清（原来 2.3:1，现在 4.5:1）；
    弱文字提亮一点，面板上的小字够 4.5:1 */
 [data-theme='dark'] {
-  --brand-mark: #ffde80;
   --bg: #161715;
   --bg-elev: #1e1f1c;
   --bg-sunken: #111210;
@@ -63,6 +65,9 @@
   --warn-soft: #3a3020;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+  /* 深色底上强调色本身压暗了，标志和图标用亮一点的那一档 */
+  --brand-mark: var(--accent-text);
+  --nav-icon: color-mix(in srgb, var(--accent-text) 30%, var(--text-2));
   color-scheme: dark;
 }
 
@@ -180,7 +185,26 @@ button {
 }
 .btn:hover {
   background: var(--bg-hover);
-  border-color: var(--border-strong);
+  border-color: var(--accent);
+}
+/*
+ * 带边框的控件统一的三档：平时只有普通边框；鼠标停上去边框变成强调色；
+ * 点开 / 选中时边框外再加一圈晕染（.active / [aria-pressed=true] / .sel / .on）。
+ */
+.btn.active,
+.btn[aria-pressed='true'],
+.card.sel,
+.card.active {
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+.card.pick {
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+.card.pick:hover {
+  border-color: var(--accent);
 }
 .btn:disabled {
   opacity: 0.5;

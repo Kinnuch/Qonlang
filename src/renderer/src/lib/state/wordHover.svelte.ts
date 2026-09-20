@@ -24,6 +24,11 @@ export interface HoverAssign {
   languageId: Id
   /** 这个词在原文里的写法：卡片上点铅笔改成别的词时，搜索框先填它 */
   surface?: string
+  /**
+   * 这一处只改得了原文（短语簿）：短语不存分析，挑中的词只能换成原文里的写法。
+   * 要写进分析才有意义的那些（挑义项、挑切法、「同时改原文」）在卡片里都不显示。
+   */
+  textOnly?: boolean
   onAssign: (index: number | null, c: HoverChoice) => void
 }
 
