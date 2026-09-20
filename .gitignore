@@ -7,3 +7,6 @@ out
 *.tmp
 tests/fixtures/private
 examples/private
+
+# TypeScript 增量编译的缓存，不该进版本库
+*.tsbuildinfo
