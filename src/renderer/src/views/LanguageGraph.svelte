@@ -60,21 +60,40 @@
     (kind === 'group' ? 'g:' : 'l:') + id
   const short = (s: string, n: number): string => (s.length > n ? s.slice(0, n - 1) + '…' : s)
   const itemId = (x: TreeItem): Id => (x.kind === 'group' ? x.group.id : x.language.id)
-  /** 阶段小串大概多宽：给它留出地方，免得压到右边的兄弟 */
+  /** 阶段挂在节点下方、居中一行：这行大概多宽（9.5px 的字按 5.4px 一个字符估） */
+  const stagesText = (stages: string[]): string => stages.join(' › ')
   const stagesWidth = (stages: string[]): number =>
-    stages.length ? stages.reduce((w, s) => w + 16 + s.length * 8, 6) : 0
+    stages.length ? Math.round(stagesText(stages).length * 5.4) : 0
+  /** 比节点宽出来的那一半，左右各留一点，免得压到兄弟 */
+  const stagesOverhang = (stages: string[]): number => Math.max(0, (stagesWidth(stages) - NW) / 2)
+
+  /**
+   * 分类节点（语系 / 语族 / 语支）只是用来结构化的，不是真的语言：
+   * 它的代表原始语不跟下一级语支并排，而是语支和别的语言都挂在这门原始语下面
+   * （列表视图里也是这么摆的：祖语跟分类节点的标题行对齐，下一级往里缩）。
+   */
+  const underProto = (item: TreeItem, kids: TreeItem[]): TreeItem[] => {
+    if (item.kind !== 'group' || !item.group.protoLanguageId || kids.length < 2) return kids
+    const i = kids.findIndex(
+      (k) => k.kind === 'language' && k.language.id === item.group.protoLanguageId
+    )
+    if (i < 0) return kids
+    const proto = kids[i]
+    const rest = kids.filter((_, j) => j !== i)
+    return [{ ...proto, children: [...proto.children, ...rest] }]
+  }
 
   const layout = $derived.by(() => {
     const nodes: GNode[] = []
     const edges: { key: string; from: string; to: string }[] = []
     const nextX: number[] = []
-    const rightHalf = (n: GNode): number => NW / 2 + stagesWidth(n.stages)
+    const rightHalf = (n: GNode): number => NW / 2 + stagesOverhang(n.stages)
     const walk = (item: TreeItem, depth: number): { node: GNode; all: GNode[] } => {
       const shown = item.children.filter((c) => !visible || visible.has(itemId(c)))
       const key0 = nodeKey(item.kind, itemId(item))
       // 右键收起来的节点：底下不画，牌子上写还有几个
       const off = sectionCollapsed(`langNode:${key0}`)
-      const kids = off ? [] : shown
+      const kids = off ? [] : underProto(item, shown)
       let hidden = 0
       if (off) {
         const count = (list: TreeItem[]): void => {
@@ -145,7 +164,8 @@
           x: Math.min(...xs) - NW / 2 - PAD,
           y: -NH / 2 - PAD,
           w: Math.max(...nodes.map((n) => n.x + rightHalf(n))) - Math.min(...xs) + NW / 2 + PAD * 2,
-          h: Math.max(...nodes.map((n) => n.y)) + NH + PAD * 2
+          // 最下面一排如果挂着阶段那一行，底下多留一点
+          h: Math.max(...nodes.map((n) => n.y + (n.stages.length ? 18 : 0))) + NH + PAD * 2
         }
       : { x: 0, y: 0, w: 1, h: 1 }
     return { nodes, edges, byKey, box }
@@ -264,15 +284,12 @@
                   <text class="mtext" x="0" y={NH / 2 + 10}>+{n.hidden}</text>
                 </g>
               {/if}
-              {#each n.stages as s, i (i)}
-                {@const sx =
-                  NW / 2 + 10 + n.stages.slice(0, i).reduce((w, p) => w + 16 + p.length * 8, 0)}
-                <g class="stage">
-                  <line class="slink" x1={sx - 10} y1="0" x2={sx} y2="0" />
-                  <rect x={sx} y="-9" width={12 + s.length * 8} height="18" rx="6" />
-                  <text class="stext" x={sx + 6 + s.length * 4} y="4">{s}</text>
-                </g>
-              {/each}
+              {#if n.stages.length}
+                <!-- 历时阶段挂在节点下方居中的一行：原来挂在右边，把左右的兄弟顶开太多 -->
+                <text class="stages" x="0" y={NH / 2 + (n.hidden ? 30 : 14)}
+                  >{short(stagesText(n.stages), 30)}<title>{stagesText(n.stages)}</title></text
+                >
+              {/if}
             </g>
           {/each}
         </g>
@@ -418,19 +435,10 @@
     fill: var(--text-3);
     font-size: 10.5px;
   }
-  .stage rect {
-    fill: var(--bg-elev);
-    stroke: var(--border);
-    stroke-dasharray: 3 2;
-  }
-  .stext {
-    fill: var(--text-2);
-    font-size: 10px;
+  .stages {
+    fill: var(--text-3);
+    font-size: 9.5px;
     text-anchor: middle;
-  }
-  .slink {
-    stroke: var(--border-strong);
-    stroke-width: 1.2;
   }
   @media (prefers-reduced-motion: reduce) {
     .edge.hl,

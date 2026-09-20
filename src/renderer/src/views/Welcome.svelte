@@ -85,6 +85,7 @@
       names: [
         { name: 'Cathamos' },
         { name: 'Kikomas' },
+        { name: '见坂静安' },
         { name: '呼延式微1997' },
         { name: 'sgiofh' },
         { name: '夏穆' },

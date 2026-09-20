@@ -35,8 +35,8 @@
     onchange(!on)
   }}
 >
-  <Star {size} />
-  {#if label !== undefined}<span>{label}</span>{/if}
+  <!-- 中间不留空白：这里的空白文本节点会在列表里画出一个点来 -->
+  <Star {size} />{#if label !== undefined}<span>{label}</span>{/if}
 </button>
 
 <style>

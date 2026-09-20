@@ -2711,6 +2711,8 @@
   .mv {
     width: 44px;
     white-space: nowrap;
+    /* 这一格里只有图标按钮：字号归零，免得标签之间的空白在星星后面画出一个点 */
+    font-size: 0;
   }
   /* 收藏的星星平时不打眼：没收藏的只在这一行上有鼠标时露出来 */
   .mv :global(.star:not(.on)) {
