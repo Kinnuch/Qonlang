@@ -34,8 +34,9 @@
     posParts,
     posStemSlotList
   } from '$lib/core/pos'
-  import { PREVIEW_LIMIT, scratchProject } from '$lib/importers/preview'
+  import { PREVIEW_LIMIT, scratchProject, type PreviewData } from '$lib/importers/preview'
   import ImportPreview from '$lib/ui/ImportPreview.svelte'
+  import StarToggle from '$lib/ui/StarToggle.svelte'
   import { orthoIpaLabel, pronText, relationLabel } from '$lib/ui/labels'
   import { KeyRows, renameObjectKey, type KeyRow } from '$lib/ui/keyRows'
   import { dragColumn, fitColumns } from '$lib/ui/fitColumns'
@@ -106,7 +107,8 @@
     FilePlus2,
     Merge,
     ListOrdered,
-    Tags
+    Tags,
+    Star
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
@@ -135,6 +137,7 @@
     sortDir: 'asc' | 'desc'
     customOrder: boolean
     colFilters: Record<string, Set<string>>
+    favOnly: boolean
   }>('lexicon')
   const sameLang = memo.lang === projectState.currentLanguageId
   let mode = $state<'entries' | 'taxonomy' | 'csv' | 'lexc' | 'export' | 'stats'>(
@@ -163,6 +166,14 @@
   let customOrder = $state(memo.customOrder ?? false)
   /** 表头筛选：列 key → 选中的取值；不在里面的列不筛 */
   let colFilters = $state<Record<string, Set<string>>>(memo.colFilters ?? {})
+  /** 只看收藏（列表左边点亮的那些） */
+  let favOnly = $state(memo.favOnly ?? false)
+  /** 打了记号的词前面加的符号 */
+  const markSymbol = $derived(project.settings.markSymbol || '*')
+  function toggleFavorite(l: Lexeme): void {
+    l.favorite = !l.favorite
+    touch(l)
+  }
   const sort = $derived(customOrder ? 'custom' : 'alphabet')
   function cycleSort(key: string): void {
     if (customOrder) customOrder = false
@@ -299,7 +310,8 @@
       sortKey,
       sortDir,
       customOrder,
-      colFilters: { ...colFilters }
+      colFilters: { ...colFilters },
+      favOnly
     })
   })
   // 不是「返回」进来的：列表滚回上次离开时的位置
@@ -332,6 +344,7 @@
   const list = $derived.by(() => {
     const pq = parseQuery(query, searchFields)
     const arr = inLang.filter((l) => {
+      if (favOnly && !l.favorite) return false
       for (const [key, sel] of Object.entries(colFilters))
         if (!filterValues(l, key).some((v) => sel.has(v))) return false
       if (pq.terms.length && !matchQuery(pq, (f) => lexemeFieldValues(l, f))) return false
@@ -1007,6 +1020,16 @@
     })
     return { project: scratch, report }
   })
+  /** 测试台：粘一段 .lexc 里的内容，按同样的设置并进副本看看认成什么 */
+  function testLexc(text: string): PreviewData | null {
+    const scratch = scratchProject(project)
+    mergeLexicanter(scratch, parseLexc(text), {
+      definitionLang: lexcLang || 'en',
+      uiLocale: i18n.locale,
+      appVersion: ''
+    })
+    return { project: scratch, lexemes: scratch.lexemes.slice(0, PREVIEW_LIMIT) }
+  }
   function runLexicanter(): void {
     if (!lexc) return
     try {
@@ -1208,6 +1231,13 @@
         ><ArrowLeft size={16} />{t('lexicon.backToList')}</button
       >
     {:else if mode === 'entries'}
+      <button
+        class="btn icon"
+        class:active={favOnly}
+        title={t('lexicon.favOnly')}
+        aria-pressed={favOnly}
+        onclick={() => (favOnly = !favOnly)}><Star size={16} /></button
+      >
       <Menu label={t('lexicon.columns')} icon={Columns3} wide>
         {#each availableColumns as c (c.key)}
           <label data-keep-open
@@ -1482,7 +1512,7 @@
     >
       <table class="tbl fixed" style={`width:${tableWidth}px`}>
         <colgroup>
-          <col style={sort === 'custom' ? 'width:56px' : 'width:34px'} />
+          <col style={sort === 'custom' ? 'width:76px' : 'width:30px'} />
           <col style={colStyle('lemma')} />
           {#each activeColumns as c (c.key)}<col style={colStyle(c.key)} />{/each}
         </colgroup>
@@ -1555,6 +1585,11 @@
               ondblclick={(e) => editRow(e, l.id)}
             >
               <td class="mv">
+                <StarToggle
+                  on={!!l.favorite}
+                  title={t('lexicon.favorite')}
+                  onchange={() => toggleFavorite(l)}
+                />
                 {#if sort === 'custom'}
                   <button
                     class="btn ghost icon sm"
@@ -1575,7 +1610,8 @@
                 {/if}
               </td>
               <td class="lemma data"
-                >{l.lemma || '—'}{#if noDefIds.has(l.id)}<span
+                >{#if l.marked}<span class="mark" title={t('lexicon.marked')}>{markSymbol}</span
+                  >{/if}{l.lemma || '—'}{#if noDefIds.has(l.id)}<span
                     class="nodef"
                     title={t('lexicon.noDefinition')}><AlertCircle size={12} /></span
                   >{/if}{#if isDup(l)}<span class="dup" title={t('lexicon.duplicate')}
@@ -1665,6 +1701,8 @@
       project={lexcPreview.project}
       lexemes={lexcPreview.project.lexemes.slice(0, PREVIEW_LIMIT)}
       source={lexc?.name ?? ''}
+      testParse={testLexc}
+      testPlaceholder={t('importPreview.phLexc')}
     />
   </Portal>
 {/if}
@@ -1735,7 +1773,24 @@
       >
     </div>
     <div class="field">
-      <label for="lx-lemma">{t('lexicon.lemma')}</label>
+      <div class="row">
+        <label class="grow" for="lx-lemma">{t('lexicon.lemma')}</label>
+        <StarToggle
+          on={!!l.favorite}
+          label={t('lexicon.favorite')}
+          onchange={() => toggleFavorite(l)}
+        />
+        <label class="chip-check" title={t('lexicon.markedHint')}
+          ><input
+            type="checkbox"
+            checked={!!l.marked}
+            onchange={(e) => {
+              l.marked = (e.currentTarget as HTMLInputElement).checked
+              touch(l)
+            }}
+          />{markSymbol}&thinsp;{t('lexicon.marked')}</label
+        >
+      </div>
       <input id="lx-lemma" class="input data big" bind:value={l.lemma} oninput={() => touch(l)} />
       {#if isDup(l)}
         <div class="row dup-bar">
@@ -2656,6 +2711,23 @@
   .mv {
     width: 44px;
     white-space: nowrap;
+  }
+  /* 收藏的星星平时不打眼：没收藏的只在这一行上有鼠标时露出来 */
+  .mv :global(.star:not(.on)) {
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  tr:hover .mv :global(.star:not(.on)),
+  .mv :global(.star:focus-visible) {
+    opacity: 0.55;
+  }
+  tr:hover .mv :global(.star:not(.on):hover) {
+    opacity: 1;
+  }
+  /* 打了记号的词，单词前面那个符号 */
+  .mark {
+    margin-right: 3px;
+    color: var(--warn);
   }
   .tiny {
     font-size: 11px;

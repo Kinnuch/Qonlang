@@ -534,6 +534,22 @@
             oninput={() => projectState.touch()}
           />
         </div>
+        <div class="field">
+          <label for="p-mark"
+            >{t('settings.markSymbol')}<HelpDot tip={t('settings.markSymbolHint')} /></label
+          >
+          <input
+            id="p-mark"
+            class="input data"
+            maxlength="4"
+            placeholder="*"
+            value={project.settings.markSymbol ?? ''}
+            oninput={(e) => {
+              project.settings.markSymbol = (e.currentTarget as HTMLInputElement).value || undefined
+              projectState.touch()
+            }}
+          />
+        </div>
         <div class="field wide">
           <label for="p-desc">{t('settings.description')}</label>
           <textarea

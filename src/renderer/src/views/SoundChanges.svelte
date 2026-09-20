@@ -12,12 +12,15 @@
     parseRuleText,
     runRules,
     ruleOrdinals,
-    fromYinbianji,
-    fromLexicanter,
-    fromSca2,
     type RuleProgram,
     type RunResult
   } from '$lib/engine/sca'
+  import {
+    convertRuleFiles,
+    yinbianjiPart,
+    type RuleFile,
+    type RuleFormat
+  } from '$lib/importers/ruleFiles'
   import Portal from '$lib/ui/Portal.svelte'
   import ImportPreview from '$lib/ui/ImportPreview.svelte'
   import Hint from '$lib/ui/Hint.svelte'
@@ -220,43 +223,19 @@
     })
   }
 
-  type RuleFile = { name: string; content: string }
-  type RuleFormat = 'yinbianji' | 'lexicanter' | 'sca2' | 'plain'
   /** 选好、还没导入的规则文件：主区挑格式、起名字，检视器里显示转换出来的规则 */
   let rulePending = $state.raw<RuleFile[] | null>(null)
   let ruleFormat = $state<RuleFormat>('plain')
   let ruleName = $state('')
 
-  /** 音变姬的文件按名字或内容分：音类、替换、词库（不要）、规则 */
-  function yinbianjiPart(f: RuleFile): 'category' | 'replace' | 'lexicon' | 'rule' {
-    const lower = f.name.toLowerCase()
-    const body = f.content
-    if (lower.includes('categor') || (!body.includes('>') && /^[A-Z]=/m.test(body)))
-      return 'category'
-    if (lower.includes('replace') || (!body.includes('>') && /^\S+\|\S+/m.test(body)))
-      return 'replace'
-    return lower.includes('lexicon') ? 'lexicon' : 'rule'
-  }
-  /** 按选的格式转成千语集的规则文本 */
-  const ruleText = $derived.by(() => {
-    const files = rulePending
-    if (!files?.length) return ''
-    if (ruleFormat === 'yinbianji') {
-      const part = (k: string): string =>
-        files
-          .filter((f) => yinbianjiPart(f) === k)
-          .map((f) => f.content + '\n')
-          .join('')
-      return fromYinbianji(part('category'), part('replace'), part('rule'))
-    }
-    const content = files[0].content
-    return ruleFormat === 'lexicanter'
-      ? fromLexicanter(content)
-      : ruleFormat === 'sca2'
-        ? fromSca2(content)
-        : content
-  })
+  const ruleText = $derived(convertRuleFiles(rulePending ?? [], ruleFormat))
   const ruleLines = $derived(ruleText.replace(/\s+$/, '').split(/\r?\n/))
+  /** 测试台：敲的这段按现在选的格式转一遍，跟真导入同一条路 */
+  function testRules(text: string): { lines: string[] } | null {
+    const out = convertRuleFiles([{ name: '', content: text }], ruleFormat)
+    const lines = out.replace(/\s+$/, '').split(/\r?\n/)
+    return lines.some((l) => l.trim()) ? { lines: lines.slice(0, 400) } : null
+  }
 
   async function importYinbianji(): Promise<void> {
     const files = await platform.readTextFiles({ multiple: true, extensions: ['txt'] })
@@ -501,6 +480,8 @@
       total={ruleLines.length}
       lines={ruleLines.slice(0, 400)}
       source={rulePending.map((f) => f.name).join('|')}
+      testParse={testRules}
+      testPlaceholder={t('importPreview.phRules')}
     />
   </Portal>
 {:else if active}

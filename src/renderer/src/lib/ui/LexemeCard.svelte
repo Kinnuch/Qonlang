@@ -200,7 +200,10 @@
     />
   {/if}
   <header style:font-size={px('header')} data-block="header" class:hl={highlight === 'header'}>
-    <h2 class="lemma data">{l.lemma || '—'}</h2>
+    <h2 class="lemma data">
+      {#if l.marked}<span class="mark">{project.settings.markSymbol || '*'}</span>{/if}{l.lemma ||
+        '—'}
+    </h2>
     {#each scripts as x (x.sc.id)}<div
         class="scr"
         style={fontCss(x.sc)}
@@ -523,6 +526,11 @@
     font-size: 1.6em;
     line-height: 1.3;
     margin: 2px 0 4px;
+  }
+  /* 打了记号的词，单词前面那个符号 */
+  .mark {
+    margin-right: 3px;
+    color: var(--warn);
   }
   .lemma {
     font-size: 2em;

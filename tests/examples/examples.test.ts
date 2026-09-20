@@ -244,6 +244,9 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     expect(Object.keys(verb.generators).some((k) => k.split('|').length === 2)).toBe(true)
     expect(kaso.forms['单数.位格']).toMatchObject({ surface: 'kasoda', ipa: 'ˈkasoða' })
     expect(kaso.forms['复数.位格'].surface).toBe('kasolarda')
+    // 收藏与记号
+    expect(p.lexemes.filter((l) => l.favorite).map((l) => l.lemma)).toEqual(['kaso', 'nöl', 'sila'])
+    expect(p.lexemes.filter((l) => l.marked).map((l) => l.lemma)).toEqual(['kaso', 'kel-'])
   })
 
   it('Tsahun loads with tones, two orthographies, packing and reduplication', () => {

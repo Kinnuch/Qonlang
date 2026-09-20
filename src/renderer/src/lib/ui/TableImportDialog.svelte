@@ -11,7 +11,7 @@
   import { detectDelimiter, parseCsv, type Delimiter } from '$lib/core/csv'
   import { guessColumns, rowsToRecords, type ImportField } from '$lib/importers/corpusIO'
   import { normalizeSentence } from '$lib/core/sentenceDedup'
-  import { PREVIEW_LIMIT } from '$lib/importers/preview'
+  import { PREVIEW_LIMIT, type PreviewData } from '$lib/importers/preview'
   import { ioFieldLabel } from '$lib/ui/ioLabels'
   import Portal from './Portal.svelte'
   import ImportPreview from './ImportPreview.svelte'
@@ -63,12 +63,12 @@
 
   const lines = $derived(raw.split(/\r?\n/).filter((l) => l.trim()))
   /** 自动：大多数行都有同一个分隔符才分列 */
-  const resolved = $derived.by((): Split => {
-    if (split !== 'auto') return split
-    if (!lines.length) return 'line'
-    const d = detectDelimiter(raw)
-    return lines.filter((l) => l.includes(d)).length / lines.length >= 0.8 ? d : 'line'
-  })
+  function autoSplit(text: string, ls: string[]): Split {
+    if (!ls.length) return 'line'
+    const d = detectDelimiter(text)
+    return ls.filter((l) => l.includes(d)).length / ls.length >= 0.8 ? d : 'line'
+  }
+  const resolved = $derived(split !== 'auto' ? split : autoSplit(raw, lines))
   const table = $derived(
     !raw.trim()
       ? []
@@ -95,10 +95,12 @@
   }
 
   const total = $derived(jsonText ? (jsonRecords?.length ?? 0) : records.length)
-  /** 样例：前几条，标出会跳过的（原文为空、已经有了、跟前面重复） */
-  const sample = $derived.by(() => {
+  /** 标出会跳过的：原文为空、已经有了、跟前面重复 */
+  function withSkips(
+    recs: Record<string, string>[]
+  ): { rec: Record<string, string>; skip?: string }[] {
     const seen = new Set<string>()
-    return (jsonText ? (jsonRecords ?? []) : records).slice(0, PREVIEW_LIMIT).map((rec) => {
+    return recs.slice(0, PREVIEW_LIMIT).map((rec) => {
       const text = rec.text ?? ''
       const k = normalizeSentence(text)
       const skip = !k
@@ -111,7 +113,26 @@
       seen.add(k)
       return { rec, skip }
     })
-  })
+  }
+  /** 样例：前几条 */
+  const sample = $derived(withSkips(jsonText ? (jsonRecords ?? []) : records))
+  /** 测试台：敲的几行按现在的分隔符切开、按选好的那套列映射认（表头不用再敲一遍） */
+  function testRows(text: string): PreviewData | null {
+    // 选的是 JSON 时就按 JSON 读，跟真导入同一条路
+    if (jsonText && json) {
+      const recs = json.preview(text)
+      return recs?.length ? { records: withSkips(recs) } : null
+    }
+    // 还没选文件时，分隔符与每列的字段就按这段输入自己猜一遍（跟选了文件时同一套猜法）
+    const ls = text.split(/\r?\n/).filter((l) => l.trim())
+    const sp = split !== 'auto' ? split : colCount ? resolved : autoSplit(text, ls)
+    const rows = sp === 'line' ? ls.map((l) => [l.trim()]) : parseCsv(text, sp).rows
+    if (!rows.length) return null
+    const guessed = !columns.length
+    const cols = guessed ? guessColumns(null, fields, rows[0].length) : columns
+    const recs = withSkips(rowsToRecords(rows, cols, guessed ? null : header))
+    return recs.length ? { records: recs } : null
+  }
 
   async function pickFile(onlyJson = false): Promise<void> {
     const [f] = await platform.readTextFiles({
@@ -232,6 +253,8 @@
     records={sample}
     fieldLabel={labelOf}
     source={fileName}
+    testParse={testRows}
+    testPlaceholder={t('importPreview.phTable')}
   />
 </Portal>
 

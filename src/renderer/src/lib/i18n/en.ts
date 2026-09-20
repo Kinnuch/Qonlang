@@ -192,7 +192,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph.',
+        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (syllables and sound counts follow the spelling), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font.'
     },
@@ -902,7 +902,16 @@ const en: Dict = {
     skipEmpty: 'Skipped: empty text',
     skipExisting: 'Skipped: already present',
     skipRepeat: 'Skipped: repeats an earlier row',
-    glyphExists: 'Already in the glyph table — skipped'
+    glyphExists: 'Already in the glyph table — skipped',
+    testTitle: 'Test bench',
+    testTip:
+      'Type something of your own: it is parsed with the current import settings and shown just like the sample above, and recomputed when a setting changes.',
+    testNoMatch: 'Nothing recognised here',
+    phLexc: '{"Lexicon":{"abc":{"Senses":[{"definition":"meaning"}]}}}',
+    phCsv: 'One data row in the columns you mapped — no header',
+    phTable: 'One record per line, split by the delimiter above',
+    phGlyphs: 'One per line: character value name',
+    phRules: 'A few rules in the format chosen above'
   },
   projectCsv: {
     opened:
@@ -1046,6 +1055,10 @@ const en: Dict = {
     noLanguage: 'Pick a language in the top bar first.',
     add: 'Add entry',
     lemma: 'Lemma',
+    favorite: 'Favourite',
+    favOnly: 'Favourites only',
+    marked: 'Mark',
+    markedHint: 'Show a symbol in front of this word; the symbol is set in Settings',
     pos: 'Part of speech',
     noPos: '(none)',
     senses: 'Senses',
@@ -2267,6 +2280,8 @@ const en: Dict = {
       paradigms: 'Paradigms',
       data: 'Data'
     },
+    markSymbol: 'Mark symbol',
+    markSymbolHint: 'Words marked in the lexicon show this symbol in front; * when left empty',
     uiLanguage: 'Interface language',
     theme: 'Theme',
     themeSystem: 'Follow system',

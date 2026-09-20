@@ -79,7 +79,7 @@
       names: [{ name: 'Kikomas', icon: logoArt, art: 'logo' }, { name: 'sgiofh' }]
     },
     { role: 'pixelArt', names: [{ name: 'scarps', icon: iconScarps, art: 'pixel' }] },
-    { role: 'sponsors', names: [{ name: 'Kikomas' }, { name: 'Cathamos' }] },
+    { role: 'sponsors', names: [{ name: 'Kyiexitah' }, { name: 'Kikomas' }, { name: 'Cathamos' }] },
     {
       role: 'testing',
       names: [
@@ -721,15 +721,16 @@
     width: auto;
   }
   .main {
-    padding: 40px clamp(20px, 4vw, 48px);
+    /* 上下留白收着点：中间这一栏尽量在常见窗口高度里不出滚动条 */
+    padding: 24px clamp(20px, 4vw, 48px) 20px;
     overflow: auto;
     /* 底部那排按钮在英文界面里要 860px 左右：880px 减去两边留白放不下，怎么拉宽窗口都会挤出一个到第二行 */
     max-width: 1000px;
     min-width: 0;
   }
   .restore {
-    padding: 14px 16px;
-    margin-bottom: 24px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
     border-color: var(--warn);
     background: var(--warn-soft);
     display: flex;
@@ -738,17 +739,17 @@
     gap: 16px;
   }
   h2 {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
   .templates {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin-bottom: 24px;
+    gap: 10px;
+    margin-bottom: 16px;
   }
   .tpl {
     text-align: left;
-    padding: 14px 16px;
+    padding: 11px 14px;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -780,8 +781,8 @@
     flex-wrap: wrap;
     gap: 14px;
     width: 100%;
-    padding: 14px 18px;
-    margin-bottom: 24px;
+    padding: 11px 18px;
+    margin-bottom: 16px;
     text-align: left;
     cursor: pointer;
     background: linear-gradient(90deg, var(--accent-soft), var(--bg-elev));
@@ -813,13 +814,13 @@
   }
   .footer-spacer {
     flex: 1;
-    min-height: 24px;
+    min-height: 12px;
   }
   .footer {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    padding-top: 16px;
+    padding-top: 12px;
     border-top: 1px solid var(--border);
   }
   .footer-bar {
@@ -843,6 +844,9 @@
       opacity: 0;
       transform: translateY(6px);
     }
+  }
+  .games-hint {
+    margin: -4px 0 8px;
   }
   .coffee {
     display: flex;

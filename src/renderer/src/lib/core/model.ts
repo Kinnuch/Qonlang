@@ -107,6 +107,8 @@ export interface ProjectSettings {
    * 勾了复杂模式就各算各的，维度多的不写就没有
    */
   complexSlots?: boolean
+  /** 打了记号的词前面加什么符号；不写就是 * */
+  markSymbol?: string
 }
 
 /** 一排页签的分组：分组本身按顺序排，members 记每个页签（规则集 / 构形 id）在哪个组 */
@@ -516,6 +518,10 @@ export interface Lexeme {
   custom?: Record<Id, string>
   /** 对重音影响（没勾过就没有这个字段） */
   stress?: StressSettings
+  /** 收藏（列表左边的五角星）：自己挑出来的一批词，随手筛 */
+  favorite?: boolean
+  /** 记号：显示时单词前面加一个符号（符号是 settings.markSymbol） */
+  marked?: boolean
   createdAt: string
   updatedAt: string
 }

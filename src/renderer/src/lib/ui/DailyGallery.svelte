@@ -357,12 +357,21 @@
     wordHover.show(id, (e.currentTarget as HTMLElement).getBoundingClientRect())
   }
 
+  /** 当前这张有没有文字行：文字字体的字普遍比拉丁字母高，有就把横条放高一点 */
+  const hasScript = $derived.by(() => {
+    if (!slide || (slide.kind !== 'sentence' && slide.kind !== 'phrase')) return false
+    const src = sources[slide.source]
+    if (!src) return false
+    const sen = slide.kind === 'sentence' ? slide.sentence : phraseSentence(src, slide)
+    return scriptLines(src, sen, slide.kind).length > 0
+  })
+
   onDestroy(() => wordHover.hide(true))
 </script>
 
 {#if slide}
   {@const src = sources[slide.source]}
-  <div class="gallery" role="region" aria-label={t('welcome.galleryLabel')}>
+  <div class="gallery" class:tall={hasScript} role="region" aria-label={t('welcome.galleryLabel')}>
     {#key slide.key}
       <div
         class="slide"
@@ -442,9 +451,10 @@
     position: relative;
     width: 100%;
     height: 84px;
+    transition: height 0.2s;
     /* 开始页主栏是纵向 flex：内容比窗口高时（有恢复提示条、英文模板说明更长）会把这个 overflow:hidden 的块压扁 */
     flex-shrink: 0;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow: hidden;
@@ -457,12 +467,16 @@
     --tint-a: 18%;
     --tint-b: 16%;
   }
+  /* 多一行文字写法时高一点：84px 里塞三行，文字那行的字会顶到上边框 */
+  .gallery.tall {
+    height: 102px;
+  }
   .slide {
     position: absolute;
     inset: 0;
     display: flex;
     align-items: center;
-    padding: 0 56px;
+    padding: 8px 56px;
   }
   .content {
     position: relative;

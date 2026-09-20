@@ -38,7 +38,7 @@
   } from '$lib/importers/csvImport'
   import { posName } from '$lib/core/pos'
   import { customFieldTitle, findCustomField } from '$lib/core/customFields'
-  import { PREVIEW_LIMIT, scratchProject } from '$lib/importers/preview'
+  import { PREVIEW_LIMIT, scratchProject, type PreviewData } from '$lib/importers/preview'
   import Portal from './Portal.svelte'
   import ImportPreview from './ImportPreview.svelte'
   import { guideUrl } from '$lib/core/guide'
@@ -252,6 +252,27 @@
       morphemes: scratch.morphemes.slice(project.morphemes.length)
     }
   })
+
+  /** 测试台：敲的几行当数据行（表头按上面选好的那套映射），用同一份设置试导入 */
+  function testRows(text: string): PreviewData | null {
+    if (!mapping || !lemmaMapped) return null
+    const parsed = parseCsv(text, delimiter === 'auto' ? undefined : delimiter)
+    const data = parsed.rows.slice(0, PREVIEW_LIMIT)
+    if (!data.length) return null
+    const m = $state.snapshot(mapping) as CsvMapping
+    m.senseMarkers = effectiveMarkers()
+    m.posMarkers = effectivePosMarkers()
+    m.hasHeader = false
+    const scratch = scratchProject(project)
+    scratch.lexemes = [...project.lexemes]
+    scratch.morphemes = [...project.morphemes]
+    applyCsvImport(scratch, data, m)
+    return {
+      project: scratch,
+      lexemes: scratch.lexemes.slice(project.lexemes.length),
+      morphemes: scratch.morphemes.slice(project.morphemes.length)
+    }
+  }
 
   function run(): void {
     if (!mapping || !lemmaMapped) return
@@ -820,6 +841,8 @@
       morphemes={preview?.morphemes ?? []}
       duplicates={preview?.existing}
       source={fileName}
+      testParse={testRows}
+      testPlaceholder={t('importPreview.phCsv')}
     />
   {/if}
 </Portal>

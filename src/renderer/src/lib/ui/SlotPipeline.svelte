@@ -55,6 +55,9 @@
   ]
 
   let adding = $state(false)
+  let addBtn = $state<HTMLButtonElement | null>(null)
+  let menuStyle = $state('')
+  let menuEl = $state<HTMLDivElement | null>(null)
   /**
    * 「增加步骤」的菜单：鼠标移出按钮连同菜单的范围就收起。按钮和菜单之间有 4px 空隙，
    * 收起前等一小会儿，移到菜单上就取消，免得还没够着菜单它就没了。
@@ -69,6 +72,47 @@
     closeTimer = setTimeout(() => (adding = false), 250)
   }
   $effect(() => keepAdding)
+
+  /**
+   * 菜单挪到 <body> 底下再按按钮的位置定位：留在原地时它算槽位那个滚动容器的内容，
+   * 最底下那个槽位一点就把面板撑高、菜单跟着被推走，够不着。
+   */
+  function toBody(node: HTMLElement): { destroy(): void } {
+    document.body.appendChild(node)
+    return { destroy: () => node.remove() }
+  }
+  function openAdd(): void {
+    adding = !adding
+    if (!adding || !addBtn) return
+    const r = addBtn.getBoundingClientRect()
+    const h = (nest ? KINDS.length : KINDS.length - 1) * 28 + 10
+    // 下面放不下就翻到按钮上方
+    const below = r.bottom + 4 + h <= window.innerHeight - 8
+    const top = below ? r.bottom + 4 : Math.max(8, r.top - 4 - h)
+    menuStyle = `left:${Math.min(r.left, window.innerWidth - 150)}px;top:${top}px`
+  }
+  // 菜单不在原地了：Esc、点外面、滚动都得自己盯着
+  $effect(() => {
+    if (!adding) return
+    const down = (e: PointerEvent): void => {
+      const tg = e.target as Node
+      if (!menuEl?.contains(tg) && !addBtn?.contains(tg)) adding = false
+    }
+    const key = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') adding = false
+    }
+    const scrolled = (e: Event): void => {
+      if (!menuEl?.contains(e.target as Node)) adding = false
+    }
+    window.addEventListener('pointerdown', down, true)
+    window.addEventListener('keydown', key)
+    window.addEventListener('scroll', scrolled, true)
+    return () => {
+      window.removeEventListener('pointerdown', down, true)
+      window.removeEventListener('keydown', key)
+      window.removeEventListener('scroll', scrolled, true)
+    }
+  })
   /** 展开成多行的微调步骤 */
   let expanded = $state<string | null>(null)
 
@@ -315,23 +359,21 @@
     </div>
   {/each}
   <span class="arrow">→</span>
-  <div
-    class="add"
-    role="presentation"
-    onmouseenter={keepAdding}
-    onmouseleave={closeAddingSoon}
-    onfocusout={(e) => {
-      if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) adding = false
-    }}
-    onkeydown={(e) => {
-      if (e.key === 'Escape') adding = false
-    }}
-  >
-    <button class="btn ghost sm" onclick={() => (adding = !adding)}
+  <div class="add" role="presentation" onmouseenter={keepAdding} onmouseleave={closeAddingSoon}>
+    <button class="btn ghost sm" bind:this={addBtn} onclick={openAdd}
       ><Plus size={13} />{t('paradigms.addStep')}</button
     >
     {#if adding}
-      <div class="menu card">
+      <div
+        class="menu card"
+        bind:this={menuEl}
+        use:toBody
+        style={menuStyle}
+        role="menu"
+        tabindex="-1"
+        onmouseenter={keepAdding}
+        onmouseleave={closeAddingSoon}
+      >
         {#each nest ? KINDS : KINDS.filter((x) => x !== 'paradigm') as k (k)}
           <button onclick={() => add(k)}>{t(`paradigms.steps.${k}`)}</button>
         {/each}
@@ -404,10 +446,9 @@
     position: relative;
   }
   .menu {
-    position: absolute;
-    left: 0;
-    top: calc(100% + 4px);
-    z-index: 30;
+    position: fixed;
+    /* 比检视器、面板都高：挪到 body 底下之后不该被它们盖住 */
+    z-index: 300;
     display: flex;
     flex-direction: column;
     padding: 4px;

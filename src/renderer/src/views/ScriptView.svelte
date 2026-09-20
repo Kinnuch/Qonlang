@@ -45,6 +45,8 @@
   import { autoMappingRows, expandRules, lexemeScript } from '$lib/script/render'
   import { sentenceScriptText } from '$lib/script/lexiconScript'
   import { parseRuleText, runRules, type RuleProgram } from '$lib/engine/sca'
+  import { parseGlyphLines } from '$lib/importers/glyphLines'
+  import type { PreviewData } from '$lib/importers/preview'
   import { languageParseOptions } from '$lib/engine/phon'
   import Portal from '$lib/ui/Portal.svelte'
   import ImportPreview from '$lib/ui/ImportPreview.svelte'
@@ -145,16 +147,7 @@
   let pasteOpen = $state(false)
   let pasteText = $state('')
   /** 粘贴的字符表逐行拆开：字符、转写、名称 */
-  const pasteItems = $derived(
-    pasteText
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [char, value = '', ...rest] = line.split(/\t+| +/)
-        return { char, value, name: rest.join(' ') }
-      })
-  )
+  const pasteItems = $derived(parseGlyphLines(pasteText))
   /** 从字体读出来、还没导入的字形：先在检视器里看样例，确认了再连字体一起放进来 */
   let fontPending = $state.raw<{
     name: string
@@ -617,6 +610,14 @@
       glyphs: items.slice(0, 60).map((g) => ({ ...g, skip: have.has(g.char) }))
     }
   })
+  /** 测试台：敲的几行按同一套拆法认，已经有的照样标出来 */
+  function testGlyphs(text: string): PreviewData | null {
+    if (!script) return null
+    const items = parseGlyphLines(text)
+    if (!items.length) return null
+    const have = new Set(script.glyphs.map((g) => g.char))
+    return { glyphs: items.slice(0, 60).map((g) => ({ ...g, skip: have.has(g.char) })) }
+  }
   function importPaste(): void {
     mergeGlyphs(pasteItems)
     pasteText = ''
@@ -994,6 +995,8 @@
           ? `font-family:"${fontPending.previewFamily}",var(--font-script)`
           : fontFamilyCss(sc)}
         source={fontPending?.name ?? ''}
+        testParse={testGlyphs}
+        testPlaceholder={t('importPreview.phGlyphs')}
       />
     {:else if tab === 'glyphs' && glyph}
       {@const g = glyph}
