@@ -2309,6 +2309,64 @@ export default {
       warn: '警告'
     }
   },
+  /** 界面翻译（自带插件）：把软件里的文案逐条翻成自己的语言 */
+  uiTranslate: {
+    title: 'インターフェース翻訳',
+    pluginHint:
+      '画面の文言を一件ずつ並べて翻訳し、できあがったものをインターフェースの言語として使えます。',
+    builtin: '同梱プラグイン',
+    hint: '訳文はこのパソコンにだけ保存され、プロジェクトファイルには入りません。未訳の項目は基準言語で表示されます。',
+    add: '翻訳を新規作成',
+    name: '言語名',
+    namePlaceholder: '言語メニューに表示される名前',
+    base: '基準言語',
+    baseHint: '未訳の項目はこの言語で表示され、翻訳時の原文にも既定で使われます。',
+    script: '書くのに使う文字',
+    scriptHint:
+      'ラテン文字ならアプリの書体をそのまま使います。自分の文字を使うにはインストール済みのフォントを指定してください。',
+    scriptLatin: 'ラテン文字',
+    scriptCustom: '自分の文字',
+    font: 'フォント',
+    fontPlaceholder: 'フォントライブラリにあるフォント名',
+    rtl: '文字を右から左へ書く',
+    rtlHint: 'アラビア語と同じで、文字の流れだけが右から左になり、画面の配置は変わりません。',
+    created: '「{name}」を作成しました',
+    deleteConfirm: '翻訳「{name}」を削除しますか？',
+    use: 'これを使う',
+    empty:
+      '自分の翻訳はまだありません。「翻訳を新規作成」から始めるか、誰かが作ったものを読み込んでください。',
+    progress: '{total} 件中 {done} 件',
+    search: 'キー・原文・訳文を検索',
+    showSource: '原文の表示言語',
+    onlyTodo: '未訳だけ',
+    allGroups: 'すべて',
+    noneShown: '該当する項目はありません。',
+    more: 'ほかに {n} 件。検索か分類で絞り込んでください',
+    paramsOff: '訳文にもそのまま残してください：{list}',
+    imported: '「{name}」を読み込みました（訳文 {n} 件）',
+    importBad: 'これはインターフェース翻訳のファイルではありません',
+    untitled: '名称未設定の翻訳',
+    groups: {
+      app: 'アプリ本体',
+      common: '共通',
+      nav: 'ナビゲーション',
+      welcome: '開始ページ',
+      languages: '言語',
+      phonology: '音韻',
+      script: '文字体系',
+      soundChanges: '音変化',
+      morphemes: '形態素',
+      lexicon: '語彙',
+      paradigms: 'パラダイム',
+      corpus: 'コーパス',
+      phrasebook: 'フレーズ',
+      docs: 'ドキュメント',
+      skin: 'テーマ',
+      settings: '設定',
+      tour: 'ガイドツアー',
+      uiTranslate: 'インターフェース翻訳'
+    }
+  },
   settings: {
     search: '設定項目を検索',
     title: '設定',
@@ -2342,6 +2400,7 @@ export default {
     guideTourAlways:
       '「ユーザーガイド」を押すたびにガイドツアーを先に表示（オフのときは各モジュールで 1 回だけ自動再生）',
     plugins: {
+      builtin: '同梱',
       cat: 'プラグイン',
       title: 'インストール済みのプラグイン',
       hint: 'plugin.json と対応する JavaScript スクリプトが入ったプラグインのフォルダーを、下のディレクトリに置くと有効になります。',

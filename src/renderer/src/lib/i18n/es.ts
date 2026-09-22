@@ -2377,6 +2377,65 @@ export default {
       warn: 'Advertencia'
     }
   },
+  /** 界面翻译（自带插件）：把软件里的文案逐条翻成自己的语言 */
+  uiTranslate: {
+    title: 'Traducción de la interfaz',
+    pluginHint:
+      'Enumera todos los textos de la interfaz para que los traduzca y convierte el resultado en un idioma de la interfaz.',
+    builtin: 'Complemento incluido',
+    hint: 'Las traducciones se quedan en este ordenador y nunca entran en un archivo de proyecto; lo que no esté traducido se muestra en el idioma base.',
+    add: 'Nueva traducción',
+    name: 'Nombre del idioma',
+    namePlaceholder: 'El nombre que aparece en el menú de idiomas',
+    base: 'Idioma base',
+    baseHint:
+      'Los textos sin traducir se muestran en este idioma, que también es el texto original por defecto.',
+    script: 'Escrito con',
+    scriptHint:
+      'El alfabeto latino usa la fuente del programa; su propia escritura necesita una fuente instalada.',
+    scriptLatin: 'Alfabeto latino',
+    scriptCustom: 'Mi propia escritura',
+    font: 'Fuente',
+    fontPlaceholder: 'Una fuente de la biblioteca',
+    rtl: 'Se escribe de derecha a izquierda',
+    rtlHint: 'Como el árabe: solo el texto va de derecha a izquierda, la disposición no cambia.',
+    created: '«{name}» creada',
+    deleteConfirm: '¿Eliminar la traducción «{name}»?',
+    use: 'Usarla',
+    empty:
+      'Todavía no tiene ninguna traducción propia. Empiece una con «Nueva traducción» o importe la de otra persona.',
+    progress: '{done} de {total}',
+    search: 'Buscar claves, texto original o traducciones',
+    showSource: 'Texto original en',
+    onlyTodo: 'Solo sin traducir',
+    allGroups: 'Todo',
+    noneShown: 'Aquí no hay nada que coincida.',
+    more: '{n} más: acote con el buscador o una categoría',
+    paramsOff: 'Déjelo tal cual: {list}',
+    imported: '«{name}» importada con {n} textos',
+    importBad: 'Esto no es un archivo de traducción de la interfaz',
+    untitled: 'Traducción sin título',
+    groups: {
+      app: 'El programa',
+      common: 'General',
+      nav: 'Navegación',
+      welcome: 'Página de inicio',
+      languages: 'Lenguas',
+      phonology: 'Fonología',
+      script: 'Escritura',
+      soundChanges: 'Cambios fonéticos',
+      morphemes: 'Morfemas',
+      lexicon: 'Léxico',
+      paradigms: 'Paradigmas',
+      corpus: 'Corpus',
+      phrasebook: 'Frases',
+      docs: 'Documentos',
+      skin: 'Apariencia',
+      settings: 'Configuración',
+      tour: 'Guía ilustrada',
+      uiTranslate: 'Traducción de la interfaz'
+    }
+  },
   settings: {
     search: 'Buscar en la configuración',
     title: 'Configuración',
@@ -2412,6 +2471,7 @@ export default {
     guideTourAlways:
       'Ver el recorrido guiado cada vez que se pulsa «Guía de uso» (si está desactivado, cada módulo solo lo muestra una vez)',
     plugins: {
+      builtin: 'Incluido',
       cat: 'Complementos',
       title: 'Complementos instalados',
       hint: 'Coloque en la carpeta de abajo la carpeta del complemento, con su plugin.json y el script de JavaScript correspondiente, y quedará activo.',

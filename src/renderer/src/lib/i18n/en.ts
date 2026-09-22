@@ -2345,6 +2345,63 @@ const en: Dict = {
       warn: 'Warning'
     }
   },
+  /** 界面翻译（自带插件）：把软件里的文案逐条翻成自己的语言 */
+  uiTranslate: {
+    title: 'Interface translation',
+    pluginHint:
+      'Lists every string in the interface so you can translate it, and makes the result an interface language.',
+    builtin: 'Built in',
+    hint: "Translations stay on this computer and never go into a project file; anything you haven't translated falls back to the base language.",
+    add: 'New translation',
+    name: 'Language name',
+    namePlaceholder: 'The name shown in the language menu',
+    base: 'Base language',
+    baseHint: 'Untranslated strings show in this language, which is also the default source text.',
+    script: 'Written in',
+    scriptHint: 'Latin letters use the app font; your own script needs an installed font.',
+    scriptLatin: 'Latin letters',
+    scriptCustom: 'My own script',
+    font: 'Font',
+    fontPlaceholder: 'A font from the font library',
+    rtl: 'Written right to left',
+    rtlHint: 'Like Arabic: only the text runs right to left, the layout stays as it is.',
+    created: '“{name}” created',
+    deleteConfirm: 'Delete the translation “{name}”?',
+    use: 'Use it',
+    empty:
+      'No translation of your own yet. Start one with “New translation”, or import somebody else’s.',
+    progress: '{done} of {total} done',
+    search: 'Search keys, source text or translations',
+    showSource: 'Source text in',
+    onlyTodo: 'Only untranslated',
+    allGroups: 'All',
+    noneShown: 'Nothing here matches.',
+    more: '{n} more — narrow it down with the search box or a category',
+    paramsOff: 'Keep these as they are: {list}',
+    imported: '“{name}” imported with {n} strings',
+    importBad: 'Not an interface translation file',
+    untitled: 'Untitled translation',
+    groups: {
+      app: 'The app itself',
+      common: 'Common',
+      nav: 'Navigation',
+      welcome: 'Start page',
+      languages: 'Languages',
+      phonology: 'Phonology',
+      script: 'Script',
+      soundChanges: 'Sound changes',
+      morphemes: 'Morphemes',
+      lexicon: 'Lexicon',
+      paradigms: 'Paradigms',
+      corpus: 'Corpus',
+      phrasebook: 'Phrasebook',
+      docs: 'Docs',
+      skin: 'Theme',
+      settings: 'Settings',
+      tour: 'Guided tour',
+      uiTranslate: 'Interface translation'
+    }
+  },
   settings: {
     search: 'Search settings',
     title: 'Settings',
@@ -2378,6 +2435,7 @@ const en: Dict = {
     guideTourAlways:
       'Show the guided tour every time “Guide” is clicked (otherwise once per module)',
     plugins: {
+      builtin: 'Built in',
       cat: 'Plugins',
       title: 'Installed plugins',
       hint: "One folder each (plugin.json + an entry js) in the folder below. Plugins run with the same privileges as the app — read the code before installing someone else's.",

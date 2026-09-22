@@ -28,9 +28,9 @@
   import { transcribe } from '$lib/core/pronounce'
   import { textScript } from '$lib/script/lexiconScript'
   import { fontCss } from '$lib/script/fonts'
-  import { analyzeSentence } from '$lib/engine/gloss'
+  import { analyzeSentence, analyzeToken, glossIndexFor } from '$lib/engine/gloss'
   import { WordResolver } from '$lib/engine/gloss/resolve'
-  import { spanTokens, tokensMatchText } from '$lib/engine/gloss/tokens'
+  import { spanTokens, tokenSpans, tokensMatchText } from '$lib/engine/gloss/tokens'
   import { rewriteWordInText, tokenizeOptionsFor, writeChoice } from '$lib/engine/gloss/assign'
   import {
     wordHover,
@@ -47,6 +47,7 @@
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { sortable } from '$lib/ui/sortable.svelte'
   import { moveById } from '$lib/core/move'
+  import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -138,20 +139,63 @@
     freshTokens.set(p.id, { key, tokens })
     return tokens
   }
-  /** 画一条短语要的东西：分析，加上原文切成的段（每一段指着第几个分析） */
+  /**
+   * 画一条短语要的东西：原文切成的段，能拿到分析的话每一段还指着第几个分析。
+   * **列表里不整句分析**——一屏几十条短语，每条都 analyzeSentence 进页面要卡近一秒；
+   * 存过分析的短语直接用存的（不花钱），其余只按写法逐词判断能不能点（`tokenOf` 一个写法只算一次），
+   * 真要整句分析（悬浮、改词）时才现算那一条。
+   */
   function phraseView(p: Phrase): {
-    tokens: Token[]
+    tokens: Token[] | null
     spans: { text: string; word: boolean; at: number }[]
   } {
-    const tokens = tokensOf(p)
+    const opts = tokenizeOptionsFor(project, p.languageId)
+    const own = ownTokens(p)
+    if (own)
+      return {
+        tokens: own,
+        spans: spanTokens(
+          p.text,
+          own.map((t) => t.surface),
+          opts
+        )
+      }
+    // 没存过分析：at 是「第几个词」，悬浮时再换算成第几个分析
+    let wi = -1
     return {
-      tokens,
-      spans: spanTokens(
-        p.text,
-        tokens.map((t) => t.surface),
-        tokenizeOptionsFor(project, p.languageId)
-      )
+      tokens: null,
+      spans: tokenSpans(p.text, opts).map((s) => ({ ...s, at: s.word ? ++wi : -1 }))
     }
+  }
+  /** 同一个写法只分析一次：列表里每个词都要判断能不能点，不能为此把整句分析一遍 */
+  let tokenCache: { key: string; m: Map<string, Token> } | null = null
+  function tokenOf(word: string, languageId: Id): Token {
+    const key = languageId + '|' + project.meta.updatedAt
+    if (tokenCache?.key !== key) tokenCache = { key, m: new Map() }
+    let tk = tokenCache.m.get(word)
+    if (!tk) {
+      const analyses = analyzeToken(
+        glossIndexFor(project, languageId),
+        word,
+        project.settings.morphemeBoundaries
+      )
+      const i = analyses.findIndex((a) => a.lexemeId)
+      tk = { surface: word, analyses, chosen: Math.max(0, i), confirmed: false }
+      tokenCache.m.set(word, tk)
+    }
+    return tk
+  }
+  /** 现算这条短语的整句分析，并把「第几个词」换算成「第几个分析」（带空格的词形并成了一个） */
+  function analyzeAtWord(p: Phrase, wordIndex: number): { tokens: Token[]; at: number } {
+    const tokens = tokensOf(p)
+    const spans = spanTokens(
+      p.text,
+      tokens.map((t) => t.surface),
+      tokenizeOptionsFor(project, p.languageId)
+    )
+    let wi = -1
+    for (const s of spans) if (s.word && ++wi === wordIndex) return { tokens, at: s.at }
+    return { tokens, at: -1 }
   }
   /** 第一次在这条短语上改词：把现算的那份分析存进短语，往后以存的为准 */
   function storeTokens(p: Phrase): Token[] {
@@ -171,7 +215,25 @@
       tokens: p.tokens
     }).tokens
   }
-  const linkable = (tk: Token | undefined): boolean => !!tk && resolver().linkable(tk)
+  /**
+   * 认词要先把整份词库的索引建起来（大项目几百毫秒），进页面时先别做：
+   * 列表照样立刻画出来，空下来再补上下划线。悬浮、点词不等这个，该建的时候就地建。
+   */
+  let linksReady = $state(false)
+  $effect(() => {
+    const idle = requestIdleCallback(() => (linksReady = true), { timeout: 400 })
+    return () => cancelIdleCallback(idle)
+  })
+  /** 这一段能不能点：有分析就按分析判断，没有就按写法现查一个词 */
+  function spanLinkable(
+    p: Phrase,
+    tokens: Token[] | null,
+    sp: { text: string; at: number }
+  ): boolean {
+    if (!linksReady) return false
+    const tk = tokens ? tokens[sp.at] : tokenOf(sp.text, p.languageId)
+    return !!tk && resolver().linkable(tk)
+  }
   /**
    * 悬浮卡里挑中了一个词条 / 语素 / 切法：写进这条短语自己的分析，原文不动。
    * 勾了「同时改原文」的才连原文一起换，发音跟着重算（手改成不规则的不动）。
@@ -199,7 +261,14 @@
       onAssign: (index, c) => assignWord(id, at, surface, index, c)
     }
   }
-  function hoverWord(e: MouseEvent, p: Phrase, tokens: Token[], at: number): void {
+  /**
+   * 悬浮到一个词上：这时才需要整句分析。列表里没分析过的（`tokens` 为 null），
+   * `spanAt` 是「第几个词」，现算一遍再换算成第几个分析。
+   */
+  function hoverWord(e: MouseEvent, p: Phrase, listTokens: Token[] | null, spanAt: number): void {
+    const { tokens, at } = listTokens
+      ? { tokens: listTokens, at: spanAt }
+      : analyzeAtWord(p, spanAt)
     const tk = tokens[at]
     if (!tk) return
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -213,7 +282,13 @@
     else if (target?.morphemeId) wordHover.showMorpheme(target.morphemeId, rect, parts, assign)
     else wordHover.showMissing(tk.surface, null, rect, parts, assign)
   }
-  function clickWord(e: MouseEvent, tk: Token | undefined): void {
+  function clickWord(
+    e: MouseEvent,
+    p: Phrase,
+    tokens: Token[] | null,
+    sp: { text: string; at: number }
+  ): void {
+    const tk = tokens ? tokens[sp.at] : tokenOf(sp.text, p.languageId)
     const target = tk ? resolver().resolveWord(tk) : null
     if (!target) return
     e.stopPropagation()
@@ -269,8 +344,20 @@
     category = ''
     ui.search = ''
     selectedId = id
-    void scrollToItem('phrasebook', `.item[data-id="${id}"]`).then(() => flash(id))
+    void scrollToItem('phrasebook', `.item[data-id="${id}"]`, () => {
+      const i = list.findIndex((x) => x.id === id)
+      if (i >= 0) lz.ensure(i + 1)
+    }).then(() => flash(id))
   }
+  // 分批渲染：先画一屏，滚到快见底了再画下一批（短语一多，进页面整份重画会卡一下）
+  const lz = lazy(20)
+  let lastCount = -1
+  $effect(() => {
+    const n = list.length
+    if (n === lastCount) return
+    lastCount = n
+    lz.reset()
+  })
   /** 滚到了再闪：高亮从头到尾都看得见 */
   function flash(id: Id): void {
     flashId = id
@@ -450,7 +537,7 @@
           <p class="muted">{t('phrasebook.empty')}</p>
         {:else}
           <div class="list">
-            {#each list as p, pi (p.id)}
+            {#each list.slice(0, lz.shown) as p, pi (p.id)}
               {@const view = phraseView(p)}
               <div
                 class="card item"
@@ -479,12 +566,12 @@
                   <span class="data text grow words"
                     >{#each view.spans as sp, i (i)}{#if sp.word}<span
                           class="w"
-                          class:link={linkable(view.tokens[sp.at])}
+                          class:link={spanLinkable(p, view.tokens, sp)}
                           role="link"
                           tabindex="-1"
                           onmouseenter={(e) => hoverWord(e, p, view.tokens, sp.at)}
                           onmouseleave={() => wordHover.hide()}
-                          onclick={(e) => clickWord(e, view.tokens[sp.at])}
+                          onclick={(e) => clickWord(e, p, view.tokens, sp)}
                           onkeydown={() => {}}>{sp.text}</span
                         >{:else}{sp.text}{/if}{/each}{#if !p.text}—{/if}</span
                   >
@@ -501,6 +588,7 @@
                   </div>{/if}
               </div>
             {/each}
+            {#if list.length > lz.shown}<div class="more-mark" use:lazyMore={lz}></div>{/if}
           </div>
         {/if}
       </div>
@@ -699,6 +787,9 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+  .more-mark {
+    height: 1px;
   }
   .item {
     padding: 8px 12px;

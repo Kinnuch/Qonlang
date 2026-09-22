@@ -29,7 +29,8 @@
     Redo2,
     RotateCw,
     Copy,
-    Sparkles
+    Sparkles,
+    Languages as LanguagesIcon
   } from '@lucide/svelte'
   import { refreshPage } from '$lib/ui/refresh'
   import { chars } from '$lib/state/chars.svelte'
@@ -48,6 +49,8 @@
   import SearchBar from '$lib/ui/SearchBar.svelte'
   import { searchMark } from '$lib/ui/searchMark'
   import PluginViews from '$lib/plugins/PluginViews.svelte'
+  import UiTranslate from './UiTranslate.svelte'
+  import { BUILTIN_PLUGINS } from '$lib/plugins/builtin'
   const pluginPages = $derived(
     pluginRegistry.views.filter((v) => v.item.where === 'page').map((v) => v.item)
   )
@@ -67,6 +70,7 @@
   import Placeholder from './Placeholder.svelte'
 
   const icons: Record<Section, Component<{ size?: number }>> = {
+    uiTranslate: LanguagesIcon,
     languages: Globe,
     phonology: AudioLines,
     script: PenTool,
@@ -261,6 +265,17 @@
         <span class="nav-label">{t(`nav.${s}`)}</span>
       </button>
     {/each}
+    {#each BUILTIN_PLUGINS.filter((b) => ui.builtinOn(b.id)) as b (b.id)}
+      <button
+        class="nav-btn"
+        class:active={ui.section === b.section}
+        title={t(b.nameKey)}
+        onclick={() => ui.go(b.section)}
+      >
+        <LanguagesIcon size={20} />
+        <span class="nav-label">{t(b.nameKey)}</span>
+      </button>
+    {/each}
     {#each pluginPages as pv (pv.id)}
       <button
         class="nav-btn"
@@ -437,6 +452,8 @@
           <SoundChanges bind:inspectorTitle />
         {:else if ui.section === 'script'}
           <ScriptView bind:inspectorTitle bind:inspectorTitleStyle />
+        {:else if ui.section === 'uiTranslate'}
+          <UiTranslate bind:inspectorTitle />
         {:else if ui.section === 'phonology'}
           <Phonology bind:inspectorTitle />
         {:else if ui.section === 'paradigms'}

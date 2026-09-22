@@ -26,6 +26,7 @@
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { filterRows } from '$lib/ui/filterRows'
   import { pluginHost } from '$lib/plugins/host.svelte'
+  import { BUILTIN_PLUGINS } from '$lib/plugins/builtin'
   import { mcpTools } from '$lib/mcp/tools'
   import { mcpLog } from '$lib/mcp/bridge.svelte'
   import { pluginRegistry } from '$lib/plugins/registry.svelte'
@@ -273,6 +274,28 @@
         />
       </h3>
       <p class="small muted">{t('settings.plugins.hint')}</p>
+      <!-- 自带插件：跟着软件发，不用装，勾上才出现（默认都不勾） -->
+      <ul class="plugins">
+        {#each BUILTIN_PLUGINS as b (b.id)}
+          <li class="card plugin">
+            <label class="row check">
+              <input
+                type="checkbox"
+                checked={ui.builtinOn(b.id)}
+                onchange={(e) =>
+                  void ui.setBuiltin(
+                    b.id,
+                    (e.currentTarget as HTMLInputElement).checked,
+                    b.section
+                  )}
+              />
+              <strong>{t(b.nameKey)}</strong>
+              <span class="badge">{t('settings.plugins.builtin')}</span>
+            </label>
+            <p class="small muted">{t(b.hintKey)}</p>
+          </li>
+        {/each}
+      </ul>
       <div class="row wrap plugin-acts" data-tour="plugins-acts">
         <button class="btn sm" onclick={() => void platform.openPluginsFolder()}
           ><FolderOutput size={13} />{t('settings.plugins.openFolder')}</button

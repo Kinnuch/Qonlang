@@ -3,7 +3,7 @@
    * 「应用」这一档设置（界面、保存与启动、更新、显示）：跟项目无关，所以设置页和开始页都用它。
    */
   import { ui } from '$lib/state/ui.svelte'
-  import { t, LOCALES } from '$lib/i18n/index.svelte'
+  import { t, localeOptions } from '$lib/i18n/index.svelte'
   import { Eye, Palette, RefreshCw, Save } from '@lucide/svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { filterRows } from '$lib/ui/filterRows'
@@ -21,7 +21,7 @@
           bind:value={ui.prefs.locale}
           onchange={() => ui.savePrefs()}
         >
-          {#each LOCALES as l (l.code)}<option value={l.code}>{l.label}</option>{/each}
+          {#each localeOptions() as l (l.code)}<option value={l.code}>{l.label}</option>{/each}
         </select>
       </div>
       <div class="field">

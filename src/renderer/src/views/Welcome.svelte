@@ -14,7 +14,7 @@
   import { platform, type RecentEntry } from '$lib/platform'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
-  import { i18n, t, pickText, LOCALES } from '$lib/i18n/index.svelte'
+  import { i18n, t, pickText, localeOptions } from '$lib/i18n/index.svelte'
   import type { ProjectTemplate } from '$lib/core/model'
   import { createLanguage } from '$lib/core/factory'
   import { mdToHtml } from '$lib/core/markdown'
@@ -604,7 +604,7 @@
           </div>
         {:else if footerPanel === 'locale'}
           <div class="card panel picks">
-            {#each LOCALES as l (l.code)}
+            {#each localeOptions() as l (l.code)}
               <button
                 class="btn"
                 class:active={ui.prefs.locale === l.code}
@@ -798,10 +798,11 @@
   .wordmark.en :global(svg) {
     height: 27px;
   }
-  /* 英文字标下面约三分之一是 g 的下伸，算进高度字就显得靠上：让它伸进副标题的行距里，
-     整块跟中文一样高（字顶、副标题底离图标上下沿各 1.5px） */
+  /* 英文字标（中文以外都用它）下面约三分之一是 g 的下伸。原来靠负边距把它塞进副标题的行距里，
+     可日文、韩文、俄文、阿拉伯文这些字的上沿比拉丁字母高，副标题就顶到字标上了；
+     现在留 2px，各种文字下面看着的空当都跟中文那版差不多 */
   .wordmark.en {
-    margin-bottom: -4px;
+    margin-bottom: 2px;
   }
   .actions {
     display: flex;

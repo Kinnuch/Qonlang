@@ -87,12 +87,22 @@ body {
 }
 
 body {
-  font-family: var(--font-ui);
+  /* --font-ui-locale：自己翻的界面语言可以指定用哪套字（用自造文字写界面时） */
+  font-family: var(--font-ui-locale, var(--font-ui));
   font-size: 14px;
   line-height: 1.5;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * 阿拉伯语这类从右往左写的界面语言：**只让文字本身**按正确方向排——每一段按它第一个
+ * 有方向的字符定（跟 dir="auto" 一个效果），阿拉伯语的句子从右往左，里面夹的拉丁字母和
+ * 数字照旧从左往右。页面布局不翻：导航还在左边、检视器还在右边。
+ */
+:root[data-rtl-text] body *:not(svg):not(svg *) {
+  unicode-bidi: plaintext;
 }
 
 #app {

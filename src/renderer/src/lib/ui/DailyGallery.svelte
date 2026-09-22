@@ -217,20 +217,22 @@
     at = (at + step + slides.length) % slides.length
   }
 
-  /** 每张一种渐变：按这张的 key 挑，跟着主题的面板底色调深浅 */
-  const GRADIENTS: [string, string][] = [
-    ['var(--accent)', '#7c6cf2'],
-    ['#f59e0b', '#ec4899'],
-    ['#0ea5e9', 'var(--accent)'],
-    ['#84cc16', '#0ea5e9'],
-    ['#f43f5e', '#8b5cf6'],
-    ['#14b8a6', '#f59e0b']
-  ]
+  /**
+   * 每张一种渐变，但**只在当前主题的主色调附近摆动**：两个色标都是 `--accent` 转一点色相，
+   * 换皮肤就跟着换，整个界面看着是一套。摆多少按这张的 key 定（同一张每次打开都一样）。
+   */
+  const HUE_SPAN = 14
   function gradientOf(key: string): string {
     let h = 0
     for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0
-    const [a, b] = GRADIENTS[h % GRADIENTS.length]
-    return `background: linear-gradient(115deg, color-mix(in srgb, ${a} var(--tint-a), var(--bg-elev)), color-mix(in srgb, ${b} var(--tint-b), var(--bg-elev)))`
+    /** 把散列摊到 ±span 度 */
+    const swing = (n: number, span: number): number => (n % (span * 2 + 1)) - span
+    const a = swing(h, HUE_SPAN)
+    // 第二个色标再往同一侧偏开一截，渐变才有层次，又不会跑出主色调
+    const b = a + 18 + swing(h >>> 7, 6)
+    const stop = (deg: number, tint: string, light: string): string =>
+      `color-mix(in srgb, hsl(from var(--accent) calc(h + ${deg}) s calc(l * ${light})) ${tint}, var(--bg-elev))`
+    return `background: linear-gradient(115deg, ${stop(a, 'var(--tint-a)', '1')}, ${stop(b, 'var(--tint-b)', '1.06')})`
   }
 
   // ───── 悬浮词卡：用读进来的项目查，底部按钮先打开那个项目 ─────

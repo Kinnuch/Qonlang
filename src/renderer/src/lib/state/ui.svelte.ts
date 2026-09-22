@@ -1,6 +1,6 @@
 import type { DupPair } from '$lib/core/sentenceDedup'
 import { platform, DEFAULT_PREFS, type Prefs } from '$lib/platform'
-import { i18n, type LocaleCode } from '$lib/i18n/index.svelte'
+import { i18n } from '$lib/i18n/index.svelte'
 import { applySkin } from '$lib/skin/apply'
 import { DEFAULT_SKIN, EMPTY_FONTS } from '$lib/skin/presets'
 import { sizesFromScales } from '$lib/ui/cardBlocks'
@@ -18,6 +18,8 @@ export type Section =
   | 'docs'
   | 'skin'
   | 'settings'
+  /** 自带插件「界面翻译」开着时才出现在导航里（所以不在 SECTIONS 里） */
+  | 'uiTranslate'
 
 export const SECTIONS: Section[] = [
   'languages',
@@ -391,7 +393,11 @@ class UiState {
       void this.savePrefs()
     }
     this.prefs.inspectorAuto ??= true
-    i18n.locale = this.prefs.locale as LocaleCode
+    if (!Array.isArray(this.prefs.builtinPlugins)) this.prefs.builtinPlugins = []
+    if (!Array.isArray(this.prefs.uiLocales)) this.prefs.uiLocales = []
+    // 自己翻的界面语言要先交给 i18n，下一行按 prefs.locale 切过去时才认得它
+    i18n.setCustomLocales($state.snapshot(this.prefs.uiLocales))
+    i18n.locale = this.prefs.locale
     this.prefsLoaded = true
     this.applyTheme()
   }
@@ -433,9 +439,23 @@ class UiState {
   }
 
   async savePrefs(): Promise<void> {
-    i18n.locale = this.prefs.locale as LocaleCode
+    i18n.setCustomLocales($state.snapshot(this.prefs.uiLocales ?? []))
+    i18n.locale = this.prefs.locale
     this.applyTheme()
     await platform.setPrefs($state.snapshot(this.prefs))
+  }
+
+  /** 自带插件开着没有（默认都不开） */
+  builtinOn(id: string): boolean {
+    return (this.prefs.builtinPlugins ?? []).includes(id)
+  }
+  /** 勾上 / 取消一个自带插件；关掉时正待在它那一页就回语言页 */
+  async setBuiltin(id: string, on: boolean, section?: Section): Promise<void> {
+    const set = new Set(this.prefs.builtinPlugins ?? [])
+    on ? set.add(id) : set.delete(id)
+    this.prefs.builtinPlugins = [...set]
+    if (!on && section && this.section === section) this.go('languages')
+    await this.savePrefs()
   }
 
   applyTheme(): void {

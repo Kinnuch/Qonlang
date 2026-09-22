@@ -1,4 +1,5 @@
 import type { Skin, UserSkinPreset } from '$lib/skin/presets'
+import type { CustomLocale } from '$lib/i18n/index.svelte'
 
 export type MenuAction = 'save' | 'saveAs' | 'open' | 'undo' | 'redo' | 'palette' | 'chars' | 'back'
 /**
@@ -86,6 +87,10 @@ export interface Prefs {
   mcpConfirmWrites?: boolean
   /** 关掉的插件 id（其余的启动时自动载入） */
   disabledPlugins?: string[]
+  /** 打开了哪几个自带插件（默认一个都不开，见 lib/plugins/builtin.ts） */
+  builtinPlugins?: string[]
+  /** 自己翻出来的界面语言（「界面翻译」自带插件做的，只存在这台机器上） */
+  uiLocales?: CustomLocale[]
   /** 点「使用指南」时每次都先看图文引导（关着时每个模块只自动讲一次） */
   guideTourAlways: boolean
   /** 已经讲过图文引导的模块 */

@@ -2382,6 +2382,65 @@ export default {
       warn: 'Avertissement'
     }
   },
+  /** 界面翻译（自带插件）：把软件里的文案逐条翻成自己的语言 */
+  uiTranslate: {
+    title: 'Traduction de l’interface',
+    pluginHint:
+      'Liste chaque texte de l’interface pour que vous le traduisiez, puis en fait une langue d’interface.',
+    builtin: 'Extension intégrée',
+    hint: 'Les traductions restent sur cet ordinateur et n’entrent jamais dans un fichier de projet ; ce qui n’est pas traduit s’affiche dans la langue de base.',
+    add: 'Nouvelle traduction',
+    name: 'Nom de la langue',
+    namePlaceholder: 'Le nom affiché dans le menu des langues',
+    base: 'Langue de base',
+    baseHint:
+      'Les textes non traduits s’affichent dans cette langue, qui sert aussi de texte source par défaut.',
+    script: 'Écrite avec',
+    scriptHint:
+      'L’alphabet latin utilise la police de l’application ; votre propre écriture demande une police installée.',
+    scriptLatin: 'Alphabet latin',
+    scriptCustom: 'Mon écriture',
+    font: 'Police',
+    fontPlaceholder: 'Une police de la bibliothèque',
+    rtl: 'Écrite de droite à gauche',
+    rtlHint: 'Comme l’arabe : seul le texte va de droite à gauche, la disposition ne change pas.',
+    created: '« {name} » créée',
+    deleteConfirm: 'Supprimer la traduction « {name} » ?',
+    use: 'L’utiliser',
+    empty:
+      'Pas encore de traduction à vous. Commencez-en une avec « Nouvelle traduction », ou importez celle de quelqu’un d’autre.',
+    progress: '{done} sur {total}',
+    search: 'Rechercher une clé, un texte source ou une traduction',
+    showSource: 'Texte source en',
+    onlyTodo: 'Non traduits seulement',
+    allGroups: 'Tout',
+    noneShown: 'Rien ne correspond ici.',
+    more: '{n} de plus — affinez avec la recherche ou une catégorie',
+    paramsOff: 'À garder tel quel : {list}',
+    imported: '« {name} » importée, {n} textes',
+    importBad: 'Ce n’est pas un fichier de traduction de l’interface',
+    untitled: 'Traduction sans titre',
+    groups: {
+      app: 'L’application',
+      common: 'Général',
+      nav: 'Navigation',
+      welcome: 'Page d’accueil',
+      languages: 'Langues',
+      phonology: 'Phonologie',
+      script: 'Écriture',
+      soundChanges: 'Changements phonétiques',
+      morphemes: 'Morphèmes',
+      lexicon: 'Lexique',
+      paradigms: 'Paradigmes',
+      corpus: 'Corpus',
+      phrasebook: 'Expressions',
+      docs: 'Documents',
+      skin: 'Thème',
+      settings: 'Paramètres',
+      tour: 'Visite guidée',
+      uiTranslate: 'Traduction de l’interface'
+    }
+  },
   settings: {
     search: 'Rechercher un paramètre',
     title: 'Paramètres',
@@ -2417,6 +2476,7 @@ export default {
     guideTourAlways:
       'Passer par la « Visite guidée » à chaque clic sur « Guide d’utilisation » (une fois désactivé, chaque module ne la présente qu’une fois)',
     plugins: {
+      builtin: 'Intégrée',
       cat: 'Extensions',
       title: 'Extensions installées',
       hint: 'Placez dans le dossier ci-dessous un dossier d’extension contenant un fichier plugin.json et le script JavaScript correspondant : l’extension sera alors active.',
