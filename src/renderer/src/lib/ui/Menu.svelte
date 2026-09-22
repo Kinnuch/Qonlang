@@ -12,7 +12,8 @@
     children,
     primary = false,
     small = false,
-    wide = false
+    wide = false,
+    tour = ''
   }: {
     label: string
     icon?: Component<{ size?: number }>
@@ -20,6 +21,8 @@
     primary?: boolean
     small?: boolean
     wide?: boolean
+    /** 图文引导要圈这个菜单时给它一个记号（落成 data-tour） */
+    tour?: string
   } = $props()
 
   let open = $state(false)
@@ -56,7 +59,7 @@
   }
 </script>
 
-<div class="menu" bind:this={root}>
+<div class="menu" bind:this={root} data-tour={tour || null}>
   <button class="btn" class:primary class:sm={small} class:active={open} onclick={toggle}>
     {#if Icon}<Icon size={small ? 14 : 16} />{/if}{label}<ChevronDown size={12} class="chev" />
   </button>

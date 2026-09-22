@@ -948,74 +948,121 @@ const en: Dict = {
     always: 'Show this guided tour every time I click “Guide”',
     steps: {
       welcome: [
-        'Start page: create a project, open an existing one, or try the two bundled examples.',
-        'Starter templates: a blank single language, or a family with a proto-language and daughters.',
+        'Start page: create a project, open an existing one, or try the bundled examples.',
+        'Two starter templates: a blank single language to start from scratch, or a family that creates a proto-language and its daughters in one go.',
         'Recently opened projects are listed here — one click and you are back where you left off.',
+        'The little games quiz you on one language of a project — flashcards and the like, to drill the words you made. They only read the project; nothing in it is changed.',
+        'These three buttons switch the interface language, personalise the look, and open the app settings. None of them belong to a project, so they work before anything is open.',
         'Along the bottom: user guide, changelog, rule syntax and credits. Rule syntax is always there to look things up.',
-        'Once a project is open, remember the open-book button at the top right — “Rule syntax”: sound changes, paradigms, scripts and allomorph environments are all explained there. The “User guide” beside each page title walks you through that page first.'
+        'Click here for “Rule syntax”: sound changes, paradigms, scripts and allomorph environments are all explained there. Once a project is open it sits at the top right of the window.'
       ],
       languages: [
         'The Languages page lists every language in the project as a family tree.',
         'Each card is a language; daughters are indented under their parent. Click a card to edit its name, alphabet and dialects in the inspector.',
-        'Create a language; to add a daughter language, use the “+” on a card.',
+        'Click here to add a language beside the existing ones.',
+        'To add a daughter language, use the “+” on a card.',
+        'Click here to create a family, branch or group node that gathers several languages; select the node and the statistics of that group appear below.',
+        'Switch between list and tree here: the list indents daughters under their parent, the tree draws the whole pedigree with connecting lines.',
+        'Use the compare button on a card: pick two languages and their phonemes, lexicon and paradigms are listed side by side.',
         'The “current language” in the top bar decides whose data other modules show; pick “All languages” for the whole project.'
       ],
       phonology: [
         'Phonology is split into phonemes, classes, orthography, syllables and phonotactics — switch here.',
         'The inventory is grouped into consonants and vowels; click a phoneme to edit its features and spellings in the inspector.',
-        'The inspector on the right holds the detailed settings of whatever is selected; drag to resize it.'
+        'This is the IPA chart: click a symbol to add it to the inventory above. Non-pulmonic and other symbols are listed under the table.',
+        'The inspector on the right holds the detailed settings of whatever is selected; drag to resize it.',
+        'Classes give a group of phonemes a shared name, which sound-change, phonotactic and allomorph rules can then refer to.',
+        'Orthography converts between spelling and phonemes: switch direction above, edit the rules one by one or write them all at once in source view. A language may have several orthographies.',
+        'Syllabification and its template live here, together with suprasegmentals such as stress and tone; syllable breaks and stress placement of entries follow these settings.',
+        'Phonotactics says which sounds may appear in the onset, nucleus and coda, and which combinations are forbidden; existing entries can then be checked against it.',
+        'The word generator builds candidate forms from the syllable template and phonotactics — choose how many and how long, and send the keepers straight to the lexicon.'
       ],
       script: [
         'Each script of this language has its own bookmark tab.',
         'Create a new script.',
         'Glyphs, mapping rules and preview: enter glyphs first, then rules from transcription to script, then check the result.',
-        'Click a glyph to edit its character and value; after importing a font file, assign it to this script under Skin so the boxes turn into glyphs.'
+        'Glyphs can be added one by one, imported from a font file, pasted in bulk from text, or drawn by hand on the pad.',
+        'Click a glyph to edit its character and value; after importing a font file, assign it to this script under Skin so the boxes turn into glyphs.',
+        'The mapping rules turn transcription into this script. Writing @glyphs applies every pair registered in the glyph table at once; the remaining rules handle ligatures, variants and other special cases.',
+        'The preview re-renders lexicon entries and corpus sentences in this script, so you can see whether the rules work.'
       ],
       soundChanges: [
         'Each sound-change rule set gets a bookmark tab — e.g. the whole chain from a proto-language to a daughter.',
         'The rule list: one change per line, lines starting with -* mark stages; you can also switch to the chain graph or source.',
         'List / chain / source views and the lexicon evolution entry live on this bar.',
+        'This is the chain graph: one column per stage, so you can follow what a sound became; clicking a node jumps to that rule in the list.',
+        'Click here for lexicon evolution: run a whole language through this rule set and write the results into the daughter language.',
         'Type test words in the inspector to see every step as you edit the rules.'
       ],
       morphemes: [
+        'Click here to add a morpheme. Morphemes hold roots, affixes and the like, ready to be referenced by etymologies and paradigms.',
         'Search from the top bar by form, gloss or meaning.',
         'Click a column name to sort (descending → ascending → off), use the funnel to filter; the leftmost button toggles custom order.',
-        'View and edit modes: browse in view mode, switch to edit to change data.'
+        'View and edit modes: browse in view mode, switch to edit to change data.',
+        'Select a morpheme to enter its gloss, meaning, etymology and allomorphs in the inspector; allomorphs describe how it is written in different environments.',
+        'Click here to import morphemes from a table or export the whole list; an import is previewed in the inspector before anything is written.',
+        'Switch between entries and statistics here: statistics sum up how many morphemes there are and how complete their glosses, meanings and etymologies are.'
       ],
       lexicon: [
         'Search from the top bar by word, definition, inflected form or pronunciation.',
         'Sort and filter from the header; “Columns” chooses which columns show, and widths can be dragged.',
         'Entries / parts of speech & dimensions / statistics: parts of speech, grammatical dimensions and stem slots are defined in the second tab.',
-        'Select an entry to view or edit its senses, etymology and inflected forms in the inspector.'
+        'This is “Parts of speech & dimensions”: parts of speech, grammatical dimensions with their values and stem slots are all defined here, and paradigm slots are combinations of these dimensions.',
+        'View mode is for reading and showing, edit mode for changing data; the card you see in view mode is the same card that pops up when you hover a word elsewhere.',
+        'Select an entry to view or edit its senses, etymology and inflected forms in the inspector.',
+        'The star at the left of each row favourites an entry; this button shows only the favourites. In edit mode you can also mark an entry, and marked words get a symbol in front of them in the list.',
+        'Click here to import or export the lexicon: import from a table, export as a table or as a finished dictionary. Imports are previewed first.'
       ],
       paradigms: [
         'Each paradigm has a bookmark tab; once bound to a part of speech, its entries derive inflected forms with it.',
         'Dimensions such as number, case or tense — pick them in order; their combinations are the slots.',
         'Each slot is a pipeline: start from the stem and add prefixes, suffixes, sound changes and adjustments step by step.',
+        'Three ways to look at the slots: the visual layout unfolds each pipeline, the table arranges them by dimension, the tree nests them dimension by dimension.',
+        'A paradigm may hold several variants; add and switch between them here. A slot a variant does not define itself falls back to the shared one.',
+        'The test bench sits at the bottom of the inspector: pick an entry to see the form every slot derives next to what is already entered, or type any stem to try it out.',
         'Consistency check: compare derived forms with entered ones, plus a project-wide health report.'
       ],
       corpus: [
         'Add an example sentence.',
         'Sentence cards: hover a word to see its entry; words with several indistinguishable candidates are marked in the warning colour — pick one on hover to lock it in.',
-        'Sentences / statistics / abbreviations.'
+        'With a sentence selected, this bar splits it into words and glosses them automatically; where a word has several candidates, hover it and pick the right one in the card.',
+        'Sentences / statistics / abbreviations.',
+        'This is the abbreviation table: the abbreviations used in glosses are registered here and spelled out on export.',
+        'Click here to import or export the corpus: import from a table or JSON, export as a table, interlinear text, Markdown, HTML or LaTeX.'
       ],
       phrasebook: [
         'Add a phrase.',
-        'Phrases are grouped by category; bracketed placeholders like [noun] stay as they are when rendered in a script.'
+        'Phrases are grouped by category.',
+        'Phrase cards support the same hover card and word picking; bracketed placeholders stay as they are when rendered in a script.',
+        'Click here to import or export the whole phrasebook.'
       ],
       docs: [
         'Create a document page.',
         'The page list on the left: project-wide pages and pages of the current language.',
-        'Edit / split / preview; write [[headword]] for an entry, or a prefix such as [[morpheme:na-]] for other modules (“Insert link” is on the toolbar).'
+        'Edit / split / preview; write [[headword]] for an entry, or a prefix such as [[morpheme:…]] for other modules.',
+        'The toolbar has bold, headings, lists, tables and code; “Insert link” picks an entry or an object from another module and writes the link for you.',
+        'The preview lays the page out as it will finally look, and its links open the object they point at.'
       ],
       skin: [
         'Skin presets switch a whole set of colours and fonts at once.',
+        'A skin you like can be exported to a file and shared, and someone else’s skin imported here; an import is previewed before it is applied.',
         'Adjust colours one by one; the matching spot in the preview flashes.',
-        'Fonts for each area; after importing font files you can also assign a font to each custom script here.'
+        'Fonts for each area; after importing font files you can also assign a font to each custom script here.',
+        'The font library downloads fonts or takes them from your computer; once installed they can be chosen anywhere above.',
+        'Every block of the entry card can be reordered and resized here, and the preview in the inspector follows along.'
       ],
       settings: [
         'App settings: interface language, theme, autosave, update checks, whether to repeat this guided tour…',
+        'Tick this and every click on “User guide” beside a page title plays the guided tour first; otherwise each module plays it once.',
+        'This part belongs to the current project alone: project details, gloss languages, how words are split and handled. It applies to this project only, unlike the app settings above.',
+        'Export the whole project as data here, or clear out what you no longer need; the help beside the title says exactly what gets cleared.',
         'With this many settings, just search from the top bar.'
+      ],
+      extending: [
+        'This is the MCP server: turn it on and an external program that speaks MCP can connect to Qonlang and read or edit the current project.',
+        'Set the port and the access token here, and decide whether every write has to be confirmed; once the server runs, a ready-made client configuration appears below.',
+        'Plugins extend Qonlang itself: new import and export formats, new pages and new commands. Installed ones are listed in this card, each with its own switch and a note of what it registers.',
+        'Click here to open the plugins folder; drop a plugin folder in and hit “Reload” to pick it up.'
       ]
     }
   },

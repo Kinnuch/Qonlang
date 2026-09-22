@@ -9,7 +9,7 @@
   import { filterRows } from '$lib/ui/filterRows'
 </script>
 
-<div class="groups">
+<div class="groups" data-tour="settings-app">
   <section class="card group" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
     <h3><Palette size={15} />{t('settings.groups.ui')}</h3>
     <div class="grid">
@@ -45,7 +45,7 @@
         />
         {t('settings.showHelpDots')}
       </label>
-      <label class="row check">
+      <label class="row check" data-tour="settings-guide">
         <input
           type="checkbox"
           bind:checked={ui.prefs.guideTourAlways}

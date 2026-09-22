@@ -7,9 +7,18 @@ import { readdirSync, readFileSync, statSync } from 'fs'
 import { join } from 'path'
 import zh from '$lib/i18n/zh'
 import en from '$lib/i18n/en'
+import zhHant from '$lib/i18n/zh-Hant'
+import ja from '$lib/i18n/ja'
 import { TOUR_STEPS } from '$lib/core/tourSteps'
 
 type Dict = Record<string, unknown>
+
+/** 除了中文之外的每一种：结构都要跟中文一模一样 */
+const OTHERS: [string, Dict][] = [
+  ['en', en as Dict],
+  ['zh-Hant', zhHant as Dict],
+  ['ja', ja as Dict]
+]
 
 const root = join(__dirname, '..', '..', 'src', 'renderer', 'src')
 
@@ -97,7 +106,7 @@ describe('i18n keys', () => {
     expect([...new Set(missing)]).toEqual([])
   })
 
-  it('keeps the two locales structurally identical', () => {
+  it('keeps every locale structurally identical to zh', () => {
     const diff: string[] = []
     const compare = (a: Dict, b: Dict, path = ''): void => {
       for (const k of Object.keys(a)) {
@@ -110,8 +119,12 @@ describe('i18n keys', () => {
         else if (typeof va !== typeof vb) diff.push(`类型不同: ${p}`)
       }
     }
-    compare(zh as Dict, en as Dict)
-    compare(en as Dict, zh as Dict)
+    for (const [name, d] of OTHERS) {
+      const before = diff.length
+      compare(zh as Dict, d)
+      compare(d, zh as Dict)
+      for (let i = before; i < diff.length; i++) diff[i] = `${name} ${diff[i]}`
+    }
     expect([...new Set(diff)]).toEqual([])
   })
 })

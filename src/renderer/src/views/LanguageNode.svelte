@@ -116,6 +116,7 @@
     {#if item.kind === 'language'}
       <button
         class="btn ghost icon sm cmp"
+        data-tour="languages-compare"
         class:on={compareIds.includes(id)}
         title={t('languages.compare.toggle')}
         onclick={(e) => {
@@ -126,6 +127,7 @@
     {/if}
     <button
       class="btn ghost icon sm addchild"
+      data-tour="languages-addchild"
       title={item.kind === 'group' ? t('languages.addLanguageHere') : t('languages.addChild')}
       onclick={(e) => {
         e.stopPropagation()

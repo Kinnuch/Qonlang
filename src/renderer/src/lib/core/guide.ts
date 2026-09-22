@@ -23,7 +23,8 @@ const SLUGS: Record<string, string> = {
 
 /** 指南首页：中文界面是中文版，其余是英文版 */
 export function guideBase(locale: string = i18n.locale): string {
-  return GUIDE_BASE + (locale === 'zh' ? '' : 'en/')
+  // 指南只有中英两版：繁体看中文版，其余（日语等）看英文版
+  return GUIDE_BASE + (locale.startsWith('zh') ? '' : 'en/')
 }
 
 export function guideUrl(section: string, anchor = '', locale: string = i18n.locale): string {

@@ -808,7 +808,7 @@
   <div class="page-head row">
     <h1>{t('corpus.title')}</h1>
     <GuideLink section="corpus" />
-    <div class="seg">
+    <div class="seg" data-tour="corpus-tabs">
       <button class:active={mode === 'entries'} onclick={() => (mode = 'entries')}
         >{t('corpus.modes.entries')}</button
       >
@@ -821,11 +821,11 @@
     </div>
     <span class="grow"></span>
     {#if mode === 'entries' && language}
-      <Menu label={t('lexicon.import')} icon={Download}>
+      <Menu label={t('lexicon.import')} icon={Download} tour="corpus-io">
         <button onclick={() => openImport(false)}>{t('io.importTable')}</button>
         <button onclick={() => openImport(true)}>{t('io.importJson')}</button>
       </Menu>
-      <Menu label={t('common.export')} icon={Upload}>
+      <Menu label={t('common.export')} icon={Upload} tour="corpus-io">
         <button onclick={() => exportSentences('csv')}>{t('io.exportCsv')}</button>
         <button onclick={() => exportSentences('json')}>{t('io.exportJson')}</button>
         <button onclick={() => exportSentences('leipzig')}>{t('corpus.formats.leipzig')}</button>
@@ -838,7 +838,9 @@
       <button class="btn ghost" title={t('corpus.dedup.hintBtn')} onclick={runDedup}
         ><Merge size={16} />{t('corpus.dedup.button')}</button
       >
-      <button class="btn primary" onclick={add}><Plus size={16} />{t('corpus.add')}</button>
+      <button class="btn primary" data-tour="corpus-add" onclick={add}
+        ><Plus size={16} />{t('corpus.add')}</button
+      >
     {/if}
   </div>
 
@@ -954,7 +956,7 @@
       {/if}
     </div>
   {:else if mode === 'abbr'}
-    <div class="scroll">
+    <div class="scroll" data-tour="corpus-abbr">
       <div class="row">
         <span class="grow"></span>
         <button class="btn sm" onclick={fillLeipzig}
@@ -1002,7 +1004,7 @@
       <Hint id="corpus" text={t('corpus.hint')} />
       {#snippet editorPanel(s: Sentence)}
         <div class="card editor" class:fading>
-          <div class="row toolbar">
+          <div class="row toolbar" data-tour="corpus-analyze">
             <span class="small muted grow"
               >{t('corpus.coverageLabel', {
                 confirmed: coverage(s).confirmed,

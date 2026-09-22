@@ -357,7 +357,11 @@
     </div>
     <label class="row small muted">
       {t('topbar.currentLanguage')}
-      <select class="select lang-select" bind:value={projectState.currentLanguageId}>
+      <select
+        class="select lang-select"
+        data-tour="topbar-language"
+        bind:value={projectState.currentLanguageId}
+      >
         <option value={null}>{t('topbar.allLanguages')}</option>
         {#each projectState.project?.languages ?? [] as l (l.id)}
           <option value={l.id}>{l.name}</option>

@@ -572,7 +572,7 @@
     {#if lang}<span class="badge lang-badge" style:background-color={lang.color} style:color="#fff"
         >{lang.name}</span
       >{/if}
-    <div class="seg">
+    <div class="seg" data-tour="phonology-tabs">
       {#each TABS as tb (tb)}
         <button class:active={tab === tb} onclick={() => (tab = tb)}
           >{t(`phonology.tabs.${tb}`)}</button
@@ -625,7 +625,7 @@
         {/if}
       </section>
 
-      <section class="block">
+      <section class="block" data-tour="phonology-chart">
         <SectionHead
           id="phonology.chartPulmonic"
           title={t('phonology.chartPulmonic')}
@@ -694,7 +694,7 @@
       </section>
     </div>
   {:else if tab === 'classes'}
-    <div class="scroll">
+    <div class="scroll" data-tour="phonology-classes">
       <div class="row">
         <span class="grow"></span>
         <HelpDot tip={t('phonology.classesHint')} />
@@ -771,7 +771,7 @@
       {#if lang.classes.length === 0}<p class="muted">{t('phonology.noClasses')}</p>{/if}
     </div>
   {:else if tab === 'orthography'}
-    <div class="scroll ortho">
+    <div class="scroll ortho" data-tour="phonology-ortho">
       <div class="row wrap">
         {#each lang.orthographies as o, oi (o.id)}
           <button
@@ -852,7 +852,7 @@
       {/if}
     </div>
   {:else if tab === 'syllable'}
-    <div class="scroll form">
+    <div class="scroll form" data-tour="phonology-syllable">
       <section class="block">
         <h3>{t('phonology.syllable')} <HelpDot tip={t('phonology.syllableHint')} /></h3>
         <label class="row check"
@@ -1018,7 +1018,7 @@
     </div>
   {:else if tab === 'phonotactics'}
     <div class="scroll form">
-      <section class="block">
+      <section class="block" data-tour="phonology-phonotactics">
         <div class="row">
           <h3 class="grow">
             {t('phonology.phonotactics')}
@@ -1113,7 +1113,7 @@
           {/if}
         {/if}
       </section>
-      <section class="block">
+      <section class="block" data-tour="phonology-generator">
         <div class="row">
           <h3 class="grow">{t('phonology.generator')}</h3>
           <label class="row small"

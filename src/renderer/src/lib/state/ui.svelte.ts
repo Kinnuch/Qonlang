@@ -234,6 +234,26 @@ class UiState {
     this.previousSection = this.section
     this.section = s
   }
+  /**
+   * 图文引导带着切界面：不记进「返回」历史，讲完由引导自己恢复。
+   * view 走各页面自己的位置恢复机制（跟「返回」同一套），传进来的几项盖在页面当前的位置上，
+   * 没提到的（选中的对象、当前语言）保持原样。
+   */
+  tourGo(section: Section, view?: PageView | null): void {
+    this.pluginPage = null
+    this.quiet()
+    if (this.section !== section) this.section = section
+    if (!view) return
+    this.restoreReq = {
+      section,
+      view: { ...(this.views[section] ?? {}), ...view },
+      scroll: this.scrolls[section] ?? 0
+    }
+  }
+  /** 这一页眼下报上来的位置（引导记下来，讲完照原样切回去） */
+  currentView(section: Section): PageView | null {
+    return this.views[section] ?? null
+  }
   /** 新建项目后要自动打开的导入向导 */
   pendingImport = $state<'csv' | null>(null)
   /** 跳到词库页时要选中的词位 */

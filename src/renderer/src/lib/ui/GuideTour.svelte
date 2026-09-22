@@ -9,44 +9,97 @@
   import { X, ExternalLink } from '@lucide/svelte'
   import catImage from '../../assets/tour/guide-cat.png'
 
-  let rect = $state<DOMRect | null>(null)
+  /** 要圈出来的范围（可能是好几个相邻控件合起来的） */
+  interface Box {
+    left: number
+    top: number
+    right: number
+    bottom: number
+    width: number
+    height: number
+  }
+  let rect = $state<Box | null>(null)
   let vw = $state(typeof window !== 'undefined' ? window.innerWidth : 1200)
   let vh = $state(typeof window !== 'undefined' ? window.innerHeight : 800)
   const step = $derived(tour.active ? tour.steps[tour.index] : null)
-  // 换了页面（返回、跳转）就结束讲解，免得指着别的页面的按钮讲
+  // 用户自己换了页面（返回、跳转）就结束讲解，免得指着别的页面的按钮讲；
+  // 引导自己切过去的那一次不算（tour.expects）
   let lastSection = ui.section
   $effect(() => {
     const s = ui.section
     if (s === lastSection) return
     lastSection = s
-    if (tour.active || tour.ending) tour.close()
+    if (tour.expects(s)) return
+    if (tour.active || tour.ending) tour.abandon()
   })
 
+  /** 切完模块、子页之后界面还要画几帧：轮询等目标出现，等不到就居中显示、不画框 */
+  const WAIT_FRAMES = 90
   $effect(() => {
     if (!step) {
       rect = null
       return
     }
     const sel = step.selector
+    const all = step.all === true
+    const need = step.click ?? ''
+    let clicked = false
+    let waited = 0
+    let settled = 0
+    let raf = 0
+    // 平时藏起来（鼠标悬停才露出来）的按钮：讲到它的时候先让它显出来
+    let marked: HTMLElement[] = []
+    const mark = (els: HTMLElement[]): void => {
+      for (const e of marked) if (!els.includes(e)) e.removeAttribute('data-tour-spot')
+      for (const e of els) e.setAttribute('data-tour-spot', '')
+      marked = els
+    }
+    const find = (): HTMLElement[] => {
+      const vis = [...document.querySelectorAll<HTMLElement>(sel)].filter(
+        (e) => e.getClientRects().length > 0
+      )
+      return all ? vis : vis.slice(0, 1)
+    }
     const measure = (): void => {
       vw = window.innerWidth
       vh = window.innerHeight
-      const el = [...document.querySelectorAll<HTMLElement>(sel)].find(
-        (e) => e.getClientRects().length > 0
-      )
-      if (!el) {
-        rect = null
+      const els = find()
+      if (!els.length) {
+        // 要讲的东西得先选中点什么才出来：替用户点一下（讲完会连选中一起还原）
+        if (need && !clicked) {
+          const c = [...document.querySelectorAll<HTMLElement>(need)].find(
+            (e) => e.getClientRects().length > 0
+          )
+          if (c) {
+            clicked = true
+            c.click()
+          }
+        }
+        // 还没画出来就接着等；等过头了这一步就不画框
+        if (waited++ < WAIT_FRAMES) raf = requestAnimationFrame(measure)
+        else rect = null
         return
       }
-      el.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-      rect = el.getBoundingClientRect()
+      mark(els)
+      els[0].scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      // 一组控件（导入 + 导出）合成一个框
+      const rs = els.map((e) => e.getBoundingClientRect())
+      const left = Math.min(...rs.map((r) => r.left))
+      const top = Math.min(...rs.map((r) => r.top))
+      const right = Math.max(...rs.map((r) => r.right))
+      const bottom = Math.max(...rs.map((r) => r.bottom))
+      rect = { left, top, right, bottom, width: right - left, height: bottom - top }
+      // 滚动、展开之后位置还会动：再跟几帧
+      if (settled++ < 4) raf = requestAnimationFrame(measure)
     }
+    // 目标不在页面上（正等着切过去）：先把上一步的框收掉，免得框着别的控件讲
+    if (!find().length) rect = null
     measure()
-    const raf = requestAnimationFrame(measure)
     window.addEventListener('resize', measure)
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', measure)
+      mark([])
     }
   })
 
@@ -194,6 +247,10 @@
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
+  }
+  /* 正在讲的那个控件：平时靠悬停才露出来的（语言树上的「+」、对比）先显出来 */
+  :global([data-tour-spot]) {
+    opacity: 1 !important;
   }
   /* 圈出目标：大阴影把四周压暗，中间留一个透明的洞 */
   .hole {

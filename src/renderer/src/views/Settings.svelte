@@ -185,10 +185,10 @@
   <AppSettings />
   <h2 class="cat">{t('mcp.cat')}</h2>
   <div class="groups">
-    <section class="card group">
+    <section class="card group" data-tour="mcp-card">
       <h3><Plug size={15} />{t('mcp.title')}<GuideLink section="extending" anchor="mcp" /></h3>
       <p class="small muted">{t('mcp.hint')}</p>
-      <div class="grid">
+      <div class="grid" data-tour="mcp-conn">
         <label class="row check">
           <input type="checkbox" checked={ui.prefs.mcpEnabled === true} onchange={toggleMcp} />
           {t('mcp.enable')}
@@ -265,7 +265,7 @@
 
   <h2 class="cat">{t('settings.plugins.cat')}</h2>
   <div class="groups">
-    <section class="card group">
+    <section class="card group" data-tour="plugins-card">
       <h3>
         <Puzzle size={15} />{t('settings.plugins.title')}<GuideLink
           section="extending"
@@ -273,7 +273,7 @@
         />
       </h3>
       <p class="small muted">{t('settings.plugins.hint')}</p>
-      <div class="row wrap plugin-acts">
+      <div class="row wrap plugin-acts" data-tour="plugins-acts">
         <button class="btn sm" onclick={() => void platform.openPluginsFolder()}
           ><FolderOutput size={13} />{t('settings.plugins.openFolder')}</button
         >
@@ -325,7 +325,7 @@
   </div>
 
   <h2 class="cat">{t('settings.project')}</h2>
-  <div class="groups">
+  <div class="groups" data-tour="settings-project">
     <section class="card group" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
       <h3><FileText size={15} />{t('settings.groups.info')}</h3>
       <div class="grid">
@@ -506,7 +506,7 @@
   </div>
 
   <h2 class="cat">{t('settings.groups.data')}</h2>
-  <div class="groups">
+  <div class="groups" data-tour="settings-data">
     <section class="card group" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
       <h3><FolderOutput size={15} />{t('common.export')}</h3>
       <div class="row">

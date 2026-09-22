@@ -304,9 +304,14 @@
       </div>
     </div>
 
-    <div class="actions">
+    <div class="actions" data-tour="welcome-actions">
       <!-- 新建项目：点开才列起步模板，挑一个就在右边填名字 -->
-      <div class="new-wrap" role="presentation" onmouseleave={() => (pickTemplate = false)}>
+      <div
+        class="new-wrap"
+        data-tour="welcome-new"
+        role="presentation"
+        onmouseleave={() => (pickTemplate = false)}
+      >
         <button
           class="btn primary"
           class:active={pickTemplate}
@@ -347,7 +352,7 @@
       >
     </div>
 
-    <div class="recent">
+    <div class="recent" data-tour="welcome-recent">
       <div class="row">
         <h3 class="grow">{t('welcome.recent')}</h3>
         {#if recent.length}
@@ -375,7 +380,7 @@
       {/if}
     </div>
 
-    <div class="foot row">
+    <div class="foot row" data-tour="welcome-foot">
       <button
         class="ico"
         class:active={footerPanel === 'locale'}
@@ -467,7 +472,7 @@
 
     <h2>{t('games.title')}</h2>
     <p class="small muted games-hint">{t('games.hint')}</p>
-    <div class="templates games">
+    <div class="templates games" data-tour="welcome-games">
       {#each GAMES as g (g)}
         <button class="tpl card" onclick={() => (game = g)}>
           <strong>{t(`games.${g}.name`)}</strong>
@@ -478,7 +483,7 @@
 
     <div class="footer-spacer"></div>
     <div class="footer">
-      <div class="row footer-bar">
+      <div class="row footer-bar" data-tour="welcome-footer">
         <button class="btn" onclick={() => open(guideUrl('welcome'))}
           ><BookOpen size={16} />{t('common.guide')}</button
         >
@@ -514,6 +519,7 @@
         >
         <button
           class="btn"
+          data-tour="welcome-syntax"
           class:active={footerPanel === 'syntax'}
           onclick={() => (footerPanel = footerPanel === 'syntax' ? null : 'syntax')}
           ><BookText size={16} />{t('welcome.syntax')}</button

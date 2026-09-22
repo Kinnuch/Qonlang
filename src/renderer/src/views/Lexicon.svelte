@@ -1200,7 +1200,7 @@
   <div class="page-head row">
     <h1>{t('lexicon.title')}</h1>
     <GuideLink section="lexicon" />
-    <div class="seg">
+    <div class="seg" data-tour="lexicon-tabs">
       <button class:active={mode === 'entries'} onclick={() => (mode = 'entries')}
         >{t('lexicon.entries')}</button
       >
@@ -1212,7 +1212,7 @@
       >
     </div>
     {#if mode === 'entries'}
-      <div class="seg">
+      <div class="seg" data-tour="lexicon-mode">
         <button
           class:active={!editMode}
           title={t('lexicon.modeView')}
@@ -1233,6 +1233,7 @@
     {:else if mode === 'entries'}
       <button
         class="btn icon"
+        data-tour="lexicon-fav"
         class:active={favOnly}
         title={t('lexicon.favOnly')}
         aria-pressed={favOnly}
@@ -1250,7 +1251,7 @@
         {/each}
         <button onclick={resetWidths}>{t('lexicon.resetWidths')}</button>
       </Menu>
-      <Menu label={t('lexicon.import')} icon={Download}>
+      <Menu label={t('lexicon.import')} icon={Download} tour="lexicon-io">
         <button onclick={() => (mode = 'csv')}>{t('lexicon.importCsv')}</button>
         <button onclick={importLexicanter}>{t('lexicon.importLexicanter')}</button>
         <!-- 插件注册的导入格式 -->
@@ -1258,7 +1259,7 @@
           <button onclick={() => void runPluginImport(im.item)}>{im.item.name}</button>
         {/each}
       </Menu>
-      <Menu label={t('common.export')} icon={Upload}>
+      <Menu label={t('common.export')} icon={Upload} tour="lexicon-io">
         <button onclick={() => exportCsv('lexemes')}>{t('lexicon.exportCsv')}</button>
         <button onclick={() => exportCsv('morphemes')}>{t('lexicon.exportMorphemesCsv')}</button>
         {#if language}<button onclick={() => (mode = 'export')}>{t('dict.menu')}</button>{/if}
@@ -1367,7 +1368,7 @@
   {:else if mode === 'stats'}
     <p class="muted">{t('lexicon.noLanguage')}</p>
   {:else if mode === 'taxonomy'}
-    <div class="scroll"><Taxonomy /></div>
+    <div class="scroll" data-tour="lexicon-taxonomy"><Taxonomy /></div>
   {:else if mode === 'export' && language}
     <div class="scroll"><DictExport {language} onclose={() => (mode = 'entries')} /></div>
   {:else if mode === 'csv'}

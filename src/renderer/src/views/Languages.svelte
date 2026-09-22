@@ -477,7 +477,7 @@
     <h1>{t('languages.title')}</h1>
     <GuideLink section="languages" />
     <span class="grow"></span>
-    <div class="seg">
+    <div class="seg" data-tour="languages-layout">
       <button class:active={layout === 'list'} onclick={() => (layout = 'list')}
         ><List size={14} />{t('languages.views.list')}</button
       >
@@ -486,12 +486,12 @@
       >
     </div>
     <HelpDot tip={t('languages.dragHint')} />
-    <Menu label={t('languages.addGroup')} icon={Network}>
+    <Menu label={t('languages.addGroup')} icon={Network} tour="languages-group">
       {#each LANGUAGE_GROUP_LEVELS as lv (lv)}
         <button onclick={() => addGroup(lv)}>{t(`languages.groupLevels.${lv}`)}</button>
       {/each}
     </Menu>
-    <button class="btn primary" onclick={() => add(null)}
+    <button class="btn primary" data-tour="languages-add" onclick={() => add(null)}
       ><Plus size={16} />{t('languages.addLanguage')}</button
     >
   </div>
@@ -529,7 +529,7 @@
       onselect={pick}
     />
   {:else}
-    <div class="tree">
+    <div class="tree" data-tour="languages-tree">
       {#each roots as x (x.kind === 'group' ? 'g:' + x.group.id : x.language.id)}
         <LanguageNode
           {visible}

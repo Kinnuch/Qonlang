@@ -1041,8 +1041,12 @@
         ><ArrowLeft size={16} />{t('paradigms.backToSlots')}</button
       >
     {:else}
-      <button class="btn" disabled={!active} title={t('paradigms.reportHint')} onclick={runReport}
-        ><ClipboardCheck size={16} />{t('paradigms.report')}</button
+      <button
+        class="btn"
+        data-tour="paradigms-report"
+        disabled={!active}
+        title={t('paradigms.reportHint')}
+        onclick={runReport}><ClipboardCheck size={16} />{t('paradigms.report')}</button
       >
     {/if}
     <button class="btn primary" onclick={addParadigm}
@@ -1234,7 +1238,7 @@
         {/if}
       </section>
 
-      <section class="block">
+      <section class="block" data-tour="paradigms-slots">
         <div class="row slots-head">
           <h3 class="grow">
             {t('paradigms.slots')} <span class="badge">{slots.length}</span>
@@ -1253,7 +1257,7 @@
                 )}{:else}<ChevronsDownUp size={14} />{t('paradigms.collapseAll')}{/if}</button
             >
           {/if}
-          <div class="seg">
+          <div class="seg" data-tour="paradigms-layout">
             <button class:active={layout === 'visual'} onclick={() => (layout = 'visual')}
               ><List size={14} />{t('paradigms.layoutVisual')}</button
             >
@@ -1265,7 +1269,7 @@
             >
           </div>
         </div>
-        <div class="row wrap vbar">
+        <div class="row wrap vbar" data-tour="paradigms-variants">
           <span class="small muted">{t('paradigms.variants')}</span>
           <div class="seg">
             <span class="vwrap">
@@ -1777,7 +1781,7 @@
       </select>
     </div>
 
-    <div class="field">
+    <div class="field" data-tour="paradigms-bench">
       <div class="row">
         <span class="small muted">{t('paradigms.testBench')}</span><HelpDot key="testBench" /><span
           class="grow"

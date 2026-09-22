@@ -424,11 +424,11 @@
           />
         </div>
       {:else if view === 'chain'}
-        <div class="list-wrap chain">
+        <div class="list-wrap chain" data-tour="sc-chain">
           <RuleChainGraph {program} bind:selectedLine />
         </div>
       {:else}
-        <div class="list-wrap" use:navScroll={'soundChanges'}>
+        <div class="list-wrap" data-tour="sc-list" use:navScroll={'soundChanges'}>
           <RuleList
             bind:text={rs.text}
             {program}
@@ -442,7 +442,7 @@
         </div>
       {/if}
       <div class="status row">
-        <div class="seg">
+        <div class="seg" data-tour="sc-views">
           <button class:active={view === 'list'} onclick={() => (view = 'list')}
             ><List size={14} />{t('soundChanges.viewList')}</button
           >
@@ -453,8 +453,11 @@
             ><Code size={14} />{t('soundChanges.viewSource')}</button
           >
         </div>
-        <button class="btn sm" class:active={evolveOpen} onclick={() => (evolveOpen = !evolveOpen)}
-          ><Sprout size={14} />{t('evolve.title')}</button
+        <button
+          class="btn sm"
+          data-tour="sc-evolve"
+          class:active={evolveOpen}
+          onclick={() => (evolveOpen = !evolveOpen)}><Sprout size={14} />{t('evolve.title')}</button
         >
         <span class="small muted grow">
           {#if program}

@@ -367,7 +367,7 @@
     <h1>{t('morphemes.title')}</h1>
     <GuideLink section="morphemes" />
     <span class="badge">{t('morphemes.count', { n: list.length })}</span>
-    <div class="seg">
+    <div class="seg" data-tour="morphemes-tabs">
       <button class:active={mode === 'entries'} onclick={() => (mode = 'entries')}
         >{t('lexicon.entries')}</button
       >
@@ -375,7 +375,7 @@
         >{t('stats.title')}</button
       >
     </div>
-    <div class="seg">
+    <div class="seg" data-tour="morphemes-mode">
       <button
         class:active={!editMode}
         title={t('lexicon.modeView')}
@@ -388,13 +388,15 @@
       >
     </div>
     <span class="grow"></span>
-    <Menu label={t('lexicon.import')} icon={Download}>
+    <Menu label={t('lexicon.import')} icon={Download} tour="morphemes-io">
       <button onclick={() => (mode = 'csv')}>{t('lexicon.importCsv')}</button>
     </Menu>
-    <Menu label={t('common.export')} icon={Upload}>
+    <Menu label={t('common.export')} icon={Upload} tour="morphemes-io">
       <button onclick={exportCsv}>{t('lexicon.exportMorphemesCsv')}</button>
     </Menu>
-    <button class="btn primary" onclick={add}><Plus size={16} />{t('morphemes.add')}</button>
+    <button class="btn primary" data-tour="morphemes-add" onclick={add}
+      ><Plus size={16} />{t('morphemes.add')}</button
+    >
   </div>
   <Hint id="morphemes" text={t('morphemes.hint')} />
 

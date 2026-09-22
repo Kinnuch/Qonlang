@@ -217,7 +217,7 @@
   }
 </script>
 
-<div class="graph-wrap">
+<div class="graph-wrap" data-tour="languages-tree">
   <div class="gcanvas" bind:clientWidth={bw} bind:clientHeight={bh}>
     {#if !layout.nodes.length}
       <p class="small muted mid">{t('languages.graph.empty')}</p>

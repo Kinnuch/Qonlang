@@ -646,7 +646,7 @@
         >{lang.name}</span
       >{/if}
     {#if script}
-      <div class="seg">
+      <div class="seg" data-tour="script-tabs">
         {#each TABS as tb (tb)}<button class:active={tab === tb} onclick={() => (tab = tb)}
             >{t(`script.tabs.${tb}`)}</button
           >{/each}
@@ -683,7 +683,9 @@
       {/each}
     </div>
     {#if lang}
-      <button class="btn primary" onclick={addScript}><Plus size={16} />{t('script.add')}</button>
+      <button class="btn primary" data-tour="script-add" onclick={addScript}
+        ><Plus size={16} />{t('script.add')}</button
+      >
     {/if}
   </div>
   <Hint id="script" text={t('script.hint')} />
@@ -694,7 +696,7 @@
     <p class="muted">{t('script.empty')}</p>
   {:else if tab === 'glyphs'}
     <div class="scroll" use:navScroll={'script'}>
-      <div class="row wrap tools">
+      <div class="row wrap tools" data-tour="script-glyph-tools">
         <button class="btn sm" onclick={() => importFont(true)}
           ><FileType size={14} />{t('script.importFromFont')}</button
         >
@@ -822,7 +824,7 @@
       {#if t(`script.typeHints.${script.type}`)}
         <Hint id={`script-type-${script.type}`} text={t(`script.typeHints.${script.type}`)} />
       {/if}
-      <div class="editor-area">
+      <div class="editor-area" data-tour="script-rules">
         {#if rulesView === 'list'}
           <RuleList bind:text={script.rules} program={userProgram} onchange={touch} />
         {:else}
@@ -935,7 +937,7 @@
       </section>
     </div>
   {:else}
-    <div class="scroll">
+    <div class="scroll" data-tour="script-preview">
       {#if previewLexemes.length === 0 && previewSentences.length === 0}
         <p class="muted">{t('script.previewEmpty')}</p>
       {/if}

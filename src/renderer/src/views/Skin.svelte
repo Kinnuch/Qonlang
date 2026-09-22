@@ -616,7 +616,7 @@
             >{/if}
         </div>
       </div>
-      <div class="row wrap skin-io">
+      <div class="row wrap skin-io" data-tour="skin-io">
         <button class="btn ghost sm" onclick={exportSkin}
           ><FileUp size={13} />{t('skin.exportSkin')}</button
         >
@@ -828,7 +828,7 @@
       {/if}
     </section>
 
-    <section>
+    <section data-tour="skin-card">
       <SectionHead id="skin.card" title={t('skin.card')} tip={t('skin.cardHint')} />
       {#if !sectionCollapsed('skin.card')}
         <!-- 每一块一个字号滑块（px），就放在这一行右边 -->
@@ -903,7 +903,7 @@
       {/if}
     </section>
 
-    <section>
+    <section data-tour="skin-library">
       <SectionHead id="skin.library" title={t('skin.library')} tip={t('skin.libraryHint')} />
       {#if !sectionCollapsed('skin.library')}
         <div class="row wrap">

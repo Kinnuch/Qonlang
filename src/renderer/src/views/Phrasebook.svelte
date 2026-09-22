@@ -363,16 +363,18 @@
     <GuideLink section="phrasebook" />
     <span class="grow"></span>
     {#if language}
-      <Menu label={t('lexicon.import')} icon={Download}>
+      <Menu label={t('lexicon.import')} icon={Download} tour="phrasebook-io">
         <button onclick={() => openImport(false)}>{t('io.importTable')}</button>
         <button onclick={() => openImport(true)}>{t('io.importJson')}</button>
       </Menu>
-      <Menu label={t('common.export')} icon={Upload}>
+      <Menu label={t('common.export')} icon={Upload} tour="phrasebook-io">
         <button onclick={() => exportPhrases('csv')}>{t('io.exportCsv')}</button>
         <button onclick={() => exportPhrases('json')}>{t('io.exportJsonPlain')}</button>
       </Menu>
     {/if}
-    <button class="btn primary" onclick={add}><Plus size={16} />{t('phrasebook.add')}</button>
+    <button class="btn primary" data-tour="phrasebook-add" onclick={add}
+      ><Plus size={16} />{t('phrasebook.add')}</button
+    >
   </div>
   <Hint id="phrasebook" text={t('phrasebook.hint')} />
   {#if importOpen && language}
@@ -397,7 +399,7 @@
     <p class="muted">{t('lexicon.noLanguage')}</p>
   {:else}
     <div class="body">
-      <aside class="cats">
+      <aside class="cats" data-tour="phrasebook-cats">
         <button class="cat" class:active={category === ''} onclick={() => (category = '')}
           >{t('phrasebook.allCategories')}<span class="n">{inLang.length}</span></button
         >

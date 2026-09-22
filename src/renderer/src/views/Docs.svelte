@@ -176,7 +176,7 @@
     <GuideLink section="docs" />
     <span class="grow"></span>
     {#if selected}
-      <div class="seg">
+      <div class="seg" data-tour="docs-views">
         <button class:active={view === 'edit'} onclick={() => (view = 'edit')}
           ><Pencil size={14} />{t('docs.edit')}</button
         >
@@ -188,12 +188,14 @@
         >
       </div>
     {/if}
-    <button class="btn primary" onclick={add}><Plus size={16} />{t('docs.add')}</button>
+    <button class="btn primary" data-tour="docs-add" onclick={add}
+      ><Plus size={16} />{t('docs.add')}</button
+    >
   </div>
   <Hint id="docs" text={t('docs.hint')} />
 
   <div class="body">
-    <aside class="pages">
+    <aside class="pages" data-tour="docs-list">
       {#each list as d (d.id)}
         <button class="pg" class:active={selectedId === d.id} onclick={() => (selectedId = d.id)}>
           <FileText size={14} />
@@ -210,7 +212,7 @@
       <div class="editor" class:split={view === 'split'}>
         {#if view !== 'preview'}
           <div class="pane">
-            <div class="row toolbar">
+            <div class="row toolbar" data-tour="docs-toolbar">
               {#each [['**', '**', 'B'], ['*', '*', 'I'], ['## ', '', 'H'], ['- ', '', '•'], ['| a | b |\n| --- | --- |\n| 1 | 2 |', '', '⊞'], ['```\n', '\n```', '</>']] as [a, b, label] (label)}
                 <button
                   class="btn ghost sm mono"
@@ -235,7 +237,12 @@
           </div>
         {/if}
         {#if view !== 'edit'}
-          <div class="pane preview md-body" role="presentation" onclick={onPreviewClick}>
+          <div
+            class="pane preview md-body"
+            data-tour="docs-preview"
+            role="presentation"
+            onclick={onPreviewClick}
+          >
             <h1>{d.title}</h1>
             {@html html}
           </div>
