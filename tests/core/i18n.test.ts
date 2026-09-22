@@ -9,6 +9,11 @@ import zh from '$lib/i18n/zh'
 import en from '$lib/i18n/en'
 import zhHant from '$lib/i18n/zh-Hant'
 import ja from '$lib/i18n/ja'
+import ko from '$lib/i18n/ko'
+import fr from '$lib/i18n/fr'
+import es from '$lib/i18n/es'
+import ru from '$lib/i18n/ru'
+import ar from '$lib/i18n/ar'
 import { TOUR_STEPS } from '$lib/core/tourSteps'
 
 type Dict = Record<string, unknown>
@@ -17,7 +22,12 @@ type Dict = Record<string, unknown>
 const OTHERS: [string, Dict][] = [
   ['en', en as Dict],
   ['zh-Hant', zhHant as Dict],
-  ['ja', ja as Dict]
+  ['ja', ja as Dict],
+  ['ko', ko as Dict],
+  ['fr', fr as Dict],
+  ['es', es as Dict],
+  ['ru', ru as Dict],
+  ['ar', ar as Dict]
 ]
 
 const root = join(__dirname, '..', '..', 'src', 'renderer', 'src')

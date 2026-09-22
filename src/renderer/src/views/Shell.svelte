@@ -557,7 +557,7 @@
   .nav {
     grid-area: nav;
     background: var(--bg-elev);
-    border-right: 1px solid var(--border);
+    border-inline-end: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -661,7 +661,7 @@
   .inspector {
     grid-area: insp;
     position: relative;
-    border-left: 1px solid var(--border);
+    border-inline-start: 1px solid var(--border);
     background: var(--bg-elev);
     display: flex;
     flex-direction: column;

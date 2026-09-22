@@ -501,7 +501,7 @@
     border-bottom: 1px solid var(--border);
     padding: 8px 10px;
     vertical-align: top;
-    text-align: left;
+    text-align: start;
   }
   .ct thead th {
     background: var(--bg-sunken);
@@ -584,7 +584,7 @@
   }
   .rules {
     margin: 4px 0 0;
-    padding-left: 18px;
+    padding-inline-start: 18px;
     display: flex;
     flex-direction: column;
     gap: 2px;

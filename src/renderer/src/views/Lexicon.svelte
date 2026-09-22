@@ -2576,7 +2576,7 @@
   }
   .nodef {
     color: var(--danger);
-    margin-left: 4px;
+    margin-inline-start: 4px;
     vertical-align: middle;
   }
   .lex-status {
@@ -2629,7 +2629,7 @@
     border-radius: var(--radius-sm);
     cursor: pointer;
     color: inherit;
-    text-align: left;
+    text-align: start;
   }
   .issue-item:hover {
     background: var(--bg-hover);
@@ -2729,7 +2729,7 @@
   }
   /* 打了记号的词，单词前面那个符号 */
   .mark {
-    margin-right: 3px;
+    margin-inline-end: 3px;
     color: var(--warn);
   }
   .tiny {
@@ -2756,7 +2756,7 @@
     overflow: auto;
   }
   .graph-wrap {
-    padding-right: 4px;
+    padding-inline-end: 4px;
     display: flex;
     flex-direction: column;
   }
@@ -2769,7 +2769,7 @@
     position: sticky;
     top: 0;
     background: var(--bg);
-    text-align: left;
+    text-align: start;
     font-weight: 600;
     color: var(--text-2);
     padding: 4px 8px;
@@ -2797,7 +2797,7 @@
   }
   .dup {
     color: var(--warn);
-    margin-left: 4px;
+    margin-inline-start: 4px;
     vertical-align: middle;
   }
   .pos {
@@ -2811,7 +2811,7 @@
     white-space: nowrap;
   }
   .tags-cell .badge {
-    margin-right: 3px;
+    margin-inline-end: 3px;
   }
   .tbl tbody tr.vpad {
     cursor: default;
@@ -2950,7 +2950,7 @@
     border: 0;
     background: none;
     padding: 2px 0;
-    text-align: left;
+    text-align: start;
     color: var(--text-3);
     cursor: pointer;
   }

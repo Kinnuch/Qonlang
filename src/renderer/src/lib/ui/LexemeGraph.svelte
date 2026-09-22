@@ -800,7 +800,7 @@
     box-shadow: var(--shadow);
   }
   .compare .badge {
-    margin-left: 2px;
+    margin-inline-start: 2px;
   }
   .gmenu {
     position: fixed;
@@ -819,7 +819,7 @@
     margin-bottom: 4px;
   }
   .gmenu button {
-    text-align: left;
+    text-align: start;
     padding: 6px 10px;
     border: 0;
     border-radius: var(--radius-sm);

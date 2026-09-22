@@ -733,7 +733,7 @@
     padding: 6px 0 0;
     color: inherit;
     font: inherit;
-    text-align: left;
+    text-align: start;
     cursor: pointer;
   }
   .cat .fold-title {
@@ -835,8 +835,8 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding-left: 12px;
-    border-left: 2px solid var(--border);
+    padding-inline-start: 12px;
+    border-inline-start: 2px solid var(--border);
   }
   .val {
     gap: 6px;
@@ -855,6 +855,6 @@
     margin: 0;
   }
   .gap-left {
-    margin-left: 12px;
+    margin-inline-start: 12px;
   }
 </style>

@@ -106,12 +106,13 @@
     }
     const hits: AssignHit[] = []
     // 写法能切开（几个词、词根加一串词缀连写）：先列出切法，挑一个就整个换成这几段
-    // 只改原文的地方（短语）不列切法：没有分析可写，切法换过去还是原来那串字
-    const segs = ctx.textOnly
-      ? []
-      : analyzeToken(glossIndexFor(project, ctx.languageId), q, project.settings.morphemeBoundaries)
-          .filter((a) => a.morphs.length > 1)
-          .slice(0, 3)
+    const segs = analyzeToken(
+      glossIndexFor(project, ctx.languageId),
+      q,
+      project.settings.morphemeBoundaries
+    )
+      .filter((a) => a.morphs.length > 1)
+      .slice(0, 3)
     segs.forEach((a, i) =>
       hits.push({
         key: `s${i}`,
@@ -197,21 +198,15 @@
   /** 铅笔能不能点：语料页里能就地改（assign），开始页画廊能跳过去改（editAt） */
   const canEdit = $derived(!!wordHover.assign || !!wordHover.editAt)
   /**
-   * 点了铅笔：卡片上正显示的这个词认错了——切分里正好是它的那一段（词条或语素对得上）就只改那一段，
-   * 对不上任何一段（整词、没有切分）就改整个词。语料页里就地换成搜索框；开始页画廊先打开项目跳到那一句再改。
+   * 点了铅笔：改的就是卡片上正看着的这一块——点开了切分里的某一块就只改那一块，
+   * 没点过（卡片是整个词）就改整个词。语料页里就地换成搜索框；开始页画廊先打开项目跳到那一句再改。
    */
   function editWord(): void {
-    const i = wordHover.parts.findIndex(
-      (p) =>
-        (!!p.lexemeId && p.lexemeId === wordHover.lexemeId) ||
-        (!!p.morphemeId && p.morphemeId === wordHover.morphemeId)
-    )
-    // 只改原文的地方改不了单独一段：一律按整个词算
-    const index = i >= 0 && !wordHover.assign?.textOnly ? i : null
+    const index = wordHover.partIndex
     if (wordHover.assign) {
       const label =
         index !== null
-          ? wordHover.parts[index].label
+          ? (wordHover.parts[index]?.label ?? wordHover.assign.surface ?? '')
           : (wordHover.assign.surface ?? lexeme?.lemma ?? morphemeLabel(morpheme))
       wordHover.startEdit(index, label)
       return
@@ -318,15 +313,13 @@
             class="chip"
             class:plain={!p.lexemeId && !p.morphemeId && !p.missing}
             class:missing={p.missing}
-            class:on={wordHover.missing?.index === i ||
-              (!!p.lexemeId && p.lexemeId === wordHover.lexemeId) ||
-              (!!p.morphemeId && p.morphemeId === wordHover.morphemeId)}
+            class:on={wordHover.partIndex === i}
             title={p.missing ? t('corpus.partMissing') : (p.gloss ?? '')}
-            onmouseenter={() => (p.lexemeId || p.morphemeId) && wordHover.swap(p)}
+            onmouseenter={() => (p.lexemeId || p.morphemeId) && wordHover.swap(p, i)}
             onclick={() =>
               p.missing
                 ? wordHover.openMissing(i)
-                : (p.lexemeId || p.morphemeId) && wordHover.swap(p)}
+                : (p.lexemeId || p.morphemeId) && wordHover.swap(p, i)}
             >{p.label}{#if p.gloss && p.gloss !== '?'}<span class="pgloss">{p.gloss}</span
               >{:else if p.missing}<span class="pgloss">?</span>{/if}</button
           >
@@ -344,11 +337,7 @@
           </div>
           {#if wordHover.assign}
             <p class="small muted">
-              {wordHover.assign.textOnly
-                ? t('corpus.editWordTextHint')
-                : miss.edit
-                  ? t('corpus.editWordHint')
-                  : t('corpus.notFoundHint')}
+              {miss.edit ? t('corpus.editWordHint') : t('corpus.notFoundHint')}
             </p>
             <input
               class="input"
@@ -367,8 +356,8 @@
                 <p class="small muted">{t('corpus.assignNone')}</p>
               {/each}
             </div>
-            <!-- 整个词才好换：切分里的一段换了写法，整句的词就对不上了；只改原文的地方本来就是在改原文 -->
-            {#if miss.index === null && !wordHover.assign.textOnly}
+            <!-- 整个词才好换：切分里的一段换了写法，整句的词就对不上了 -->
+            {#if miss.index === null}
               <label class="rewrite small" title={t('corpus.rewriteTextTitle')}>
                 <input type="checkbox" bind:checked={wordHover.rewriteText} />
                 {t('corpus.rewriteText')}
@@ -380,9 +369,7 @@
         <LexemeCard
           {lexeme}
           project={project!}
-          onpicksense={wordHover.assign && !wordHover.assign.textOnly
-            ? (i) => wordHover.chooseSense(i)
-            : undefined}
+          onpicksense={wordHover.assign ? (i) => wordHover.chooseSense(i) : undefined}
         />
       {:else if morpheme}
         <div class="mor">
@@ -456,12 +443,12 @@
   }
   .cand-senses {
     margin: 0;
-    padding-left: 18px;
+    padding-inline-start: 18px;
     font-size: 13px;
     flex: 1;
   }
   .spos {
-    margin-right: 4px;
+    margin-inline-end: 4px;
     font-style: italic;
     font-size: 0.9em;
     color: var(--text-3);
@@ -510,7 +497,7 @@
     gap: 4px;
     flex-wrap: wrap;
     padding: 8px 12px 6px;
-    padding-right: 36px;
+    padding-inline-end: 36px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-sunken);
     color: var(--text-3);
@@ -539,7 +526,7 @@
     color: var(--text-3);
   }
   .pgloss {
-    margin-left: 4px;
+    margin-inline-start: 4px;
     font-family: var(--font-ui);
     font-size: 11px;
     color: var(--text-2);
@@ -597,7 +584,7 @@
     border-radius: 6px;
     background: var(--bg);
     color: inherit;
-    text-align: left;
+    text-align: start;
     cursor: pointer;
   }
   .assign-item:hover {

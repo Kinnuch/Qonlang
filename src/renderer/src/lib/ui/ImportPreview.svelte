@@ -464,7 +464,7 @@
   }
   .ip-senses {
     margin: 0;
-    padding-left: 20px;
+    padding-inline-start: 20px;
     font-size: 13px;
     line-height: 1.55;
   }
@@ -474,7 +474,7 @@
   }
   /* 义项自己的词类：淡淡地写在释义前面，不抢眼 */
   .ip-spos {
-    margin-right: 5px;
+    margin-inline-end: 5px;
     font-style: italic;
     font-size: 0.92em;
     color: var(--text-3);
@@ -483,7 +483,7 @@
     display: inline-block;
     min-width: 1.4em;
     padding: 0 3px;
-    margin-right: 5px;
+    margin-inline-end: 5px;
     border: 1px solid var(--text-3);
     border-radius: 3px;
     color: var(--text-2);
@@ -494,7 +494,7 @@
     white-space: nowrap;
   }
   .ip-tags {
-    margin-left: 6px;
+    margin-inline-start: 6px;
     font-size: 11px;
     color: var(--text-3);
   }
@@ -507,7 +507,7 @@
     word-break: break-word;
   }
   .ip-fact .muted {
-    margin-right: 6px;
+    margin-inline-end: 6px;
   }
   .ip-glyphs {
     display: grid;

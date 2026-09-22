@@ -1430,7 +1430,7 @@
     background: var(--bg-sunken);
   }
   .actions .target {
-    margin-right: 4px;
+    margin-inline-end: 4px;
   }
   .tools label,
   .actions label {
@@ -1441,7 +1441,7 @@
   }
   .num {
     width: 3ch;
-    text-align: right;
+    text-align: end;
   }
   .num-in {
     width: 76px;
@@ -1595,7 +1595,7 @@
   }
   .msg {
     color: var(--accent-text);
-    margin-right: 8px;
+    margin-inline-end: 8px;
   }
   .foot {
     gap: 6px;

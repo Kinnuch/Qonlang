@@ -456,7 +456,7 @@
     box-shadow: var(--shadow-lg);
   }
   .menu button {
-    text-align: left;
+    text-align: start;
     border: 0;
     background: none;
     padding: 4px 8px;

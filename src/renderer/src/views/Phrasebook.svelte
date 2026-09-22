@@ -28,10 +28,10 @@
   import { transcribe } from '$lib/core/pronounce'
   import { textScript } from '$lib/script/lexiconScript'
   import { fontCss } from '$lib/script/fonts'
-  import { analyzeToken, glossIndexFor } from '$lib/engine/gloss'
+  import { analyzeSentence } from '$lib/engine/gloss'
   import { WordResolver } from '$lib/engine/gloss/resolve'
-  import { tokenSpans, type TokenizeOptions } from '$lib/engine/gloss/tokens'
-  import { replaceWordIfSame } from '$lib/engine/gloss/rewrite'
+  import { spanTokens, tokensMatchText } from '$lib/engine/gloss/tokens'
+  import { rewriteWordInText, tokenizeOptionsFor, writeChoice } from '$lib/engine/gloss/assign'
   import {
     wordHover,
     type HoverAssign,
@@ -109,81 +109,112 @@
     if (resolverCache?.key !== key) resolverCache = { key, r: new WordResolver(project, langId) }
     return resolverCache.r
   }
-  /** 同一个写法只分析一次：列表里每个词都要判断能不能点 */
-  let tokenCache: { key: string; m: Map<string, Token> } | null = null
-  /** 把短语里的一个词当成语料里的词看：分析出来交给上面那套认词 */
-  function tokenOf(word: string): Token {
-    const key = (langId ?? '') + '|' + project.meta.updatedAt
-    if (tokenCache?.key !== key) tokenCache = { key, m: new Map() }
-    let tk = tokenCache.m.get(word)
-    if (!tk) {
-      const analyses = langId
-        ? analyzeToken(glossIndexFor(project, langId), word, project.settings.morphemeBoundaries)
-        : []
-      const i = analyses.findIndex((a) => a.lexemeId)
-      tk = { surface: word, analyses, chosen: Math.max(0, i), confirmed: false }
-      tokenCache.m.set(word, tk)
-    }
-    return tk
+  /** 现算的分析：没存过分析的短语每次照原文分析一遍，项目一改就重算 */
+  const freshTokens = new Map<Id, { key: string; tokens: Token[] }>()
+  /** 存下来的分析还对得上原文吗（原文改过就作废） */
+  function ownTokens(p: Phrase): Token[] | null {
+    if (!p.tokens?.length) return null
+    const surfaces = p.tokens.map((t) => t.surface)
+    return tokensMatchText(p.text, surfaces, tokenizeOptionsFor(project, p.languageId))
+      ? p.tokens
+      : null
   }
-  /** 短语原文切成段：word 为真的那些能悬浮，wi 是它在原文里的第几个词（改写原文按它定位） */
-  function spansOf(p: Phrase): { text: string; word: boolean; wi: number }[] {
-    let wi = -1
-    return tokenSpans(p.text, tokenizeOpts(p.languageId)).map((s) => ({
-      ...s,
-      wi: s.word ? ++wi : -1
-    }))
-  }
-  /** 跟语料一致的切法 */
-  function tokenizeOpts(languageId: Id): TokenizeOptions {
-    return {
-      mode: project.settings.tokenizer,
-      pattern: project.settings.tokenizerPattern,
-      letters:
-        glossIndexFor(project, languageId).wordChars + (project.settings.tokenizerLetters ?? '')
-    }
-  }
-  const linkable = (word: string): boolean => resolver().linkable(tokenOf(word))
   /**
-   * 悬浮卡里「改」：短语不存分析，只改得了原文——把这一处换成挑中词条 / 语素的写法。
-   * 按位置核对过原文没变才改；原文变了发音跟着重算（手改过的不动）。
+   * 这条短语的分析：存过的以存的为准，没存过就现算。
+   * 跟例句走同一个 analyzeSentence，切分、并词、隔开写的词两边才一个样子。
    */
-  function rewriteWord(id: Id, wi: number, surface: string, c: HoverChoice): void {
+  function tokensOf(p: Phrase): Token[] {
+    const own = ownTokens(p)
+    if (own) return own
+    const key = p.text + '|' + project.meta.updatedAt
+    const hit = freshTokens.get(p.id)
+    if (hit?.key === key) return hit.tokens
+    const tokens = analyzeSentence(project, {
+      languageId: p.languageId,
+      text: p.text,
+      translation: p.translation,
+      tokens: []
+    }).tokens
+    freshTokens.set(p.id, { key, tokens })
+    return tokens
+  }
+  /** 画一条短语要的东西：分析，加上原文切成的段（每一段指着第几个分析） */
+  function phraseView(p: Phrase): {
+    tokens: Token[]
+    spans: { text: string; word: boolean; at: number }[]
+  } {
+    const tokens = tokensOf(p)
+    return {
+      tokens,
+      spans: spanTokens(
+        p.text,
+        tokens.map((t) => t.surface),
+        tokenizeOptionsFor(project, p.languageId)
+      )
+    }
+  }
+  /** 第一次在这条短语上改词：把现算的那份分析存进短语，往后以存的为准 */
+  function storeTokens(p: Phrase): Token[] {
+    if (!ownTokens(p)) {
+      p.tokens = tokensOf(p)
+      freshTokens.delete(p.id)
+    }
+    return p.tokens ?? []
+  }
+  /** 原文改了：存过分析的跟着重算（确认过的词照旧留着） */
+  function reanalyze(p: Phrase): void {
+    if (!p.tokens?.length) return
+    p.tokens = analyzeSentence(project, {
+      languageId: p.languageId,
+      text: p.text,
+      translation: p.translation,
+      tokens: p.tokens
+    }).tokens
+  }
+  const linkable = (tk: Token | undefined): boolean => !!tk && resolver().linkable(tk)
+  /**
+   * 悬浮卡里挑中了一个词条 / 语素 / 切法：写进这条短语自己的分析，原文不动。
+   * 勾了「同时改原文」的才连原文一起换，发音跟着重算（手改成不规则的不动）。
+   */
+  function assignWord(
+    id: Id,
+    at: number,
+    surface: string,
+    index: number | null,
+    c: HoverChoice
+  ): void {
     const p = project.phrasebook.find((x) => x.id === id)
     if (!p) return
-    const l = c.lexemeId ? project.lexemes.find((x) => x.id === c.lexemeId) : undefined
-    const m = c.morphemeId ? project.morphemes.find((x) => x.id === c.morphemeId) : undefined
-    const spelling = (l?.lemma ?? m?.form ?? '').replace(/^[-=·]+|[-=·]+$/g, '').trim()
-    if (!spelling) return
-    const next = replaceWordIfSame(p.text, wi, surface, spelling, tokenizeOpts(p.languageId))
-    if (next === p.text) return
-    p.text = next
-    derivePron(p)
+    const tk = storeTokens(p)[at]
+    if (!tk || tk.surface !== surface) return
+    if (!writeChoice(project, tk, index, c)) return
+    if (wordHover.rewriteText && index === null && rewriteWordInText(project, p, at)) derivePron(p)
+    touch()
   }
-  function assignOf(p: Phrase, wi: number, surface: string): HoverAssign {
+  function assignOf(p: Phrase, at: number, surface: string): HoverAssign {
     const id = p.id
     return {
       languageId: p.languageId,
       surface,
-      textOnly: true,
-      onAssign: (_index, c) => rewriteWord(id, wi, surface, c)
+      onAssign: (index, c) => assignWord(id, at, surface, index, c)
     }
   }
-  function hoverWord(e: MouseEvent, p: Phrase, wi: number, word: string): void {
-    const tk = tokenOf(word)
+  function hoverWord(e: MouseEvent, p: Phrase, tokens: Token[], at: number): void {
+    const tk = tokens[at]
+    if (!tk) return
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    // 切分只给看：短语改不了单独一段，没认出来的那一段也不标成「点开指定」
-    const parts: HoverPart[] = resolver()
-      .hoverParts(tk)
-      .map((x) => ({ ...x, missing: false }))
-    const assign = assignOf(p, wi, word)
+    const parts: HoverPart[] = resolver().hoverParts(tk)
+    const assign = assignOf(p, at, tk.surface)
+    // 拆出来的某一段没找到：直接打开那一段的「没有找到」；整个词都没找到也一样（跟语料一致）
+    const miss = parts.findIndex((x) => x.missing)
+    if (miss >= 0) return wordHover.showMissing(parts[miss].label, miss, rect, parts, assign)
     const target = resolver().resolveWord(tk)
     if (target?.lexemeId) wordHover.show(target.lexemeId, rect, parts, assign)
     else if (target?.morphemeId) wordHover.showMorpheme(target.morphemeId, rect, parts, assign)
-    else wordHover.showMissing(word, null, rect, parts, assign)
+    else wordHover.showMissing(tk.surface, null, rect, parts, assign)
   }
-  function clickWord(e: MouseEvent, word: string): void {
-    const target = resolver().resolveWord(tokenOf(word))
+  function clickWord(e: MouseEvent, tk: Token | undefined): void {
+    const target = tk ? resolver().resolveWord(tk) : null
     if (!target) return
     e.stopPropagation()
     wordHover.hide(true)
@@ -420,6 +451,7 @@
         {:else}
           <div class="list">
             {#each list as p, pi (p.id)}
+              {@const view = phraseView(p)}
               <div
                 class="card item"
                 data-id={p.id}
@@ -445,14 +477,14 @@
                 {/each}
                 <div class="row">
                   <span class="data text grow words"
-                    >{#each spansOf(p) as sp, i (i)}{#if sp.word}<span
+                    >{#each view.spans as sp, i (i)}{#if sp.word}<span
                           class="w"
-                          class:link={linkable(sp.text)}
+                          class:link={linkable(view.tokens[sp.at])}
                           role="link"
                           tabindex="-1"
-                          onmouseenter={(e) => hoverWord(e, p, sp.wi, sp.text)}
+                          onmouseenter={(e) => hoverWord(e, p, view.tokens, sp.at)}
                           onmouseleave={() => wordHover.hide()}
-                          onclick={(e) => clickWord(e, sp.text)}
+                          onclick={(e) => clickWord(e, view.tokens[sp.at])}
                           onkeydown={() => {}}>{sp.text}</span
                         >{:else}{sp.text}{/if}{/each}{#if !p.text}—{/if}</span
                   >
@@ -487,7 +519,10 @@
         rows="2"
         bind:value={p.text}
         oninput={touch}
-        onchange={() => derivePron(p)}
+        onchange={() => {
+          reanalyze(p)
+          derivePron(p)
+        }}
       ></textarea>
     </div>
     <div class="field">
@@ -630,7 +665,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    text-align: left;
+    text-align: start;
     border: 0;
     background: none;
     padding: 5px 8px;
@@ -650,7 +685,7 @@
     color: var(--text-2);
   }
   .cat .n {
-    margin-left: auto;
+    margin-inline-start: auto;
     font-size: 11px;
     color: var(--text-3);
   }
@@ -658,7 +693,7 @@
     flex: 1;
     min-width: 0;
     overflow: auto;
-    padding-right: 4px;
+    padding-inline-end: 4px;
   }
   .list {
     display: flex;

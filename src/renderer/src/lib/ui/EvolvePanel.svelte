@@ -254,7 +254,7 @@
   .tbl td {
     padding: 3px 8px;
     border-bottom: 1px solid var(--border);
-    text-align: left;
+    text-align: start;
   }
   tr.skip td {
     opacity: 0.55;

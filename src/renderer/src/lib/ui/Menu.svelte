@@ -110,7 +110,7 @@
     }
   }
   .menu-list :global(button) {
-    text-align: left;
+    text-align: start;
     border: 0;
     background: transparent;
     padding: 6px 10px;

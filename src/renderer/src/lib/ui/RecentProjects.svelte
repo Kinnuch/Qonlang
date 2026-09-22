@@ -151,7 +151,7 @@
     gap: 8px;
     min-height: 116px;
     padding: 12px 14px;
-    text-align: left;
+    text-align: start;
     cursor: pointer;
     background: var(--bg-elev);
   }

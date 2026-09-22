@@ -1963,7 +1963,7 @@
     border: none;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
-    text-align: left;
+    text-align: start;
     color: inherit;
   }
   .match:last-child {
@@ -2015,7 +2015,7 @@
     padding: 4px 10px;
     background: var(--bg-sunken);
     font-weight: 500;
-    text-align: left;
+    text-align: start;
     white-space: nowrap;
   }
   .ptable .corner {
@@ -2034,7 +2034,7 @@
     background: none;
     color: inherit;
     font: inherit;
-    text-align: left;
+    text-align: start;
     cursor: pointer;
   }
   .pcell:hover,
@@ -2078,7 +2078,7 @@
   }
   .ptree li {
     position: relative;
-    padding-left: 18px;
+    padding-inline-start: 18px;
   }
   .ptree li::before {
     content: '';
@@ -2086,7 +2086,7 @@
     left: 0;
     top: 0;
     bottom: 0;
-    border-left: 1px solid var(--border-strong);
+    border-inline-start: 1px solid var(--border-strong);
   }
   .ptree li:last-child::before {
     bottom: auto;
@@ -2114,7 +2114,7 @@
     cursor: pointer;
   }
   .tnode.leaf {
-    padding-left: 10px;
+    padding-inline-start: 10px;
     border-radius: var(--radius-sm);
   }
   .page {
@@ -2215,7 +2215,7 @@
     font-size: 13px;
   }
   .tbl th {
-    text-align: left;
+    text-align: start;
     font-weight: 600;
     color: var(--text-2);
     padding: 4px 8px;
@@ -2280,7 +2280,7 @@
     vertical-align: middle;
   }
   .fold-cell .badge {
-    margin-left: 8px;
+    margin-inline-start: 8px;
   }
   .fold-sum {
     max-width: min(60vw, 760px);
@@ -2291,7 +2291,7 @@
     font: inherit;
     font-size: 12px;
     font-family: var(--font-mono);
-    text-align: left;
+    text-align: start;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2310,7 +2310,7 @@
   }
   .clear-wrap .input {
     width: 100%;
-    padding-right: 28px;
+    padding-inline-end: 28px;
   }
   .clear-x {
     position: absolute;
@@ -2420,7 +2420,7 @@
     display: flex;
     gap: 8px;
     align-items: baseline;
-    text-align: left;
+    text-align: start;
     border: 0;
     background: none;
     padding: 6px 8px;
@@ -2534,7 +2534,7 @@
   }
   .vwrap:hover > button:first-child,
   .vwrap:focus-within > button:first-child {
-    padding-right: 26px;
+    padding-inline-end: 26px;
   }
   .vwrap .pen {
     position: absolute;

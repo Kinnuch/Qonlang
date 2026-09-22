@@ -1267,7 +1267,7 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    padding-right: 4px;
+    padding-inline-end: 4px;
   }
   .tools {
     gap: 8px;

@@ -2,7 +2,16 @@
  * 自动 gloss：分词 → 反向索引查询（已确认分析 / 词头 / 词干 / 屈折形 / 语素）→ 词缀剥离 → 候选排序。
  * 只出草稿，用户逐词确认；确认过的分析成为最高优先级候选。
  */
-import type { Analysis, Id, Lexeme, Morpheme, Project, Sentence, Token } from '$lib/core/model'
+import type {
+  Analysis,
+  Id,
+  Lexeme,
+  LocalizedText,
+  Morpheme,
+  Project,
+  Sentence,
+  Token
+} from '$lib/core/model'
 import {
   generateForm,
   lexemeSlots,
@@ -59,7 +68,7 @@ export interface GlossIndex {
   project: Project
 }
 
-import { discontinuousEntries, matchDiscontinuous } from './discontinuous'
+import { clearDiscontinuousCache, discontinuousEntries, matchDiscontinuous } from './discontinuous'
 import { tokenize } from './tokens'
 export { tokenize, type TokenizeOptions } from './tokens'
 
@@ -838,12 +847,20 @@ export function mergePhrases(
   return out
 }
 
-/** 分析整句：默认只重算未确认的词；保留手工分析 */
-export function analyzeSentence(
+/** 分析得了的一段原文：例句是这个样子，短语也是（短语没有的字段这里用不到） */
+export interface AnalyzableText {
+  languageId: Id
+  text: string
+  translation?: LocalizedText
+  tokens: Token[]
+}
+
+/** 分析整句：默认只重算未确认的词；保留手工分析。短语也走这里，两边的分析才一个样子 */
+export function analyzeSentence<T extends AnalyzableText>(
   project: Project,
-  sentence: Sentence,
+  sentence: T,
   opts: { force?: boolean } = {}
-): Sentence {
+): T {
   const idx = glossIndexFor(project, sentence.languageId)
   const tr = Object.values(sentence.translation ?? {}).join('；')
   const hint = tr.trim() ? piecesOf(tr) : undefined
@@ -919,6 +936,7 @@ let typeCache = new WeakMap<Project, { stamp: string; types: Map<Id, string> }>(
 export function clearGlossCaches(): void {
   typeCache = new WeakMap()
   indexCache = new WeakMap()
+  clearDiscontinuousCache()
 }
 function morphemeType(project: Project, id: Id): string | undefined {
   const stamp = `${project.meta.updatedAt}|${project.morphemes.length}`

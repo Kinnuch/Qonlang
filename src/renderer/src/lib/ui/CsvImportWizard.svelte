@@ -897,7 +897,7 @@
     position: sticky;
     top: 0;
     background: var(--bg);
-    text-align: left;
+    text-align: start;
     padding: 4px 8px;
     border-bottom: 1px solid var(--border);
     color: var(--text-2);
@@ -933,7 +933,7 @@
     white-space: nowrap;
   }
   .fresh {
-    margin-left: 6px;
+    margin-inline-start: 6px;
     color: var(--accent-text);
   }
   .paste {

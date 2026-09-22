@@ -201,7 +201,7 @@
     background: var(--bg-sunken);
   }
   .auto .muted {
-    margin-right: 6px;
+    margin-inline-end: 6px;
   }
   .warn {
     color: var(--warn);

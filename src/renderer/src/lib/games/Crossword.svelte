@@ -233,7 +233,7 @@
   }
   .clues ol {
     margin: 0;
-    padding-left: 0;
+    padding-inline-start: 0;
     max-width: 260px;
     /* 题号自己写在每条前面，不要列表再编一遍号 */
     list-style: none;

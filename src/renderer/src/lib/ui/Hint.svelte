@@ -25,7 +25,7 @@
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
-    border-left: 3px solid var(--accent);
+    border-inline-start: 3px solid var(--accent);
     background: var(--accent-soft);
     border-radius: var(--radius-sm);
     font-size: 12px;

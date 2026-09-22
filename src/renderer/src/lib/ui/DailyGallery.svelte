@@ -560,7 +560,7 @@
     min-width: 0;
     margin-top: 10px;
     /* 右边留给落款 */
-    padding-right: 96px;
+    padding-inline-end: 96px;
   }
   .main {
     font-size: 18px;

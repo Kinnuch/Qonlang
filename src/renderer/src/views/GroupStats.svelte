@@ -294,7 +294,7 @@
     margin: -6px 0 0;
   }
   .num {
-    text-align: right;
+    text-align: end;
     font-variant-numeric: tabular-nums;
   }
   .dot {
@@ -302,7 +302,7 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    margin-right: 6px;
+    margin-inline-end: 6px;
   }
   .link {
     border: 0;

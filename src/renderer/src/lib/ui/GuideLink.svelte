@@ -31,7 +31,7 @@
     color: var(--text-2);
     font-size: 12px;
     cursor: pointer;
-    margin-left: 4px;
+    margin-inline-start: 4px;
     white-space: nowrap;
     flex: none;
   }

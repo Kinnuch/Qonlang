@@ -194,7 +194,7 @@
     flex-direction: column;
     gap: 4px;
     align-items: flex-start;
-    text-align: left;
+    text-align: start;
     padding: 12px 14px;
     min-height: 62px;
     justify-content: center;

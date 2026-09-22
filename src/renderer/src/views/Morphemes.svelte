@@ -866,7 +866,7 @@
     position: sticky;
     top: 0;
     background: var(--bg);
-    text-align: left;
+    text-align: start;
     font-weight: 600;
     color: var(--text-2);
     padding: 6px 8px;
@@ -900,7 +900,7 @@
     white-space: nowrap;
   }
   .tags-cell > :global(.badge) {
-    margin-right: 3px;
+    margin-inline-end: 3px;
   }
   .card-actions {
     gap: 6px;
@@ -924,7 +924,7 @@
     display: inline-flex;
     align-items: center;
     gap: 2px;
-    padding-right: 2px;
+    padding-inline-end: 2px;
   }
   .allo-vals .vx {
     display: inline-flex;

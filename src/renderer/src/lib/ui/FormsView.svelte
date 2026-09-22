@@ -163,7 +163,7 @@
     background: var(--bg-sunken);
     font-weight: 500;
     font-size: 12px;
-    text-align: left;
+    text-align: start;
     white-space: nowrap;
   }
   .ftable .corner {
@@ -181,7 +181,7 @@
   }
   .ftree li {
     position: relative;
-    padding-left: 16px;
+    padding-inline-start: 16px;
   }
   .ftree li::before {
     content: '';
@@ -189,7 +189,7 @@
     left: 0;
     top: 0;
     bottom: 0;
-    border-left: 1px solid var(--border-strong);
+    border-inline-start: 1px solid var(--border-strong);
   }
   .ftree li:last-child::before {
     bottom: auto;

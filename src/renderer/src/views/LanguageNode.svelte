@@ -289,20 +289,20 @@
     color: var(--accent-text);
   }
   .kids {
-    margin-left: 28px;
-    padding-left: 12px;
-    border-left: 2px solid var(--border);
+    margin-inline-start: 28px;
+    padding-inline-start: 12px;
+    border-inline-start: 2px solid var(--border);
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
   /* 分类节点里的东西往里缩一格（框本身已经圈住了，不再画那条竖线）；原始语除外，它跟标题对齐 */
   .kids.in-group {
-    margin-left: 0;
-    padding-left: 18px;
-    border-left: 0;
+    margin-inline-start: 0;
+    padding-inline-start: 18px;
+    border-inline-start: 0;
   }
   .node.flush {
-    margin-left: -18px;
+    margin-inline-start: -18px;
   }
 </style>

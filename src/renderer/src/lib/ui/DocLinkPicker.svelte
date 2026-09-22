@@ -193,7 +193,7 @@
     align-items: center;
     gap: 10px;
     width: 100%;
-    text-align: left;
+    text-align: start;
     border: 0;
     background: none;
     padding: 6px 10px;

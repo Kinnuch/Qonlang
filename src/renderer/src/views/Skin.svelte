@@ -1127,7 +1127,7 @@ a > e / _i</span
     display: flex;
     flex-direction: column;
     gap: 22px;
-    padding-right: 4px;
+    padding-inline-end: 4px;
   }
   section {
     display: flex;
@@ -1378,7 +1378,7 @@ a > e / _i</span
     border-radius: 8px;
   }
   .act {
-    text-align: right;
+    text-align: end;
     white-space: nowrap;
   }
   .act .badge {
@@ -1572,7 +1572,7 @@ a > e / _i</span
   }
   .blk .px {
     width: 34px;
-    text-align: right;
+    text-align: end;
     font-variant-numeric: tabular-nums;
     color: var(--text-3);
   }

@@ -502,7 +502,7 @@
     box-shadow: var(--shadow);
   }
   .entry.has-img header {
-    padding-right: 172px;
+    padding-inline-end: 172px;
     min-height: 120px;
   }
   .thumbs {
@@ -529,7 +529,7 @@
   }
   /* 打了记号的词，单词前面那个符号 */
   .mark {
-    margin-right: 3px;
+    margin-inline-end: 3px;
     color: var(--warn);
   }
   .lemma {
@@ -547,7 +547,7 @@
   }
   /* 勾了「影响发音」的槽位推出来的发音，跟在形式后面 */
   .form-ipa {
-    margin-left: 0.5em;
+    margin-inline-start: 0.5em;
     font-size: 0.85em;
     color: var(--text-2);
   }
@@ -557,7 +557,7 @@
   .tiny {
     font-size: 0.67em;
     color: var(--text-3);
-    margin-left: 4px;
+    margin-inline-start: 4px;
   }
   .chips {
     display: flex;
@@ -589,7 +589,7 @@
   }
   .senses {
     margin: 0;
-    padding-left: 22px;
+    padding-inline-start: 22px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -607,7 +607,7 @@
     display: inline-block;
     min-width: 1.4em;
     padding: 0 3px;
-    margin-right: 6px;
+    margin-inline-end: 6px;
     border: 1px solid var(--text-3);
     border-radius: 3px;
     color: var(--text-2);
@@ -619,7 +619,7 @@
   }
   /* 义项自己的词类（跟词条不一样时）：淡淡地写在释义前面，不抢眼 */
   .spos {
-    margin-right: 6px;
+    margin-inline-end: 6px;
     font-style: italic;
     font-size: 0.86em;
     color: var(--text-3);
@@ -655,7 +655,7 @@
   .fold,
   .forms-seg {
     vertical-align: middle;
-    margin-left: 6px;
+    margin-inline-start: 6px;
     opacity: 0;
     transition: opacity 0.12s;
   }

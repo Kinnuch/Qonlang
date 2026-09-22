@@ -743,7 +743,7 @@
   .side-panel {
     /* 与检视器同宽，但窗口窄时让主区留得住 */
     width: min(var(--panel-w, 360px), 34vw);
-    border-left: 1px solid var(--border);
+    border-inline-start: 1px solid var(--border);
     background: var(--bg-elev);
     display: flex;
     flex-direction: column;
@@ -762,7 +762,7 @@
   }
   .side {
     background: var(--bg-elev);
-    border-right: 1px solid var(--border);
+    border-inline-end: 1px solid var(--border);
     /* 底边跟主区一样留 40px：左下的语言选择、版本号跟右边底部那排按钮落在同一条线上 */
     padding: 28px 24px 40px;
     display: flex;
@@ -835,7 +835,7 @@
     border-radius: var(--radius-sm);
     background: transparent;
     cursor: pointer;
-    text-align: left;
+    text-align: start;
   }
   .recent-item:hover {
     background: var(--bg-hover);
@@ -849,7 +849,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     direction: rtl;
-    text-align: left;
+    text-align: start;
   }
   .foot {
     justify-content: space-between;
@@ -895,7 +895,7 @@
   }
   /* 箭头贴右边，文字跟下面几个按钮一样靠左 */
   .new-wrap > .btn :global(svg:last-child) {
-    margin-left: auto;
+    margin-inline-start: auto;
   }
   .tpl-list {
     position: absolute;
@@ -917,7 +917,7 @@
     border: 1px solid transparent;
     border-radius: var(--radius-sm);
     background: none;
-    text-align: left;
+    text-align: start;
     cursor: pointer;
     color: var(--text);
   }
@@ -985,7 +985,7 @@
     background: var(--bg-elev);
     cursor: pointer;
     color: var(--text);
-    text-align: left;
+    text-align: start;
   }
   .swatch:hover {
     border-color: var(--accent);
@@ -1008,7 +1008,7 @@
     white-space: nowrap;
   }
   .tpl {
-    text-align: left;
+    text-align: start;
     padding: 11px 14px;
     display: flex;
     flex-direction: column;
@@ -1089,7 +1089,7 @@
   }
   .md :global(ul) {
     margin: 0 0 6px;
-    padding-left: 20px;
+    padding-inline-start: 20px;
     font-size: 13px;
   }
   .md :global(p) {
@@ -1106,7 +1106,7 @@
     padding: 0;
     color: var(--accent-text);
     cursor: pointer;
-    text-align: left;
+    text-align: start;
   }
   .friends {
     display: grid;
@@ -1122,7 +1122,7 @@
     border-radius: var(--radius-sm);
     background: var(--bg);
     cursor: pointer;
-    text-align: left;
+    text-align: start;
   }
   .friend:hover {
     border-color: var(--accent);

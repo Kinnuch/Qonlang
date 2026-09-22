@@ -73,7 +73,7 @@
     color: var(--text);
     font-size: 12px;
     line-height: 1.6;
-    text-align: left;
+    text-align: start;
     white-space: pre-line;
     pointer-events: none;
     z-index: 90;

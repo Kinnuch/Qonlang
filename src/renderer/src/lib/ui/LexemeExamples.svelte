@@ -153,7 +153,7 @@
     flex-direction: column;
     gap: 2px;
     align-items: flex-start;
-    text-align: left;
+    text-align: start;
     width: 100%;
     padding: 6px 8px;
     border: 1px solid var(--border);

@@ -1416,7 +1416,7 @@
     border: 0;
     background: none;
     padding: 2px 6px;
-    margin-left: -6px;
+    margin-inline-start: -6px;
     border-radius: var(--radius-sm);
     font-family: var(--font-mono);
     font-weight: 700;

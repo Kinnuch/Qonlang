@@ -1339,7 +1339,7 @@
     display: flex;
     flex-direction: column;
     gap: 18px;
-    padding-right: 4px;
+    padding-inline-end: 4px;
   }
   .block {
     display: flex;
@@ -1436,7 +1436,7 @@
     font-weight: 500;
     color: var(--text-2);
     padding: 2px 4px;
-    text-align: left;
+    text-align: start;
     white-space: nowrap;
   }
   .chart thead th {
@@ -1557,7 +1557,7 @@
   .badge.warn {
     background: var(--warn-soft);
     color: var(--warn);
-    margin-right: 4px;
+    margin-inline-end: 4px;
   }
   .big {
     font-size: 22px;

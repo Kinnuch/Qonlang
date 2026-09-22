@@ -24,11 +24,6 @@ export interface HoverAssign {
   languageId: Id
   /** 这个词在原文里的写法：卡片上点铅笔改成别的词时，搜索框先填它 */
   surface?: string
-  /**
-   * 这一处只改得了原文（短语簿）：短语不存分析，挑中的词只能换成原文里的写法。
-   * 要写进分析才有意义的那些（挑义项、挑切法、「同时改原文」）在卡片里都不显示。
-   */
-  textOnly?: boolean
   onAssign: (index: number | null, c: HoverChoice) => void
 }
 
@@ -53,6 +48,12 @@ class WordHover {
     ((target: { lexemeId: Id | null; morphemeId: Id | null; languageId: Id }) => void) | null = null
   /** 调用方给的切分（优先于卡片自己按词源推的） */
   parts = $state<HoverPart[]>([])
+  /**
+   * 卡片正显示切分里的第几块：null 是整个词。
+   * 一律按下标记，不按词条 / 语素的 id 认——同一个词条在一个词里出现两次时，
+   * 按 id 找会找到头一块，点的却是后一块（「改」就改错了地方）。
+   */
+  partIndex = $state<number | null>(null)
   /**
    * 卡片最初打开的是哪个词条 / 语素。悬浮到切分里的某一块时卡片换成那一块（swap），
    * 但切分那一行照这个算，不跟着换——不然换过去的词自己没有来源，那一行一消失整张卡就跳一下。
@@ -86,6 +87,8 @@ class WordHover {
 
   /** 稍等一下再换内容：鼠标只是划过去时不闪 */
   private open(fill: () => void): void {
+    // 正在卡片里改词：路过别的词不抢走这张卡片（改到一半被换掉，挑的就是别的词了）
+    if (this.pinned && this.missing?.edit) return
     this.cancel()
     this.pinned = false
     this.showTimer = setTimeout(() => {
@@ -93,6 +96,7 @@ class WordHover {
       this.missing = null
       this.lexemeId = null
       this.morphemeId = null
+      this.partIndex = null
       fill()
       this.base = { lexemeId: this.lexemeId, morphemeId: this.morphemeId }
     }, 280)
@@ -133,6 +137,7 @@ class WordHover {
   ): void {
     this.open(() => {
       this.missing = { label, index }
+      this.partIndex = index
       this.rect = rect
       this.parts = parts
       this.assign = assign
@@ -176,7 +181,7 @@ class WordHover {
           ? { ...p, lexemeId: c.lexemeId ?? null, morphemeId: c.morphemeId ?? null, missing: false }
           : p
       )
-    this.swap(c)
+    this.swap(c, m.index)
   }
   /**
    * 卡片里点了某个义项：把这个词换成这个义项的意思。
@@ -185,8 +190,7 @@ class WordHover {
   chooseSense(senseIndex: number): void {
     const lexemeId = this.lexemeId
     if (!this.assign || !lexemeId) return
-    const i = this.parts.findIndex((p) => !!p.lexemeId && p.lexemeId === lexemeId)
-    this.assign.onAssign(i >= 0 ? i : null, { lexemeId, senseIndex })
+    this.assign.onAssign(this.partIndex, { lexemeId, senseIndex })
     this.pinned = true
   }
   /** 卡片上点了铅笔：换成搜索框挑正确的词；index 为 null 是整个词，否则是切分里的第几段 */
@@ -197,6 +201,7 @@ class WordHover {
     this.lexemeId = null
     this.morphemeId = null
     this.missing = { label, index, edit: true }
+    this.partIndex = index
     this.pinned = true
   }
   /** 从别处跳过来直接打开「应该是哪个词」（语料页定位到那个词之后调），不等延时、直接钉住 */
@@ -216,6 +221,7 @@ class WordHover {
     this.parts = parts
     this.assign = assign
     this.missing = { label, index, edit: true }
+    this.partIndex = index
     this.pinned = true
   }
   /** 卡片里点了没找到的那一段（开始页画廊里没法就地指定，也照样显示「没有找到」，旁边的「改」去语料里指定） */
@@ -227,18 +233,26 @@ class WordHover {
     this.lexemeId = null
     this.morphemeId = null
     this.missing = { label: p.label, index }
+    this.partIndex = index
     this.pinned = true
   }
-  /** 卡片里点开某个组成部分时立即切换，不再等延时 */
-  swap(target: HoverChoice): void {
+  /** 卡片里点开某个组成部分时立即切换，不再等延时；index 是切分里的第几块（整个词是 null） */
+  swap(target: HoverChoice, index: number | null = null): void {
     this.cancel()
     this.candidates = []
     this.missing = null
     this.lexemeId = target.lexemeId ?? null
     this.morphemeId = target.morphemeId ?? null
+    this.partIndex = index
     this.pinned = true
   }
+  /**
+   * 鼠标进了卡片：别收起，也别再换内容——
+   * 从词挪到卡片的路上蹭到了别的词，那次悬浮还排着队，280ms 后会把卡片整个换掉。
+   */
   keep(): void {
+    if (this.showTimer) clearTimeout(this.showTimer)
+    this.showTimer = null
     if (this.hideTimer) clearTimeout(this.hideTimer)
     this.hideTimer = null
   }
@@ -264,6 +278,7 @@ class WordHover {
     this.assign = null
     this.lexemeId = null
     this.morphemeId = null
+    this.partIndex = null
     this.rect = null
   }
   private cancel(): void {

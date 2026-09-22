@@ -347,7 +347,7 @@
     font-family: var(--font-mono);
   }
   .acts {
-    margin-left: auto;
+    margin-inline-start: auto;
     display: inline-flex;
   }
   .acts .btn {

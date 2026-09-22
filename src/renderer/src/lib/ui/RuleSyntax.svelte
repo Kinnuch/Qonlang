@@ -70,7 +70,7 @@
     margin: 4px 0 8px;
   }
   .syntax :global(ul) {
-    padding-left: 20px;
+    padding-inline-start: 20px;
   }
   .syntax :global(code) {
     font-family: var(--font-mono);
@@ -99,7 +99,7 @@
   .syntax :global(td) {
     border: 1px solid var(--border);
     padding: 4px 6px;
-    text-align: left;
+    text-align: start;
     vertical-align: top;
   }
   .syntax :global(th) {

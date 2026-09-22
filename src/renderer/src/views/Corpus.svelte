@@ -40,13 +40,10 @@
     toLatex,
     renderTemplate,
     coverage,
-    glossIndexFor,
     LEIPZIG,
-    lexemeGloss,
-    senseGloss
+    lexemeGloss
   } from '$lib/engine/gloss'
-  import { matchCase, replaceWordAt, wordAt, wordRangeOfToken } from '$lib/engine/gloss/rewrite'
-  import type { TokenizeOptions } from '$lib/engine/gloss/tokens'
+  import { rewriteWordInText, writeChoice } from '$lib/engine/gloss/assign'
   import Portal from '$lib/ui/Portal.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
@@ -471,119 +468,10 @@
     const s = project.sentences.find((x) => x.id === sid)
     const tk = s?.tokens[at]
     if (!s || !tk || tk.surface !== surface) return
-    if (!writeChoice(tk, index, c)) return
-    // 勾了「同时改语料原文」：整个词改成别的词条时，原文里这一处也换成它的写法
-    if (wordHover.rewriteText && index === null) rewriteWordInText(s, at)
+    if (!writeChoice(project, tk, index, c)) return
+    // 勾了「同时改原文」：整个词改成别的词条时，原文里这一处也换成它的写法
+    if (wordHover.rewriteText && index === null) rewriteWordInText(project, s, at)
     touch()
-  }
-  /** 把挑中的词条 / 语素 / 切法写进这个词的分析；什么都没挑中返回 false */
-  function writeChoice(tk: Token, index: number | null, c: HoverChoice): boolean {
-    // 挑了一种切法：整个词换成它，或者把没找到的那一段拆成这几段
-    if (c.analysis) {
-      const picked: Analysis = {
-        lexemeId: c.analysis.lexemeId,
-        slot: c.analysis.slot,
-        morphs: c.analysis.morphs
-      }
-      const cur = tk.analyses[tk.chosen]
-      if (index === null || !cur?.morphs[index]) {
-        tk.analyses.push(picked)
-        tk.chosen = tk.analyses.length - 1
-      } else {
-        tk.analyses[tk.chosen] = {
-          lexemeId: cur.lexemeId ?? picked.lexemeId,
-          slot: cur.slot,
-          morphs: [...cur.morphs.slice(0, index), ...picked.morphs, ...cur.morphs.slice(index + 1)]
-        }
-      }
-      if (!tk.analyses[tk.chosen].morphs.some((x) => !x.gloss || x.gloss === '?'))
-        tk.confirmed = true
-      return true
-    }
-    const l = c.lexemeId ? project.lexemes.find((x) => x.id === c.lexemeId) : undefined
-    const m = c.morphemeId ? project.morphemes.find((x) => x.id === c.morphemeId) : undefined
-    if (!l && !m) return false
-    const gloss = l
-      ? (c.senseIndex != null ? senseGloss(l, c.senseIndex, glossLangs) : '') ||
-        lexemeGloss(l, glossLangs)
-      : m!.gloss || Object.values(m!.meaning).find(Boolean) || m!.form
-    const cur = tk.analyses[tk.chosen]
-    if (index === null || !cur?.morphs[index]) {
-      tk.analyses.push({
-        lexemeId: l?.id ?? null,
-        slot: null,
-        morphs: [{ form: tk.surface, gloss, morphemeId: m?.id ?? null, lexemeId: l?.id ?? null }]
-      })
-      tk.chosen = tk.analyses.length - 1
-    } else {
-      const next: Analysis = {
-        lexemeId: cur.lexemeId ?? l?.id ?? null,
-        slot: cur.slot,
-        morphs: cur.morphs.map((x, i) =>
-          i === index ? { ...x, gloss, morphemeId: m?.id ?? null, lexemeId: l?.id ?? null } : x
-        )
-      }
-      tk.analyses[tk.chosen] = next
-    }
-    if (!tk.analyses[tk.chosen].morphs.some((x) => !x.gloss || x.gloss === '?')) tk.confirmed = true
-    return true
-  }
-  /** 语料分词用的切法（跟整句分析那边一致） */
-  function tokenizeOpts(languageId: Id): TokenizeOptions {
-    return {
-      mode: project.settings.tokenizer,
-      pattern: project.settings.tokenizerPattern,
-      letters:
-        glossIndexFor(project, languageId).wordChars + (project.settings.tokenizerLetters ?? '')
-    }
-  }
-  /** 这条分析里这个词该写成什么样：指着屈折形就用屈折形，否则用词头；切分与语素不改原文 */
-  function analysisSpelling(a: Analysis | undefined): string {
-    if (!a || !a.lexemeId || a.morphs.length > 1) return ''
-    const l = project.lexemes.find((x) => x.id === a.lexemeId)
-    if (!l) return ''
-    const form = a.slot ? (l.forms[a.slot]?.surface ?? '').trim().replace(/^\*/, '') : ''
-    return form || l.lemma
-  }
-  /**
-   * 勾了「同时改语料原文」：把原文里这一处（按位置，同句里别处的同一个词不动）换成挑中词条的写法，
-   * 再按新写法重新分析这个词——刚挑的那条仍排在头一个、仍是确认过的。
-   */
-  function rewriteWordInText(s: Sentence, at: number): void {
-    const tk = s.tokens[at]
-    const spelling = analysisSpelling(tk?.analyses[tk.chosen])
-    if (!tk || !spelling) return
-    const range = wordRangeOfToken(
-      s.tokens.map((x) => x.surface),
-      at
-    )
-    if (!range) return
-    const opts = tokenizeOpts(s.languageId)
-    // 原文里这个位置对不上这个词（自定义分词、原文刚改过）：宁可不动原文
-    if (wordAt(s.text, range.index, opts, range.count) !== tk.surface) return
-    const next = replaceWordAt(s.text, range.index, spelling, opts, range.count)
-    if (next === s.text) return
-    s.text = next
-    tk.surface = matchCase(tk.surface, spelling)
-    // 分析里的形式跟着新写法走，另外把按新写法分出来的几种排在后面备选
-    const cur = tk.analyses[tk.chosen]
-      ? ($state.snapshot(tk.analyses[tk.chosen]) as Analysis)
-      : null
-    if (cur && cur.morphs.length === 1) cur.morphs[0].form = tk.surface
-    const fresh = analyzeToken(
-      glossIndexFor(project, s.languageId),
-      tk.surface,
-      project.settings.morphemeBoundaries
-    )
-    // 跟刚挑的那条一样的（词条、槽位、每一段的形式与 gloss 都一样）不再重复列一遍
-    const same = (a: Analysis): boolean =>
-      !!cur &&
-      a.lexemeId === cur.lexemeId &&
-      a.slot === cur.slot &&
-      a.morphs.length === cur.morphs.length &&
-      a.morphs.every((m, i) => m.form === cur.morphs[i].form && m.gloss === cur.morphs[i].gloss)
-    tk.analyses = cur ? [cur, ...fresh.filter((a) => !same(a))] : fresh
-    tk.chosen = 0
   }
   function assignOf(tk: Token, s: Sentence): HoverAssign {
     const sid = s.id
@@ -1377,7 +1265,7 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    padding-right: 4px;
+    padding-inline-end: 4px;
   }
   .editor {
     padding: 12px 14px;
@@ -1537,7 +1425,7 @@
   .tbl th {
     padding: 3px 8px;
     border-bottom: 1px solid var(--border);
-    text-align: left;
+    text-align: start;
   }
   .tbl.abbr td .input {
     padding: 3px 6px;

@@ -49,14 +49,14 @@
     margin-bottom: 8px;
   }
   .n {
-    margin-left: 6px;
+    margin-inline-start: 6px;
     font-weight: normal;
   }
   .fold {
     border: 0;
     background: none;
     padding: 0 2px;
-    margin-left: 4px;
+    margin-inline-start: 4px;
     color: var(--text-3);
     cursor: pointer;
     opacity: 0;

@@ -64,6 +64,46 @@ export interface TokenSpan {
   word: boolean
 }
 
+/** 一个分词结果占几个词：词典里带空格的形式（`ar mae`）并成一个，算两个词 */
+const wordCount = (surface: string): number => surface.split(' ').filter(Boolean).length || 1
+
+/**
+ * 每一段再标上它属于第几个分析（tokens 里的下标）：
+ * 词典里带空格的形式并成了一个分析，它占的几个词都指同一个下标；对不上的词是 -1。
+ * 原文里的位置与分析的下标本来就对不上号，画词、悬浮、改写都得从这里取下标。
+ */
+export function spanTokens(
+  text: string,
+  surfaces: readonly string[],
+  opts: TokenizeOptions = {}
+): (TokenSpan & { at: number })[] {
+  let at = 0
+  let left = surfaces.length ? wordCount(surfaces[0]) : 0
+  return tokenSpans(text, opts).map((s) => {
+    if (!s.word) return { ...s, at: -1 }
+    while (left === 0 && at < surfaces.length) {
+      at++
+      left = at < surfaces.length ? wordCount(surfaces[at]) : 0
+    }
+    if (at >= surfaces.length) return { ...s, at: -1 }
+    left--
+    return { ...s, at }
+  })
+}
+
+/** 这份分析还对得上原文吗：原文改过之后存下来的分析就作废了，得重算 */
+export function tokensMatchText(
+  text: string,
+  surfaces: readonly string[],
+  opts: TokenizeOptions = {}
+): boolean {
+  if (!surfaces.length) return false
+  const words = tokenSpans(text, opts)
+    .filter((s) => s.word)
+    .map((s) => s.text)
+  return words.join(' ') === surfaces.join(' ')
+}
+
 /** 一块不含分隔符的文字：两头的标点单独成段，中间是词 */
 function chunkSpans(chunk: string, out: TokenSpan[], letters?: string): void {
   if (!chunk) return

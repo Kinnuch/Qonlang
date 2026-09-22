@@ -2,13 +2,7 @@
  * 语料里「改」成别的词条时同时改原文：只换那一处，标点、空白、大小写都按原样。
  */
 import { describe, it, expect } from 'vitest'
-import {
-  matchCase,
-  replaceWordAt,
-  replaceWordIfSame,
-  wordAt,
-  wordRangeOfToken
-} from '$lib/engine/gloss/rewrite'
+import { matchCase, replaceWordAt, wordAt, wordRangeOfToken } from '$lib/engine/gloss/rewrite'
 
 describe('改原文里的一个词', () => {
   it('同一个词出现好几次，只换指定的那一处', () => {
@@ -55,11 +49,5 @@ describe('改原文里的一个词', () => {
   })
   it('逐字分词也按位置换', () => {
     expect(replaceWordAt('红学红', 2, '雨', { mode: 'character' })).toBe('红学雨')
-  })
-  it('短语里改词：位置上还是这个词才换', () => {
-    expect(replaceWordIfSame('«nira», kes!', 0, 'nira', 'mira')).toBe('«mira», kes!')
-    expect(replaceWordIfSame('«nira», kes!', 1, 'nira', 'mira')).toBe('«nira», kes!')
-    expect(replaceWordIfSame('Nira kes', 0, 'Nira', 'mira')).toBe('Mira kes')
-    expect(replaceWordIfSame('nira kes', 9, 'nira', 'mira')).toBe('nira kes')
   })
 })

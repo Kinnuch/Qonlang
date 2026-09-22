@@ -280,7 +280,7 @@
     cursor: pointer;
   }
   .tg-chip:first-child {
-    margin-left: 0;
+    margin-inline-start: 0;
   }
   .tg-chip:hover {
     background: color-mix(in srgb, var(--tg) 32%, var(--bg-elev));
@@ -332,7 +332,7 @@
     background: none;
     padding: 6px 10px;
     border-radius: 6px;
-    text-align: left;
+    text-align: start;
     font: inherit;
     color: var(--text);
     cursor: pointer;

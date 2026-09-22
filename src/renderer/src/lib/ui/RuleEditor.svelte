@@ -189,10 +189,10 @@
     top: 0;
     bottom: 0;
     width: 44px;
-    text-align: right;
+    text-align: end;
     color: var(--text-3);
     background: var(--bg-sunken);
-    border-right: 1px solid var(--border);
+    border-inline-end: 1px solid var(--border);
     user-select: none;
     overflow: hidden;
   }
@@ -201,7 +201,7 @@
     padding: 10px 0;
   }
   .ln {
-    padding-right: 8px;
+    padding-inline-end: 8px;
     height: 20px;
   }
   .ln.err {

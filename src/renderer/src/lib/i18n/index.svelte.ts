@@ -2,31 +2,63 @@ import zh from './zh'
 import en from './en'
 import zhHant from './zh-Hant'
 import ja from './ja'
+import ko from './ko'
+import fr from './fr'
+import es from './es'
+import ru from './ru'
+import ar from './ar'
 
 export const LOCALES = [
   { code: 'zh', label: '中文' },
   { code: 'zh-Hant', label: '繁體中文' },
   { code: 'en', label: 'English' },
-  { code: 'ja', label: '日本語' }
+  { code: 'ja', label: '日本語' },
+  { code: 'ko', label: '한국어' },
+  { code: 'fr', label: 'Français' },
+  { code: 'es', label: 'Español' },
+  { code: 'ru', label: 'Русский' },
+  { code: 'ar', label: 'العربية' }
 ] as const
 
 export type LocaleCode = (typeof LOCALES)[number]['code']
 
-const dicts: Record<LocaleCode, typeof zh> = { zh, en, 'zh-Hant': zhHant, ja }
-/** 这一种没有的条目往哪找：繁体回落简体，日语回落英文，最后都兜到简体 */
+const dicts: Record<LocaleCode, typeof zh> = {
+  zh,
+  'zh-Hant': zhHant,
+  en,
+  ja,
+  ko,
+  fr,
+  es,
+  ru,
+  ar
+}
+/** 这一种没有的条目往哪找：繁体回落简体，其余回落英文，最后都兜到简体 */
 const FALLBACK: Record<LocaleCode, LocaleCode[]> = {
   zh: [],
-  en: [],
   'zh-Hant': ['zh'],
-  ja: ['en']
+  en: [],
+  ja: ['en'],
+  ko: ['en'],
+  fr: ['en'],
+  es: ['en'],
+  ru: ['en'],
+  ar: ['en']
 }
 /** 文档语言标记（浏览器按它挑字体、断行） */
 const HTML_LANG: Record<LocaleCode, string> = {
   zh: 'zh-CN',
   'zh-Hant': 'zh-Hant',
   en: 'en',
-  ja: 'ja'
+  ja: 'ja',
+  ko: 'ko',
+  fr: 'fr',
+  es: 'es',
+  ru: 'ru',
+  ar: 'ar'
 }
+/** 从右往左排版的界面语言 */
+const RTL = new Set<LocaleCode>(['ar'])
 
 let locale = $state<LocaleCode>('zh')
 
@@ -36,7 +68,10 @@ export const i18n = {
   },
   set locale(v: LocaleCode) {
     locale = dicts[v] ? v : 'zh'
-    if (typeof document !== 'undefined') document.documentElement.lang = HTML_LANG[locale]
+    if (typeof document === 'undefined') return
+    document.documentElement.lang = HTML_LANG[locale]
+    // 阿拉伯语：整套界面镜像过去（各处的左右边距用的是 CSS 逻辑属性，跟着这里翻）
+    document.documentElement.dir = RTL.has(locale) ? 'rtl' : 'ltr'
   }
 }
 

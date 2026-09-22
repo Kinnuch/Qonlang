@@ -108,11 +108,11 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding-left: 22px;
+    padding-inline-start: 22px;
   }
   .indent {
     gap: 6px;
-    padding-left: 22px;
+    padding-inline-start: 22px;
   }
   .select.tiny {
     width: auto;

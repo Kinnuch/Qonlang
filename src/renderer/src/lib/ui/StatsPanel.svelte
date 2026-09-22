@@ -219,7 +219,7 @@
     background: none;
     color: var(--text);
     font: inherit;
-    text-align: left;
+    text-align: start;
     cursor: default;
   }
   .bar-row.clickable {
@@ -248,7 +248,7 @@
     min-width: 2px;
   }
   .bn {
-    text-align: right;
+    text-align: end;
     font-variant-numeric: tabular-nums;
   }
   .self {
@@ -261,7 +261,7 @@
     background: var(--bg-hover);
   }
   .num {
-    text-align: right;
+    text-align: end;
     font-variant-numeric: tabular-nums;
   }
 </style>

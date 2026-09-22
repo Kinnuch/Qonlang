@@ -679,7 +679,7 @@
     flex: 1;
     min-height: 0;
     overflow: auto;
-    padding-right: 4px;
+    padding-inline-end: 4px;
   }
   .list-wrap.chain {
     overflow: hidden;
@@ -715,7 +715,7 @@
     padding: 0;
     color: var(--accent-text);
     cursor: pointer;
-    margin-right: 6px;
+    margin-inline-end: 6px;
   }
   .mono {
     font-family: var(--font-mono);
@@ -740,7 +740,7 @@
     background: var(--bg-elev);
   }
   .results th {
-    text-align: left;
+    text-align: start;
     font-weight: 600;
     color: var(--text-2);
     padding: 4px 8px;
@@ -765,7 +765,7 @@
     background: var(--accent-soft);
   }
   .results .upto {
-    border-left: 2px solid var(--accent);
+    border-inline-start: 2px solid var(--accent);
   }
   .results td.upto.hit {
     color: var(--accent-text);
@@ -781,7 +781,7 @@
   }
   .trace {
     margin: 0 0 14px;
-    padding-left: 0;
+    padding-inline-start: 0;
     list-style: none;
     font-size: 13px;
   }
@@ -794,7 +794,7 @@
     border-bottom: 1px dashed var(--border);
   }
   .trace .rule {
-    margin-left: auto;
+    margin-inline-start: auto;
   }
   .bindings {
     margin-top: 8px;

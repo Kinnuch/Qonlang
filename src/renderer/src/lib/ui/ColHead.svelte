@@ -165,7 +165,7 @@
     font: inherit;
     color: inherit;
     cursor: pointer;
-    text-align: left;
+    text-align: start;
     white-space: nowrap;
   }
   .title:hover {
@@ -204,7 +204,7 @@
     padding: 8px;
     box-shadow: var(--shadow-lg);
     font-weight: normal;
-    text-align: left;
+    text-align: start;
   }
   .tools {
     gap: 4px;

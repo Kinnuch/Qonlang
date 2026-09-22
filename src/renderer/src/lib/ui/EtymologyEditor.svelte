@@ -346,7 +346,7 @@
     color: var(--text-3);
   }
   .pick {
-    text-align: left;
+    text-align: start;
     cursor: pointer;
   }
   .pick.empty {
@@ -374,7 +374,7 @@
     background: none;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    text-align: left;
+    text-align: start;
     color: inherit;
   }
   .hit:hover {

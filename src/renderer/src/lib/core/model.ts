@@ -814,6 +814,11 @@ export interface Phrase {
   pronunciations: Record<Id, Pronunciation>
   variants: { text: string; note: string }[]
   tags: string[]
+  /**
+   * 分析（跟例句的 tokens 一个样子）：悬浮卡里改过词才存下来。
+   * 没存过的每次现算，存过的以存的为准；原文改了跟着重算。
+   */
+  tokens?: Token[]
 }
 
 export interface Abbreviation {

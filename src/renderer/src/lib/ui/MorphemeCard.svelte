@@ -149,7 +149,7 @@
     border-collapse: collapse;
   }
   .pairs th {
-    text-align: left;
+    text-align: start;
     padding: 1px 10px 1px 0;
     font-weight: 600;
   }

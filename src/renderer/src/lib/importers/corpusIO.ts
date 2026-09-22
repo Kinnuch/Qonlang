@@ -423,9 +423,24 @@ export function importPhrasesJson(
   if (!list) return null
   const lang = project.languages.find((l) => l.id === languageId)
   const orthos = new Set((lang?.orthographies ?? []).map((o) => o.id))
+  const lexemes = new Set(project.lexemes.map((l) => l.id))
+  const morphemes = new Set(project.morphemes.map((m) => m.id))
   const items = list.map((raw) => {
     const p = createPhrase(languageId, str(raw.category))
     p.text = str(raw.text).trim()
+    // 分析跟例句一样带过来：指向的词条、语素这边都有才留着
+    const tokens = cleanTokens(raw.tokens)
+    if (
+      tokens.length &&
+      tokens.every((tk) =>
+        tk.analyses.every(
+          (a) =>
+            (!a.lexemeId || lexemes.has(a.lexemeId)) &&
+            a.morphs.every((m) => !m.morphemeId || morphemes.has(m.morphemeId))
+        )
+      )
+    )
+      p.tokens = tokens
     p.translation = textMap(raw.translation)
     const prons: Phrase['pronunciations'] = {}
     if (isObj(raw.pronunciations))

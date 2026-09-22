@@ -342,7 +342,7 @@
     align-items: center;
     gap: 10px;
     width: 100%;
-    text-align: left;
+    text-align: start;
     border: 0;
     background: none;
     padding: 7px 10px;

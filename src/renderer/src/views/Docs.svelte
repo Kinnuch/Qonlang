@@ -130,7 +130,7 @@
   async function exportPdf(d: DocPage): Promise<void> {
     // 链接照样解析：导出的纸面上不该留着 `语素:` 这样的前缀
     const body = mdToHtml(d.markdown, { resolve: resolveLink })
-    const page = `<!doctype html><html><head><meta charset="utf-8"><title>${d.title}</title><style>@page{size:A4;margin:20mm}body{font-family:'Gentium Plus','Noto Serif SC',serif;font-size:11pt;line-height:1.6;padding:24px}table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px}code{font-family:Consolas,monospace;background:#f2f2f2;padding:0 3px}pre{background:#f4f4f4;padding:8px}blockquote{border-left:3px solid #bbb;margin:0;padding-left:10px;color:#555}.wl{color:inherit;text-decoration:none;border-bottom:1px solid #bbb}</style></head><body><h1>${d.title}</h1>${body}</body></html>`
+    const page = `<!doctype html><html><head><meta charset="utf-8"><title>${d.title}</title><style>@page{size:A4;margin:20mm}body{font-family:'Gentium Plus','Noto Serif SC',serif;font-size:11pt;line-height:1.6;padding:24px}table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px}code{font-family:Consolas,monospace;background:#f2f2f2;padding:0 3px}pre{background:#f4f4f4;padding:8px}blockquote{border-inline-start:3px solid #bbb;margin:0;padding-inline-start:10px;color:#555}.wl{color:inherit;text-decoration:none;border-bottom:1px solid #bbb}</style></head><body><h1>${d.title}</h1>${body}</body></html>`
     await platform.exportPdf(page, `${d.title || 'doc'}.pdf`)
   }
   /** 点链接：跳到对应模块并定位、高亮那一条（各页面自己认 pendingSelect） */
@@ -317,7 +317,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    text-align: left;
+    text-align: start;
     border: 0;
     background: none;
     padding: 6px 8px;
@@ -414,9 +414,9 @@
     overflow: auto;
   }
   .preview :global(blockquote) {
-    border-left: 3px solid var(--border-strong);
+    border-inline-start: 3px solid var(--border-strong);
     margin: 6px 0;
-    padding-left: 10px;
+    padding-inline-start: 10px;
     color: var(--text-2);
   }
   .preview :global(a.wl) {

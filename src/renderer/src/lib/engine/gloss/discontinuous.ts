@@ -30,15 +30,31 @@ export interface Discontinuous {
   parts: string[]
 }
 
+/** 项目一改就重算：短语页一屏要分析几十段，每段都把整个词库筛一遍太亏 */
+let entryCache = new WeakMap<Project, { stamp: string; byLang: Map<Id, Discontinuous[]> }>()
+export function clearDiscontinuousCache(): void {
+  entryCache = new WeakMap()
+}
+
 /** 这门语言里隔开写的词条，段多的排前面（`nja…hi…kja` 比 `nja…kja` 先试） */
 export function discontinuousEntries(project: Project, languageId: Id): Discontinuous[] {
+  const stamp = `${project.meta.updatedAt}|${project.lexemes.length}`
+  let c = entryCache.get(project)
+  if (!c || c.stamp !== stamp) {
+    c = { stamp, byLang: new Map() }
+    entryCache.set(project, c)
+  }
+  const hit = c.byLang.get(languageId)
+  if (hit) return hit
   const out: Discontinuous[] = []
   for (const l of project.lexemes) {
     if (l.languageId !== languageId) continue
     const parts = splitParts(l.lemma)
     if (parts.length) out.push({ lexeme: l, parts })
   }
-  return out.sort((a, b) => b.parts.length - a.parts.length)
+  out.sort((a, b) => b.parts.length - a.parts.length)
+  c.byLang.set(languageId, out)
+  return out
 }
 
 export interface DiscontinuousHit {

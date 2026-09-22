@@ -572,7 +572,7 @@
     font-weight: 500;
     color: var(--text-2);
     padding: 2px 4px;
-    text-align: left;
+    text-align: start;
     white-space: nowrap;
   }
   .chart thead th {
