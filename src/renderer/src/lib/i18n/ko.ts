@@ -2369,7 +2369,11 @@ export default {
       settings: '설정',
       tour: '그림 안내',
       uiTranslate: '인터페이스 번역',
-      bench: '번역 작업대'
+      bench: '번역 작업대',
+      games: '미니 게임',
+      extending: '플러그인과 MCP',
+      chars: '문자 패널',
+      io: '가져오기와 내보내기'
     },
     wordmark: '프로그램 이름 글자',
     wordmarkHint:

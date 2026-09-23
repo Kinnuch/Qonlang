@@ -2439,7 +2439,11 @@ export default {
       settings: 'Paramètres',
       tour: 'Visite guidée',
       uiTranslate: 'Traduction de l’interface',
-      bench: 'Atelier de traduction'
+      bench: 'Atelier de traduction',
+      games: 'Jeux',
+      extending: 'Extensions et MCP',
+      chars: 'Caractères',
+      io: 'Import et export'
     },
     wordmark: 'Logotype du nom',
     wordmarkHint:

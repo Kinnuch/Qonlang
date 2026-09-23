@@ -25,8 +25,14 @@
 
   const memo = ui.memo<{ code: string | null; group: string; onlyTodo: string }>('uiTranslate')
   /** 正在翻的是哪一种 */
+  const entries = allTextEntries()
+  const groups = groupsOf(entries)
+
   let code = $state<string | null>(memo.code ?? null)
-  let group = $state<string>(memo.group ?? '')
+  /** 记下的分类在这一版已经并进别的类了（0.12.3 起按模块归类），就回到「全部」 */
+  let group = $state<string>(
+    memo.group && groups.some((g) => g.group === memo.group) ? memo.group : ''
+  )
   let onlyTodo = $state(memo.onlyTodo === '1')
   /** 只看原文改过、译文可能跟不上的那几条 */
   let onlyStale = $state(false)
@@ -37,8 +43,6 @@
 
   const list = $derived(ui.prefs.uiLocales ?? [])
   const current = $derived(list.find((l) => l.code === code) ?? null)
-  const entries = allTextEntries()
-  const groups = groupsOf(entries)
 
   /** 原文：默认是这一种的兜底语言，用户也可以挑另一种对照着翻 */
   const sourceDict = $derived.by(() =>
@@ -417,17 +421,20 @@
         >{t('uiTranslate.progress', { done: doneCount, total: entries.length })}</span
       >
       <div class="grow"></div>
-      {#if ui.prefs.locale !== current.code}
-        <button class="btn sm" onclick={() => void useIt()}
-          ><Check size={13} />{t('uiTranslate.use')}</button
+      <!-- 三个按钮一组：放不下时整组换到下一行，靠右 -->
+      <span class="row acts">
+        {#if ui.prefs.locale !== current.code}
+          <button class="btn sm" onclick={() => void useIt()}
+            ><Check size={13} />{t('uiTranslate.use')}</button
+          >
+        {/if}
+        <button class="btn sm" onclick={() => void exportFile()}
+          ><Download size={13} />{t('common.export')}</button
         >
-      {/if}
-      <button class="btn sm" onclick={() => void exportFile()}
-        ><Download size={13} />{t('common.export')}</button
-      >
-      <button class="btn sm danger" onclick={() => void remove()}
-        ><Trash2 size={13} />{t('common.delete')}</button
-      >
+        <button class="btn sm danger" onclick={() => void remove()}
+          ><Trash2 size={13} />{t('common.delete')}</button
+        >
+      </span>
     </div>
 
     <div class="row wrap tools">
@@ -580,6 +587,22 @@
   }
   .tools {
     gap: 8px;
+  }
+  /* 全局的 .row 不换行（app.css 里没有 .wrap），这几排自己开：放不下的整块换到下一行 */
+  .tools,
+  .picks,
+  .wm-row {
+    flex-wrap: wrap;
+  }
+  /* 标签不压窄，别把「文字从右往左书写」这类挤成好几行 */
+  .tools > label,
+  .tools > span,
+  .tools > .badge {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .acts {
+    margin-inline-start: auto;
   }
   .find {
     max-width: 320px;

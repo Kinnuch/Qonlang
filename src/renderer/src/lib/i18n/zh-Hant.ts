@@ -2297,7 +2297,11 @@ export default {
       settings: '設定',
       tour: '圖文引導',
       uiTranslate: '介面翻譯',
-      bench: '譯文工作臺'
+      bench: '譯文工作臺',
+      games: '小遊戲',
+      extending: '外掛與 MCP',
+      chars: '字元',
+      io: '匯入匯出'
     },
     wordmark: '軟體名稱字標',
     wordmarkHint:

@@ -2398,7 +2398,11 @@ export default {
       settings: 'Настройки',
       tour: 'Путеводитель',
       uiTranslate: 'Перевод интерфейса',
-      bench: 'Мастерская перевода'
+      bench: 'Мастерская перевода',
+      games: 'Мини-игры',
+      extending: 'Плагины и MCP',
+      chars: 'Символы',
+      io: 'Импорт и экспорт'
     },
     wordmark: 'Надпись с названием',
     wordmarkHint:

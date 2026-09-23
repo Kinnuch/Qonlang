@@ -2400,7 +2400,11 @@ const en: Dict = {
       settings: 'Settings',
       tour: 'Guided tour',
       uiTranslate: 'Interface translation',
-      bench: 'Translation workbench'
+      bench: 'Translation workbench',
+      games: 'Games',
+      extending: 'Plugins & MCP',
+      chars: 'Characters',
+      io: 'Import & export'
     },
     wordmark: 'App name wordmark',
     wordmarkHint:

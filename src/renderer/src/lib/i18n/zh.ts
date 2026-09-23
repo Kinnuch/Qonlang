@@ -2293,7 +2293,11 @@ export default {
       settings: '设置',
       tour: '图文引导',
       uiTranslate: '界面翻译',
-      bench: '译文工作台'
+      bench: '译文工作台',
+      games: '小游戏',
+      extending: '插件与 MCP',
+      chars: '字符',
+      io: '导入导出'
     },
     wordmark: '软件名称字标',
     wordmarkHint:

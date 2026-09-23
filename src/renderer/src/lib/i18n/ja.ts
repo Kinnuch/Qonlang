@@ -2365,7 +2365,11 @@ export default {
       settings: '設定',
       tour: 'ガイドツアー',
       uiTranslate: 'インターフェース翻訳',
-      bench: '翻訳ワークベンチ'
+      bench: '翻訳ワークベンチ',
+      games: 'ミニゲーム',
+      extending: 'プラグインと MCP',
+      chars: '文字',
+      io: 'インポートとエクスポート'
     },
     wordmark: 'ソフト名のロゴ文字',
     wordmarkHint:

@@ -2365,7 +2365,11 @@ export default {
       settings: 'الإعدادات',
       tour: 'الدليل المصوَّر',
       uiTranslate: 'ترجمة الواجهة',
-      bench: 'منضدة الترجمة'
+      bench: 'منضدة الترجمة',
+      games: 'الألعاب',
+      extending: 'الملحقات و MCP',
+      chars: 'المحارف',
+      io: 'الاستيراد والتصدير'
     },
     wordmark: 'كتابة اسم البرنامج',
     wordmarkHint:

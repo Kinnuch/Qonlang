@@ -2434,7 +2434,11 @@ export default {
       settings: 'Configuración',
       tour: 'Guía ilustrada',
       uiTranslate: 'Traducción de la interfaz',
-      bench: 'Mesa de traducción'
+      bench: 'Mesa de traducción',
+      games: 'Juegos',
+      extending: 'Complementos y MCP',
+      chars: 'Caracteres',
+      io: 'Importar y exportar'
     },
     wordmark: 'Logotipo del nombre',
     wordmarkHint:
