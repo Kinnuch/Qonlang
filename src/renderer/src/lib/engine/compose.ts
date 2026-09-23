@@ -44,13 +44,22 @@ export function glossItems(text: string): string[] {
 const SPACELESS = /[぀-ヿ㐀-鿿豈-﫿가-힯]/
 export const isSpaceless = (text: string): boolean => SPACELESS.test(text) && !/\s\S+\s/.test(text)
 
-/** 拉丁字母这类：切成小写的词，记下每个词的起点 */
-function wordsOf(text: string): { w: string; at: number }[] {
-  const out: { w: string; at: number }[] = []
-  for (const m of text.toLowerCase().matchAll(/[\p{L}\p{N}'’-]+/gu))
-    out.push({ w: m[0], at: m.index ?? 0 })
+/** 拉丁字母这类：切成词（比对用小写），记下每个词在原文里的起点和原样 */
+function wordsOf(text: string): { w: string; at: number; raw: string }[] {
+  const out: { w: string; at: number; raw: string }[] = []
+  for (const m of text.matchAll(/[\p{L}\p{N}'’-]+/gu))
+    out.push({ w: m[0].toLowerCase(), at: m.index ?? 0, raw: m[0] })
   return out
 }
+
+/**
+ * 译文里的词对不对得上说法里的词：一样；或者说法里的词至少四个字母、译文里只在词尾多两三个（know → knows）；
+ * 三个字母的只认多一个 s（see → sees），免得 see 对上 seed
+ */
+const sameWord = (have: string, w: string): boolean =>
+  have === w ||
+  (w.length >= 4 && have.startsWith(w) && have.length - w.length <= 3) ||
+  (w.length === 3 && have === w + 's')
 
 /**
  * 一个说法在译文里出现在哪（没出现给 -1）。
@@ -62,10 +71,8 @@ export function findIn(text: string, item: string): number {
   const words = wordsOf(text)
   const want = wordsOf(item).map((x) => x.w)
   if (!want.length) return -1
-  const same = (have: string, w: string): boolean =>
-    have === w || (w.length >= 4 && have.startsWith(w) && have.length - w.length <= 3)
   for (let i = 0; i + want.length <= words.length; i++)
-    if (want.every((w, j) => same(words[i + j].w, w))) return words[i].at
+    if (want.every((w, j) => sameWord(words[i + j].w, w))) return words[i].at
   return -1
 }
 
@@ -167,6 +174,64 @@ export function composeCandidates(
   return [...found.values()]
     .sort((a, b) => a.at - b.at || b.score - a.score || a.surface.localeCompare(b.surface))
     .slice(0, limit)
+}
+
+export interface ComposeGap {
+  /** 译文里没对上的那一段（原样） */
+  text: string
+  /** 在译文里第一次出现的位置 */
+  at: number
+}
+
+/**
+ * 译文里哪些部分在词库、语素表里都没有对上（标点、空白不算）：不用空格的文字按连着没对上的一段算
+ * （「云鸟飞往森林」里的「往」），用空格的按词算；同一段出现几次只列一次，按在译文里的先后
+ */
+export function composeGaps(
+  project: Project,
+  languageId: Id,
+  translation: string,
+  langs: string[]
+): ComposeGap[] {
+  const text = translation
+  if (!text.trim()) return []
+  const items = [...new Set(entriesOf(project, languageId, langs).flatMap((e) => e.items))]
+  const out: ComposeGap[] = []
+  const seen = new Set<string>()
+  const push = (s: string, at: number): void => {
+    const k = s.toLowerCase()
+    if (seen.has(k)) return
+    seen.add(k)
+    out.push({ text: s, at })
+  }
+  if (isSpaceless(text)) {
+    const covered = new Uint8Array(text.length)
+    for (const item of items)
+      for (let i = text.indexOf(item); i >= 0; i = text.indexOf(item, i + 1))
+        covered.fill(1, i, i + item.length)
+    let start = -1
+    for (let i = 0; i <= text.length; i++) {
+      const gap = i < text.length && !covered[i] && /[\p{L}\p{N}]/u.test(text[i])
+      if (gap && start < 0) start = i
+      if (!gap && start >= 0) {
+        push(text.slice(start, i), start)
+        start = -1
+      }
+    }
+    return out
+  }
+  const words = wordsOf(text)
+  const covered = new Uint8Array(words.length)
+  for (const item of items) {
+    const want = wordsOf(item).map((x) => x.w)
+    if (!want.length) continue
+    for (let i = 0; i + want.length <= words.length; i++)
+      if (want.every((w, j) => sameWord(words[i + j].w, w))) covered.fill(1, i, i + want.length)
+  }
+  words.forEach((w, i) => {
+    if (!covered[i]) push(w.raw, w.at)
+  })
+  return out
 }
 
 /** 拼出来的原文：每个词之间按项目的分词方式隔开（逐字的文字不加空格） */

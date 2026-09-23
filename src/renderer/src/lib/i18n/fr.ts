@@ -2485,7 +2485,7 @@ export default {
       'Cliquez un mot ci-dessus pour choisir ici sa forme et lui ajouter affixes, particules et autres éléments.',
     deckTitle: 'Mot en cours de modification',
     deckHelp:
-      'Tout ce qui peut accompagner ce mot : les catégories de son propre paradigme, celles portées par une autre classe de mots, les morphèmes qui peuvent s’y attacher et les paradigmes qui s’appliquent à tous les mots. Les groupes suivent les catégories, étiquettes et gloses du projet ; la fréquence d’un élément, son côté et sa distance au radical viennent des analyses du corpus et des expressions.',
+      'Tout ce qui peut accompagner ce mot : les dimensions de sa propre flexion, les dimensions portées par une autre classe de mots, les morphèmes et mots grammaticaux attachables, et les flexions qui s’appliquent à tous les mots. Les groupes suivent les dimensions du projet, la table des abréviations, les étiquettes et les gloses des morphèmes ; la fréquence d’un élément, le côté où il se place et sa distance au radical viennent des analyses du corpus et des expressions. Tant que le corpus contient peu d’analyses, l’atelier devine à partir des dimensions utilisées par chaque flexion, du champ « Pour les classes de mots » des dimensions et des noms des classes de mots ; les suppositions sont affichées plus pâles.',
     own: 'Paradigme : {name}',
     useBase: 'Forme de base',
     companion: 'Par « {pos} » : {name}',
@@ -2493,7 +2493,7 @@ export default {
     companionOff: 'Ne pas utiliser',
     companionWord: 'Mot à utiliser',
     attach: 'Éléments à attacher',
-    others: '{n} autres (jamais vus avec ce type de mot dans le corpus)',
+    others: '{n} autres (probablement pour d’autres classes de mots)',
     mutation: 'S’applique à tous les mots : {name}',
     none: 'Aucun',
     missing: 'Pas de forme pour cette case',
@@ -2504,14 +2504,29 @@ export default {
       'C’est un morphème : glissez-le sur un mot pour l’y attacher, ou cliquez « Attacher au mot précédent ».',
     attachPrev: 'Attacher au mot précédent',
     freeHint:
-      'Ce mot n’est pas dans le lexique : on ne peut lui ajouter que des éléments attachables.',
+      'Ce mot n’est pas dans le lexique. Choisissez sa classe de mots pour le fléchir selon cette classe et voir ce qui peut l’accompagner.',
+    gaps: 'Aucun mot trouvé pour :',
+    gapCreate: 'Créer dans le lexique une entrée définie comme « {text} »',
+    gapsHelp:
+      'Ces parties de la traduction ne correspondent à rien dans le lexique ni dans la table des morphèmes. Cliquez sur l’une d’elles pour aller dans le lexique et créer une entrée dont la définition est déjà remplie ; une fois terminé, cliquez sur « Page précédente » pour revenir à l’atelier, où tout ce que vous avez composé est toujours là. Certains sens s’expriment plutôt par une flexion (par exemple un locatif pour « dans ») ; il n’est alors pas nécessaire de créer une entrée : il suffit de choisir cette forme sous le mot.',
+    gapCreated: 'Entrée créée, définie comme « {text} »',
+    backToBench: 'Revenir à l’atelier',
+    more: '+{n}',
+    moreTitle:
+      'Afficher les {n} autres de ce groupe (supposition : pas encore vus avec ce type de mot dans le corpus)',
+    less: 'Réduire',
+    guess: 'Supposition : pas encore vu avec ce type de mot dans le corpus',
+    posPick: 'Classe de mots à laquelle ce mot appartient',
+    posUnknown: 'Classe de mots inconnue',
+    funcWords: 'Mots grammaticaux',
     mode: {
       prefix: 'Préfixe : avant le mot',
       suffix: 'Suffixe : après le mot',
       infix: 'Infixe : à l’intérieur du mot',
       circumfix: 'Circonfixe : autour du mot',
       before: 'Mot séparé, placé avant',
-      after: 'Mot séparé, placé après'
+      after: 'Mot séparé, placé après',
+      around: 'Mot séparé, coupé en deux de part et d’autre du mot'
     },
     kind: {
       lexeme: 'Entrée',

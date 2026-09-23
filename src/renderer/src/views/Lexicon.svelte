@@ -269,7 +269,9 @@
     if (ui.pendingSelect?.kind === 'new' && ui.pendingSelect.id === 'lexeme') {
       ui.pendingSelect = null
       mode = 'entries'
-      add()
+      const draft = ui.lexemeDraft
+      ui.lexemeDraft = null
+      add(draft)
     }
     if (ui.pendingLexemeId) {
       const id = ui.pendingLexemeId
@@ -808,12 +810,14 @@
     projectState.touch()
   }
 
-  function add(): void {
+  /** 新增一个词条；draft 是别处带过来预先填好的（工作台里没找到的那一段填进释义） */
+  function add(draft: typeof ui.lexemeDraft = null): void {
     const lid = langId ?? project.settings.defaultLanguageId ?? project.languages[0]?.id
     if (!lid) return
     const l = createLexeme(lid, '')
     const onlyPos = colFilters.pos && colFilters.pos.size === 1 ? [...colFilters.pos][0] : ''
     if (onlyPos) l.posId = onlyPos
+    if (draft) l.senses[0].definition = { ...draft.definition }
     project.lexemes.push(l)
     selectedId = l.id
     mode = 'entries'
@@ -1267,7 +1271,8 @@
           <button onclick={() => void runPluginExport(ex.item)}>{ex.item.name}</button>
         {/each}
       </Menu>
-      <button class="btn primary" onclick={add}><Plus size={16} />{t('lexicon.add')}</button>
+      <button class="btn primary" onclick={() => add()}><Plus size={16} />{t('lexicon.add')}</button
+      >
     {/if}
   </div>
   <Hint id="lexicon" text={t('lexicon.hint')} />

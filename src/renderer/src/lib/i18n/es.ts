@@ -2480,7 +2480,7 @@ export default {
       'Haga clic en una palabra de arriba para elegir aquí su forma y añadirle afijos, partículas y otras piezas.',
     deckTitle: 'Palabra en edición',
     deckHelp:
-      'Todo lo que puede acompañar a esta palabra: las categorías de su propio paradigma, las que expresa otra clase de palabra, los morfemas que se le pueden unir y los paradigmas que se aplican a todas las palabras. Los grupos siguen las categorías, etiquetas y glosas del proyecto; lo habitual que es una pieza, a qué lado va y cuán cerca queda de la raíz salen de los análisis del corpus y las frases.',
+      'Todo lo que puede acompañar a esta palabra: las dimensiones de su propia flexión, las dimensiones que lleva otra clase de palabra, los morfemas y palabras gramaticales que se pueden añadir, y las flexiones que se aplican a todas las palabras. Los grupos siguen las dimensiones del proyecto, la tabla de abreviaturas, las etiquetas y las glosas de los morfemas; lo frecuente que es un elemento, de qué lado va y a qué distancia de la raíz se coloca salen de los análisis del corpus y de las frases. Mientras el corpus tenga pocos análisis, la mesa supone a partir de las dimensiones que usa cada flexión, del campo «Para las clases de palabra» de las dimensiones y de los nombres de las clases de palabra; las suposiciones se muestran más claras.',
     own: 'Paradigma: {name}',
     useBase: 'Usar la forma base',
     companion: 'Mediante «{pos}»: {name}',
@@ -2488,7 +2488,7 @@ export default {
     companionOff: 'No usar',
     companionWord: 'Palabra que usar',
     attach: 'Piezas que se pueden unir',
-    others: '{n} más (aún no vistas con este tipo de palabra en el corpus)',
+    others: '{n} más (probablemente para otras clases de palabra)',
     mutation: 'Se aplica a todas las palabras: {name}',
     none: 'Ninguna',
     missing: 'Esta casilla no tiene forma',
@@ -2499,14 +2499,29 @@ export default {
       'Es un morfema: arrástrelo sobre una palabra para unírselo, o haga clic en «Unir a la palabra anterior».',
     attachPrev: 'Unir a la palabra anterior',
     freeHint:
-      'Esta palabra no está en el léxico, así que solo se le pueden añadir piezas que se unen.',
+      'Esta palabra no está en el léxico. Elige qué clase de palabra cuenta para flexionarla con esa clase y ver qué puede acompañarla.',
+    gaps: 'Sin palabra para:',
+    gapCreate: 'Crear en el léxico una entrada definida como «{text}»',
+    gapsHelp:
+      'Estas partes de la traducción no coinciden con nada del léxico ni de la tabla de morfemas. Haz clic en una para ir al léxico y crear una entrada con la definición ya rellenada; cuando termines, haz clic en «Volver a la página anterior» para regresar a la mesa, donde sigue todo lo que habías compuesto. Algunos significados se expresan mediante una flexión (por ejemplo, un locativo para «en»); en ese caso no hace falta crear una entrada: basta con elegir esa forma debajo de la palabra.',
+    gapCreated: 'Entrada creada, definida como «{text}»',
+    backToBench: 'Volver a la mesa',
+    more: '+{n}',
+    moreTitle:
+      'Mostrar los otros {n} de este grupo (suposición: aún no se han visto con este tipo de palabra en el corpus)',
+    less: 'Mostrar menos',
+    guess: 'Suposición: aún no se ha visto con este tipo de palabra en el corpus',
+    posPick: 'Qué clase de palabra cuenta esta palabra',
+    posUnknown: 'Clase de palabra desconocida',
+    funcWords: 'Palabras gramaticales',
     mode: {
       prefix: 'Prefijo: va delante de la palabra',
       suffix: 'Sufijo: va detrás de la palabra',
       infix: 'Infijo: va dentro de la palabra',
       circumfix: 'Circunfijo: rodea la palabra',
       before: 'Palabra aparte, delante',
-      after: 'Palabra aparte, detrás'
+      after: 'Palabra aparte, detrás',
+      around: 'Palabra aparte, partida en dos a ambos lados de la palabra'
     },
     kind: {
       lexeme: 'Entrada',

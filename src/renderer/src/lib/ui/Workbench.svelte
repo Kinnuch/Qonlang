@@ -24,6 +24,13 @@
     translation: string
     words: BenchPinned[]
   }
+  /** 工作台眼下的样子：离开这一页（跳去词库新建词条）再回来时照原样摆回去 */
+  export interface BenchSaved {
+    translation: string
+    words: BenchWord[]
+    free: string
+    selectedId: string | null
+  }
 </script>
 
 <script lang="ts">
@@ -35,24 +42,32 @@
    */
   import { untrack } from 'svelte'
   import { projectState } from '$lib/state/project.svelte'
+  import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
-  import { composeCandidates, joinForms, type ComposeCandidate } from '$lib/engine/compose'
   import {
-    bare,
+    composeCandidates,
+    composeGaps,
+    joinForms,
+    type ComposeCandidate
+  } from '$lib/engine/compose'
+  import {
     buildWord,
     companionPiece,
     companionsFor,
     deckModel,
     defaultPicks,
-    effectivePos,
-    hostInfo,
     innerToOuter,
+    isWordMode,
     lpKeyOf,
     markerCatalog,
     modeOf,
     morphsOf,
+    particleWords,
     pieceFor,
     recognize,
+    bare,
+    specLexeme,
+    wordHost,
     type AttachMode,
     type BuiltWord,
     type Companion,
@@ -60,9 +75,9 @@
   } from '$lib/engine/attach'
   import type { Lexeme, Morpheme } from '$lib/core/model'
   import { makeContext, paradigmsFor } from '$lib/engine/morph'
-  import { findPos, posName } from '$lib/core/pos'
+  import { findPos, isCompoundPos, posName } from '$lib/core/pos'
   import { newId } from '$lib/core/factory'
-  import { Check, X, Plus, GripVertical } from '@lucide/svelte'
+  import { Check, X, Plus, GripVertical, CircleAlert, BookPlus } from '@lucide/svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import BenchDeck, { hueTable, type DeckActions } from '$lib/ui/BenchDeck.svelte'
 
@@ -71,6 +86,8 @@
     initial = '',
     glossLang,
     kind,
+    saved = null,
+    onsave,
     ondone,
     oncancel
   }: {
@@ -80,20 +97,29 @@
     /** 译文按哪种释义语言写（反查时它排最前） */
     glossLang: string
     kind: 'sentence' | 'phrase'
+    /** 上回离开时的样子（从词库回来）：有就照它摆回去 */
+    saved?: BenchSaved | null
+    /** 每改一下都报上来，页面记住（见 ui.memo） */
+    onsave?: (s: BenchSaved) => void
     ondone: (r: BenchResult) => void
     oncancel: () => void
   } = $props()
 
   const project = $derived(projectState.project!)
-  // 进来时的译文只取一次：之后在工作台里改，不跟着检视器变
-  let translation = $state(untrack(() => initial))
-  let words = $state<BenchWord[]>([])
-  let free = $state('')
+  // 进来时的译文只取一次：之后在工作台里改，不跟着检视器变；从词库回来的接着上回的
+  const start = untrack(() => saved)
+  let translation = $state(start?.translation ?? untrack(() => initial))
+  let words = $state<BenchWord[]>(start?.words ?? [])
+  let free = $state(start?.free ?? '')
   /** 正在编辑的词（附着台给它摆） */
-  let selectedId = $state<string | null>(null)
+  let selectedId = $state<string | null>(start?.selectedId ?? null)
+  $effect(() => {
+    const s: BenchSaved = { translation, words: $state.snapshot(words), free, selectedId }
+    untrack(() => onsave?.(s))
+  })
 
   /** 反查放在输入停一下之后再做，打字时不卡 */
-  let query = $state(untrack(() => initial))
+  let query = $state(untrack(() => translation))
   $effect(() => {
     const v = translation
     const timer = setTimeout(() => (query = v), 250)
@@ -104,6 +130,16 @@
     ...project.settings.glossLanguages.filter((l) => l !== glossLang)
   ])
   const candidates = $derived(composeCandidates(project, languageId, query, langs))
+  /** 译文里在词库、语素表里都没对上的部分 */
+  const gaps = $derived(composeGaps(project, languageId, query, langs))
+  /** 没对上的那一段：跳到词库新建一个词条，释义先填好；工作台的样子页面记着，「返回上一页」回来接着拼 */
+  function createFor(text: string): void {
+    ui.lexemeDraft = { definition: { [glossLang]: text } }
+    ui.jump('lexicon', 'new', 'lexeme', languageId)
+    ui.toast(t('bench.gapCreated', { text }), {
+      action: { label: t('bench.backToBench'), run: () => ui.back() }
+    })
+  }
   /** 已经拖上去的就不再漂着 */
   const floating = $derived(
     candidates.filter(
@@ -178,6 +214,14 @@
   const deckKind = $derived<'lexeme' | 'morpheme' | 'free'>(
     selected?.lexemeId ? 'lexeme' : selected?.morphemeId ? 'morpheme' : 'free'
   )
+  /** 手打的词可以挑算作哪个词类（复合词类不列，挑组成它的那几个） */
+  const posOptions = $derived(
+    project.posList
+      .filter((p) => !isCompoundPos(p))
+      .map((p) => ({ id: p.id, name: posName(p, langs) || p.abbr }))
+  )
+  /** 这个词的词类（挂着的词条、手打时挑的、加了派生词缀后算作的） */
+  const hostPos = (w: BenchWord): string[] => (env ? wordHost(env, w).posIds : [])
 
   // ───── 摆词、删词、选词 ─────
   const blank = (over: Partial<BenchWord>): BenchWord => ({
@@ -204,7 +248,7 @@
       const marker = env.catalog.markers.find((x) => x.key === 'm:' + c.morphemeId)
       const host = onto ?? hostFor(at)
       if (marker && host) {
-        const mode = modeOf(env.catalog, marker, hostInfo(project, lexemeOf(host) ?? null).posIds)
+        const mode = modeOf(env.catalog, marker, hostPos(host))
         selectedId = host.id
         toggleOn(host, marker.key, mode)
         return
@@ -240,31 +284,42 @@
   const nextSeq = (w: BenchWord): number =>
     w.pieces.length ? Math.max(...w.pieces.map((p) => p.seq)) + 1 : 0
 
-  /** 加一个标记：贴进词里的加一截，单独成词的在旁边放一个小品词 */
+  /**
+   * 加一个标记：贴进词里的加一截，单独成词的在旁边放一个小品词；
+   * 隔开写的（`ma…gò`）前一段放在词前、后一段放在词后，两段一起加、一起去掉
+   */
   function toggleOn(host: BenchWord, key: string, mode: AttachMode): void {
     if (!env) return
     const marker = env.catalog.markers.find((x) => x.key === key)
     if (!marker) return
-    if (mode === 'before' || mode === 'after') {
-      const had = words.find((w) => w.hostId === host.id && w.markerKey === key)
-      if (had) {
-        words = words.filter((w) => w !== had)
+    if (isWordMode(mode)) {
+      if (words.some((w) => w.hostId === host.id && w.markerKey === key)) {
+        words = words.filter((w) => !(w.hostId === host.id && w.markerKey === key))
         return
       }
-      const i = words.findIndex((w) => w.id === host.id)
-      let at = i
-      if (mode === 'after') {
-        at = i + 1
-        while (at < words.length && words[at].hostId === host.id) at++
-      } else while (at > 0 && words[at - 1].hostId === host.id) at--
-      const particle = blank({
-        lexemeId: marker.lexemeId,
-        morphemeId: marker.morphemeId,
-        base: bare(marker.form),
-        hostId: host.id,
-        markerKey: key
-      })
-      words = [...words.slice(0, at), particle, ...words.slice(at)]
+      const parts = particleWords(marker.form, mode)
+      const particle = (base: string): BenchWord =>
+        blank({
+          lexemeId: marker.lexemeId,
+          morphemeId: marker.morphemeId,
+          base,
+          surface: base,
+          hostId: host.id,
+          markerKey: key
+        })
+      const put = (w: BenchWord, after: boolean): void => {
+        const i = words.findIndex((x) => x.id === host.id)
+        let at = i
+        if (after) {
+          at = i + 1
+          while (at < words.length && words[at].hostId === host.id) at++
+        } else while (at > 0 && words[at - 1].hostId === host.id) at--
+        words = [...words.slice(0, at), w, ...words.slice(at)]
+      }
+      if (mode === 'around' && parts.length > 1) {
+        put(particle(parts[0]), false)
+        put(particle(parts[1]), true)
+      } else put(particle(parts[0]), mode === 'after')
       return
     }
     const has = marker.morphemeId && host.pieces.some((p) => p.morphemeId === marker.morphemeId)
@@ -278,14 +333,15 @@
   /** 这个词能搭的构形（换算作的词类之后按新词类） */
   function companionOf(w: BenchWord, key: string): Companion | undefined {
     if (!env) return undefined
-    const host = hostInfo(project, lexemeOf(w) ?? null, effectivePos(env, w))
-    return companionsFor(project, languageId, env.catalog, host).find((c) => c.key === key)
+    return companionsFor(project, languageId, env.catalog, wordHost(env, w)).find(
+      (c) => c.key === key
+    )
   }
   const act: DeckActions = {
     pickOwn: (lpKey, dimId, valueId) => {
       if (!selected) return
       update(selected.id, (w) => {
-        const l = lexemeOf(w)
+        const l = specLexeme(project, w)
         const lp = l ? paradigmsFor(project, l).find((x) => lpKeyOf(x) === lpKey) : undefined
         const base =
           w.own?.lpKey === lpKey ? w.own.picks : lp ? defaultPicks(project, lp.paradigm) : {}
@@ -360,6 +416,9 @@
         }
       })
     },
+    // 手打的词算作哪个词类：换了词类，原来挑的构形不作数
+    setPos: (posId) =>
+      selected && update(selected.id, (w) => ({ ...w, posId: posId || null, own: null })),
     // 单独拖上来的语素接到前一个词上
     attachPrev: () => {
       if (!selected || !env) return
@@ -367,7 +426,7 @@
       const host = [...words.slice(0, i)].reverse().find((w) => !w.hostId && !w.morphemeId)
       const marker = env.catalog.markers.find((x) => x.key === 'm:' + selected.morphemeId)
       if (!host || !marker) return
-      const mode = modeOf(env.catalog, marker, hostInfo(project, lexemeOf(host) ?? null).posIds)
+      const mode = modeOf(env.catalog, marker, hostPos(host))
       const gone = selected.id
       words = words.filter((w) => w.id !== gone)
       selectedId = host.id
@@ -531,6 +590,8 @@
         gloss={deckGloss}
         posLabel={deckPos}
         kind={deckKind}
+        posId={selected.posId ?? null}
+        {posOptions}
         {caret}
         {hue}
         {act}
@@ -552,6 +613,20 @@
       bind:value={translation}
       placeholder={t('bench.translationPlaceholder')}
     ></textarea>
+    <!-- 译文里没对上任何词的部分：点一下跳到词库新建，释义先填好 -->
+    {#if gaps.length}
+      <div class="gaps" role="status">
+        <span class="small gaps-label"><CircleAlert size={13} />{t('bench.gaps')}</span>
+        {#each gaps as g (g.text)}
+          <button
+            class="btn sm gap"
+            title={t('bench.gapCreate', { text: g.text })}
+            onclick={() => createFor(g.text)}><BookPlus size={13} />{g.text}</button
+          >
+        {/each}
+        <HelpDot tip={t('bench.gapsHelp')} />
+      </div>
+    {/if}
   </section>
 
   <!-- 下：候选词泡泡 -->
@@ -717,6 +792,23 @@
   }
   .textarea.tr {
     font-size: 16px;
+  }
+  /* 没找到对应词的那几段：一行提示，每段一个按钮 */
+  .gaps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .gaps-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--warn);
+  }
+  .gap {
+    gap: 4px;
   }
   .bubbles-wrap {
     display: flex;

@@ -21,10 +21,11 @@ import type {
   Morpheme,
   MorphemeType,
   Paradigm,
+  PartOfSpeech,
   Project,
   Token
 } from '$lib/core/model'
-import { findPos, lexemePosIds, posName, posParadigmIds } from '$lib/core/pos'
+import { findPos, isCompoundPos, lexemePosIds, posName, posParadigmIds } from '$lib/core/pos'
 import { LEIPZIG, lexemeGloss, variants } from './gloss'
 import {
   generateForm,
@@ -144,16 +145,244 @@ const NAMED: { abbr: string; en: string; zh: string }[] = [
   { abbr: 'AGT', en: 'agentive', zh: '施事' }
 ].filter((x) => UNIVERSAL_OF[x.abbr])
 
+/**
+ * 通用范畴大致跟哪类词走：体词（名词、代词、数词这类）还是谓词（动词这类）；
+ * 人称、派生、话题焦点两边都有，不算。只在语料里分析得少、看不出一个词能搭什么时拿来猜个大概
+ */
+export type Domain = 'nominal' | 'verbal'
+const DOMAIN_OF: Record<UniversalKey, Domain | null> = {
+  tense: 'verbal',
+  aspect: 'verbal',
+  mood: 'verbal',
+  voice: 'verbal',
+  valency: 'verbal',
+  polarity: 'verbal',
+  number: 'nominal',
+  case: 'nominal',
+  gender: 'nominal',
+  definiteness: 'nominal',
+  possession: 'nominal',
+  classifier: 'nominal',
+  person: null,
+  derivation: null,
+  information: null
+}
+
+/**
+ * 维度叫这些名字时算哪个通用范畴（先看名字，再看取值的缩写）。
+ * 是语法范畴在各界面语言里的叫法，不是哪一门造的语言的
+ */
+const CATEGORY_NAMES: Record<UniversalKey, string[]> = {
+  tense: ['时', '时态', '时制', '時制', '시제', 'tense', 'temps', 'tiempo', 'время', 'زمن'],
+  aspect: ['体', '体貌', 'アスペクト', '상', 'aspect', 'aspecto', 'вид', 'جهة'],
+  mood: [
+    '式',
+    '语气',
+    '情态',
+    '叙法',
+    '法',
+    '서법',
+    'mood',
+    'modality',
+    'mode',
+    'modo',
+    'наклонение'
+  ],
+  voice: ['态', '语态', '態', '태', 'voice', 'voix', 'voz', 'залог'],
+  polarity: [
+    '极性',
+    '肯定与否定',
+    '極性',
+    '극성',
+    'polarity',
+    'polarité',
+    'polaridad',
+    'полярность'
+  ],
+  number: ['数', '수', 'number', 'nombre', 'número', 'число', 'عدد'],
+  case: ['格', '격', 'case', 'cas', 'caso', 'падеж', 'حالة'],
+  person: ['人称', '인칭', 'person', 'personne', 'persona', 'лицо', 'شخص'],
+  gender: [
+    '性',
+    '性别',
+    '名词类',
+    '名词类别',
+    '성',
+    'gender',
+    'noun class',
+    'genre',
+    'género',
+    'род'
+  ],
+  definiteness: [
+    '定指',
+    '有定性',
+    '定指与指示',
+    '한정성',
+    'definiteness',
+    'définitude',
+    'definitud'
+  ],
+  possession: ['领属', '소유', 'possession', 'possessive', 'posesión', 'принадлежность'],
+  derivation: ['派生', '파생', 'derivation', 'dérivation', 'derivación', 'деривация'],
+  information: ['焦点', '话题', '信息结构', '초점', 'focus', 'topic', 'information structure'],
+  classifier: ['量词', '助数詞', '분류사', 'classifier', 'classificateur', 'clasificador'],
+  valency: ['及物性', '配价', '타동성', 'transitivity', 'valency', 'valence', 'transitividad']
+}
+
+/**
+ * 词类名（或缩写）是常见的语言学叫法时，大致是体词还是谓词。只是最后的线索：
+ * 构形用到的维度、维度的「适用词类」、语料都说不上来时才看它；认不出来就不猜
+ */
+const POS_DOMAIN: { domain: Domain; names: string[]; abbrs: string[] }[] = [
+  {
+    domain: 'verbal',
+    names: ['动词', '動詞', '동사', 'verb', 'verbe', 'verbo', 'глагол', 'فعل', '谓词'],
+    abbrs: ['v', 'vb', 'vi', 'vt']
+  },
+  {
+    domain: 'nominal',
+    names: [
+      '名词',
+      '名詞',
+      '명사',
+      'noun',
+      'nom',
+      'sustantivo',
+      'substantif',
+      'substantive',
+      'существительное',
+      'اسم',
+      '代词',
+      '代名詞',
+      '대명사',
+      'pronoun',
+      'pronom',
+      'pronombre',
+      'местоимение',
+      '数词',
+      '数詞',
+      '수사',
+      'numeral',
+      'числительное',
+      '人名',
+      '地名',
+      '专名',
+      '名字',
+      '姓氏',
+      'proper noun',
+      'name'
+    ],
+    abbrs: ['n', 'nn', 'pron', 'num', 'pn']
+  }
+]
+
+/** 词类名是虚词一类的叫法（小品词、助词、介词、量词、标记……）：这个词类的词都算能附着的 */
+const FUNCTION_POS = [
+  '助词',
+  '小品词',
+  '虚词',
+  '语气词',
+  '标记',
+  '词缀',
+  '介词',
+  '前置词',
+  '后置词',
+  '量词',
+  '冠词',
+  '限定词',
+  '助詞',
+  '冠詞',
+  '조사',
+  '관사',
+  'particle',
+  'marker',
+  'affix',
+  'clitic',
+  'preposition',
+  'postposition',
+  'adposition',
+  'classifier',
+  'article',
+  'determiner',
+  'particule',
+  'partícula',
+  'частица',
+  'предлог',
+  'послелог',
+  'حرف',
+  'أداة'
+]
+const FUNCTION_ABBRS = ['part', 'prt', 'ptcl', 'prep', 'postp', 'adp', 'clf', 'cl', 'art', 'det']
+
+/** 释义里写着这些，说明这个词本身是个语法标记（「完成体标记」「工具格缀」「question particle」） */
+const MARKER_WORDS = [
+  '标记',
+  '助词',
+  '小品词',
+  '语气词',
+  '虚词',
+  '缀',
+  '助詞',
+  '接辞',
+  '標識',
+  '조사',
+  '표지',
+  'marker',
+  'particle',
+  'affix',
+  'suffix',
+  'prefix',
+  'infix',
+  'circumfix',
+  'clitic',
+  'marqueur',
+  'particule',
+  'marcador',
+  'partícula',
+  'частица',
+  'показатель',
+  'маркер',
+  'أداة'
+]
+/** 释义以这些字结尾（「过去时」「工具格」）或带着这些词（「locative case」），又对得上莱比锡名字 */
+const CATEGORY_TAILS = ['时', '体', '式', '格', '态']
+const CATEGORY_WORDS = ['tense', 'aspect', 'mood', 'case', 'voice']
+
 export interface MarkerGroup {
-  /** `dim:<维度 id>` / `u:<通用范畴>` / `tag:<标签>` / `type:<语素类型>` */
+  /** `dim:<维度 id>` / `u:<通用范畴>` / `pos:<词类 id>` / `tag:<标签>` / `type:<语素类型>` */
   id: string
-  kind: 'dim' | 'universal' | 'tag' | 'type'
-  /** 维度名、标签原样；通用范畴与语素类型给键，界面自己翻译 */
+  kind: 'dim' | 'universal' | 'pos' | 'tag' | 'type'
+  /** 维度名、词类名、标签原样；通用范畴与语素类型给键，界面自己翻译 */
   label: string
   categoryId?: Id
 }
 
 const norm = (s: string): string => s.normalize('NFC').trim().toLowerCase()
+/** 不用空格隔词的文字（汉字、假名、谚文）：按子串比；别的按词比 */
+const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u
+const tokens = (s: string): string[] =>
+  norm(s)
+    .split(/[^\p{L}\p{N}\p{M}]+/u)
+    .filter(Boolean)
+
+/**
+ * 一段文字里有没有这个说法：汉字这类两个字以上按子串找（单个字要整段就是它，「缀」例外，见 MARKER_WORDS），
+ * 拼音文字按整词找（「adv.」里没有「v.」，「inanimate」里没有「in」）
+ */
+function mentions(text: string, term: string, loose = false): boolean {
+  const t = norm(text)
+  const w = norm(term)
+  if (!t || !w) return false
+  if (t === w) return true
+  if (CJK.test(w)) return (loose || [...w].length >= 2) && t.includes(w)
+  const tw = tokens(t)
+  const ww = tokens(w)
+  if (!ww.length) return false
+  for (let i = 0; i + ww.length <= tw.length; i++)
+    if (ww.every((x, j) => tw[i + j] === x)) return true
+  return false
+}
 const pick = (t: LocalizedText | undefined, langs: string[]): string => {
   if (!t) return ''
   for (const l of langs) if (t[l]?.trim()) return t[l].trim()
@@ -164,11 +393,15 @@ const pick = (t: LocalizedText | undefined, langs: string[]): string => {
   )
 }
 
-/** 项目的维度：按 id、按名字（各种语言的）、按取值（缩写与名字）查 */
+/** 项目的维度：按 id、按名字（各种语言的）、按取值（缩写与名字）查；外加项目自己的缩写表 */
 interface DimIndex {
   byId: Map<Id, GrammaticalCategory>
   byName: Map<string, GrammaticalCategory>
   values: { cat: GrammaticalCategory; abbr: string; names: string[] }[]
+  /** 缩写表：缩写 → 各语言的名字（SFOC → 强焦点） */
+  abbr: Map<string, string[]>
+  /** 维度算哪个通用范畴（算过的记下来） */
+  universal: Map<Id, UniversalKey | null>
 }
 
 function dimIndex(project: Project): DimIndex {
@@ -188,7 +421,118 @@ function dimIndex(project: Project): DimIndex {
           .filter(Boolean)
       })
   }
-  return { byId, byName, values }
+  const abbr = new Map<string, string[]>()
+  for (const a of project.abbreviations ?? []) {
+    const names = Object.values(a.name).filter((n): n is string => !!n?.trim())
+    if (a.abbr.trim() && names.length) abbr.set(a.abbr.trim(), names)
+  }
+  return { byId, byName, values, abbr, universal: new Map() }
+}
+
+/** 一个语法名字（缩写表、取值、维度的名字）算哪个通用范畴：「强焦点」→ 话题与焦点，「远过去时」→ 时 */
+function universalOfName(name: string): UniversalKey | null {
+  const n = norm(name)
+  if (!n) return null
+  for (const x of NAMED) if (norm(x.zh) === n || norm(x.en) === n) return UNIVERSAL_OF[x.abbr]
+  const u = universalOfText(n)
+  if (u) return u
+  for (const k of UNIVERSAL_KEYS) if (CATEGORY_NAMES[k].some((x) => mentions(n, x))) return k
+  return null
+}
+
+/** gloss 里的一段算哪个通用范畴：莱比锡缩写，或者项目缩写表里这个缩写的名字 */
+function universalOfPart(idx: DimIndex, part: string): UniversalKey | null {
+  const u = UNIVERSAL_OF[part]
+  if (u) return u
+  for (const name of idx.abbr.get(part) ?? []) {
+    const v = universalOfName(name)
+    if (v) return v
+  }
+  return null
+}
+
+/** 项目里的一个维度算哪个通用范畴：先看维度名，再让各取值投票（缩写、名字） */
+function universalOfCategory(idx: DimIndex, id: Id | undefined): UniversalKey | null {
+  if (!id) return null
+  if (idx.universal.has(id)) return idx.universal.get(id) ?? null
+  const c = idx.byId.get(id)
+  let out: UniversalKey | null = null
+  if (c) {
+    for (const k of UNIVERSAL_KEYS)
+      if (
+        !out &&
+        Object.values(c.name).some((n) => CATEGORY_NAMES[k].some((x) => mentions(n ?? '', x)))
+      )
+        out = k
+    if (!out) {
+      const votes = new Map<UniversalKey, number>()
+      for (const v of c.values) {
+        const u =
+          universalOfPart(idx, v.abbr.trim()) ??
+          Object.values(v.name)
+            .map((n) => (n ? universalOfName(n) : null))
+            .find(Boolean) ??
+          null
+        if (u) votes.set(u, (votes.get(u) ?? 0) + 1)
+      }
+      let n = 0
+      for (const [u, k] of votes) if (k > n) [out, n] = [u, k]
+    }
+  }
+  idx.universal.set(id, out)
+  return out
+}
+
+/** 体词、谓词两边的票 */
+interface Votes {
+  n: number
+  v: number
+}
+const vote = (votes: Votes, d: Domain | null | undefined, w: number): void => {
+  if (d === 'nominal') votes.n += w
+  else if (d === 'verbal') votes.v += w
+}
+const winner = (votes: Votes): Domain | null =>
+  votes.n > votes.v ? 'nominal' : votes.v > votes.n ? 'verbal' : null
+
+/** gloss 的各段投票（1SG 这种人称加数的算人称，不算「数」：动词的一致、名词的领属都这么写） */
+function voteGloss(idx: DimIndex, votes: Votes, gloss: string, w: number): void {
+  for (const p of gloss.split(/[.\-=:_/\s<>()（）]+/)) {
+    if (!p || /^[123](SG|DU|PL)$/.test(p)) continue
+    const u = universalOfPart(idx, p)
+    if (u) vote(votes, DOMAIN_OF[u], w)
+  }
+}
+
+/** 词类按名字、缩写认出来是体词还是谓词（复合词类看组成它的那几个，调用处已经拆开了） */
+function posDomainByName(p: PartOfSpeech | undefined): Domain | null {
+  if (!p) return null
+  const abbrs = p.abbr
+    .toLowerCase()
+    .split('/')
+    .map((a) => a.replace(/[.\s]/g, ''))
+    .filter(Boolean)
+  for (const d of POS_DOMAIN) {
+    if (Object.values(p.name).some((n) => n && d.names.some((x) => mentions(n, x)))) return d.domain
+    // 缩写整个相同，或者后面跟的不是拉丁字母（「v况.」算动词，「var.」不算）
+    if (
+      abbrs.some((a) =>
+        d.abbrs.some((x) => a === x || (a.startsWith(x) && !/[a-z]/.test(a.charAt(x.length))))
+      )
+    )
+      return d.domain
+  }
+  return null
+}
+
+/** 词类名是不是虚词一类（小品词、介词、标记……） */
+function isFunctionPos(p: PartOfSpeech | undefined): boolean {
+  if (!p) return false
+  if (Object.values(p.name).some((n) => n && FUNCTION_POS.some((x) => mentions(n, x)))) return true
+  return p.abbr
+    .toLowerCase()
+    .split('/')
+    .some((a) => FUNCTION_ABBRS.includes(a.replace(/[.\s]/g, '')))
 }
 
 /** gloss 拆成一段段：`2SG.POSS` → 2SG、POSS、2、SG */
@@ -205,15 +549,23 @@ export function glossParts(gloss: string): string[] {
   return out
 }
 
-/** 一段 gloss / 释义对上哪个维度：先比缩写（区分大小写），再比取值名（整个相同、或是取值名的开头） */
+/**
+ * 一段 gloss / 释义对上哪个维度：先比缩写（区分大小写），再比取值名（整个相同、或是取值名的开头——
+ * 汉字这类两个字以上就行，「过去」对「过去时」；拼音文字要在词边上断开，「past」对「past tense」，「in」不对「inanimate」）
+ */
 function dimOfPart(idx: DimIndex, part: string): GrammaticalCategory | null {
   const p = part.trim()
   if (!p) return null
   for (const v of idx.values) if (v.abbr && v.abbr === p) return v.cat
   const n = norm(p)
   for (const v of idx.values) if (v.names.includes(n)) return v.cat
-  if (n.length >= 2)
-    for (const v of idx.values) if (v.names.some((x) => x.startsWith(n))) return v.cat
+  const cjk = CJK.test(n)
+  if (cjk ? [...n].length >= 2 : n.length >= 3)
+    for (const v of idx.values)
+      if (
+        v.names.some((x) => x.startsWith(n) && (cjk || !/[\p{L}\p{N}]/u.test(x.charAt(n.length))))
+      )
+        return v.cat
   return null
 }
 
@@ -281,21 +633,57 @@ function groupOfMorpheme(
   return { id: 'type:' + m.type, kind: 'type', label: m.type }
 }
 
-/** 一个没有构形的词（虚词）的释义是不是语法标记；是就归组，不是返回 null */
-function groupOfWord(idx: DimIndex, l: Lexeme, langs: string[]): MarkerGroup | null {
-  const texts = l.senses.flatMap((s) => Object.values(s.definition)).filter((x) => !!x?.trim())
-  for (const text of texts) {
+/**
+ * 词条的第一条释义本身是不是个语法标记。释义里的莱比锡名字不少是常用词（过去、现在、结果、持续、关系……），
+ * 光对上名字不算，还得带着「标记」「缀」「particle」这类词、写着大写的莱比锡缩写，或者以「时 体 式 格 态」
+ * 收尾（「过去时」「工具格」）。只写人称的（「第一人称（我）」）是代词，不算。
+ * key：说得出是哪个范畴的语法标记；marked：写着「标记」「缀」这类词（「表情标记」这种名词也算，
+ * 所以只拿来判断一个词类整体是不是虚词一类，不单凭它把一个名词当成标记）
+ */
+function markerOfDefinition(l: Lexeme): { key: UniversalKey | null; marked: boolean } {
+  const defs = Object.values(l.senses[0]?.definition ?? {}).filter((x): x is string => !!x?.trim())
+  let marked = false
+  for (const text of defs) {
+    for (const tk of text.split(/[^\p{L}\p{N}]+/u)) {
+      const u = tk.length >= 2 && tk === tk.toUpperCase() ? UNIVERSAL_OF[tk] : undefined
+      if (u && u !== 'person') return { key: u, marked: true }
+    }
     const u = universalOfText(text)
-    if (u) {
-      // 项目里有这个范畴的维度时归到维度那一组（Tsahun 的「完成体标记」→ 体）
+    const m = MARKER_WORDS.some((x) => mentions(text, x, x === '缀'))
+    marked ||= m
+    if (!u || u === 'person') continue
+    const first = text.split(/[;；,，、/／(（]/)[0].trim()
+    if (
+      m ||
+      CATEGORY_TAILS.some((x) => first.endsWith(x)) ||
+      CATEGORY_WORDS.some((x) => mentions(text, x))
+    )
+      return { key: u, marked: true }
+  }
+  return { key: null, marked }
+}
+
+/** 能附着的词条归到哪一组：释义对得上维度、通用范畴就归那里，否则归它的词类（「缀标记」「小品词」） */
+function groupOfWord(
+  project: Project,
+  idx: DimIndex,
+  l: Lexeme,
+  key: UniversalKey | null,
+  langs: string[]
+): MarkerGroup {
+  const texts = l.senses.flatMap((s) => Object.values(s.definition)).filter((x) => !!x?.trim())
+  const u = key ?? texts.map(universalOfText).find(Boolean) ?? null
+  if (u) {
+    // 项目里有这个范畴的维度时归到维度那一组（Tsahun 的「完成体标记」→ 体）
+    for (const text of texts)
       for (const part of glossParts(text)) {
         const c = dimOfPart(idx, part)
         if (c) return dimGroup(c, langs)
       }
-      return uniGroup(u)
-    }
+    return uniGroup(u)
   }
-  return null
+  const pos = findPos(project, l.posId)
+  return { id: 'pos:' + (pos?.id ?? ''), kind: 'pos', label: pos ? posName(pos, langs) : '' }
 }
 
 // ───────────────────────── 能附着的东西与语料里的证据 ─────────────────────────
@@ -313,6 +701,19 @@ export interface Marker {
   group: MarkerGroup
   /** 语素「算作」了哪个词类（加上它词类就变了） */
   becomesPos?: Id | null
+  /** 在语素表 / 词库里的先后（没证据的按这个排，照用户自己的顺序） */
+  index: number
+  /** 大致是给体词还是给谓词用的（gloss、释义、所在的组投票）；说不准是 null */
+  domain: Domain | null
+  /** 标签里写着的词类（「动词后缀」；虚词自己的词类不算） */
+  tagPos: Id[]
+  /** 释义、说明里提到的词类（「用在名词后」；「副词化」这种说的是变成什么，不算） */
+  textPos: Id[]
+  /**
+   * 语料里分析得少时能不能先摆出来猜一猜：语素、说得出范畴的虚词都能；
+   * 只知道词类的（「名词/缀标记」里的山、湾）不猜，只在语料里见过、写明了才摆
+   */
+  guessable: boolean
 }
 
 interface MarkerStats {
@@ -334,6 +735,10 @@ export interface MarkerCatalog {
   stats: Map<string, MarkerStats>
   /** 各组离词干的平均层数（语料里见过的组才有） */
   groupDist: Map<string, number>
+  /** 语料和短语里一共用了几次能附着的东西（少的话，缺证据说明不了什么） */
+  uses: number
+  /** 各词类的词在语料和短语里出现了几次 */
+  posTokens: Map<Id, number>
 }
 
 const blankStats = (): MarkerStats => ({
@@ -374,32 +779,101 @@ export function markerCatalog(
     if (m.languageId === languageId)
       for (const t of m.tags)
         if (t.trim()) tagCount.set(t.trim(), (tagCount.get(t.trim()) ?? 0) + 1)
+  /** gloss、释义、所在的组、语法特征各投一票：给体词还是给谓词用的 */
+  const domainOf = (
+    gloss: string,
+    texts: string[],
+    group: MarkerGroup,
+    features: Record<Id, Id> = {}
+  ): Domain | null => {
+    const votes: Votes = { n: 0, v: 0 }
+    voteGloss(idx, votes, gloss, 1)
+    for (const t of texts) {
+      const u = universalOfText(t)
+      if (u) vote(votes, DOMAIN_OF[u], 0.5)
+    }
+    const gu =
+      group.kind === 'universal'
+        ? (group.label as UniversalKey)
+        : universalOfCategory(idx, group.categoryId)
+    if (gu) vote(votes, DOMAIN_OF[gu], 1)
+    for (const c of Object.keys(features)) {
+      const u = universalOfCategory(idx, c)
+      if (u) vote(votes, DOMAIN_OF[u], 1)
+    }
+    return winner(votes)
+  }
   const markers: Marker[] = []
   for (const m of project.morphemes) {
     if (m.languageId !== languageId || !m.form.trim()) continue
     if (m.type === 'root' || m.type === 'pattern') continue
+    const group = groupOfMorpheme(idx, m, glossLangs, tagCount)
+    const texts = [...Object.values(m.meaning), m.notes].filter((x): x is string => !!x?.trim())
     markers.push({
       key: 'm:' + m.id,
       morphemeId: m.id,
       form: m.form,
       gloss: m.gloss || pick(m.meaning, glossLangs),
       type: m.type,
-      group: groupOfMorpheme(idx, m, glossLangs, tagCount),
-      becomesPos: m.stress?.affects && m.stress.passPos ? (m.stress.posId ?? null) : null
+      group,
+      becomesPos: m.stress?.affects && m.stress.passPos ? (m.stress.posId ?? null) : null,
+      index: markers.length,
+      domain: domainOf(m.gloss, texts, group, m.features),
+      tagPos: posNamedIn(project, m.tags, true),
+      textPos: posNamedIn(project, texts, false),
+      guessable: true
     })
   }
-  for (const l of project.lexemes) {
-    if (l.languageId !== languageId || !l.lemma.trim()) continue
-    if (posParadigmIds(project, l.posId).length || l.paradigmId) continue
-    const group = groupOfWord(idx, l, glossLangs)
-    if (!group) continue
+  // 词条：词类没绑构形的（虚词）。词类本身是虚词一类的——名字叫小品词、介词、标记……，或者这个词类里
+  // 三成以上的词释义就是个语法标记——它的词全算；别的词类只算释义说得出是哪个范畴的语法标记的
+  const freeWords = project.lexemes.filter(
+    (l) =>
+      l.languageId === languageId &&
+      l.lemma.trim() &&
+      !l.paradigmId &&
+      !posParadigmIds(project, l.posId).length
+  )
+  const defKey = new Map<Id, UniversalKey | null>()
+  const perPos = new Map<Id, { n: number; g: number }>()
+  for (const l of freeWords) {
+    const k = markerOfDefinition(l)
+    defKey.set(l.id, k.key)
+    for (const P of lexemePosIds(project, l)) {
+      const s = perPos.get(P) ?? { n: 0, g: 0 }
+      s.n++
+      if (k.key || k.marked) s.g++
+      perPos.set(P, s)
+    }
+  }
+  const functionPos = new Set<Id>()
+  for (const p of project.posList) {
+    const s = perPos.get(p.id)
+    // 按比例算的，名字明摆着是名词、动词、代词这类实词的不算（小项目里三个名词两个像标记也不行）
+    if (s && (isFunctionPos(p) || (!posDomainByName(p) && s.n >= 3 && s.g / s.n >= 0.3)))
+      functionPos.add(p.id)
+  }
+  for (const l of freeWords) {
+    const k = defKey.get(l.id) ?? null
+    const own = lexemePosIds(project, l)
+    if (!k && !own.some((p) => functionPos.has(p))) continue
+    const group = groupOfWord(project, idx, l, k, glossLangs)
+    const texts = [...l.senses.flatMap((s) => Object.values(s.definition)), l.notes].filter(
+      (x): x is string => !!x?.trim()
+    )
+    const pos = findPos(project, l.posId)
     markers.push({
       key: 'l:' + l.id,
       lexemeId: l.id,
       form: l.lemma,
       gloss: lexemeGloss(l, glossLangs),
       type: 'word',
-      group
+      group,
+      index: markers.length,
+      domain: domainOf('', texts, group, l.features),
+      // 虚词自己的词类不算线索（「疑问小品词」说的是它自己）
+      tagPos: posNamedIn(project, l.tags, true).filter((p) => !own.includes(p)),
+      textPos: posNamedIn(project, texts, false).filter((p) => !own.includes(p)),
+      guessable: group.kind !== 'pos' || (isFunctionPos(pos) && !isCompoundPos(pos))
     })
   }
 
@@ -447,6 +921,8 @@ export function markerCatalog(
     return { pos: common ? [...common] : [], w: 0.5 }
   }
   const groupSum = new Map<string, { d: number; n: number }>()
+  let uses = 0
+  const posTokens = new Map<Id, number>()
   const learn = (tokens: Token[] | undefined, trusted: boolean): void => {
     if (!tokens?.length) return
     const chosen = tokens.map((tk) => tk.analyses[tk.chosen])
@@ -458,15 +934,17 @@ export function markerCatalog(
       if (alone) {
         const s = statOf(alone)
         s.alone += w
+        uses += w
         const prev = posOfWord(chosen[i - 1])
         for (const P of prev.pos) bump(s.after, P, w * prev.w)
         const next = posOfWord(chosen[i + 1])
         for (const P of next.pos) bump(s.before, P, w * next.w)
         return
       }
+      const host = posOfWord(a)
+      for (const P of host.pos) bump(posTokens, P, w * host.w)
       if (a.morphs.length < 2) return
       const stem = stemIndex(a)
-      const host = posOfWord(a)
       a.morphs.forEach((m, k) => {
         if (!m.morphemeId || k === stem) return
         const key = 'm:' + m.morphemeId
@@ -474,6 +952,7 @@ export function markerCatalog(
         if (!marker) return
         const s = statOf(key)
         s.inside += w
+        uses += w
         for (const P of host.pos) bump(s.pos, P, w * host.w)
         if (stem >= 0) {
           const d = Math.abs(k - stem)
@@ -492,26 +971,44 @@ export function markerCatalog(
   const groupDist = new Map<string, number>()
   for (const [k, v] of groupSum) if (v.n > 0) groupDist.set(k, v.d / v.n)
 
-  // 虚词跟同一个写法、同一组的语素是一回事（Tsahun 的 ta33 既是词条又是语素）：只留一个，
-  // 语料里用得多的那个（一样多留语素），另一个的证据并过去。两个语素写法相同是两回事，都留着
+  // 虚词跟同一个写法、同一组的语素是一回事（Tsahun 的 ta33 既是词条又是语素）；小品词、附着词这类
+  // 单独成词的语素，写法一样就算一回事，不管归在哪组（Aelith 的 ve「和」）。只留一个：语料里用得多的
+  // 那个（一样多留语素），另一个的证据并过去，组取说得更具体的那个。两个语素写法相同是两回事，都留着
   const used = (m: Marker): number => {
     const s = stats.get(m.key)
     return s ? s.inside + s.alone : 0
   }
-  const keyOf = (m: Marker): string => `${norm(bare(m.form))}|${m.group.id}`
+  const formOf = (m: Marker): string => norm(bare(m.form))
+  const keyOf = (m: Marker): string => `${formOf(m)}|${m.group.id}`
   const morphemeByKey = new Map<string, Marker>()
-  for (const m of markers)
-    if (m.type !== 'word' && !morphemeByKey.has(keyOf(m))) morphemeByKey.set(keyOf(m), m)
+  const freeByForm = new Map<string, Marker>()
+  for (const m of markers) {
+    if (m.type === 'word') continue
+    if (!morphemeByKey.has(keyOf(m))) morphemeByKey.set(keyOf(m), m)
+    if ((m.type === 'particle' || m.type === 'clitic') && !freeByForm.has(formOf(m)))
+      freeByForm.set(formOf(m), m)
+  }
+  const specific = (g: MarkerGroup): number =>
+    ({ dim: 0, universal: 1, tag: 2, pos: 3, type: 4 })[g.kind]
   const dropped = new Set<string>()
   for (const w of markers) {
     if (w.type !== 'word') continue
-    const m = morphemeByKey.get(keyOf(w))
-    if (!m) continue
+    const m = morphemeByKey.get(keyOf(w)) ?? freeByForm.get(formOf(w))
+    if (!m || dropped.has(m.key)) continue
     const [keep, lose] = used(w) > used(m) ? [w, m] : [m, w]
     mergeStats(statOf(keep.key), stats.get(lose.key))
+    if (specific(lose.group) < specific(keep.group)) keep.group = lose.group
+    keep.domain ??= lose.domain
+    keep.guessable ||= lose.guessable
     dropped.add(lose.key)
   }
-  return { markers: markers.filter((m) => !dropped.has(m.key)), stats, groupDist }
+  return {
+    markers: markers.filter((m) => !dropped.has(m.key)),
+    stats,
+    groupDist,
+    uses,
+    posTokens
+  }
 }
 
 function mergeStats(into: MarkerStats, from: MarkerStats | undefined): void {
@@ -527,8 +1024,15 @@ function mergeStats(into: MarkerStats, from: MarkerStats | undefined): void {
 
 // ───────────────────────── 这个词能搭什么 ─────────────────────────
 
-/** 词的一截怎么接上去：贴在词里（前缀、后缀、中缀、环缀），或者单独成词放在前面 / 后面 */
-export type AttachMode = 'prefix' | 'suffix' | 'infix' | 'circumfix' | 'before' | 'after'
+/**
+ * 词的一截怎么接上去：贴在词里（前缀、后缀、中缀、环缀），或者单独成词放在前面 / 后面；
+ * 隔开写的虚词（`ma…gò`）一段放在词前、一段放在词后（around）
+ */
+export type AttachMode = 'prefix' | 'suffix' | 'infix' | 'circumfix' | 'before' | 'after' | 'around'
+
+/** 单独成词的几种（不贴进词里） */
+export const isWordMode = (m: AttachMode): boolean =>
+  m === 'before' || m === 'after' || m === 'around'
 
 export interface HostInfo {
   /** 这个词沾到的全部词类（自己的、组成的、义项的） */
@@ -556,14 +1060,23 @@ function asPos(l: Lexeme, posId: Id): Lexeme {
   return { ...l, posId, paradigmId: null, extraParadigms: [], extraPosIds: [] }
 }
 
-/** 标签里写着哪个词类（「动词后缀」「名词后缀」）：按词类名找，返回沾到的词类 id */
-function tagPos(project: Project, tags: string[]): Id[] {
+/**
+ * 这几段文字里提到了哪些词类（按词类名；标签里还认缩写，要整个词对上：「adv.」里没有「v.」）。
+ * 汉字这类后面紧跟着「化」的是说变成什么（「副词化」），不算
+ */
+function posNamedIn(project: Project, texts: string[], withAbbr: boolean): Id[] {
   const out: Id[] = []
+  if (!texts.length) return out
   for (const p of project.posList) {
-    const names = [...Object.values(p.name), p.abbr]
-      .map((x) => norm(x ?? ''))
-      .filter((x) => x.length >= 2)
-    if (tags.some((t) => names.some((n) => norm(t).includes(n)))) out.push(p.id)
+    if (isCompoundPos(p)) continue
+    const names = Object.values(p.name).filter((x): x is string => !!x && x.trim().length >= 2)
+    const abbr = p.abbr.trim().toLowerCase().replace(/\.+$/, '')
+    const hit = texts.some(
+      (t) =>
+        names.some((n) => mentions(t, n) && !(CJK.test(n) && norm(t).includes(norm(n) + '化'))) ||
+        (withAbbr && !!abbr && tokens(t).includes(abbr))
+    )
+    if (hit) out.push(p.id)
   }
   return out
 }
@@ -590,9 +1103,36 @@ function evidence(catalog: MarkerCatalog, marker: Marker, posIds: Id[]): number 
 
 export interface ScoredMarker {
   marker: Marker
-  /** 越大越该摆在前面；0 是没什么证据（归到「其他」） */
+  /** 越大越该摆在前面；不到 0 的归到「其余」 */
   score: number
   mode: AttachMode
+  /** 只是猜的：语料里没跟这类词一起见过，维度、标签也没写明给它（一组里有见过的就先收起来） */
+  weak: boolean
+}
+
+/** 隔开写的虚词用的省略号（`ma…gò`、`bo…`） */
+const GAP = /…|\.{3}/
+/** 按省略号切成几段（去掉空段）：`ma…gò` → ma、gò，`bo…` → bo */
+export const gapParts = (form: string): string[] =>
+  form
+    .split(GAP)
+    .map((x) => x.trim())
+    .filter(Boolean)
+
+/** 词头里常见的写法：括号里是可省的（`(le)kùti`），斜线、逗号隔开的是几种写法（`moh / goh`）：取最简的第一种 */
+function plainForm(form: string): string {
+  const f = form.replace(/\([^)]*\)|（[^）]*）/g, '').trim() || form.trim()
+  return variants(f)[0] ?? f
+}
+
+/**
+ * 单独成词的标记放进句子里写成什么：可省的部分不要、几种写法取第一种、去掉省略号；
+ * 隔开写的（around）给前后两段（`ma…gò` → ma、gò）
+ */
+export function particleWords(form: string, mode: AttachMode): string[] {
+  const parts = gapParts(plainForm(form)).map(bare).filter(Boolean)
+  if (!parts.length) return [bare(form)]
+  return mode === 'around' && parts.length > 1 ? [parts[0], parts[parts.length - 1]] : [parts[0]]
 }
 
 /** 这个标记跟这个词怎么接：语素类型定贴不贴、语料定放前放后 */
@@ -625,8 +1165,17 @@ export function modeOf(catalog: MarkerCatalog, marker: Marker, posIds: Id[]): At
       return tail && !lead ? 'before' : lead ? 'after' : side()
     }
     default: {
+      const f = plainForm(marker.form)
+      // 隔开写的：两头都有字的包在词的两边；只写了前一半（`bo…`）的放在前面，只写了后一半（`…le`）的放在后面
+      if (GAP.test(f)) {
+        const parts = f.split(GAP).map((x) => x.trim())
+        const lead = !!parts[0]
+        const tail = !!parts[parts.length - 1]
+        if (lead && tail) return 'around'
+        if (lead) return 'before'
+        if (tail) return 'after'
+      }
       // 小品词、虚词写成带连接符的（mae·、dhar·）：跟着连接符贴上去，不单独成词
-      const f = marker.form.trim()
       if (DOT.test(f.slice(-1)) && !DOT.test(f.slice(0, 1))) return 'prefix'
       if (DOT.test(f.slice(0, 1)) && !DOT.test(f.slice(-1))) return 'suffix'
       return side()
@@ -634,46 +1183,112 @@ export function modeOf(catalog: MarkerCatalog, marker: Marker, posIds: Id[]): At
   }
 }
 
-/** 中点这类写进词里的连接符（连字符、等号是词缀记号，不算） */
-const DOT = /[^\p{L}\p{N}\p{M}\-=\s]/u
+/** 中点这类写进词里的连接符（连字符、等号是词缀记号，句点、省略号、括号也不算） */
+const DOT = /[^\p{L}\p{N}\p{M}\-=\s.…()（）[\]{}<>]/u
+
+/** 语料里分析过的语素、虚词用法不到这么多次：缺证据说明不了什么，照结构猜 */
+const SPARSE_USES = 30
+/** 一组全是猜的时候，先摆出来几个（其余点「+N」展开） */
+export const WEAK_SHOWN = 6
 
 /**
- * 这个词能附着的东西，按组摆好：有证据的（语料里跟这个词类一起用过、维度写明给这个词类、标签写着这个词类）
- * 放进各组；没证据的、证据说它更像是给别的词类用的，放进「其他」；贴进词里又是这个词自己的构形管着的维度，不列。
+ * 这个词大致是体词还是谓词：它自己的构形用到的维度、写明给它的维度、语料里它身上见过的东西各投一票；
+ * 都说不上来时看词类名是不是常见的叫法（名词、动词……），再不行就是 null（不猜）
+ */
+export function hostDomain(
+  project: Project,
+  catalog: MarkerCatalog,
+  host: HostInfo
+): Domain | null {
+  const idx = dimIndex(project)
+  const hostSet = new Set(host.posIds)
+  const votes: Votes = { n: 0, v: 0 }
+  for (const d of host.covered) {
+    const u = universalOfCategory(idx, d)
+    if (u) vote(votes, DOMAIN_OF[u], 2)
+  }
+  for (const c of project.categories)
+    if (c.posIds?.some((p) => hostSet.has(p))) {
+      const u = universalOfCategory(idx, c.id)
+      if (u) vote(votes, DOMAIN_OF[u], 1)
+    }
+  for (const m of catalog.markers) {
+    const e = evidence(catalog, m, host.posIds)
+    if (e > 0) vote(votes, m.domain, Math.min(e, 3) * 0.5)
+  }
+  const found = winner(votes)
+  if (found) return found
+  const byName: Votes = { n: 0, v: 0 }
+  for (const P of host.posIds) vote(byName, posDomainByName(findPos(project, P)), 1)
+  return winner(byName)
+}
+
+/**
+ * 这个词能附着的东西，按组摆好：
+ * - 语料里跟这类词一起用过的、维度写明给这类词的、标签写着这类词的，排在各组前面；
+ * - 同一组有别的跟这类词一起用过的，跟着沾点光（算猜的）；
+ * - 语料里几乎没分析过语素、或者从没见过这类词时，缺证据说明不了什么：给体词的配体词、给谓词的配谓词，
+ *   说不上来的也先摆出来（都算猜的），只有看着是给别的词类用的才放进「其余」；
+ * - 贴进词里、又是这个词自己的构形管着的维度，不列（挑构形那一格就行）。
  */
 export function markersFor(
   project: Project,
   catalog: MarkerCatalog,
   host: HostInfo
-): { groups: { group: MarkerGroup; items: ScoredMarker[] }[]; others: ScoredMarker[] } {
-  const scored: ScoredMarker[] = []
+): {
+  groups: { group: MarkerGroup; items: ScoredMarker[]; strong: boolean }[]
+  others: ScoredMarker[]
+  /** 这回是不是在猜（语料里分析得少、或没见过这类词） */
+  guess: boolean
+} {
   const hostSet = new Set(host.posIds)
+  const domain = hostDomain(project, catalog, host)
+  const seenHost = host.posIds.reduce((n, P) => n + (catalog.posTokens.get(P) ?? 0), 0)
+  // 虚词自己（小品词、标记……）一般不再加东西：不替它猜
+  const functionWord = host.posIds.some((P) => isFunctionPos(findPos(project, P)))
+  const guess = !functionWord && (catalog.uses < SPARSE_USES || seenHost === 0)
+  const seen = new Map<string, number>()
+  // 说得出范畴的组（维度、通用范畴、标签）里有一个见过，同组别的也沾点光；按类型、按词类凑的组是杂烩，不算
+  const groupSeen = new Set<string>()
+  for (const m of catalog.markers) {
+    const e = evidence(catalog, m, host.posIds)
+    if (!e) continue
+    seen.set(m.key, e)
+    if (m.group.kind !== 'type' && m.group.kind !== 'pos') groupSeen.add(m.group.id)
+  }
+  const scored: ScoredMarker[] = []
   for (const marker of catalog.markers) {
     let score = 0
+    let stated = false
     const mode = modeOf(catalog, marker, host.posIds)
-    const seen = evidence(catalog, marker, host.posIds)
+    const own = seen.get(marker.key) ?? 0
     const c = marker.group.categoryId
       ? project.categories.find((x) => x.id === marker.group.categoryId)
       : undefined
     if (c) {
       // 贴进词里、又是这个词自己构形管着的维度：挑构形那一格就行，不再单列（单独成词的限定词这类照列）
-      if (host.covered.has(c.id) && mode !== 'before' && mode !== 'after') continue
-      // 维度写明给这个词类用的加分；写明不给的不藏，只是没有加分（多半落到「其他」里）——
+      if (host.covered.has(c.id) && !isWordMode(mode)) continue
+      // 维度写明给这个词类用的加分；写明不给的不藏，只是减一点——
       // 维度的限定是用户自己填的，不一定周全（Aelith 的领属后缀标的是只给动词的「人称」）
-      if (c.posIds?.some((p) => hostSet.has(p))) score += 3
-      else if (c.posIds?.length) score -= 1
+      if (c.posIds?.some((p) => hostSet.has(p))) {
+        score += 3
+        stated = true
+      } else if (c.posIds?.length) score -= 1
     }
-    if (seen > 0) score += 4 + Math.min(seen - 1, 4) * 0.5
-    const m = marker.morphemeId
-      ? project.morphemes.find((x) => x.id === marker.morphemeId)
-      : undefined
-    if (m?.tags.length) {
-      const named = tagPos(project, m.tags)
-      if (named.some((p) => hostSet.has(p))) score += 2
-      else if (named.length) score -= 3
+    if (own > 0) score += 4 + Math.min(own - 1, 4) * 0.5
+    else if (groupSeen.has(marker.group.id)) score += 1.5
+    if (marker.tagPos.length) {
+      if (marker.tagPos.some((p) => hostSet.has(p))) {
+        score += 2
+        stated = true
+      } else score -= 3
     }
-    // 分数不到 0 的（标签写着别的词类、维度写明不给这个词类）不藏，放进「其他」排在后面
-    scored.push({ marker, score, mode })
+    if (marker.textPos.length) score += marker.textPos.some((p) => hostSet.has(p)) ? 1.5 : -1
+    if (guess && own === 0 && marker.guessable) {
+      if (marker.domain && domain) score += marker.domain === domain ? 1.5 : -1
+      else score += 0.5
+    }
+    scored.push({ marker, score, mode, weak: own === 0 && !stated })
   }
   const byGroup = new Map<string, { group: MarkerGroup; items: ScoredMarker[]; best: number }>()
   const others: ScoredMarker[] = []
@@ -687,12 +1302,26 @@ export function markersFor(
     g.items.push(x)
     g.best = Math.max(g.best, x.score)
   }
+  // 组里：有根据的在前（照分数），猜的在后；一样的按语素表、词库里的先后（用户自己排的）
   const order = (a: ScoredMarker, b: ScoredMarker): number =>
-    b.score - a.score || a.marker.form.localeCompare(b.marker.form)
+    Number(a.weak) - Number(b.weak) || b.score - a.score || a.marker.index - b.marker.index
+  // 组：有根据的组在前，再按分数；一样的按维度表的顺序、通用范畴的顺序
+  const rank = (g: MarkerGroup): number => {
+    if (g.kind === 'dim') {
+      const i = project.categories.findIndex((x) => x.id === g.categoryId)
+      return i < 0 ? 999 : i
+    }
+    if (g.kind === 'universal') return 1000 + UNIVERSAL_KEYS.indexOf(g.label as UniversalKey)
+    return { pos: 2000, tag: 3000, type: 4000 }[g.kind]
+  }
   const groups = [...byGroup.values()]
-    .sort((a, b) => b.best - a.best || a.group.label.localeCompare(b.group.label))
-    .map((g) => ({ group: g.group, items: g.items.sort(order) }))
-  return { groups, others: others.sort(order) }
+    .map((g) => ({ ...g, strong: g.items.some((x) => !x.weak) }))
+    .sort(
+      (a, b) =>
+        Number(b.strong) - Number(a.strong) || b.best - a.best || rank(a.group) - rank(b.group)
+    )
+    .map((g) => ({ group: g.group, items: g.items.sort(order), strong: g.strong }))
+  return { groups, others: others.sort(order), guess }
 }
 
 // ───────────────────────── 搭伴的构形 ─────────────────────────
@@ -785,11 +1414,43 @@ export interface WordSpec {
   morphemeId?: Id
   /** 没挂词条的（手打的）原样 */
   base: string
+  /**
+   * 放进句子里就写成这样、不用词头：单独成词的虚词可省的部分不要、几种写法取一种，
+   * 隔开写的（`ma…gò`）每一段各是一个词（见 particleWords）
+   */
+  surface?: string
+  /** 手打的词算作哪个词类（用户在附着台上挑的）：挑了就按这个词类的构形推、按它找能搭的 */
+  posId?: Id | null
   /** 自己构形挑的那一套（构形 + 变体）与各维度的取值；null 是原形 */
   own?: { lpKey: string; picks: Record<Id, Id> } | null
   pieces: PieceSpec[]
   /** 作用于所有词的构形挑了哪一格 */
   mutation?: { paradigmId: Id; slotKey: string } | null
+}
+
+/** 手打的词挑了词类时，拿词头当词条推它的构形（不进词库，id 是空的） */
+function freeLexeme(spec: WordSpec): Lexeme | undefined {
+  if (spec.lexemeId || spec.morphemeId || !spec.posId || !spec.base.trim()) return undefined
+  return {
+    id: '',
+    languageId: '',
+    lemma: spec.base.trim(),
+    posId: spec.posId,
+    paradigmId: null,
+    paradigmVariantId: null,
+    extraParadigms: [],
+    extraPosIds: [],
+    features: {},
+    tags: [],
+    senses: [],
+    stems: {},
+    forms: {}
+  } as unknown as Lexeme
+}
+
+/** 拼词、摆附着台用的词条：挂着的那个，手打的挑了词类就用临时的 */
+export function specLexeme(project: Project, spec: WordSpec): Lexeme | undefined {
+  return spec.lexemeId ? project.lexemes.find((x) => x.id === spec.lexemeId) : freeLexeme(spec)
 }
 
 export interface BuiltPiece {
@@ -930,11 +1591,13 @@ export function innerToOuter(ps: PieceSpec[]): PieceSpec[] {
 /** 按挑好的拼出这个词：自己的屈折形 → 中缀 → 后缀（从里到外）→ 前缀（从里到外）→ 作用于所有词的构形 */
 export function buildWord(env: BuildEnv, spec: WordSpec): BuiltWord {
   const { project } = env
-  const lexeme = spec.lexemeId ? project.lexemes.find((x) => x.id === spec.lexemeId) : undefined
+  const real = spec.lexemeId ? project.lexemes.find((x) => x.id === spec.lexemeId) : undefined
+  // 手打的词挑了词类：拿词头按那个词类的构形推
+  const lexeme = real ?? freeLexeme(spec)
   const own = spec.morphemeId ? project.morphemes.find((x) => x.id === spec.morphemeId) : undefined
-  let core = bare(lexeme ? lexeme.lemma : own ? own.form : spec.base)
-  let coreGloss = lexeme
-    ? lexemeGloss(lexeme, env.glossLangs)
+  let core = bare(spec.surface ?? (lexeme ? lexeme.lemma : own ? own.form : spec.base))
+  let coreGloss = real
+    ? lexemeGloss(real, env.glossLangs)
     : own
       ? own.gloss || pick(own.meaning, env.glossLangs)
       : ''
@@ -961,7 +1624,7 @@ export function buildWord(env: BuildEnv, spec: WordSpec): BuiltWord {
     core = infixInto(env.ctx, core, m.form, m.form2 || 'V1')
     coreGloss += `<${m.gloss || pick(m.meaning, env.glossLangs)}>`
   }
-  const coreLexeme = lexeme?.id ?? null
+  const coreLexeme = real?.id ?? null
   let cur = core
   const suffixes: BuiltPiece[] = []
   const prefixes: BuiltPiece[] = []
@@ -1105,12 +1768,16 @@ export interface DeckMarker {
   /** 加上它之后这个词写成什么（单独成词的就是它自己） */
   preview: string
   score: number
+  /** 只是猜的（语料里没见过、也没写明） */
+  weak: boolean
 }
 export interface DeckGroup {
   id: string
   kind: MarkerGroup['kind']
   label: string
   markers: DeckMarker[]
+  /** 先摆出来几个：有根据的全摆，全是猜的摆 WEAK_SHOWN 个；其余点「+N」展开 */
+  shown: number
 }
 export interface DeckMutation {
   paradigmId: Id
@@ -1121,6 +1788,8 @@ export interface DeckMutation {
 }
 export interface DeckModel {
   posIds: Id[]
+  /** 大致是体词还是谓词（看不出来是 null） */
+  domain: Domain | null
   built: BuiltWord
   own: DeckParadigm[]
   companions: DeckCompanion[]
@@ -1142,6 +1811,11 @@ export function effectivePos(env: DeckEnv, spec: WordSpec): Id | null {
     if (m?.stress?.affects && m.stress.passPos && m.stress.posId) return m.stress.posId
   }
   return null
+}
+
+/** 工作台上一个词的词类与它自己构形管着的维度：挂着的词条、手打时挑的词类、加了派生词缀后算作的词类 */
+export function wordHost(env: DeckEnv, spec: WordSpec): HostInfo {
+  return hostInfo(env.project, specLexeme(env.project, spec) ?? null, effectivePos(env, spec))
 }
 
 /** 维度一行：每个取值挑了会是什么 */
@@ -1177,7 +1851,7 @@ function dimsOf(
  */
 export function deckModel(env: DeckEnv, spec: WordSpec, attached: ReadonlySet<string>): DeckModel {
   const { project } = env
-  const lexeme = spec.lexemeId ? project.lexemes.find((x) => x.id === spec.lexemeId) : undefined
+  const lexeme = specLexeme(project, spec)
   const built = buildWord(env, spec)
   const posOverride = effectivePos(env, spec)
   const host = hostInfo(project, lexeme ?? null, posOverride)
@@ -1223,15 +1897,15 @@ export function deckModel(env: DeckEnv, spec: WordSpec, attached: ReadonlySet<st
     })
   }
   // 能附着的
-  const { groups, others } = markersFor(project, env.catalog, host)
+  const { groups, others, guess } = markersFor(project, env.catalog, host)
   const selectedKeys = new Set([
     ...spec.pieces.filter((p) => p.morphemeId).map((p) => 'm:' + p.morphemeId),
     ...attached
   ])
   const toDeck = (x: ScoredMarker): DeckMarker => {
     const selected = selectedKeys.has(x.marker.key)
-    let preview = bare(x.marker.form)
-    if (x.marker.morphemeId && x.mode !== 'before' && x.mode !== 'after') {
+    let preview = particleWords(x.marker.form, x.mode).join(' … ')
+    if (x.marker.morphemeId && !isWordMode(x.mode)) {
       const next: WordSpec = selected
         ? { ...spec, pieces: spec.pieces.filter((p) => p.morphemeId !== x.marker.morphemeId) }
         : {
@@ -1255,15 +1929,23 @@ export function deckModel(env: DeckEnv, spec: WordSpec, attached: ReadonlySet<st
       mode: x.mode,
       selected,
       preview,
-      score: x.score
+      score: x.score,
+      weak: x.weak
     }
   }
-  const deckGroups: DeckGroup[] = groups.map((g) => ({
-    id: g.group.id,
-    kind: g.group.kind,
-    label: g.group.label,
-    markers: g.items.map(toDeck)
-  }))
+  const deckGroups: DeckGroup[] = groups.map((g) => {
+    const strong = g.items.filter((x) => !x.weak).length
+    return {
+      id: g.group.id,
+      kind: g.group.kind,
+      label: g.group.label,
+      markers: g.items.map(toDeck),
+      // 在猜的时候猜的也先摆几个出来；证据足的时候只摆有根据的，猜的收在「+N」里
+      shown: guess
+        ? Math.max(strong, Math.min(g.items.length, WEAK_SHOWN))
+        : strong || Math.min(g.items.length, WEAK_SHOWN)
+    }
+  })
   // 「其他」也按组摆，只是默认收着
   const otherMap = new Map<string, DeckGroup>()
   for (const x of others) {
@@ -1275,7 +1957,8 @@ export function deckModel(env: DeckEnv, spec: WordSpec, attached: ReadonlySet<st
           id: x.marker.group.id,
           kind: x.marker.group.kind,
           label: x.marker.group.label,
-          markers: []
+          markers: [],
+          shown: 0
         })
       )
     g.markers.push(toDeck(x))
@@ -1304,8 +1987,10 @@ export function deckModel(env: DeckEnv, spec: WordSpec, attached: ReadonlySet<st
         slots
       })
   }
+  for (const g of otherMap.values()) g.shown = g.markers.length
   return {
     posIds: host.posIds,
+    domain: hostDomain(project, env.catalog, host),
     built,
     own,
     companions,

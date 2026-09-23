@@ -260,6 +260,11 @@ class UiState {
   pendingImport = $state<'csv' | null>(null)
   /** 跳到词库页时要选中的词位 */
   pendingLexemeId = $state<string | null>(null)
+  /**
+   * 跳到词库新建词条时预先填好的（译文工作台里「没有找到对应的词」点过来的：释义填好那一段）。
+   * 只有 jump('lexicon', 'new', 'lexeme') 那一次取走，不会带进之后手点的「新增词条」
+   */
+  lexemeDraft: { definition: Record<string, string> } | null = null
   /** 命令面板等跳转后要选中的对象：各页面按 kind 取走 */
   pendingSelect = $state<{ kind: string; id: string } | null>(null)
   /**

@@ -5,7 +5,14 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { parseProject } from '$lib/core/serialize'
-import { composeCandidates, findIn, glossItems, joinForms, pinChoices } from '$lib/engine/compose'
+import {
+  composeCandidates,
+  composeGaps,
+  findIn,
+  glossItems,
+  joinForms,
+  pinChoices
+} from '$lib/engine/compose'
 
 const p = parseProject(
   readFileSync(join(__dirname, '..', '..', 'examples', 'Aelith.laim.json'), 'utf8')
@@ -42,6 +49,11 @@ describe('候选词', () => {
     expect(lemmas).toContain('tovar')
     expect(lemmas).toContain('kaso')
     expect(lemmas.indexOf('tovar')).toBeLessThan(lemmas.indexOf('kaso'))
+  })
+  it('没对上的部分：示例里「在…里」是位格表达的，词库里没有对应的词', () => {
+    expect(composeGaps(p, L.id, '我知道你的朋友在房子里', ['zh', 'en']).map((g) => g.text)).toEqual(
+      ['在', '里']
+    )
   })
   it('英文译文也行', () => {
     const c = composeCandidates(p, L.id, 'The child sees the bird', ['en', 'zh'])

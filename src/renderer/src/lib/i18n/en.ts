@@ -2446,7 +2446,7 @@ const en: Dict = {
       'Click a word above to pick its form and add affixes, particles and other pieces here.',
     deckTitle: 'Word being edited',
     deckHelp:
-      'Everything that can go with this word: the dimensions of its own paradigm, dimensions carried by another part of speech, attachable morphemes, and paradigms that apply to all words. Groups follow the project’s dimensions, tags and morpheme glosses; how common a piece is, which side it goes on and how close it sits to the stem come from the analyses in the corpus and phrasebook.',
+      'Everything that can go with this word: the dimensions of its own paradigm, dimensions carried by another part of speech, attachable morphemes and function words, and paradigms that apply to all words. Groups follow the project’s dimensions, abbreviation table, tags and morpheme glosses; how common a piece is, which side it goes on and how close it sits to the stem come from the analyses in the corpus and phrasebook. While the corpus has few analyses, the deck guesses from the dimensions each paradigm uses, the dimensions’ “For parts of speech” and the part-of-speech names; guesses are shown lighter.',
     own: 'Paradigm: {name}',
     useBase: 'Use the base form',
     companion: 'Via “{pos}”: {name}',
@@ -2454,7 +2454,7 @@ const en: Dict = {
     companionOff: 'Don’t use',
     companionWord: 'Which word to use',
     attach: 'Pieces that can attach',
-    others: '{n} more (not yet seen with this kind of word in the corpus)',
+    others: '{n} more (probably for other parts of speech)',
     mutation: 'Applies to all words: {name}',
     none: 'None',
     missing: 'No form for this cell',
@@ -2464,14 +2464,30 @@ const en: Dict = {
     morphemeHint:
       'This is a morpheme: drag it onto a word to attach it there, or click “Attach to the previous word”.',
     attachPrev: 'Attach to the previous word',
-    freeHint: 'This word is not in the lexicon, so only attachable pieces can be added to it.',
+    freeHint:
+      'This word isn’t in the lexicon. Pick which part of speech it counts as to inflect it with that paradigm and see what can go with it.',
+    gaps: 'No word found for:',
+    gapCreate: 'Create an entry defined as “{text}” in the lexicon',
+    gapsHelp:
+      'These parts of the translation match nothing in the lexicon or the morpheme table. Click one to go to the lexicon and create an entry with the definition already filled in; when you are done, click “Back” to return to the workbench, with everything you built still there. Some meanings come from a paradigm instead (such as a locative case for “in”); then no new entry is needed — just pick that form under the word.',
+    gapCreated: 'New entry created, defined as “{text}”',
+    backToBench: 'Back to the workbench',
+    more: '+{n}',
+    moreTitle:
+      'Show the other {n} in this group (a guess: not yet seen with this kind of word in the corpus)',
+    less: 'Show fewer',
+    guess: 'A guess: not yet seen with this kind of word in the corpus',
+    posPick: 'Which part of speech this word counts as',
+    posUnknown: 'Part of speech unknown',
+    funcWords: 'Function words',
     mode: {
       prefix: 'Prefix: goes before the word',
       suffix: 'Suffix: goes after the word',
       infix: 'Infix: goes inside the word',
       circumfix: 'Circumfix: wraps around the word',
       before: 'Separate word, placed before',
-      after: 'Separate word, placed after'
+      after: 'Separate word, placed after',
+      around: 'Separate word, split in two around the word'
     },
     kind: {
       lexeme: 'Entry',

@@ -48,7 +48,7 @@
   import Portal from '$lib/ui/Portal.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
-  import Workbench, { type BenchResult } from '$lib/ui/Workbench.svelte'
+  import Workbench, { type BenchResult, type BenchSaved } from '$lib/ui/Workbench.svelte'
   import { pinChoices } from '$lib/engine/compose'
   import { uiGlossCode } from '$lib/core/glossInputs'
   import Hint from '$lib/ui/Hint.svelte'
@@ -105,6 +105,8 @@
     collapsedId: Id | null
     exportFormat: 'leipzig' | 'markdown' | 'html' | 'latex' | 'template'
     templateId: string
+    /** 开着的工作台：填回哪一句、拼到哪儿了（跳去词库新建词条再回来，照原样摆回去） */
+    bench: { targetId: Id | null; initial: string; saved?: BenchSaved } | null
   }>('corpus')
   const sameLang = memo.lang === projectState.currentLanguageId
   let mode = $state<'entries' | 'stats' | 'abbr'>(memo.mode ?? 'entries')
@@ -275,11 +277,18 @@
   }
   // ───── 译文工作台 ─────
   /** 开着工作台：填回哪一句（原文还空着的那句；原文已经写了就另加一句） */
-  let bench = $state<{ targetId: Id | null; initial: string } | null>(null)
+  let bench = $state<{ targetId: Id | null; initial: string } | null>(
+    sameLang && memo.bench ? { targetId: memo.bench.targetId, initial: memo.bench.initial } : null
+  )
+  function closeBench(): void {
+    bench = null
+    memo.bench = null
+  }
   /** 工作台里的译文按界面语言写（跟释义输入框默认给的那种一致） */
   const benchGloss = $derived(uiGlossCode(i18n.locale, i18n.custom?.base))
   function openBench(s: Sentence): void {
     bench = { targetId: s.id, initial: s.translation[benchGloss] ?? '' }
+    memo.bench = { ...bench }
     mode = 'entries'
   }
   function benchDone(r: BenchResult): void {
@@ -297,7 +306,7 @@
       const l = w.lexemeId ? project.lexemes.find((x) => x.id === w.lexemeId) : undefined
       return l ? lexemeGloss(l, glossLangs) : ''
     })
-    bench = null
+    closeBench()
     collapsedId = null
     selectedId = s.id
     touch()
@@ -803,8 +812,10 @@
       initial={bench.initial}
       glossLang={benchGloss}
       kind="sentence"
+      saved={memo.bench?.saved ?? null}
+      onsave={(s) => memo.bench && (memo.bench.saved = s)}
       ondone={benchDone}
-      oncancel={() => (bench = null)}
+      oncancel={closeBench}
     />
   {:else if !language}
     <p class="muted">{t('lexicon.noLanguage')}</p>

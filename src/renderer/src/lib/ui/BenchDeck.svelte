@@ -22,6 +22,8 @@
     removePiece: (pieceId: string) => void
     reorder: (pieceId: string, targetId: string) => void
     attachPrev: () => void
+    /** 手打的词算作哪个词类（空是不知道） */
+    setPos: (posId: string | null) => void
   }
 </script>
 
@@ -30,7 +32,7 @@
    * 译文工作台的「附着台」：给选中的词挑构形、加词缀和小品词。
    * 只管摆和点：该列什么、怎么拼，都在 lib/engine/attach.ts 里算好（deckModel）
    */
-  import type { DeckDim, DeckGroup, DeckModel } from '$lib/engine/attach'
+  import { isWordMode, type DeckDim, type DeckGroup, type DeckModel } from '$lib/engine/attach'
   import { t } from '$lib/i18n/index.svelte'
   import HelpDot from './HelpDot.svelte'
   import { X } from '@lucide/svelte'
@@ -41,6 +43,8 @@
     gloss,
     posLabel,
     kind,
+    posId = null,
+    posOptions = [],
     caret = 32,
     hue,
     act
@@ -51,6 +55,10 @@
     posLabel: string
     /** 挂着词条的词 / 单独拖上来的语素 / 手打的词 */
     kind: 'lexeme' | 'morpheme' | 'free'
+    /** 手打的词挑的词类 */
+    posId?: string | null
+    /** 手打的词能挑的词类 */
+    posOptions?: { id: string; name: string }[]
     /** 小三角指着上面哪个词（离卡片左边多远） */
     caret?: number
     /** 每一组的色相（见 hueTable） */
@@ -63,7 +71,14 @@
       ? t(`bench.cat.${g.label}`)
       : g.kind === 'type'
         ? t(`morphemes.types.${g.label}`)
-        : g.label
+        : g.label || t('bench.funcWords')
+  /** 展开了「+N」的组（换一个词还记着：同一组多半还要找同一类） */
+  let opened = $state(new Set<string>())
+  const toggleOpen = (id: string): void => {
+    const next = new Set(opened)
+    if (!next.delete(id)) next.add(id)
+    opened = next
+  }
   const othersCount = $derived(model.others.reduce((n, g) => n + g.markers.length, 0))
   const modeLabel = (m: string): string => t(`bench.mode.${m}`)
 
@@ -74,7 +89,21 @@
 
 <section class="deck" style="--caret:{caret}px" aria-label={t('bench.deckTitle')}>
   <div class="row wrap head">
-    <span class="badge pos">{posLabel || t(`bench.kind.${kind}`)}</span>
+    {#if kind === 'free' && posOptions.length}
+      <!-- 手打的词：挑它算作哪个词类，就按那个词类的构形推、按它找能搭的 -->
+      <select
+        class="select xs pos"
+        value={posId ?? ''}
+        title={t('bench.posPick')}
+        aria-label={t('bench.posPick')}
+        onchange={(e) => act.setPos((e.currentTarget as HTMLSelectElement).value || null)}
+      >
+        <option value="">{t('bench.posUnknown')}</option>
+        {#each posOptions as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
+      </select>
+    {:else}
+      <span class="badge pos">{posLabel || t(`bench.kind.${kind}`)}</span>
+    {/if}
     <span class="data lemma">{title}</span>
     {#if gloss}<span class="small muted">{gloss}</span>{/if}
     <HelpDot tip={t('bench.deckHelp')} />
@@ -191,24 +220,39 @@
     </div>
   {/each}
 
+  <!-- 一组一行：先摆出 shown 个（有根据的；全是猜的就摆几个），其余点「+N」展开；挑中的总摆着 -->
   {#snippet markerLane(g: DeckGroup)}
+    {@const open = opened.has(g.id) || g.shown >= g.markers.length}
+    {@const hidden = g.markers.length - g.shown}
     <div class="lane">
       <span class="lane-name" style="--h:{hue(g.id)}">{groupLabel(g)}</span>
       <div class="pills">
-        {#each g.markers as m (m.key)}
-          <button
-            class="pill mk"
-            class:on={m.selected}
-            class:word={m.mode === 'before' || m.mode === 'after'}
-            style="--h:{hue(g.id)}"
-            aria-pressed={m.selected}
-            title={`${modeLabel(m.mode)} · ${t('bench.becomes', { form: m.preview })}`}
-            onclick={() => act.toggle(m.key, m.mode)}
-          >
-            <span class="data fm">{m.form}</span>
-            <span class="gl">{m.gloss}</span>
-          </button>
+        {#each g.markers as m, i (m.key)}
+          {#if open || i < g.shown || m.selected}
+            <button
+              class="pill mk"
+              class:on={m.selected}
+              class:word={isWordMode(m.mode)}
+              class:weak={m.weak}
+              style="--h:{hue(g.id)}"
+              aria-pressed={m.selected}
+              title={`${modeLabel(m.mode)} · ${t('bench.becomes', { form: m.preview })}${m.weak ? ' · ' + t('bench.guess') : ''}`}
+              onclick={() => act.toggle(m.key, m.mode)}
+            >
+              <span class="data fm">{m.form}</span>
+              <span class="gl">{m.gloss}</span>
+            </button>
+          {/if}
         {/each}
+        {#if hidden > 0}
+          <button
+            class="more"
+            aria-expanded={opened.has(g.id)}
+            title={opened.has(g.id) ? t('bench.less') : t('bench.moreTitle', { n: hidden })}
+            onclick={() => toggleOpen(g.id)}
+            >{opened.has(g.id) ? t('bench.less') : t('bench.more', { n: hidden })}</button
+          >
+        {/if}
       </div>
     </div>
   {/snippet}
@@ -419,6 +463,28 @@
   /* 单独成词的（小品词）虚线框，跟泡泡里的语素一个样子 */
   .pill.word {
     border-style: dashed;
+  }
+  /* 猜的（语料里没见过）：淡一点，挑中了就跟别的一样 */
+  .pill.weak:not(.on) {
+    opacity: 0.72;
+  }
+  .pill.weak:not(.on):hover {
+    opacity: 1;
+  }
+  /* 「+N」：展开这一组其余的 */
+  .more {
+    align-self: center;
+    padding: 2px 8px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 10px;
+    background: none;
+    color: var(--text-2);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .more:hover {
+    border-color: var(--accent);
+    color: var(--text);
   }
   .pill .abbr {
     font-family: var(--font-gloss);

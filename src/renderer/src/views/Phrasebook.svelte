@@ -42,7 +42,7 @@
   import Hint from '$lib/ui/Hint.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
-  import Workbench, { type BenchResult } from '$lib/ui/Workbench.svelte'
+  import Workbench, { type BenchResult, type BenchSaved } from '$lib/ui/Workbench.svelte'
   import { pinChoices } from '$lib/engine/compose'
   import { uiGlossCode } from '$lib/core/glossInputs'
   import { Plus, Trash2, X, Wand2, Upload, Download, PencilRuler } from '@lucide/svelte'
@@ -65,7 +65,13 @@
   const language = $derived(project.languages.find((l) => l.id === langId) ?? null)
 
   /** 回到这一页时接着用上次的分类与选中的短语；换了语言就不恢复 */
-  const memo = ui.memo<{ lang: Id | null; selectedId: Id | null; category: string }>('phrasebook')
+  const memo = ui.memo<{
+    lang: Id | null
+    selectedId: Id | null
+    category: string
+    /** 开着的工作台：填回哪一条、拼到哪儿了（跳去词库新建词条再回来，照原样摆回去） */
+    bench: { targetId: Id | null; initial: string; saved?: BenchSaved } | null
+  }>('phrasebook')
   const sameLang = memo.lang === projectState.currentLanguageId
   let selectedId = $state<Id | null>(sameLang ? (memo.selectedId ?? null) : null)
   let category = $state<string>(sameLang ? (memo.category ?? '') : '')
@@ -374,11 +380,18 @@
   }
   // ───── 译文工作台 ─────
   /** 开着工作台：填回哪一条（原文还空着的那条；原文已经写了就另加一条） */
-  let bench = $state<{ targetId: Id | null; initial: string } | null>(null)
+  let bench = $state<{ targetId: Id | null; initial: string } | null>(
+    sameLang && memo.bench ? { targetId: memo.bench.targetId, initial: memo.bench.initial } : null
+  )
+  function closeBench(): void {
+    bench = null
+    memo.bench = null
+  }
   /** 工作台里的译文按界面语言写（跟释义输入框默认给的那种一致） */
   const benchGloss = $derived(uiGlossCode(i18n.locale, i18n.custom?.base))
   function openBench(p: Phrase): void {
     bench = { targetId: p.id, initial: p.translation[benchGloss] ?? '' }
+    memo.bench = { ...bench }
   }
   function benchDone(r: BenchResult): void {
     if (!langId) return
@@ -402,7 +415,7 @@
     })
     p.tokens = tokens
     derivePron(p)
-    bench = null
+    closeBench()
     selectedId = p.id
     touch()
     ui.toast(t('bench.added'))
@@ -558,8 +571,10 @@
       initial={bench.initial}
       glossLang={benchGloss}
       kind="phrase"
+      saved={memo.bench?.saved ?? null}
+      onsave={(s) => memo.bench && (memo.bench.saved = s)}
       ondone={benchDone}
-      oncancel={() => (bench = null)}
+      oncancel={closeBench}
     />
   {:else if !language}
     <p class="muted">{t('lexicon.noLanguage')}</p>
