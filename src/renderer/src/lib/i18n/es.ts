@@ -2456,13 +2456,12 @@ export default {
   },
   bench: {
     title: 'Mesa de traducción',
-    hint: 'Escriba primero la traducción: el programa busca en el léxico las palabras que probablemente necesite y las deja flotando abajo como burbujas. Arrastre las que quiera a la fila de arriba (o haga clic para añadirlas al final), elija una forma para cada una y el texto se va armando.',
+    hint: 'Escriba primero la traducción: el programa busca en el léxico las palabras que probablemente necesite y las hace flotar abajo como burbujas. Arrastre las que quiera a la fila de arriba (o haga clic para añadirlas al final); haga clic en una palabra de la fila para elegir su forma y añadirle afijos, partículas y otras piezas, y el texto original se compone solo.',
     forSentence: 'Oración nueva',
     forPhrase: 'Frase nueva',
     addSentence: 'Añadir al corpus',
     addPhrase: 'Añadir a las frases',
     textLabel: 'Texto (arrastre las palabras para cambiar el orden)',
-    pickForm: 'Qué forma usar',
     dropHere: 'Arrastre aquí las palabras de abajo',
     freeWord: '¿No está en el léxico? Escríbala',
     translationLabel: 'Traducción',
@@ -2473,10 +2472,64 @@ export default {
     noCandidates: 'No hay nada en el léxico que encaje: puede escribir directamente arriba.',
     typeFirst: 'Escriba primero la traducción; aquí aparecerán las palabras que puede necesitar.',
     addAll: 'Añadir todas en orden',
-    base: 'Forma base',
     open: 'Mesa',
     openHint: 'Elegir palabras a partir de la traducción y armar el texto en la mesa',
-    added: 'Añadida, con su análisis ya puesto'
+    added: 'Añadida, con su análisis ya puesto',
+    chipHint: 'Haga clic para editar esta palabra: elegir su forma y añadir afijos o partículas',
+    deckHint:
+      'Haga clic en una palabra de arriba para elegir aquí su forma y añadirle afijos, partículas y otras piezas.',
+    deckTitle: 'Palabra en edición',
+    deckHelp:
+      'Todo lo que puede acompañar a esta palabra: las categorías de su propio paradigma, las que expresa otra clase de palabra, los morfemas que se le pueden unir y los paradigmas que se aplican a todas las palabras. Los grupos siguen las categorías, etiquetas y glosas del proyecto; lo habitual que es una pieza, a qué lado va y cuán cerca queda de la raíz salen de los análisis del corpus y las frases.',
+    own: 'Paradigma: {name}',
+    useBase: 'Usar la forma base',
+    companion: 'Mediante «{pos}»: {name}',
+    companionPos: 'Mediante «{pos}»',
+    companionOff: 'No usar',
+    companionWord: 'Palabra que usar',
+    attach: 'Piezas que se pueden unir',
+    others: '{n} más (aún no vistas con este tipo de palabra en el corpus)',
+    mutation: 'Se aplica a todas las palabras: {name}',
+    none: 'Ninguna',
+    missing: 'Esta casilla no tiene forma',
+    becomes: 'Con ella: {form}',
+    removePiece: 'Quitar esta pieza',
+    stripHint: 'Arrastre para cambiar el orden de las piezas',
+    morphemeHint:
+      'Es un morfema: arrástrelo sobre una palabra para unírselo, o haga clic en «Unir a la palabra anterior».',
+    attachPrev: 'Unir a la palabra anterior',
+    freeHint:
+      'Esta palabra no está en el léxico, así que solo se le pueden añadir piezas que se unen.',
+    mode: {
+      prefix: 'Prefijo: va delante de la palabra',
+      suffix: 'Sufijo: va detrás de la palabra',
+      infix: 'Infijo: va dentro de la palabra',
+      circumfix: 'Circunfijo: rodea la palabra',
+      before: 'Palabra aparte, delante',
+      after: 'Palabra aparte, detrás'
+    },
+    kind: {
+      lexeme: 'Entrada',
+      morpheme: 'Morfema',
+      free: 'Palabra escrita a mano'
+    },
+    cat: {
+      tense: 'Tiempo',
+      aspect: 'Aspecto',
+      mood: 'Modo',
+      voice: 'Voz',
+      polarity: 'Polaridad',
+      number: 'Número',
+      case: 'Caso',
+      person: 'Persona',
+      gender: 'Género',
+      definiteness: 'Definitud y deixis',
+      possession: 'Posesión',
+      derivation: 'Derivación',
+      information: 'Tópico y foco',
+      classifier: 'Clasificadores',
+      valency: 'Transitividad'
+    }
   },
   settings: {
     search: 'Buscar en la configuración',

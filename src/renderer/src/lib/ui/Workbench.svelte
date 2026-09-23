@@ -1,35 +1,70 @@
 <script lang="ts" module>
-  /** 工作台拼好的一个词：挂着哪个词条 / 语素，用哪个形式（原形或某一格的屈折形） */
-  export interface BenchWord {
+  import type { WordSpec } from '$lib/engine/attach'
+  import type { Analysis } from '$lib/core/model'
+
+  /**
+   * 工作台拼好的一个词：挂着哪个词条 / 语素，挑了哪一格构形，加了哪些词缀、动词头，过了哪个词首音变。
+   * 单独成词挂在别的词上的小品词记着挂在谁身上（hostId）、是哪个标记（markerKey）
+   */
+  export interface BenchWord extends WordSpec {
     id: string
+    hostId?: string
+    markerKey?: string
+  }
+  /** 交出去的一个词：写进原文的形式、这一格、拼好的各段（钉分析用，见 compose.ts 的 pinChoices） */
+  export interface BenchPinned {
     lexemeId?: string
     morphemeId?: string
-    /** 写进原文的形式 */
     form: string
-    /** 用的是哪一格（词条 forms 里的键，跟分析里的 slot 一个口径）；原形是 null */
     slotKey: string | null
+    morphs?: Analysis['morphs']
   }
   export interface BenchResult {
     text: string
     translation: string
-    words: BenchWord[]
+    words: BenchPinned[]
   }
 </script>
 
 <script lang="ts">
   /**
    * 译文工作台：先写译文，软件照着译文反查词库给出候选词（泡泡），
-   * 把要用的拖到上面固定下来、挑好屈折形，拼出这句话的原文，一键加进语料或短语。
-   * 候选怎么来的见 lib/engine/compose.ts；这里只管摆、拖、挑形式。
+   * 把要用的拖到上面固定下来；点上面的一个词，下面的附着台里给它挑构形、加词缀和小品词，
+   * 拼出这句话的原文，一键加进语料或短语。
+   * 候选怎么来的见 lib/engine/compose.ts；能加什么、怎么拼见 lib/engine/attach.ts；这里只管摆、拖、点。
    */
   import { untrack } from 'svelte'
   import { projectState } from '$lib/state/project.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { composeCandidates, joinForms, type ComposeCandidate } from '$lib/engine/compose'
-  import { lexemeSlots } from '$lib/engine/morph'
+  import {
+    bare,
+    buildWord,
+    companionPiece,
+    companionsFor,
+    deckModel,
+    defaultPicks,
+    effectivePos,
+    hostInfo,
+    innerToOuter,
+    lpKeyOf,
+    markerCatalog,
+    modeOf,
+    morphsOf,
+    pieceFor,
+    recognize,
+    type AttachMode,
+    type BuiltWord,
+    type Companion,
+    type DeckEnv
+  } from '$lib/engine/attach'
+  import type { Lexeme, Morpheme } from '$lib/core/model'
+  import { makeContext, paradigmsFor } from '$lib/engine/morph'
+  import { findPos, posName } from '$lib/core/pos'
   import { newId } from '$lib/core/factory'
   import { Check, X, Plus, GripVertical } from '@lucide/svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
+  import BenchDeck, { hueTable, type DeckActions } from '$lib/ui/BenchDeck.svelte'
 
   let {
     languageId,
@@ -54,6 +89,8 @@
   let translation = $state(untrack(() => initial))
   let words = $state<BenchWord[]>([])
   let free = $state('')
+  /** 正在编辑的词（附着台给它摆） */
+  let selectedId = $state<string | null>(null)
 
   /** 反查放在输入停一下之后再做，打字时不卡 */
   let query = $state(untrack(() => initial))
@@ -74,66 +111,273 @@
         !words.some(
           (w) =>
             (c.lexemeId && w.lexemeId === c.lexemeId) ||
-            (c.morphemeId && w.morphemeId === c.morphemeId)
+            (c.morphemeId &&
+              (w.morphemeId === c.morphemeId ||
+                w.pieces.some((p) => p.morphemeId === c.morphemeId)))
         )
     )
   )
-  const text = $derived(
-    joinForms(
-      words.map((w) => w.form),
-      project.settings.tokenizer
+
+  // ───── 拼词：这门语言能加的东西（语料里的证据）只算一次 ─────
+  const language = $derived(project.languages.find((l) => l.id === languageId))
+  const env = $derived.by((): DeckEnv | null =>
+    language
+      ? {
+          project,
+          ctx: makeContext(project, language),
+          glossLangs: langs,
+          languageId,
+          catalog: markerCatalog(project, languageId, langs)
+        }
+      : null
+  )
+  const built = $derived(
+    new Map(
+      words.map((w): [string, BuiltWord] => [
+        w.id,
+        env
+          ? buildWord(env, w)
+          : { form: w.base, parts: [], slotKey: null, slotAbbr: '', missing: false }
+      ])
     )
   )
+  const formOf = (w: BenchWord): string => built.get(w.id)?.form ?? w.base
+  /** 每一组一个颜色：维度按维度表的顺序在前，其余按这门语言里能加的东西 */
+  const hue = $derived(
+    hueTable([
+      ...project.categories.map((c) => 'dim:' + c.id),
+      ...(env?.catalog.markers.map((m) => m.group.id) ?? [])
+    ])
+  )
+  const text = $derived(joinForms(words.map(formOf), project.settings.tokenizer))
 
-  /** 词头写成 `bil-` 这种（词干、词缀的标记）的，放进句子时去掉两头的连字符 */
-  const bare = (s: string): string => s.replace(/^[-=]+|[-=]+$/g, '')
+  const selected = $derived(words.find((w) => w.id === selectedId) ?? null)
+  /** 单独成词挂在这个词上的小品词 */
+  const attachedTo = (hostId: string): Set<string> =>
+    new Set(words.filter((w) => w.hostId === hostId && w.markerKey).map((w) => w.markerKey!))
+  const deck = $derived(selected && env ? deckModel(env, selected, attachedTo(selected.id)) : null)
 
-  /** 一个词能用的形式：原形，加上这个词条已经推出来 / 填过的每一格屈折形 */
-  function formsOf(w: BenchWord): { slotKey: string | null; label: string; form: string }[] {
-    if (w.morphemeId) {
-      const m = project.morphemes.find((x) => x.id === w.morphemeId)
-      return m ? [{ slotKey: null, label: t('bench.base'), form: bare(m.form) }] : []
-    }
-    const l = project.lexemes.find((x) => x.id === w.lexemeId)
-    if (!l) return [{ slotKey: null, label: t('bench.base'), form: w.form }]
-    const out = [{ slotKey: null as string | null, label: t('bench.base'), form: bare(l.lemma) }]
-    for (const s of lexemeSlots(project, l)) {
-      const f = l.forms[s.key]?.surface?.trim()
-      if (f) out.push({ slotKey: s.key, label: s.slot.abbr || s.slot.label, form: f })
-    }
-    return out
-  }
+  const lexemeOf = (w: BenchWord | null | undefined): Lexeme | undefined =>
+    w?.lexemeId ? project.lexemes.find((x) => x.id === w.lexemeId) : undefined
+  const morphemeOf = (w: BenchWord | null | undefined): Morpheme | undefined =>
+    w?.morphemeId ? project.morphemes.find((x) => x.id === w.morphemeId) : undefined
+  const deckTitle = $derived(
+    lexemeOf(selected)?.lemma ?? morphemeOf(selected)?.form ?? selected?.base ?? ''
+  )
+  const deckGloss = $derived.by(() => {
+    const l = lexemeOf(selected)
+    if (l) return pickText(l.senses[0]?.definition, langs)
+    return morphemeOf(selected)?.gloss ?? ''
+  })
+  const deckPos = $derived(
+    (deck?.posIds ?? [])
+      .map((id) => posName(findPos(project, id), langs))
+      .filter(Boolean)
+      .join(' · ')
+  )
+  const deckKind = $derived<'lexeme' | 'morpheme' | 'free'>(
+    selected?.lexemeId ? 'lexeme' : selected?.morphemeId ? 'morpheme' : 'free'
+  )
 
+  // ───── 摆词、删词、选词 ─────
+  const blank = (over: Partial<BenchWord>): BenchWord => ({
+    id: newId(),
+    base: '',
+    own: null,
+    pieces: [],
+    mutation: null,
+    ...over
+  })
   function toWord(c: ComposeCandidate): BenchWord {
-    return {
-      id: newId(),
-      lexemeId: c.lexemeId,
-      morphemeId: c.morphemeId,
-      form: bare(c.surface),
-      slotKey: null
-    }
+    return blank({ lexemeId: c.lexemeId, morphemeId: c.morphemeId, base: bare(c.surface) })
   }
-  function add(c: ComposeCandidate, at = words.length): void {
-    words = [...words.slice(0, at), toWord(c), ...words.slice(at)]
+  /** 贴进词里的语素（前缀、后缀……）拖上来时，接到哪个词上：选中的那个，没有就前面最近的一个词 */
+  function hostFor(at: number): BenchWord | null {
+    if (selected && !selected.hostId && (selected.lexemeId || !selected.morphemeId)) return selected
+    for (let i = Math.min(at, words.length) - 1; i >= 0; i--)
+      if (!words[i].hostId && !words[i].morphemeId) return words[i]
+    return null
+  }
+  function add(c: ComposeCandidate, at = words.length, onto?: BenchWord | null): void {
+    // 语素：贴得进词里的直接接到词上，单独成词的挂在词旁边
+    if (c.morphemeId && env) {
+      const marker = env.catalog.markers.find((x) => x.key === 'm:' + c.morphemeId)
+      const host = onto ?? hostFor(at)
+      if (marker && host) {
+        const mode = modeOf(env.catalog, marker, hostInfo(project, lexemeOf(host) ?? null).posIds)
+        selectedId = host.id
+        toggleOn(host, marker.key, mode)
+        return
+      }
+    }
+    const w = toWord(c)
+    words = [...words.slice(0, at), w, ...words.slice(at)]
+    selectedId = w.id
   }
   function addFree(): void {
     const f = free.trim()
     if (!f) return
-    words = [...words, { id: newId(), form: f, slotKey: null }]
+    // 打的正好是词库里的词（词头或存下来的屈折形）就挂上那个词条，连挑的那一格一起
+    const hit = recognize(project, languageId, f, langs)
+    const w = hit ? blank({ lexemeId: hit.lexemeId, base: f, own: hit.own }) : blank({ base: f })
+    words = [...words, w]
+    selectedId = w.id
     free = ''
   }
-  function remove(i: number): void {
-    words = words.filter((_, k) => k !== i)
+  function remove(id: string): void {
+    words = words.filter((w) => w.id !== id && w.hostId !== id)
+    if (selectedId === id) selectedId = null
   }
-  function setForm(i: number, value: string): void {
-    const opts = formsOf(words[i])
-    const o = opts.find((x) => (x.slotKey ?? '') === value)
-    if (!o) return
-    words[i] = { ...words[i], form: o.form, slotKey: o.slotKey }
+  /** 点小品词选中的是它挂着的那个词（小品词在那个词的附着台里加减） */
+  function select(w: BenchWord): void {
+    selectedId = w.hostId ?? w.id
   }
 
-  // ───── 拖：泡泡拖到上面那一行（落在哪两个词之间就插在哪），上面的词也能拖着换位置 ─────
+  // ───── 附着台的操作 ─────
+  function update(id: string, fn: (w: BenchWord) => BenchWord): void {
+    words = words.map((w) => (w.id === id ? fn(w) : w))
+  }
+  const nextSeq = (w: BenchWord): number =>
+    w.pieces.length ? Math.max(...w.pieces.map((p) => p.seq)) + 1 : 0
+
+  /** 加一个标记：贴进词里的加一截，单独成词的在旁边放一个小品词 */
+  function toggleOn(host: BenchWord, key: string, mode: AttachMode): void {
+    if (!env) return
+    const marker = env.catalog.markers.find((x) => x.key === key)
+    if (!marker) return
+    if (mode === 'before' || mode === 'after') {
+      const had = words.find((w) => w.hostId === host.id && w.markerKey === key)
+      if (had) {
+        words = words.filter((w) => w !== had)
+        return
+      }
+      const i = words.findIndex((w) => w.id === host.id)
+      let at = i
+      if (mode === 'after') {
+        at = i + 1
+        while (at < words.length && words[at].hostId === host.id) at++
+      } else while (at > 0 && words[at - 1].hostId === host.id) at--
+      const particle = blank({
+        lexemeId: marker.lexemeId,
+        morphemeId: marker.morphemeId,
+        base: bare(marker.form),
+        hostId: host.id,
+        markerKey: key
+      })
+      words = [...words.slice(0, at), particle, ...words.slice(at)]
+      return
+    }
+    const has = marker.morphemeId && host.pieces.some((p) => p.morphemeId === marker.morphemeId)
+    update(host.id, (w) => ({
+      ...w,
+      pieces: has
+        ? w.pieces.filter((p) => p.morphemeId !== marker.morphemeId)
+        : [...w.pieces, pieceFor(env, marker, mode, nextSeq(w))]
+    }))
+  }
+  /** 这个词能搭的构形（换算作的词类之后按新词类） */
+  function companionOf(w: BenchWord, key: string): Companion | undefined {
+    if (!env) return undefined
+    const host = hostInfo(project, lexemeOf(w) ?? null, effectivePos(env, w))
+    return companionsFor(project, languageId, env.catalog, host).find((c) => c.key === key)
+  }
+  const act: DeckActions = {
+    pickOwn: (lpKey, dimId, valueId) => {
+      if (!selected) return
+      update(selected.id, (w) => {
+        const l = lexemeOf(w)
+        const lp = l ? paradigmsFor(project, l).find((x) => lpKeyOf(x) === lpKey) : undefined
+        const base =
+          w.own?.lpKey === lpKey ? w.own.picks : lp ? defaultPicks(project, lp.paradigm) : {}
+        return { ...w, own: { lpKey, picks: { ...base, [dimId]: valueId } } }
+      })
+    },
+    clearOwn: () => selected && update(selected.id, (w) => ({ ...w, own: null })),
+    pickCompanion: (key, dimId, valueId) => {
+      if (!selected) return
+      const c = companionOf(selected, key)
+      if (!c) return
+      update(selected.id, (w) => {
+        const on = w.pieces.find((p) => p.companion?.paradigmId === key)
+        if (on?.companion)
+          return {
+            ...w,
+            pieces: w.pieces.map((p) =>
+              p === on
+                ? {
+                    ...p,
+                    companion: {
+                      ...on.companion!,
+                      picks: { ...on.companion!.picks, [dimId]: valueId }
+                    }
+                  }
+                : p
+            )
+          }
+        const picks = { ...defaultPicks(project, c.paradigm), [dimId]: valueId }
+        return {
+          ...w,
+          pieces: [...w.pieces, companionPiece(c, c.lexemes[0].id, picks, nextSeq(w))]
+        }
+      })
+    },
+    companionWord: (key, lexemeId) =>
+      selected &&
+      update(selected.id, (w) => ({
+        ...w,
+        pieces: w.pieces.map((p) =>
+          p.companion?.paradigmId === key ? { ...p, companion: { ...p.companion, lexemeId } } : p
+        )
+      })),
+    clearCompanion: (key) =>
+      selected &&
+      update(selected.id, (w) => ({
+        ...w,
+        pieces: w.pieces.filter((p) => p.companion?.paradigmId !== key)
+      })),
+    toggle: (key, mode) => selected && toggleOn(selected, key, mode),
+    mutation: (paradigmId, slotKey) =>
+      selected &&
+      update(selected.id, (w) => ({ ...w, mutation: slotKey ? { paradigmId, slotKey } : null })),
+    removePiece: (id) =>
+      selected &&
+      update(selected.id, (w) => ({ ...w, pieces: w.pieces.filter((p) => p.id !== id) })),
+    // 拖到哪一截上就排在那一截的位置（同一边才换）；拖过之后这一边都按手排的顺序
+    reorder: (dragId, targetId) => {
+      if (!selected) return
+      update(selected.id, (w) => {
+        const drag = w.pieces.find((p) => p.id === dragId)
+        const target = w.pieces.find((p) => p.id === targetId)
+        if (!drag || !target || drag.side !== target.side) return w
+        const side = innerToOuter(w.pieces.filter((p) => p.side === drag.side)).filter(
+          (p) => p !== drag
+        )
+        side.splice(side.indexOf(target), 0, drag)
+        const order = new Map(side.map((p, i) => [p.id, i]))
+        return {
+          ...w,
+          pieces: w.pieces.map((p) => (order.has(p.id) ? { ...p, order: order.get(p.id) } : p))
+        }
+      })
+    },
+    // 单独拖上来的语素接到前一个词上
+    attachPrev: () => {
+      if (!selected || !env) return
+      const i = words.findIndex((w) => w.id === selected.id)
+      const host = [...words.slice(0, i)].reverse().find((w) => !w.hostId && !w.morphemeId)
+      const marker = env.catalog.markers.find((x) => x.key === 'm:' + selected.morphemeId)
+      if (!host || !marker) return
+      const mode = modeOf(env.catalog, marker, hostInfo(project, lexemeOf(host) ?? null).posIds)
+      const gone = selected.id
+      words = words.filter((w) => w.id !== gone)
+      selectedId = host.id
+      toggleOn(host, marker.key, mode)
+    }
+  }
+
+  // ───── 拖：泡泡拖到上面那一行（落在哪两个词之间就插在哪；语素落在词上就贴到那个词上），上面的词也能拖着换位置 ─────
   let row = $state<HTMLElement | null>(null)
+  let card = $state<HTMLElement | null>(null)
   let dropAt = $state<number | null>(null)
   /** 指针在第几个词前面：按每个词的中线算 */
   function indexAt(x: number): number {
@@ -158,7 +402,11 @@
     const cand = e.dataTransfer?.getData('text/x-qonlang-cand')
     if (cand) {
       const c = candidates.find((x) => x.key === cand)
-      if (c) add(c, at)
+      if (!c) return
+      // 语素正好落在某个词上：贴到那个词上
+      const chipEl = (e.target as Element | null)?.closest<HTMLElement>('.chip')
+      const onto = chipEl ? words.find((w) => w.id === chipEl.dataset.id) : null
+      add(c, at, onto && !onto.hostId && !onto.morphemeId ? onto : null)
       return
     }
     const from = Number(e.dataTransfer?.getData('text/x-qonlang-chip'))
@@ -169,6 +417,19 @@
       words = next
     }
   }
+
+  /** 附着台上的小三角指着选中的那个词 */
+  let caret = $state(32)
+  $effect(() => {
+    void selectedId
+    void words.length
+    void built
+    const el = row?.querySelector<HTMLElement>('.chip.sel')
+    if (!el || !card) return
+    const r = el.getBoundingClientRect()
+    const c = card.getBoundingClientRect()
+    caret = Math.max(16, r.left - c.left + r.width / 2 - 14)
+  })
 
   /** 泡泡的漂法：按候选的键散开一点，看着不整齐划一 */
   function drift(key: string): string {
@@ -182,17 +443,22 @@
 
   function done(): void {
     if (!text.trim()) return
-    ondone({ text, translation: translation.trim(), words: $state.snapshot(words) })
+    ondone({
+      text,
+      translation: translation.trim(),
+      words: words.map((w) => {
+        const b = built.get(w.id)
+        return {
+          lexemeId: w.lexemeId,
+          morphemeId: w.morphemeId,
+          form: formOf(w),
+          slotKey: b?.slotKey ?? null,
+          morphs: b ? morphsOf(b) : undefined
+        }
+      })
+    })
   }
   const glossOf = (c: ComposeCandidate): string => c.matched
-  const lexGloss = (w: BenchWord): string => {
-    if (w.lexemeId) {
-      const l = project.lexemes.find((x) => x.id === w.lexemeId)
-      return l ? pickText(l.senses[0]?.definition, langs) : ''
-    }
-    if (w.morphemeId) return project.morphemes.find((x) => x.id === w.morphemeId)?.gloss ?? ''
-    return ''
-  }
 </script>
 
 <div class="bench">
@@ -208,11 +474,11 @@
     >
   </div>
 
-  <!-- 上：拼出来的原文 -->
-  <section class="card compose">
+  <!-- 上：拼出来的原文；每个词一块，上面写法、下面 gloss，附加的几段按组上色 -->
+  <section class="card compose" bind:this={card}>
     <div class="label small muted">{t('bench.textLabel')}</div>
     <div
-      class="row wrap words"
+      class="words"
       class:empty={!words.length}
       bind:this={row}
       role="list"
@@ -222,29 +488,28 @@
     >
       {#each words as w, i (w.id)}
         {#if dropAt === i}<span class="caret"></span>{/if}
-        {@const opts = formsOf(w)}
+        {@const b = built.get(w.id)}
         <span
           class="chip"
+          class:sel={w.id === selectedId}
+          class:particle={!!w.hostId}
+          data-id={w.id}
           role="listitem"
           draggable="true"
           ondragstart={(e) => e.dataTransfer?.setData('text/x-qonlang-chip', String(i))}
-          title={lexGloss(w)}
         >
           <GripVertical size={12} />
-          <span class="data form">{w.form}</span>
-          {#if opts.length > 1}
-            <select
-              class="select xs"
-              value={w.slotKey ?? ''}
-              title={t('bench.pickForm')}
-              onchange={(e) => setForm(i, (e.currentTarget as HTMLSelectElement).value)}
-            >
-              {#each opts as o (o.slotKey ?? '')}<option value={o.slotKey ?? ''}
-                  >{o.label} · {o.form}</option
-                >{/each}
-            </select>
-          {/if}
-          <button class="x" title={t('common.delete')} onclick={() => remove(i)}
+          <button class="chip-main" onclick={() => select(w)} title={t('bench.chipHint')}>
+            {#each b?.parts ?? [] as p (p.id)}
+              <span class="seg" class:core={p.groupId === 'core'} style="--h:{hue(p.groupId)}">
+                <span class="data f">{p.form}</span>
+                <span class="g">{p.gloss || ' '}</span>
+              </span>
+            {:else}
+              <span class="seg core"><span class="data f">{formOf(w)}</span></span>
+            {/each}
+          </button>
+          <button class="x" title={t('common.delete')} onclick={() => remove(w.id)}
             ><X size={11} /></button
           >
         </span>
@@ -259,6 +524,20 @@
       />
     </div>
     <div class="preview data" class:muted={!text}>{text || '—'}</div>
+    {#if deck && selected}
+      <BenchDeck
+        model={deck}
+        title={deckTitle}
+        gloss={deckGloss}
+        posLabel={deckPos}
+        kind={deckKind}
+        {caret}
+        {hue}
+        {act}
+      />
+    {:else if words.length}
+      <p class="small muted deck-hint">{t('bench.deckHint')}</p>
+    {/if}
   </section>
 
   <!-- 中：译文 -->
@@ -336,8 +615,10 @@
     margin-bottom: 6px;
   }
   .words {
+    display: flex;
+    flex-wrap: wrap;
     gap: 6px;
-    min-height: 44px;
+    min-height: 52px;
     padding: 6px;
     border: 1px dashed var(--border-strong);
     border-radius: var(--radius-sm);
@@ -346,27 +627,64 @@
   .words.empty {
     background: var(--bg-sunken);
   }
+  /* 一个词一块：上面写法、下面 gloss（像逐词对照），选中的描边 */
   .chip {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 3px 4px 3px 6px;
-    border: 1px solid var(--accent);
-    border-radius: 999px;
-    background: var(--accent-soft);
+    gap: 2px;
+    padding: 2px 3px 2px 4px;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: var(--bg-elev);
     cursor: grab;
   }
-  .chip .form {
-    font-size: 16px;
+  .chip.sel {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  /* 挂在别的词上的小品词：虚线，跟泡泡里的语素一个样子 */
+  .chip.particle {
+    border-style: dashed;
   }
   .chip :global(svg) {
     color: var(--text-3);
   }
-  .select.xs {
-    width: auto;
-    padding: 1px 22px 1px 6px;
-    font-size: 11.5px;
-    background-position: right 6px center;
+  .chip-main {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 1px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+  }
+  .seg {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1px 5px 0;
+    border-radius: 6px;
+    background: color-mix(in srgb, hsl(from var(--accent) calc(h + var(--h)) s l) 15%, transparent);
+    border-bottom: 2px solid hsl(from var(--accent) calc(h + var(--h)) s l);
+  }
+  .seg.core {
+    background: none;
+    border-bottom-color: transparent;
+  }
+  .seg .f {
+    font-size: 16px;
+    line-height: 1.3;
+  }
+  .seg .g {
+    font-size: 10.5px;
+    color: var(--text-2);
+    font-family: var(--font-gloss);
+    white-space: nowrap;
+    max-width: 12em;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .x {
     border: 0;
@@ -393,6 +711,9 @@
   .preview {
     margin-top: 8px;
     font-size: 20px;
+  }
+  .deck-hint {
+    margin: 8px 0 0;
   }
   .textarea.tr {
     font-size: 16px;

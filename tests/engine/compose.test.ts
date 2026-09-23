@@ -81,4 +81,40 @@ describe('把工作台挑定的词钉到分析上', () => {
     expect(tokens[1].analyses[0].morphs[0].gloss).toBe('房子')
     expect(tokens[2].confirmed).toBe(false)
   })
+  it('对得上的有好几种时，挑切法最像工作台拼的那种', () => {
+    const split = {
+      lexemeId: 'x',
+      slot: null,
+      morphs: [
+        { form: 'é', gloss: 'DET', morphemeId: 'd' },
+        { form: 'falt', gloss: '云鸟', morphemeId: null }
+      ]
+    }
+    const whole = {
+      lexemeId: 'x',
+      slot: null,
+      morphs: [{ form: 'é·falt', gloss: '云鸟', morphemeId: null }]
+    }
+    const tokens = [{ surface: 'é·falt', analyses: [split, whole], chosen: 0, confirmed: false }]
+    // 没加东西的词：挑整词的
+    pinChoices(tokens, [{ lexemeId: 'x', form: 'é·falt', slotKey: null }], () => '')
+    expect(tokens[0].chosen).toBe(1)
+    // 工作台里就是这么拼的（限定词 + 名词）：挑切开的
+    pinChoices(
+      tokens,
+      [
+        {
+          lexemeId: 'x',
+          form: 'é·falt',
+          slotKey: null,
+          morphs: [
+            { form: 'é·', gloss: 'DET', morphemeId: 'd' },
+            { form: 'falt', gloss: '云鸟', morphemeId: null, lexemeId: 'x' }
+          ]
+        }
+      ],
+      () => ''
+    )
+    expect(tokens[0].chosen).toBe(0)
+  })
 })

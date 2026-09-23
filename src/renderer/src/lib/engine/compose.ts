@@ -182,11 +182,13 @@ export interface PinnedWord {
   form: string
   /** 词条 forms 里的键（跟分析里的 slot 一个口径）；原形是 null */
   slotKey: string | null
+  /** 工作台里拼好的各段（加了词缀、动词头、词首音变的）：分析里没有对得上的就照它记 */
+  morphs?: Analysis['morphs']
 }
 
 /**
  * 句子自动分析过之后，把工作台里挑定的词钉上去：按顺序对齐每个词，
- * 分析里有这个词条（这一格）的就选中它并算作确认；没有就补一个只挂这个词条的分析。
+ * 分析里有这个词条（这一格、加的这几个语素都在）的就选中它并算作确认；没有就照工作台拼的各段补一个。
  * 手打的自由词（没挂词条、语素）不动，交给自动分析
  */
 export function pinChoices(
@@ -204,17 +206,49 @@ export function pinChoices(
     j = k + 1
     if (!w.lexemeId && !w.morphemeId) continue
     const tk = tokens[k]
+    // 工作台里加上的语素，分析里都得有
+    const need = (w.morphs ?? [])
+      .map((m) => m.morphemeId)
+      .filter((x): x is Id => !!x && x !== w.morphemeId)
     const hit = (a: Analysis, withSlot: boolean): boolean =>
-      w.lexemeId
-        ? a.lexemeId === w.lexemeId && (!withSlot || !w.slotKey || a.slot === w.slotKey)
-        : a.morphs.some((m) => m.morphemeId === w.morphemeId)
-    let i = tk.analyses.findIndex((a) => hit(a, true))
-    if (i < 0) i = tk.analyses.findIndex((a) => hit(a, false))
+      (w.lexemeId
+        ? (a.lexemeId === w.lexemeId || a.morphs.some((m) => m.lexemeId === w.lexemeId)) &&
+          (!withSlot || !w.slotKey || a.slot === w.slotKey)
+        : a.morphs.some((m) => m.morphemeId === w.morphemeId)) &&
+      need.every((id) => a.morphs.some((m) => m.morphemeId === id))
+    // 对得上的几种里挑切法最像工作台拼的那种：没加东西的词挑整词的，加了词缀的挑段落一样的
+    // （é·falt 就是一个词，别切成限定词 + 名词）
+    const bareForm = (s: string): string =>
+      s
+        .normalize('NFC')
+        .toLowerCase()
+        .replace(/^[·'’\-=]+|[·'’\-=]+$/g, '')
+    const want = (w.morphs?.length ? w.morphs.map((m) => m.form) : [w.form]).map(bareForm)
+    const fit = (a: Analysis): number => {
+      const got = a.morphs.map((m) => bareForm(m.form))
+      let n = 0
+      for (let x = 0; x < Math.min(got.length, want.length); x++) if (got[x] === want[x]) n++
+      return n * 2 - Math.abs(got.length - want.length)
+    }
+    const best = (withSlot: boolean): number => {
+      let at = -1
+      tk.analyses.forEach((a, x) => {
+        if (hit(a, withSlot) && (at < 0 || fit(a) > fit(tk.analyses[at]))) at = x
+      })
+      return at
+    }
+    let i = best(true)
+    if (i < 0) i = best(false)
     if (i < 0) {
+      // 拼好的各段连起来正好是这个词才照它记，否则整词记成一段
+      const parts = w.morphs?.length ? w.morphs : null
+      const ok = parts && same(parts.map((m) => m.form).join(''), tk.surface)
       tk.analyses.push({
         lexemeId: w.lexemeId ?? null,
         slot: w.slotKey,
-        morphs: [{ form: tk.surface, gloss: glossOf(w) || '?', morphemeId: w.morphemeId ?? null }]
+        morphs: ok
+          ? parts.map((m) => ({ ...m }))
+          : [{ form: tk.surface, gloss: glossOf(w) || '?', morphemeId: w.morphemeId ?? null }]
       })
       i = tk.analyses.length - 1
     }

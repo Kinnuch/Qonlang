@@ -2461,13 +2461,12 @@ export default {
   },
   bench: {
     title: 'Atelier de traduction',
-    hint: 'Écrivez d’abord la traduction : l’application cherche dans le lexique les mots dont vous aurez sans doute besoin et les fait flotter en bulles en dessous. Glissez ceux que vous voulez dans la ligne du haut (ou cliquez pour les ajouter à la fin), choisissez une forme pour chacun, et le texte se construit.',
+    hint: 'Commencez par la traduction : le logiciel y cherche dans le lexique les mots dont vous aurez sans doute besoin et les fait flotter en bulles en dessous. Glissez ceux qu’il vous faut dans la ligne du haut (ou cliquez pour les ajouter à la fin) ; cliquez un mot de cette ligne pour choisir sa forme et lui ajouter affixes, particules et autres éléments : le texte se compose tout seul.',
     forSentence: 'Nouvelle phrase',
     forPhrase: 'Nouvelle expression',
     addSentence: 'Ajouter au corpus',
     addPhrase: 'Ajouter aux expressions',
     textLabel: 'Texte (glissez les mots pour changer l’ordre)',
-    pickForm: 'Quelle forme utiliser',
     dropHere: 'Glissez ici les mots d’en dessous',
     freeWord: 'Absent du lexique ? Tapez-le',
     translationLabel: 'Traduction',
@@ -2478,10 +2477,64 @@ export default {
     noCandidates: 'Rien dans le lexique ne correspond : vous pouvez écrire directement au-dessus.',
     typeFirst: 'Écrivez d’abord la traduction ; les mots utiles apparaîtront ici.',
     addAll: 'Tout ajouter dans l’ordre',
-    base: 'Forme de base',
     open: 'Atelier',
     openHint: 'Choisir les mots d’après la traduction et construire le texte dans l’atelier',
-    added: 'Ajouté, avec son analyse déjà en place'
+    added: 'Ajouté, avec son analyse déjà en place',
+    chipHint: 'Cliquez pour modifier ce mot : choisir sa forme, ajouter affixes ou particules',
+    deckHint:
+      'Cliquez un mot ci-dessus pour choisir ici sa forme et lui ajouter affixes, particules et autres éléments.',
+    deckTitle: 'Mot en cours de modification',
+    deckHelp:
+      'Tout ce qui peut accompagner ce mot : les catégories de son propre paradigme, celles portées par une autre classe de mots, les morphèmes qui peuvent s’y attacher et les paradigmes qui s’appliquent à tous les mots. Les groupes suivent les catégories, étiquettes et gloses du projet ; la fréquence d’un élément, son côté et sa distance au radical viennent des analyses du corpus et des expressions.',
+    own: 'Paradigme : {name}',
+    useBase: 'Forme de base',
+    companion: 'Par « {pos} » : {name}',
+    companionPos: 'Par « {pos} »',
+    companionOff: 'Ne pas utiliser',
+    companionWord: 'Mot à utiliser',
+    attach: 'Éléments à attacher',
+    others: '{n} autres (jamais vus avec ce type de mot dans le corpus)',
+    mutation: 'S’applique à tous les mots : {name}',
+    none: 'Aucun',
+    missing: 'Pas de forme pour cette case',
+    becomes: 'Avec : {form}',
+    removePiece: 'Retirer cet élément',
+    stripHint: 'Glissez pour changer l’ordre des éléments',
+    morphemeHint:
+      'C’est un morphème : glissez-le sur un mot pour l’y attacher, ou cliquez « Attacher au mot précédent ».',
+    attachPrev: 'Attacher au mot précédent',
+    freeHint:
+      'Ce mot n’est pas dans le lexique : on ne peut lui ajouter que des éléments attachables.',
+    mode: {
+      prefix: 'Préfixe : avant le mot',
+      suffix: 'Suffixe : après le mot',
+      infix: 'Infixe : à l’intérieur du mot',
+      circumfix: 'Circonfixe : autour du mot',
+      before: 'Mot séparé, placé avant',
+      after: 'Mot séparé, placé après'
+    },
+    kind: {
+      lexeme: 'Entrée',
+      morpheme: 'Morphème',
+      free: 'Mot saisi'
+    },
+    cat: {
+      tense: 'Temps',
+      aspect: 'Aspect',
+      mood: 'Mode',
+      voice: 'Voix',
+      polarity: 'Polarité',
+      number: 'Nombre',
+      case: 'Cas',
+      person: 'Personne',
+      gender: 'Genre',
+      definiteness: 'Définitude et deixis',
+      possession: 'Possession',
+      derivation: 'Dérivation',
+      information: 'Thème et focus',
+      classifier: 'Classificateurs',
+      valency: 'Transitivité'
+    }
   },
   settings: {
     search: 'Rechercher un paramètre',

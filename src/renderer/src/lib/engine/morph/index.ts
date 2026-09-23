@@ -676,6 +676,12 @@ function insertInfix(
   return [...segs.slice(0, pos), infix, ...segs.slice(pos)].join('')
 }
 
+/** 把中缀插进一个形式（位置写法跟构形里中缀那一步一样：V1、C-1、<V2、数字……），给构形之外的地方用 */
+export function infixInto(ctx: MorphContext, stem: string, infix: string, at: string): string {
+  const { units, isVowel } = spellingUnits(ctx.language)
+  return insertInfix(stem, trimHyphens(infix), at, isVowel, units)
+}
+
 /** 词根-模板：C1 / {1} 引用词干第 n 个辅音，bare C 顺序取下一个辅音，V 顺序取下一个元音，其余字面 */
 function applyPattern(
   stem: string,
