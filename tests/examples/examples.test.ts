@@ -17,6 +17,7 @@ import { sentenceScriptText } from '$lib/script/lexiconScript'
 import { groupLanguages } from '$lib/core/languageTree'
 import { historyChain } from '$lib/core/history'
 import { docLink } from '$lib/core/docLinks'
+import { applyAdjust, makeContext } from '$lib/engine/morph'
 
 const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
@@ -59,6 +60,22 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     const tovar = p.lexemes.find((l) => l.lemma === 'tovar')!
     const dovar = p.sentences.flatMap((s) => s.tokens).find((t) => t.surface === 'dovar')!
     expect(dovar.analyses[dovar.chosen].lexemeId).toBe(tovar.id)
+    // 「连读浊化」的微调里现写了一对音类，这一步的规则认得它们
+    const sandhiSteps = p.paradigms
+      .filter((x) => x.appliesToAll)
+      .flatMap((x) => Object.values(x.generators))
+      .flatMap((g) => (g.kind === 'pipeline' ? g.steps : []))
+    const sandhiText = sandhiSteps.find((st) => st.kind === 'adjust')?.text ?? ''
+    expect(sandhiText).toContain('{清塞}=p t k')
+    const aeCtx = makeContext(
+      p,
+      p.languages.find((l) => l.name === 'Aelith')!
+    )
+    expect(applyAdjust(aeCtx, 'tovar', sandhiText, [], '微调')).toBe('dovar')
+    expect(applyAdjust(aeCtx, 'kaso', sandhiText, [], '微调')).toBe('gaso')
+    // 原文里的标点照原样留着，不算词
+    expect(p.sentences[0].text).toBe('ilenler kasoda jatdu.')
+    expect(p.sentences[0].tokens.map((t) => t.surface)).toEqual(['ilenler', 'kasoda', 'jatdu'])
     // 两个词连写再带格缀，没写分隔符也切得开
     const compound = p.sentences.flatMap((s) => s.tokens).find((t) => t.surface === 'ilenkasoda')!
     expect(compound.analyses[compound.chosen].morphs.map((m) => m.form)).toEqual(['ilen', 'kasoda'])
@@ -150,6 +167,9 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     expect(run('sepe').output).toBe('ˈsepə')
     expect(run('sörmek').stages.map((x) => x.form)).toEqual(['ˈsörmek', 'ˈsörmək'])
     expect(run('kamsa').output).toBe('ˈkãmsa')
+    // 两个音并成一个：{闪音}=r r 的两个 r 按位置对上 t、d
+    expect(run('kasoda').output).toBe('ˈkasora')
+    expect(run('kata').output).toBe('ˈkara')
     expect(transcribe(L, L.orthographies[0], 'sörmek')).toBe('ˈsørmek')
     expect(analyzeWord(L, 'ˈsørmek').text).toBe('ˈsør.mek')
     // 对重音影响：测试台敲的词对上词条时带上词类与特殊重音——代词不重读，telikaso 重读 ka

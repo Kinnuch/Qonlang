@@ -514,9 +514,18 @@
               <span class="tiny muted key">{e.key}</span>
               <span class="text">{sourceDict[e.key] ?? e.source}</span>
               {#if was !== null}
-                <span class="tiny warn" title={t('uiTranslate.staleWas', { text: was })}
-                  >{t('uiTranslate.stale')}</span
-                >
+                <span class="row stale-row">
+                  <span class="tiny warn" title={t('uiTranslate.staleWas', { text: was })}
+                    >{t('uiTranslate.stale')}</span
+                  >
+                  <!-- 原文改了但译文照样对：只记下现在的原文，译文不动 -->
+                  <button
+                    class="btn sm"
+                    title={t('uiTranslate.staleKeepHint')}
+                    onclick={() => setValue(e.key, value, e.source)}
+                    >{t('uiTranslate.staleKeep')}</button
+                  >
+                </span>
               {/if}
             </div>
             <div class="to">
@@ -661,6 +670,12 @@
   }
   .tl.stale {
     border-color: var(--warn);
+  }
+  .stale-row {
+    gap: 8px;
+  }
+  .stale-row .btn {
+    padding-block: 0;
   }
   .wm-row {
     gap: 6px;
