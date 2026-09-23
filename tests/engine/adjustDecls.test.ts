@@ -1,6 +1,6 @@
 /**
  * 两处规则引擎的小修：
- * 1. 音类成员不去重——放在替换一侧按位置对应时，并音（m、b 都变 w）要写两个 w；
+ * 1. 音类成员不去重——放在替换一侧按位置对应时，并音（t、d 都变 r）要写两个 r；
  * 2. 构形「微调」里写的音类定义、多合字母声明对这一步的每条规则都生效。
  */
 import { describe, it, expect } from 'vitest'
@@ -13,11 +13,11 @@ import { applyAdjust, makeContext } from '$lib/engine/morph'
 const run = (text: string, word: string): string => runRules(parseRuleText(text), word).output
 
 describe('音类按位置对应：重复的成员不去掉', () => {
-  it('并音：m、b 都变 w，后面的成员不往前串', () => {
-    const rules = '{甲}=m b d\n{乙}=w w dh\n{甲} > {乙} / #_'
-    expect(run(rules, 'mal')).toBe('wal')
-    expect(run(rules, 'bal')).toBe('wal')
-    expect(run(rules, 'dal')).toBe('dhal')
+  it('并音：t、d 都变 r，后面的成员不往前串', () => {
+    const rules = '{甲}=t d s\n{乙}=r r z\n{甲} > {乙} / #_'
+    expect(run(rules, 'tal')).toBe('ral')
+    expect(run(rules, 'dal')).toBe('ral')
+    expect(run(rules, 'sal')).toBe('zal')
   })
   it('单字母音类也一样（音变姬写法）', () => {
     expect(run('P=pbt\nF=ffs\nP > F / #_', 'bak')).toBe('fak')

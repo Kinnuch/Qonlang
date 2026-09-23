@@ -55,7 +55,7 @@ Numbers only count within one rule: `C1C2` is two consonants (same or different)
 | Notation | Meaning | Example |
 |---|---|---|
 | class to class | the target's first class maps position by position onto the replacement's class | `[ptk] > [bdg] / V_V` |
-| two sounds merging | write the shared member twice on the replacement side so the positions still line up (members are never de-duplicated) | `{A}=m b d`, `{B}=w w dh`, `{A} > {B} / #_` |
+| two sounds merging | write the shared member twice on the replacement side so the positions still line up (members are never de-duplicated) | `{A}=t d s`, `{B}=r r z`, `{A} > {B} / V_V` |
 | feature to feature | also position by position, when both sides list members: `[+asp] = ph th kh`, `[-asp] = p t k` | `[+asp] > [-asp] / _#` |
 | `C1`… | outputs the sound matched by the same-numbered class in the target or environment | `C1C1 > C1` degeminates |
 | `\` | metathesis (longer matches are reversed) | `bm > \ / _` |
