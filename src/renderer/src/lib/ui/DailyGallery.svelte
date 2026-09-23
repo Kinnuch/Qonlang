@@ -4,7 +4,7 @@
    * 顺序按当天的日期打乱，同一天打开第一张不变；左右两侧的箭头悬停才出现。几个项目里都抽不到就整块不显示。
    * 例句、短语里的词可以悬浮看词卡（用读进来的那个项目查），卡片底部的按钮先打开那个项目再跳过去。
    */
-  import { onDestroy } from 'svelte'
+  import { onDestroy, onMount, untrack } from 'svelte'
   import { fly } from 'svelte/transition'
   import { cubicOut } from 'svelte/easing'
   import {
@@ -73,7 +73,23 @@
   let slides = $state.raw<Slide[]>([])
   let at = $state(0)
   let dir = $state(1)
-  const slide = $derived(slides.length ? slides[at % slides.length] : null)
+  /**
+   * 句子一行放不下时怎么办（设置 → 应用）：skip 只从放得下的里挑（默认）；
+   * cut 照样挑，在词与词之间截断；wrap 换行显示，卡片跟着长高
+   */
+  const longMode = $derived(ui.prefs.galleryLong ?? 'skip')
+  /** 画廊有多宽（量出来的）；按它判断一句放不放得下 */
+  let galleryW = $state(0)
+  /** 放得下的那些（skip 模式用）；还没量过是 null */
+  let fitKeys = $state.raw<Set<string> | null>(null)
+  /** 眼下轮着看的：skip 模式只挑放得下的（一句都放不下就退回全部、截断着显示） */
+  const shown = $derived.by((): Slide[] => {
+    if (longMode !== 'skip') return slides
+    if (!fitKeys) return []
+    const ok = slides.filter((s) => fitKeys!.has(s.key))
+    return ok.length ? ok : slides
+  })
+  const slide = $derived(shown.length ? shown[at % shown.length] : null)
   const reduced =
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -212,10 +228,10 @@
   }
 
   function go(step: number): void {
-    if (slides.length < 2) return
+    if (shown.length < 2) return
     wordHover.hide(true)
     dir = step
-    at = (at + step + slides.length) % slides.length
+    at = (at + step + shown.length) % shown.length
   }
 
   /**
@@ -382,22 +398,172 @@
     wordHover.show(id, (e.currentTarget as HTMLElement).getBoundingClientRect())
   }
 
-  /** 当前这张要画几行文字写法（一套文字一行）：几套文字就几行，卡片跟着长高 */
-  const scriptRows = $derived.by(() => {
-    if (!slide || (slide.kind !== 'sentence' && slide.kind !== 'phrase')) return 0
+  /** 当前这一张（例句、短语）：分析好的句子、文字写法、原文切成的段 */
+  const current = $derived.by(() => {
+    if (!slide || slide.kind === 'image') return null
     const src = sources[slide.source]
-    if (!src) return 0
+    if (!src) return null
     const sen = slide.kind === 'sentence' ? slide.sentence : phraseSentence(src, slide)
-    return scriptLines(src, sen, slide.kind).length
+    return {
+      src,
+      sen,
+      scripts: scriptLines(src, sen, slide.kind),
+      pieces: textPieces(sen.text, sen.tokens)
+    }
   })
-  /** 这张卡片多高：顶上一行标签 + 文字写法每行 30 + 原文 26 + 译文 20，上下各留 12 */
+  /** 当前这张要画几行文字写法（一套文字一行）：几套文字就几行，卡片跟着长高 */
+  const scriptRows = $derived(current?.scripts.length ?? 0)
+  /** 换行模式下量出来的正文高度 */
+  let contentH = $state(0)
+  /** 这张卡片多高：顶上一行标签 + 文字写法每行 30 + 原文 26 + 译文 20，上下各留 12；换行模式按量出来的高度 */
   const cardH = $derived.by(() => {
     const sub = slide && (slide.kind === 'image' ? slide.gloss : slide.translation) ? 20 : 0
-    return 26 + 12 * 2 + scriptRows * 30 + 26 + sub
+    const base = 26 + 12 * 2 + scriptRows * 30 + 26 + sub
+    return longMode === 'wrap' && contentH ? Math.max(base, 26 + 12 * 2 + contentH + 4) : base
+  })
+
+  // ───── 一行放不放得下：用画布按页面上同一套字体量字宽 ─────
+  let probeMain = $state<HTMLElement | null>(null)
+  let probeSub = $state<HTMLElement | null>(null)
+  let probeFrom = $state<HTMLElement | null>(null)
+  /**
+   * 量文字写法那一行用的：自己建的一个藏起来的 span（不归 Svelte 管，改它的字不会跟模板打架），
+   * 字体来自那套文字的样式
+   */
+  let meter: HTMLSpanElement | null = null
+  onMount(() => {
+    meter = document.createElement('span')
+    meter.setAttribute('aria-hidden', 'true')
+    document.body.append(meter)
+    return () => meter?.remove()
+  })
+  const ctx =
+    typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null
+  /** 网页字体（语料字体、文字的内嵌字体）装好之前量出来的宽不准：装好了再量一遍 */
+  let fontsReady = $state(0)
+  if (typeof document !== 'undefined' && document.fonts)
+    void document.fonts.ready.then(() => (fontsReady += 1))
+  /** 左右各留给翻页箭头 56px（跟 .slide 的内边距一致） */
+  const SIDE = 56
+  const fontOf = (probe: HTMLElement | null): string => (probe ? getComputedStyle(probe).font : '')
+  function textW(font: string, text: string): number {
+    if (!ctx || !font) return 0
+    ctx.font = font
+    return ctx.measureText(text).width
+  }
+  /** 文字写法那一行：字体来自那套文字，拿藏着的探针量 */
+  function scriptW(css: string, text: string): number {
+    if (!meter) return 0
+    meter.style.cssText = `${css};position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap;font-size:22px;line-height:1.3`
+    meter.textContent = text
+    return meter.getBoundingClientRect().width
+  }
+  /** 落款让出多宽（它最多占画廊宽的 34%，跟 .from 的 max-width 一致） */
+  function fromRoom(fromFont: string, text: string, w: number): number {
+    return Math.max(0, Math.min(textW(fromFont, text), w * 0.34) - 22)
+  }
+  /** 一张卡片的每一行都放得下吗（skip 模式靠它挑句子） */
+  function fitsIn(
+    s: Slide,
+    w: number,
+    fonts: { main: string; sub: string; from: string }
+  ): boolean {
+    const inner = w - SIDE * 2 - 4
+    const src = sources[s.source]
+    if (!src) return false
+    const sub = s.kind === 'image' ? s.gloss : s.translation
+    const room = fromRoom(fonts.from, fromOf(s), w)
+    const main = s.kind === 'image' ? s.lemma : s.kind === 'sentence' ? s.sentence.text : s.text
+    if (textW(fonts.main, main) > inner - (sub ? 0 : room)) return false
+    if (sub && textW(fonts.sub, sub) > inner - room) return false
+    if (s.kind === 'image') return true
+    // 文字写法：短语这里不做整句分析（几十条太费），按原文转写量个大概
+    const lines =
+      s.kind === 'sentence'
+        ? scriptLines(src, s.sentence, 'sentence')
+        : scriptLinesOf(src, s.languageId, s.text)
+    return lines.every((l) => scriptW(l.css, l.text) <= inner)
+  }
+  function scriptLinesOf(
+    src: Source,
+    languageId: Id,
+    text: string
+  ): { text: string; css: string }[] {
+    const lang = src.project.languages.find((l) => l.id === languageId)
+    if (!lang) return []
+    return (lang.scripts ?? [])
+      .map((sc) => ({ text: textScript(src.project, lang, sc, text), css: fontCss(sc) }))
+      .filter((x) => x.text.trim())
+  }
+  // skip 模式：画廊宽度一变（或者字体装好了）就重新挑一遍放得下的
+  $effect(() => {
+    const w = galleryW
+    const list = slides
+    void fontsReady
+    if (longMode !== 'skip' || !w || !list.length || !probeMain || !probeSub || !probeFrom) return
+    const first = untrack(() => fitKeys) === null
+    const timer = setTimeout(
+      () => {
+        const fonts = { main: fontOf(probeMain), sub: fontOf(probeSub), from: fontOf(probeFrom) }
+        const keep = untrack(() => slide?.key)
+        const next = new Set(list.filter((s) => fitsIn(s, w, fonts)).map((s) => s.key))
+        fitKeys = next
+        // 正看着的那张还在就停在它上面，不然从头轮
+        const pool = list.filter((s) => next.has(s.key))
+        const i = keep ? pool.findIndex((s) => s.key === keep) : -1
+        at = i >= 0 ? i : 0
+      },
+      first ? 0 : 150
+    )
+    return () => clearTimeout(timer)
+  })
+  /** 一句都放不下（skip 模式只好全拿出来）：按截断显示 */
+  const noneFit = $derived(!!fitKeys && !slides.some((s) => fitKeys!.has(s.key)))
+  const cutting = $derived(longMode === 'cut' || (longMode === 'skip' && noneFit))
+  /**
+   * 截断：一段一段往上加，加到再加一段就放不下为止，只在词与词之间断（词是按项目的分词方式切的），
+   * 结尾不留空白。放得下就是 null（整句照画）
+   */
+  function cutCount(parts: string[], font: string, avail: number): number | null {
+    if (textW(font, parts.join('')) <= avail) return null
+    const ell = textW(font, ' …')
+    let acc = ''
+    let best = 0
+    for (let i = 0; i < parts.length; i++) {
+      acc += parts[i]
+      if (textW(font, acc) + ell > avail) break
+      best = i + 1
+    }
+    while (best > 0 && !parts[best - 1].trim()) best--
+    return Math.max(1, best)
+  }
+  /** 原文这一行画到第几段（截断模式） */
+  const mainCut = $derived.by((): number | null => {
+    void fontsReady
+    if (!cutting || !slide || !galleryW || !probeMain) return null
+    const inner = galleryW - SIDE * 2 - 4
+    const sub = slide.kind === 'image' ? slide.gloss : slide.translation
+    const room = sub ? 0 : fromRoom(fontOf(probeFrom), fromText, galleryW)
+    if (slide.kind === 'image' || !current) return null
+    const parts = current.pieces
+      ? current.pieces.map((p) => p.text)
+      : current.sen.tokens.flatMap((tk, i) => (i ? [SPACE, tk.surface] : [tk.surface]))
+    return cutCount(parts, fontOf(probeMain), inner - room)
+  })
+  /** 译文这一行截到哪（截断模式，只管用空格隔词的文字；汉字这类逐字都能断，交给省略号） */
+  const subCut = $derived.by((): string | null => {
+    void fontsReady
+    if (!cutting || !slide || !galleryW || !probeSub) return null
+    const sub = slide.kind === 'image' ? slide.gloss : slide.translation
+    if (!sub || !/\s/.test(sub.trim())) return null
+    const avail = galleryW - SIDE * 2 - 4 - fromRoom(fontOf(probeFrom), fromText, galleryW)
+    const parts = sub.split(/(\s+)/).filter(Boolean)
+    const n = cutCount(parts, fontOf(probeSub), avail)
+    return n === null ? null : parts.slice(0, n).join('').trimEnd() + ' …'
   })
   /** 这张卡片是哪门语言的：来源里写到具体语言（项目 · 语言） */
-  const fromText = $derived.by(() => {
-    if (!slide) return ''
+  const fromText = $derived(slide ? fromOf(slide) : '')
+  function fromOf(slide: Slide): string {
     const src = sources[slide.source]
     if (!src) return ''
     const name = src.project.meta.name
@@ -420,7 +586,7 @@
     const same =
       !!lang?.name && (bare(lang.name).includes(bare(name)) || bare(name).includes(bare(lang.name)))
     return lang?.name && !same ? `${name} · ${lang.name}` : name
-  })
+  }
 
   /** 落款的宽度：只有最后一行（跟落款在同一高度）让出这么宽，上面几行照样用满 */
   let fromW = $state(0)
@@ -428,85 +594,104 @@
   onDestroy(() => wordHover.hide(true))
 </script>
 
-{#if slide}
-  {@const src = sources[slide.source]}
+{#if slides.length}
   <div
     class="gallery"
+    class:wrap={longMode === 'wrap'}
     style:--card-h={`${cardH}px`}
     role="region"
     aria-label={t('welcome.galleryLabel')}
+    bind:clientWidth={galleryW}
   >
-    {#key slide.key}
-      <div
-        class="slide"
-        class:photo={slide.kind === 'image'}
-        style={slide.kind === 'image' ? '' : gradientOf(slide.key)}
-        in:fly={{ x: 56 * dir, duration: reduced ? 0 : 420, easing: cubicOut }}
-        out:fly={{ x: -56 * dir, duration: reduced ? 0 : 420, easing: cubicOut }}
-      >
-        {#if slide.kind === 'image'}
-          <div class="blur" style={`background-image: url("${slide.image}")`}></div>
-          <div class="shade"></div>
-        {/if}
-        <div class="head">
-          <span class="badge-icon" aria-hidden="true">
-            {#if slide.kind === 'image'}<ImageIcon
-                size={13}
-              />{:else if slide.kind === 'phrase'}<MessageSquareQuote size={13} />{:else}<Quote
-                size={13}
-              />{/if}
-          </span>
-          <span class="grow"></span>
-          <span class="daily"
-            >{slide.kind === 'image' ? t('welcome.dailyWord') : t('welcome.dailySentence')}</span
+    <!-- 量字宽用的探针：跟正文同一套样式，藏起来不占地方 -->
+    <div class="probes" aria-hidden="true">
+      <span class="main data" bind:this={probeMain}>x</span>
+      <span class="sub" bind:this={probeSub}>x</span>
+      <span class="from-probe" bind:this={probeFrom}>x</span>
+    </div>
+    {#if slide}
+      {@const src = sources[slide.source]}
+      {#key slide.key}
+        <div
+          class="slide"
+          class:photo={slide.kind === 'image'}
+          style={slide.kind === 'image' ? '' : gradientOf(slide.key)}
+          in:fly={{ x: 56 * dir, duration: reduced ? 0 : 420, easing: cubicOut }}
+          out:fly={{ x: -56 * dir, duration: reduced ? 0 : 420, easing: cubicOut }}
+        >
+          {#if slide.kind === 'image'}
+            <div class="blur" style={`background-image: url("${slide.image}")`}></div>
+            <div class="shade"></div>
+          {/if}
+          <div class="head">
+            <span class="badge-icon" aria-hidden="true">
+              {#if slide.kind === 'image'}<ImageIcon
+                  size={13}
+                />{:else if slide.kind === 'phrase'}<MessageSquareQuote size={13} />{:else}<Quote
+                  size={13}
+                />{/if}
+            </span>
+            <span class="grow"></span>
+            <span class="daily"
+              >{slide.kind === 'image' ? t('welcome.dailyWord') : t('welcome.dailySentence')}</span
+            >
+          </div>
+          <div
+            class="content"
+            style:--from-room={`${Math.max(0, fromW - 22)}px`}
+            bind:clientHeight={contentH}
           >
-        </div>
-        <div class="content" style:--from-room={`${Math.max(0, fromW - 22)}px`}>
-          {#if slide.kind === 'sentence' || slide.kind === 'phrase'}
-            {@const sen = slide.kind === 'sentence' ? slide.sentence : phraseSentence(src, slide)}
-            {@const inCorpus = slide.kind === 'sentence'}
-            {@const pieces = textPieces(sen.text, sen.tokens)}
-            {#each scriptLines(src, sen, slide.kind) as sl (sl.id)}
-              <span class="script" style={sl.css} dir={sl.rtl ? 'rtl' : 'ltr'} title={sl.name}
-                >{sl.text}</span
-              >
-            {/each}
-            <span class="main data"
-              >{#if pieces}{#each pieces as pc, k (k)}{#if pc.at === null}{pc.text}{:else}{@const i =
-                      pc.at}<span
+            {#if current && (slide.kind === 'sentence' || slide.kind === 'phrase')}
+              {@const sen = current.sen}
+              {@const inCorpus = slide.kind === 'sentence'}
+              {@const pieces = current.pieces}
+              {#each current.scripts as sl (sl.id)}
+                <span class="script" style={sl.css} dir={sl.rtl ? 'rtl' : 'ltr'} title={sl.name}
+                  >{sl.text}</span
+                >
+              {/each}
+              <!-- 截断模式：画到 mainCut 那一段为止，在词与词之间断开，后面补一个省略号 -->
+              <span class="main data"
+                >{#if pieces}{#each mainCut === null ? pieces : pieces.slice(0, mainCut) as pc, k (k)}{#if pc.at === null}{pc.text}{:else}{@const i =
+                        pc.at}<span
+                        class="w"
+                        class:link={tokenLinked(src, sen, sen.tokens[i])}
+                        role="link"
+                        tabindex="-1"
+                        onmouseenter={(e) => hoverToken(e, src, sen, i, inCorpus)}
+                        onmouseleave={() => wordHover.hide()}>{pc.text}</span
+                      >{/if}{/each}{:else if sen.tokens.length}{#each mainCut === null ? sen.tokens : sen.tokens.slice(0, Math.ceil(mainCut / 2)) as tk, i (i)}{#if i}{SPACE}{/if}<span
                       class="w"
-                      class:link={tokenLinked(src, sen, sen.tokens[i])}
+                      class:link={tokenLinked(src, sen, tk)}
                       role="link"
                       tabindex="-1"
                       onmouseenter={(e) => hoverToken(e, src, sen, i, inCorpus)}
-                      onmouseleave={() => wordHover.hide()}>{pc.text}</span
-                    >{/if}{/each}{:else if sen.tokens.length}{#each sen.tokens as tk, i (i)}{#if i}{SPACE}{/if}<span
-                    class="w"
-                    class:link={tokenLinked(src, sen, tk)}
-                    role="link"
-                    tabindex="-1"
-                    onmouseenter={(e) => hoverToken(e, src, sen, i, inCorpus)}
-                    onmouseleave={() => wordHover.hide()}>{tk.surface}</span
-                  >{/each}{:else}{sen.text}{/if}</span
-            >
-          {:else}
-            {@const pic = slide}
-            <span
-              class="main data w link"
-              role="link"
-              tabindex="-1"
-              onmouseenter={(e) => hoverLexeme(e, src, pic.lexemeId)}
-              onmouseleave={() => wordHover.hide()}>{pic.lemma}</span
-            >
-          {/if}
-          {#if slide.kind === 'image' ? slide.gloss : slide.translation}
-            <span class="sub">{slide.kind === 'image' ? slide.gloss : slide.translation}</span>
-          {/if}
+                      onmouseleave={() => wordHover.hide()}>{tk.surface}</span
+                    >{/each}{:else}{sen.text}{/if}{#if mainCut !== null}<span class="ell">
+                    …</span
+                  >{/if}</span
+              >
+            {:else if slide.kind === 'image'}
+              {@const pic = slide}
+              <span
+                class="main data w link"
+                role="link"
+                tabindex="-1"
+                onmouseenter={(e) => hoverLexeme(e, src, pic.lexemeId)}
+                onmouseleave={() => wordHover.hide()}>{pic.lemma}</span
+              >
+            {/if}
+            {#if slide.kind === 'image' ? slide.gloss : slide.translation}
+              <span class="sub"
+                >{subCut ?? (slide.kind === 'image' ? slide.gloss : slide.translation)}</span
+              >
+            {/if}
+          </div>
+          <span class="from" bind:offsetWidth={fromW}>{fromText}</span>
         </div>
-        <span class="from" bind:offsetWidth={fromW}>{fromText}</span>
-      </div>
-    {/key}
-    {#if slides.length > 1}
+      {/key}
+    {/if}
+    {#if shown.length > 1}
       <button
         class="nav prev"
         title={t('welcome.galleryPrev')}
@@ -632,6 +817,27 @@
     white-space: nowrap;
     font-size: 11px;
     color: var(--text-3);
+  }
+  /* 量字宽用的探针：藏在画廊外面，只拿它的字体 */
+  .probes {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    visibility: hidden;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .probes .from-probe {
+    font-size: 11px;
+  }
+  /* 换行模式：放不下就换行，卡片高度按量出来的正文高度 */
+  .wrap .main,
+  .wrap .sub,
+  .wrap .script {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
   }
   .w.link {
     cursor: pointer;

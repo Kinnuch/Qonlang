@@ -60,7 +60,17 @@
   /** 按「这一套」（构形 + 变体）分组，表格 / 树形图按各自构形的维度排 */
   const groups = $derived(layout === 'list' ? [] : lexemeSlotGroups(project, l, glossLangs))
   /** 槽位在构形里的先后：列表、表格、树形图都照它排，三种看法顺序一致 */
-  const slotOrder = $derived(new Map(lexemeSlots(project, l, glossLangs).map((s, i) => [s.key, i])))
+  const lexSlots = $derived(lexemeSlots(project, l, glossLangs))
+  const slotOrder = $derived(new Map(lexSlots.map((s, i) => [s.key, i])))
+  /**
+   * 屈折形那一栏写什么：维度取值定义了 gloss 缩写的写缩写（SG.OBL），全名留给悬浮提示。
+   * 跟前面重名的槽位键带着构形名（名字·槽位），只把槽位那一截换成缩写
+   */
+  const slotShort = $derived(
+    new Map(
+      lexSlots.map((s) => [s.key, s.slot.abbr ? s.key.replace(s.slot.label, s.slot.abbr) : s.key])
+    )
+  )
   /** 不在任何槽位里的屈折形（自己加的）：表格、树形图下面照旧列出来 */
   const looseForms = $derived.by(() => {
     const keys = new Set(groups.flatMap((g) => g.slots.map((s) => s.key)))
@@ -406,8 +416,10 @@
           {#if layout === 'list' ? formRows.length : looseForms.length}
             <div class="forms">
               {#each layout === 'list' ? formRows : looseRows as row, i (i)}
-                <span class="fk" class:alt={i % 2 === 1}
-                  >{#each row.k.split('.') as part, pi (pi)}{#if pi}.<wbr />{/if}{part}{/each}</span
+                {@const shortK = slotShort.get(row.k) ?? row.k}
+                <span class="fk" class:gl={shortK !== row.k} class:alt={i % 2 === 1} title={row.k}
+                  >{#each shortK.split('.') as part, pi (pi)}{#if pi}.<wbr
+                      />{/if}{part}{/each}</span
                 ><span class="fv data" class:alt={i % 2 === 1}
                   >{row.v}{#if row.derived && ui.prefs.showDerivedMark}<span class="tiny muted">
                       ⚙</span
@@ -695,6 +707,11 @@
     padding: 4px 10px 4px 8px;
     overflow-wrap: anywhere;
     border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  }
+  /* 写成 gloss 缩写的槽位名：跟语料 gloss 行同一种字体 */
+  .forms .fk.gl {
+    font-family: var(--font-gloss);
+    letter-spacing: 0.02em;
   }
   .forms .fv {
     padding: 4px 8px 4px 0;

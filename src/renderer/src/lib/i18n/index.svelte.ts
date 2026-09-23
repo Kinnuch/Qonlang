@@ -76,7 +76,18 @@ export interface CustomLocale {
   rtl: boolean
   /** 界面用哪套字：留空就跟软件走；自己的文字填字体名（装进字体库的或者系统里的） */
   font?: string
+  /**
+   * 开始页、「关于」里软件名那块字标换成什么：文字（用上面的字体写）或者一张图（data URL）。
+   * 只换文字那部分，左边的 Q 标志不换；两个都空就用软件自带的字标
+   */
+  wordmarkText?: string
+  wordmarkImage?: string
   values: Record<string, string>
+  /**
+   * 每条译文写下时的简体原文。软件更新改了文案，翻译台拿它跟现在的原文比，
+   * 标出「原文改过了」的那几条，免得译文还是旧意思
+   */
+  seen?: Record<string, string>
 }
 
 let customs = $state<CustomLocale[]>([])

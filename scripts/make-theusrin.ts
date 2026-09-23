@@ -129,6 +129,8 @@ function tables(section: string): string[][][] {
 
 const SMALLCAPS: Record<string, string> = {
   ᴀ: 'A',
+  // wiki 上的 B 写的是 ʙ（U+0299）；原来只收了 ᴃ（U+1D03，带横杠的那个），ᴏʙʟ 就成了 OL +「斜格ʙ」
+  ʙ: 'B',
   ᴃ: 'B',
   ᴄ: 'C',
   ᴅ: 'D',
@@ -152,7 +154,9 @@ const SMALLCAPS: Record<string, string> = {
   ᴠ: 'V',
   ᴡ: 'W',
   ʏ: 'Y',
-  ᴢ: 'Z'
+  ᴢ: 'Z',
+  // Unicode 没有小型大写的 X，wiki 上 ʟᴇx 这类写的就是普通小写 x
+  x: 'X'
 }
 /** 「预言式ᴘʀᴇᴅ」→ { name: '预言式', abbr: 'PRED' } */
 function splitAbbr(cell: string): { name: string; abbr: string } | null {
@@ -904,7 +908,7 @@ VH.paradigmId = headParadigm.id
 
 // 词首音变（语法书《人称中缀》《介词》两节）：介词、人称中缀、否定前缀之后，后一个词的首辅音按五种音变之一变化。
 // 做成「作用于所有词」的构形：不往词条里写形式，语料分词时反推（na-wener → mener）。
-// 对照只写语法书例句里见得到的；其余几种等作者补全，先不推导。
+// 对照表是作者给的完整版（2026-09-23，见下面 MUTATION_TABLE）。
 const catMutation = category('词首音变', 'initial mutation', [
   ['软音变', 'LEN'],
   ['鼻音音变', 'NAS'],
@@ -912,20 +916,47 @@ const catMutation = category('词首音变', 'initial mutation', [
   ['流音音变', 'LIQ'],
   ['混合音变', 'MIX']
 ])
-const MUTATION_RULES: Record<string, string[]> = {
-  // na-wener、ewenallan、la-hethí、úhafad、ules、audes、úchár / euchaur、ithaur（th 不变）。
-  // h 先变 ch，免得 s → h 之后又被改；th 先换成占位符护住，t → d 不碰它
-  LEN: [
-    'h > ch / #_',
-    's > h / #_',
-    'm > w / #_',
-    'lh > l / #_',
-    'th > ¤ / #_',
-    't > d / #_',
-    '¤ > th / #_'
-  ],
-  // ar-dhath、soch（·goch）
-  LIQ: ['th > ¤ / #_', 't > dh / #_', '¤ > th / #_', 'g > / #_']
+/**
+ * 会变的辅音 MUTATION_SRC，五种音变各变成什么（按位置一一对应）。
+ * 写成「微调」里一条按位置对应的规则，一次换完不连锁；th、dh、ts、ds 声明成多合字母，不会被当成 t、d。
+ * 触发词自己词尾的变化（鼻音音变尾鼻音脱落、遇 lh / rh 换成 th……）软件算不了跨词连读，只记在注释里。
+ */
+const MUTATION_SRC = ['m', 'ñ', 'p', 't', 'k', 'b', 'd', 'g', 's', 'h', 'lh', 'rh']
+const MUTATION_TABLE: Record<string, string[]> = {
+  LEN: ['w', 'ñ', 'b', 'd', 'g', 'w', 'dh', "'", 'h', 'ch', 'thl', 'thr'],
+  NAS: ['m', 'ñ', 'f', 'th', 'ch', 'm', 'n', 'ñ', 's', 'ch', 'l', 'r'],
+  MIX: ['m', 'ñ', 'f', 'th', 'ch', 'b', 'd', 'g', 's', 'ch', 'l', 'r'],
+  LIQ: ['w', 'ñ', 'f', 'th', 'ch', 'w', 'dh', "'", 'h', 'ch', 'l', 'r'],
+  OCC: ['m', 'ñ', 'b', 'd', 'g', 'b', 'd', 'g', 'h', 'ch', 'l', 'r']
+}
+const MUTATION_TRIGGER: Record<string, string> = {
+  NAS: '触发词一般尾鼻音脱落；后一个词以 lh、rh 开头时，尾部鼻音换成 th。',
+  MIX: '触发词一般尾鼻音脱落；后一个词以 lh、rh 开头时，尾部鼻音换成 dh。',
+  OCC: '触发词一般尾塞音脱落；后一个词以 m 开头时尾音换成 m；以 b、d、g 开头时不脱落。'
+}
+function mutationRules(abbr: string, name: string): string[] | null {
+  const dst = MUTATION_TABLE[abbr]
+  if (!dst) return null
+  const pairs = MUTATION_SRC.map((s, i) => [s, dst[i]]).filter(([s, d]) => s !== d)
+  return [
+    `; ${name}：词首辅音按下表变（上一行是原来的，下一行是变成的），没列的辅音、元音开头都不变`,
+    `; ${MUTATION_SRC.join(' ')}`,
+    `; ${dst.join(' ')}`,
+    ...(MUTATION_TRIGGER[abbr]
+      ? [`; ${MUTATION_TRIGGER[abbr]}（这一条要靠语料里的写法，软件不会自己改前一个词）`]
+      : []),
+    '; 多合字母当成一个单位：th、dh、ts、ds 不会被当成 t、d 去变',
+    'th|θ',
+    'dh|ð',
+    'ts|ʦ',
+    'ds|ʣ',
+    'ch|χ',
+    'lh|ḷ',
+    'rh|ṙ',
+    `{${abbr}前}=${pairs.map(([s]) => s).join(' ')}`,
+    `{${abbr}后}=${pairs.map(([, d]) => d).join(' ')}`,
+    `{${abbr}前} > {${abbr}后} / #_`
+  ]
 }
 const mutationParadigm: Paradigm = {
   id: newId(),
@@ -939,7 +970,7 @@ const mutationParadigm: Paradigm = {
   appliesToLanguageId: Tsr.id
 }
 for (const v of catMutation.values) {
-  const rules = MUTATION_RULES[v.abbr]
+  const rules = mutationRules(v.abbr, v.name.zh)
   mutationParadigm.generators[v.id] = rules
     ? {
         kind: 'pipeline',

@@ -2364,8 +2364,43 @@ export default {
       skin: 'テーマ',
       settings: '設定',
       tour: 'ガイドツアー',
-      uiTranslate: 'インターフェース翻訳'
-    }
+      uiTranslate: 'インターフェース翻訳',
+      bench: '翻訳ワークベンチ'
+    },
+    wordmark: 'ソフト名のロゴ文字',
+    wordmarkHint:
+      '開始ページと「このアプリについて」の「千語集 / Qonlang」の文字を何に替えるか。文字ならこの言語のフォントで書き、画像も使えます。左のアイコンは替わりません。',
+    wordmarkPlaceholder: '空欄：内蔵のものを使う',
+    wordmarkImage: '画像にする…',
+    wordmarkClear: '画像をやめる',
+    wordmarkTooBig: '画像が大きすぎます（300 KB 未満にしてください）',
+    onlyStale: '原文が変わったものだけ（{n}）',
+    stale: '原文が変わりました',
+    staleWas: '訳したときの原文：{text}'
+  },
+  bench: {
+    title: '翻訳ワークベンチ',
+    hint: 'まず訳文を書きます。訳文をもとに語彙から使いそうな語を探し、下に泡として浮かべます。使う語を上の行へドラッグ（またはクリックで末尾に追加）し、それぞれの語形を選ぶと原文が組み上がります。',
+    forSentence: '新しい例文',
+    forPhrase: '新しいフレーズ',
+    addSentence: 'コーパスに追加',
+    addPhrase: 'フレーズに追加',
+    textLabel: '原文（語をドラッグすると順番を変えられます）',
+    pickForm: '使う語形',
+    dropHere: '下の語をここへドラッグ',
+    freeWord: '語彙にない語は直接入力',
+    translationLabel: '訳文',
+    translationPlaceholder: 'この文で言いたいこと',
+    candidates: '使いそうな語',
+    candidateCount: '{n} 件',
+    bubbleTitle: '上の行へドラッグ、またはクリックで末尾に追加',
+    noCandidates: '語彙に合う語が見つかりません。上に直接書けます。',
+    typeFirst: 'まず訳文を書くと、使いそうな語がここに並びます。',
+    addAll: 'すべて順番に並べる',
+    base: '原形',
+    open: 'ワークベンチ',
+    openHint: 'ワークベンチで訳文から語を選び、原文を組み立てる',
+    added: '追加しました。分析も付いています'
   },
   settings: {
     search: '設定項目を検索',
@@ -2497,7 +2532,16 @@ export default {
     about: 'このアプリについて',
     version: 'バージョン',
     userData: 'データディレクトリ',
-    license: 'MIT ライセンス'
+    license: 'MIT ライセンス',
+    galleryLong: '今日の一文が長すぎるとき',
+    galleryLongHint: '開始ページの今日の一文が一行に収まらないときの扱いです。',
+    galleryLongSkip: '収まるものだけ選ぶ',
+    galleryLongCut: '切り詰める（語と語の間で）',
+    galleryLongWrap: '折り返して表示',
+    glossInputs: '語義を書く言語',
+    glossInputsHint:
+      '語義や訳文などの欄にどの言語の入力欄を出すか、カンマ区切りで書きます（例：zh, en）。空欄ならインターフェースの言語だけ。すでに内容のある言語はいつも表示されます。',
+    glossInputsPlaceholder: '空欄：インターフェースの言語のみ'
   },
   topbar: {
     currentLanguage: '現在の言語',

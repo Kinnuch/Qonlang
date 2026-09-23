@@ -2291,8 +2291,43 @@ export default {
       skin: '主题',
       settings: '设置',
       tour: '图文引导',
-      uiTranslate: '界面翻译'
-    }
+      uiTranslate: '界面翻译',
+      bench: '译文工作台'
+    },
+    wordmark: '软件名的字标',
+    wordmarkHint:
+      '开始页和「关于」里「千语集 / Qonlang」那几个字换成什么：写文字就用这门语言的字体写，也可以换成一张图。左边的图标不会换。',
+    wordmarkPlaceholder: '留空：用软件自带的',
+    wordmarkImage: '换成图片…',
+    wordmarkClear: '不用图片了',
+    wordmarkTooBig: '图片太大了（要小于 300 KB）',
+    onlyStale: '只看原文改过的（{n}）',
+    stale: '原文改过了',
+    staleWas: '翻译时的原文：{text}'
+  },
+  bench: {
+    title: '译文工作台',
+    hint: '先写译文：软件会照着译文在词库里找出可能用到的词，做成下面漂着的泡泡。把要用的拖到上面那一行（或者点一下接在末尾），再给每个词挑好形式，就拼出了原文。',
+    forSentence: '新例句',
+    forPhrase: '新短语',
+    addSentence: '加进语料',
+    addPhrase: '加进短语',
+    textLabel: '原文（拖动词可以换顺序）',
+    pickForm: '用哪个形式',
+    dropHere: '把下面的词拖到这里',
+    freeWord: '词库里没有？直接写',
+    translationLabel: '译文',
+    translationPlaceholder: '写下这句话要表达的意思',
+    candidates: '可能用到的词',
+    candidateCount: '{n} 个',
+    bubbleTitle: '拖到上面，或者点一下接在末尾',
+    noCandidates: '词库里没找到对得上的词：可以直接在上面写。',
+    typeFirst: '先写译文，这里会列出可能用到的词。',
+    addAll: '全部按顺序放上去',
+    base: '原形',
+    open: '工作台',
+    openHint: '在工作台里照着译文挑词、拼出原文',
+    added: '已加进去，分析也挂好了'
   },
   settings: {
     search: '搜索设置项',
@@ -2412,7 +2447,16 @@ export default {
     about: '关于',
     version: '版本',
     userData: '数据目录',
-    license: 'MIT 开源'
+    license: 'MIT 开源',
+    galleryLong: '每日一句太长时',
+    galleryLongHint: '开始页的每日一句遇到一行放不下的句子怎么办。',
+    galleryLongSkip: '只挑放得下的',
+    galleryLongCut: '截断（在词与词之间断开）',
+    galleryLongWrap: '换行显示',
+    glossInputs: '释义要填的语言',
+    glossInputsHint:
+      '释义、译文这类字段给哪几种语言的输入框，用逗号隔开（如 zh, en）。留空只给当前界面语言；已经写了内容的语言照样会显示。',
+    glossInputsPlaceholder: '留空：只填界面语言'
   },
   topbar: {
     currentLanguage: '当前语言',

@@ -653,11 +653,7 @@
     </div>
     <div class="field">
       <span class="small muted">{t('morphemes.meaning')}</span>
-      <LocalizedInput
-        bind:value={m.meaning}
-        languages={glossLangs}
-        onchange={() => projectState.touch()}
-      />
+      <LocalizedInput bind:value={m.meaning} onchange={() => projectState.touch()} />
     </div>
     <div class="field">
       <span class="small muted">{t('morphemes.allomorphs')}</span><HelpDot

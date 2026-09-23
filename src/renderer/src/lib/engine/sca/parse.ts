@@ -255,10 +255,14 @@ function commentOf(raw: string): string {
   return semi >= 0 ? decodeEscapes(enc.slice(semi + 1).trim()) : ''
 }
 
-/** 音类声明的成员：单字母音类按字符拆，长名音类按空白 / 逗号拆；转义过的字符是字面成员 */
+/**
+ * 音类声明的成员：单字母音类按字符拆，长名音类按空白 / 逗号拆；转义过的字符是字面成员。
+ * **重复的成员不去掉**：音类放在替换一侧时按位置一一对应，并音（m、b 都变 w）就得写两个 w，
+ * 去重会让后面的成员整体往前串一位（音变姬、SCA² 里这种写法都合法）；拿来匹配时重复的不碍事
+ */
 function classMembers(key: string, value: string): string[] {
   const parts = key.length === 1 ? Array.from(value.replace(/\s+/g, '')) : splitMembers(value)
-  return dedupe(parts.map(literalEscapes))
+  return parts.map(literalEscapes)
 }
 
 export type ParsedLine =
@@ -1150,7 +1154,10 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
   replacements.sort((a, b) => b[0].length - a[0].length)
   // 音类成员也要过一遍多合字母替换（用户在音类里写 th，等价于写 θ）
   for (const [k, v] of classes)
-    classes.set(k, dedupe(v.map((m) => applyReplacements(m, replacements))))
+    classes.set(
+      k,
+      v.map((m) => applyReplacements(m, replacements))
+    )
 
   // 切音节的设置：语言给的，加上规则文本里名为 V / C 的音类、多字母的音类成员、多合字母的内部符号
   const base = options.syllables

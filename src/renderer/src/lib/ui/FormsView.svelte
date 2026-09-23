@@ -2,6 +2,7 @@
   /**
    * 屈折形的表格 / 树形图：按构形的维度排（第一个维度作行、第二个作列，第三个起每种取值一张表）。
    * 每一格画成什么由外面给：显示模式是文字，录入模式是输入框。
+   * 维度取值定义了 gloss 缩写的，表头、树上都写缩写（1SG、PL.OBL），全名放在悬浮提示里。
    */
   import type { Snippet } from 'svelte'
   import { ChevronDown, ChevronRight } from '@lucide/svelte'
@@ -58,6 +59,8 @@
       .map((n) => (n.leaf ? n : { ...n, children: prune(n.children) }))
       .filter((n) => (n.leaf ? byKey.has(n.key) : n.children.length))
   const shownTree = $derived(prune(tree))
+  /** 取值写什么：有 gloss 缩写就写缩写 */
+  const short = (v: { name: string; abbr: string }): string => v.abbr || v.name
   /** 树的分叉点开 / 收起；槽位多（200 个以上）时默认收着，点开哪支画哪支 */
   let toggled = $state<Set<string>>(new Set())
   const big = $derived(slots.length > 200)
@@ -76,15 +79,13 @@
       <li>
         {#if n.leaf}
           <div class="tleaf">
-            <span class="tname">{n.label}</span>
-            {#if n.abbr && n.abbr !== n.label}<span class="mono small muted">{n.abbr}</span>{/if}
+            <span class="tname" class:mono={!!n.abbr} title={n.label}>{n.abbr || n.label}</span>
             {@render cell(byKey.get(n.key) ?? null)}
           </div>
         {:else}
           <button class="tnode" onclick={() => toggle(n.key)}>
             {#if open(n.key)}<ChevronDown size={12} />{:else}<ChevronRight size={12} />{/if}
-            <span>{n.label}</span>
-            {#if n.abbr && n.abbr !== n.label}<span class="mono small muted">{n.abbr}</span>{/if}
+            <span class:mono={!!n.abbr} title={n.label}>{n.abbr || n.label}</span>
           </button>
           {#if open(n.key)}{@render branch(n.children)}{/if}
         {/if}
@@ -107,7 +108,8 @@
                     ＼ {dims[1].name}{/if}</th
                 >
                 {#if dims[1]}
-                  {#each tb.cols as c (c.id)}<th>{c.name}</th>{/each}
+                  {#each tb.cols as c (c.id)}<th class:mono={!!c.abbr} title={c.name}>{short(c)}</th
+                    >{/each}
                 {:else}
                   <th></th>
                 {/if}
@@ -116,7 +118,7 @@
             <tbody>
               {#each tb.rows as r (r.id)}
                 <tr>
-                  <th>{r.name}</th>
+                  <th class:mono={!!r.abbr} title={r.name}>{short(r)}</th>
                   {#if dims[1]}
                     {#each tb.cols as c (c.id)}<td
                         >{@render cell(byKey.get(cellKey(dims, r, c, tb.fixed)) ?? null)}</td
@@ -165,6 +167,11 @@
     font-size: 12px;
     text-align: start;
     white-space: nowrap;
+  }
+  /* gloss 缩写：跟语料 gloss 行同一种字体 */
+  .mono {
+    font-family: var(--font-gloss);
+    letter-spacing: 0.02em;
   }
   .ftable .corner {
     color: var(--text-3);

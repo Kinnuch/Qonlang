@@ -30,7 +30,11 @@ export function slotTables(dims: LayoutDim[]): SlotTable[] {
   let combos: { categoryId: Id; valueId: Id; label: string }[][] = [[]]
   for (const d of dims.slice(2))
     combos = combos.flatMap((c) =>
-      d.values.map((v) => [...c, { categoryId: d.id, valueId: v.id, label: `${d.name} ${v.name}` }])
+      d.values.map((v) => [
+        ...c,
+        // 有 gloss 缩写就写缩写（维度名照写全名，一眼看得出是哪一维）
+        { categoryId: d.id, valueId: v.id, label: `${d.name} ${v.abbr || v.name}` }
+      ])
     )
   return combos.map((fixed) => ({
     key: fixed.map((e) => e.valueId).join('|') || '-',

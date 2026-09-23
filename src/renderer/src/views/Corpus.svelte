@@ -43,10 +43,14 @@
     LEIPZIG,
     lexemeGloss
   } from '$lib/engine/gloss'
-  import { rewriteWordInText, writeChoice } from '$lib/engine/gloss/assign'
+  import { rewriteWordInText, tokenizeOptionsFor, writeChoice } from '$lib/engine/gloss/assign'
+  import { spanTokens, tokensMatchText } from '$lib/engine/gloss/tokens'
   import Portal from '$lib/ui/Portal.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
+  import Workbench, { type BenchResult } from '$lib/ui/Workbench.svelte'
+  import { pinChoices } from '$lib/engine/compose'
+  import { uiGlossCode } from '$lib/core/glossInputs'
   import Hint from '$lib/ui/Hint.svelte'
   import { flashOn } from '$lib/ui/flash'
   import {
@@ -72,7 +76,8 @@
     Sparkles,
     Merge,
     Upload,
-    Download
+    Download,
+    PencilRuler
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
@@ -268,6 +273,36 @@
   function touch(): void {
     projectState.touch()
   }
+  // ───── 译文工作台 ─────
+  /** 开着工作台：填回哪一句（原文还空着的那句；原文已经写了就另加一句） */
+  let bench = $state<{ targetId: Id | null; initial: string } | null>(null)
+  /** 工作台里的译文按界面语言写（跟释义输入框默认给的那种一致） */
+  const benchGloss = $derived(uiGlossCode(i18n.locale, i18n.custom?.base))
+  function openBench(s: Sentence): void {
+    bench = { targetId: s.id, initial: s.translation[benchGloss] ?? '' }
+    mode = 'entries'
+  }
+  function benchDone(r: BenchResult): void {
+    if (!langId) return
+    let s = bench?.targetId ? project.sentences.find((x) => x.id === bench!.targetId) : undefined
+    if (!s || s.text.trim()) {
+      project.sentences.unshift(createSentence(langId))
+      s = project.sentences[0]
+    }
+    s.text = r.text
+    if (r.translation) s.translation[benchGloss] = r.translation
+    s.tokens = []
+    analyzeSentence(project, s)
+    pinChoices(s.tokens, r.words, (w) => {
+      const l = w.lexemeId ? project.lexemes.find((x) => x.id === w.lexemeId) : undefined
+      return l ? lexemeGloss(l, glossLangs) : ''
+    })
+    bench = null
+    collapsedId = null
+    selectedId = s.id
+    touch()
+    ui.toast(t('bench.added'))
+  }
   function add(): void {
     if (!langId) return
     const s = createSentence(langId)
@@ -400,6 +435,17 @@
   const lookupWord = (tk: Token): Id | null => resolver().resolveWord(tk)?.lexemeId ?? null
   /** 便宜的可点判断：重的反推留到真正悬浮时再做 */
   const linkable = (tk: Token): boolean => resolver().linkable(tk)
+  /**
+   * 原文切成段，词那几段指着第几个分析：列表里按原文画，标点、空格原样留着。
+   * 分析跟原文对不上（原文刚改、还没重新分析）就给 null，退回只画一个个词
+   */
+  function textSpans(s: Sentence): { text: string; at: number }[] | null {
+    if (!s.tokens.length || !s.text.trim()) return null
+    const opts = tokenizeOptionsFor(project, s.languageId)
+    const surfaces = s.tokens.map((tk) => tk.surface)
+    if (!tokensMatchText(s.text, surfaces, opts)) return null
+    return spanTokens(s.text, surfaces, opts)
+  }
   /** 这个词可能是哪个词条：确认过的就是它；几个同形词条时按意思线索挑，挑不出来就都给 */
   const candidatesOf = (tk: Token, s: Sentence): { lexemeId?: Id; morphemeId?: Id }[] =>
     resolver().candidatesOf(tk, s)
@@ -750,6 +796,16 @@
         />
       {/key}
     </div>
+  {:else if bench && language}
+    <!-- 译文工作台：先写译文、挑词拼原文，完成后填进这一句（或者新加一句） -->
+    <Workbench
+      languageId={language.id}
+      initial={bench.initial}
+      glossLang={benchGloss}
+      kind="sentence"
+      ondone={benchDone}
+      oncancel={() => (bench = null)}
+    />
   {:else if !language}
     <p class="muted">{t('lexicon.noLanguage')}</p>
   {:else if mode === 'stats'}
@@ -1008,6 +1064,7 @@
             {#if selectedId === s.id && collapsedId !== s.id}{@render editorPanel(s)}{/if}
             {@const c = coverage(s)}
             {@const done = fullyConfirmed(s)}
+            {@const spans = textSpans(s)}
             <div
               class="card item"
               data-id={s.id}
@@ -1034,7 +1091,22 @@
                   </div>{/if}
               {/each}
               <div class="row">
-                {#if s.tokens.length}
+                {#if spans}
+                  <!-- 按原文画：词之间的空格、逗号句号这些标点原样留着，词才能悬浮 -->
+                  <span class="data text grow"
+                    >{#each spans as sp, k (k)}{#if sp.at >= 0}{@const tk = s.tokens[sp.at]}<span
+                          class="w"
+                          class:link={linkable(tk)}
+                          class:ambiguous={ambiguous(tk, s)}
+                          role="link"
+                          tabindex="-1"
+                          onmouseenter={(e) => hoverWord(e, tk, s)}
+                          onmouseleave={() => wordHover.hide()}
+                          onclick={(e) => clickWord(e, tk, s)}
+                          onkeydown={() => {}}>{sp.text}</span
+                        >{:else}{sp.text}{/if}{/each}</span
+                  >
+                {:else if s.tokens.length}
                   <span class="data text grow words">
                     {#each s.tokens as tk, i (i)}<span
                         class="w"
@@ -1091,8 +1163,16 @@
       ></textarea>
     </div>
     <div class="field">
-      <span class="small muted">{t('corpus.translation')}</span>
-      <LocalizedInput bind:value={s.translation} languages={glossLangs} onchange={touch} />
+      <div class="row tr-head">
+        <span class="small muted grow">{t('corpus.translation')}</span>
+        <button
+          class="btn ghost sm"
+          class:active={bench?.targetId === s.id}
+          title={t('bench.openHint')}
+          onclick={() => openBench(s)}><PencilRuler size={13} />{t('bench.open')}</button
+        >
+      </div>
+      <LocalizedInput bind:value={s.translation} onchange={touch} />
     </div>
     {#if language && language.scripts.length}
       <div class="field">

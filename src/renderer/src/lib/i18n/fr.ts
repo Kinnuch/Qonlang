@@ -2438,8 +2438,43 @@ export default {
       skin: 'Thème',
       settings: 'Paramètres',
       tour: 'Visite guidée',
-      uiTranslate: 'Traduction de l’interface'
-    }
+      uiTranslate: 'Traduction de l’interface',
+      bench: 'Atelier de traduction'
+    },
+    wordmark: 'Logotype du nom',
+    wordmarkHint:
+      'Ce qui remplace les lettres « Qonlang / 千语集 » sur la page d’accueil et dans « À propos » : du texte, écrit dans la police de cette langue, ou une image. L’icône de gauche ne change pas.',
+    wordmarkPlaceholder: 'Vide : celui de l’application',
+    wordmarkImage: 'Utiliser une image…',
+    wordmarkClear: 'Retirer l’image',
+    wordmarkTooBig: 'Image trop lourde (moins de 300 Ko)',
+    onlyStale: 'Seulement les textes source modifiés ({n})',
+    stale: 'Source modifiée',
+    staleWas: 'Texte source lors de la traduction : {text}'
+  },
+  bench: {
+    title: 'Atelier de traduction',
+    hint: 'Écrivez d’abord la traduction : l’application cherche dans le lexique les mots dont vous aurez sans doute besoin et les fait flotter en bulles en dessous. Glissez ceux que vous voulez dans la ligne du haut (ou cliquez pour les ajouter à la fin), choisissez une forme pour chacun, et le texte se construit.',
+    forSentence: 'Nouvelle phrase',
+    forPhrase: 'Nouvelle expression',
+    addSentence: 'Ajouter au corpus',
+    addPhrase: 'Ajouter aux expressions',
+    textLabel: 'Texte (glissez les mots pour changer l’ordre)',
+    pickForm: 'Quelle forme utiliser',
+    dropHere: 'Glissez ici les mots d’en dessous',
+    freeWord: 'Absent du lexique ? Tapez-le',
+    translationLabel: 'Traduction',
+    translationPlaceholder: 'Ce que cette phrase doit dire',
+    candidates: 'Mots probablement utiles',
+    candidateCount: '{n} trouvés',
+    bubbleTitle: 'Glissez-le dans la ligne du haut, ou cliquez pour l’ajouter à la fin',
+    noCandidates: 'Rien dans le lexique ne correspond : vous pouvez écrire directement au-dessus.',
+    typeFirst: 'Écrivez d’abord la traduction ; les mots utiles apparaîtront ici.',
+    addAll: 'Tout ajouter dans l’ordre',
+    base: 'Forme de base',
+    open: 'Atelier',
+    openHint: 'Choisir les mots d’après la traduction et construire le texte dans l’atelier',
+    added: 'Ajouté, avec son analyse déjà en place'
   },
   settings: {
     search: 'Rechercher un paramètre',
@@ -2577,7 +2612,17 @@ export default {
     about: 'À propos',
     version: 'Version',
     userData: 'Dossier de données',
-    license: 'Open source, licence MIT'
+    license: 'Open source, licence MIT',
+    galleryLong: 'Quand la phrase du jour est trop longue',
+    galleryLongHint:
+      'Ce que fait la phrase du jour de la page d’accueil quand une phrase ne tient pas sur une ligne.',
+    galleryLongSkip: 'Ne choisir que celles qui tiennent',
+    galleryLongCut: 'Couper (entre deux mots)',
+    galleryLongWrap: 'Passer à la ligne',
+    glossInputs: 'Langues des définitions',
+    glossInputsHint:
+      'Pour quelles langues les champs de définition, de traduction, etc. ont une case, séparées par des virgules (ex. zh, en). Vide : seulement la langue de l’interface ; les langues qui ont déjà du texte s’affichent toujours.',
+    glossInputsPlaceholder: 'Vide : langue de l’interface seulement'
   },
   topbar: {
     currentLanguage: 'Langue courante',

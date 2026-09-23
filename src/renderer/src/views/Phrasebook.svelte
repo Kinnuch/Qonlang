@@ -22,7 +22,7 @@
   /** 短语簿：分类 → 短语；检视器编辑原文、译文、发音、变体、标签。 */
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
-  import { t, pickText } from '$lib/i18n/index.svelte'
+  import { i18n, t, pickText } from '$lib/i18n/index.svelte'
   import { createPhrase } from '$lib/core/factory'
   import type { Id, Phrase, Token } from '$lib/core/model'
   import { transcribe } from '$lib/core/pronounce'
@@ -42,7 +42,10 @@
   import Hint from '$lib/ui/Hint.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
-  import { Plus, Trash2, X, Wand2, Upload, Download } from '@lucide/svelte'
+  import Workbench, { type BenchResult } from '$lib/ui/Workbench.svelte'
+  import { pinChoices } from '$lib/engine/compose'
+  import { uiGlossCode } from '$lib/core/glossInputs'
+  import { Plus, Trash2, X, Wand2, Upload, Download, PencilRuler } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { sortable } from '$lib/ui/sortable.svelte'
@@ -369,6 +372,41 @@
   function touch(): void {
     projectState.touch()
   }
+  // ───── 译文工作台 ─────
+  /** 开着工作台：填回哪一条（原文还空着的那条；原文已经写了就另加一条） */
+  let bench = $state<{ targetId: Id | null; initial: string } | null>(null)
+  /** 工作台里的译文按界面语言写（跟释义输入框默认给的那种一致） */
+  const benchGloss = $derived(uiGlossCode(i18n.locale, i18n.custom?.base))
+  function openBench(p: Phrase): void {
+    bench = { targetId: p.id, initial: p.translation[benchGloss] ?? '' }
+  }
+  function benchDone(r: BenchResult): void {
+    if (!langId) return
+    let p = bench?.targetId ? project.phrasebook.find((x) => x.id === bench!.targetId) : undefined
+    if (!p || p.text.trim()) {
+      project.phrasebook.unshift(createPhrase(langId, category))
+      p = project.phrasebook[0]
+    }
+    p.text = r.text
+    if (r.translation) p.translation[benchGloss] = r.translation
+    // 挑定的词存成这条短语自己的分析（跟悬浮卡「改」存的是同一种）
+    const tokens = analyzeSentence(project, {
+      languageId: p.languageId,
+      text: p.text,
+      translation: p.translation,
+      tokens: []
+    }).tokens
+    pinChoices(tokens, r.words, (w) => {
+      const l = w.lexemeId ? project.lexemes.find((x) => x.id === w.lexemeId) : undefined
+      return l ? pickText(l.senses[0]?.definition, glossLangs) : ''
+    })
+    p.tokens = tokens
+    derivePron(p)
+    bench = null
+    selectedId = p.id
+    touch()
+    ui.toast(t('bench.added'))
+  }
   function add(): void {
     if (!langId) return
     const p = createPhrase(langId, category)
@@ -513,6 +551,16 @@
         />
       {/key}
     </div>
+  {:else if bench && language}
+    <!-- 译文工作台：先写译文、挑词拼原文，完成后填进这条短语（或者新加一条） -->
+    <Workbench
+      languageId={language.id}
+      initial={bench.initial}
+      glossLang={benchGloss}
+      kind="phrase"
+      ondone={benchDone}
+      oncancel={() => (bench = null)}
+    />
   {:else if !language}
     <p class="muted">{t('lexicon.noLanguage')}</p>
   {:else}
@@ -614,8 +662,16 @@
       ></textarea>
     </div>
     <div class="field">
-      <span class="small muted">{t('corpus.translation')}</span>
-      <LocalizedInput bind:value={p.translation} languages={glossLangs} onchange={touch} />
+      <div class="row tr-head">
+        <span class="small muted grow">{t('corpus.translation')}</span>
+        <button
+          class="btn ghost sm"
+          class:active={bench?.targetId === p.id}
+          title={t('bench.openHint')}
+          onclick={() => openBench(p)}><PencilRuler size={13} />{t('bench.open')}</button
+        >
+      </div>
+      <LocalizedInput bind:value={p.translation} onchange={touch} />
     </div>
     <div class="field">
       <label for="ph-cat">{t('phrasebook.category')}</label>

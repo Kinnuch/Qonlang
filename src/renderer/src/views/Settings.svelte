@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import lockupSvg from '../assets/brand/lockup-full.svg?raw'
+  import markSvg from '../assets/brand/mark.svg?raw'
   import { platform, type AppInfo } from '$lib/platform'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
-  import { t } from '$lib/i18n/index.svelte'
+  import { i18n, t } from '$lib/i18n/index.svelte'
   import { TOKENIZER_MODES } from '$lib/core/model'
   import {
     Eye,
@@ -116,16 +117,25 @@
   }
 
   let glossLangs = $state('')
+  let glossInputs = $state('')
   let boundaries = $state('')
   $effect(() => {
     glossLangs = project.settings.glossLanguages.join(', ')
+    glossInputs = (project.settings.glossInputs ?? []).join(', ')
     boundaries = project.settings.morphemeBoundaries.join(' ')
   })
-  function commitGlossLangs(): void {
-    project.settings.glossLanguages = glossLangs
+  const splitLangs = (v: string): string[] =>
+    v
       .split(/[,，\s]+/)
       .map((s) => s.trim())
       .filter(Boolean)
+  function commitGlossLangs(): void {
+    project.settings.glossLanguages = splitLangs(glossLangs)
+    projectState.touch()
+  }
+  /** 释义要填的语言：留空就只给界面语言一个框 */
+  function commitGlossInputs(): void {
+    project.settings.glossInputs = splitLangs(glossInputs)
     projectState.touch()
   }
   /** 可以整块清掉的内容：清之前问一次，清完能撤销 */
@@ -275,7 +285,7 @@
       </h3>
       <p class="small muted">{t('settings.plugins.hint')}</p>
       <!-- 自带插件：跟着软件发，不用装，勾上才出现（默认都不勾） -->
-      <ul class="plugins">
+      <ul class="plugins builtin">
         {#each BUILTIN_PLUGINS as b (b.id)}
           <li class="card plugin">
             <label class="row check">
@@ -415,6 +425,18 @@
         <div class="field">
           <label for="p-gloss">{t('settings.glossLanguages')}</label>
           <input id="p-gloss" class="input" bind:value={glossLangs} onchange={commitGlossLangs} />
+        </div>
+        <div class="field">
+          <label for="p-gloss-inputs"
+            >{t('settings.glossInputs')}<HelpDot tip={t('settings.glossInputsHint')} /></label
+          >
+          <input
+            id="p-gloss-inputs"
+            class="input"
+            bind:value={glossInputs}
+            onchange={commitGlossInputs}
+            placeholder={t('settings.glossInputsPlaceholder')}
+          />
         </div>
         <div class="field">
           <label for="p-font">{t('settings.dataFont')}</label>
@@ -571,7 +593,19 @@
 
   <h2 class="cat">{t('settings.about')}</h2>
   <section class="card group about" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
-    <div class="lockup" aria-label={t('app.name')}>{@html lockupSvg}</div>
+    {#if i18n.custom?.wordmarkImage || i18n.custom?.wordmarkText?.trim()}
+      <!-- 自己翻的界面语言换了字标：左边的 Q 标志照旧，右边换成它的文字或图 -->
+      <div class="lockup custom" aria-label={t('app.name')}>
+        <span class="lk-mark">{@html markSvg}</span>
+        {#if i18n.custom.wordmarkImage}<img
+            class="lk-img"
+            src={i18n.custom.wordmarkImage}
+            alt={t('app.name')}
+          />{:else}<span class="lk-text">{i18n.custom.wordmarkText}</span>{/if}
+      </div>
+    {:else}
+      <div class="lockup" aria-label={t('app.name')}>{@html lockupSvg}</div>
+    {/if}
     <p class="versions">
       {t('settings.version')}
       {info?.version ?? ''}
@@ -645,6 +679,21 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    /* 设置卡片里面再套一层卡片：去掉阴影、底色压一档，不然像浮在上面的弹层 */
+    box-shadow: none;
+    background: var(--bg-sunken);
+  }
+  /* 自带插件那一排：跟上面的说明、下面的按钮都隔开 */
+  .plugins.builtin {
+    margin: 10px 0 12px;
+  }
+  /* 卡片里的勾选行不要设置页通用的那 12px 下边距，说明紧跟在下面 */
+  .plugin .check {
+    margin-bottom: 0;
+  }
+  .plugin-acts + .small,
+  .plugin-acts + .plugins {
+    margin: 8px 0 12px;
   }
   .plugin .badge.ok {
     border-color: var(--accent);
@@ -724,6 +773,27 @@
     height: 52px;
     max-width: 100%;
     width: auto;
+  }
+  .lockup.custom {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    line-height: 1.1;
+  }
+  .lk-mark {
+    line-height: 0;
+    flex: none;
+  }
+  .lk-img {
+    height: 40px;
+    max-width: 360px;
+    object-fit: contain;
+    object-position: left center;
+  }
+  .lk-text {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--brand-mark);
   }
   .versions .newer {
     color: var(--accent-text);

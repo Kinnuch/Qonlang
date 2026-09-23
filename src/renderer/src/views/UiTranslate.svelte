@@ -18,7 +18,7 @@
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { flashOn } from '$lib/ui/flash'
-  import { Plus, Trash2, Upload, Download, Check } from '@lucide/svelte'
+  import { Plus, Trash2, Upload, Download, Check, X, Image as ImageIcon } from '@lucide/svelte'
   import type { PageView } from '$lib/state/ui.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -28,6 +28,8 @@
   let code = $state<string | null>(memo.code ?? null)
   let group = $state<string>(memo.group ?? '')
   let onlyTodo = $state(memo.onlyTodo === '1')
+  /** 只看原文改过、译文可能跟不上的那几条 */
+  let onlyStale = $state(false)
   let query = $state('')
   /** 原文用哪种语言显示（默认跟着这一种的兜底语言） */
   let sourceLocale = $state<LocaleCode | ''>('')
@@ -48,6 +50,7 @@
     return entries.filter((e) => {
       if (group && e.group !== group) return false
       if (onlyTodo && current?.values[e.key]?.trim()) return false
+      if (onlyStale && !staleOf(e.key, e.source)) return false
       if (!q) return true
       const src = sourceDict[e.key] ?? e.source
       return (
@@ -60,9 +63,29 @@
   const doneCount = $derived(
     current ? entries.filter((e) => current.values[e.key]?.trim()).length : 0
   )
+  /**
+   * 这一条的原文在译完之后改过没有（软件更新改了文案）：改过就给出当时的原文，没改过给 null。
+   * 译文写下时记了当时的简体原文（seen），跟现在的比
+   */
+  function staleOf(key: string, source: string): string | null {
+    if (!current?.values[key]?.trim()) return null
+    const was = current.seen?.[key]
+    return was !== undefined && was !== source ? was : null
+  }
+  const staleCount = $derived(
+    current ? entries.filter((e) => staleOf(e.key, e.source) !== null).length : 0
+  )
 
   // 新建表单
-  let form = $state({ name: '', base: 'zh' as LocaleCode, rtl: false, script: 'latin', font: '' })
+  let form = $state({
+    name: '',
+    base: 'zh' as LocaleCode,
+    rtl: false,
+    script: 'latin',
+    font: '',
+    wordmarkText: '',
+    wordmarkImage: ''
+  })
 
   function newCode(name: string): string {
     const slug =
@@ -85,21 +108,38 @@
       base: form.base,
       rtl: form.rtl,
       font: form.script === 'font' ? form.font.trim() : '',
-      values: {}
+      wordmarkText: form.wordmarkText.trim(),
+      wordmarkImage: form.wordmarkImage,
+      values: {},
+      seen: {}
     }
     ui.prefs.uiLocales = [...list, made]
     await ui.savePrefs()
     code = made.code
     adding = false
-    form = { name: '', base: 'zh', rtl: false, script: 'latin', font: '' }
+    form = {
+      name: '',
+      base: 'zh',
+      rtl: false,
+      script: 'latin',
+      font: '',
+      wordmarkText: '',
+      wordmarkImage: ''
+    }
     ui.toast(t('uiTranslate.created', { name }))
   }
 
   /** 改一条译文：存在偏好里，界面立刻跟着变（正用着这一种的话） */
-  function setValue(key: string, value: string): void {
+  function setValue(key: string, value: string, source: string): void {
     if (!current) return
     const next = list.map((l) =>
-      l.code === current.code ? { ...l, values: { ...l.values, [key]: value } } : l
+      l.code === current.code
+        ? {
+            ...l,
+            values: { ...l.values, [key]: value },
+            seen: { ...(l.seen ?? {}), [key]: source }
+          }
+        : l
     )
     ui.prefs.uiLocales = next
     i18n.setCustomLocales($state.snapshot(next))
@@ -139,7 +179,10 @@
       base: current.base,
       rtl: current.rtl,
       font: current.font ?? '',
-      values: current.values
+      wordmarkText: current.wordmarkText ?? '',
+      wordmarkImage: current.wordmarkImage ?? '',
+      values: current.values,
+      seen: current.seen ?? {}
     }
     await platform.saveTextFile(
       `${current.name || current.code}.qonlang-ui.json`,
@@ -160,10 +203,23 @@
         base: (LOCALES.some((l) => l.code === doc.base) ? doc.base : 'zh') as LocaleCode,
         rtl: !!doc.rtl,
         font: typeof doc.font === 'string' ? doc.font : '',
+        wordmarkText: typeof doc.wordmarkText === 'string' ? doc.wordmarkText : '',
+        wordmarkImage:
+          typeof doc.wordmarkImage === 'string' && doc.wordmarkImage.startsWith('data:image/')
+            ? doc.wordmarkImage
+            : '',
         // 只收还在用的键，免得旧文件把不存在的条目带进来
         values: Object.fromEntries(
           entries.map((e) => [e.key, String((doc.values as Record<string, unknown>)[e.key] ?? '')])
-        )
+        ),
+        seen:
+          doc.seen && typeof doc.seen === 'object'
+            ? Object.fromEntries(
+                entries
+                  .filter((e) => typeof (doc.seen as Record<string, unknown>)[e.key] === 'string')
+                  .map((e) => [e.key, (doc.seen as Record<string, string>)[e.key]])
+              )
+            : {}
       }
       ui.prefs.uiLocales = [...list, made]
       await ui.savePrefs()
@@ -174,6 +230,27 @@
     } catch {
       ui.error(t('uiTranslate.importBad'))
     }
+  }
+
+  /** 字标换成一张图：PNG / SVG / JPG / WebP，存成 data URL（太大的不收，免得偏好文件撑得很大） */
+  async function pickWordmark(): Promise<string | null> {
+    const [f] = await platform.readBinaryFiles({
+      multiple: false,
+      extensions: ['png', 'svg', 'jpg', 'jpeg', 'webp']
+    })
+    if (!f) return null
+    if (f.base64.length > 400_000) {
+      ui.error(t('uiTranslate.wordmarkTooBig'))
+      return null
+    }
+    const ext = f.name.split('.').pop()?.toLowerCase() ?? 'png'
+    const mime =
+      ext === 'svg'
+        ? 'image/svg+xml'
+        : ext === 'jpg' || ext === 'jpeg'
+          ? 'image/jpeg'
+          : `image/${ext}`
+    return `data:${mime};base64,${f.base64}`
   }
 
   // 只有一份（或者刚进页面还没挑）时直接摊开第一份，免得进来一片空白
@@ -255,6 +332,35 @@
           tip={t('uiTranslate.rtlHint')}
         /></label
       >
+      <div class="field">
+        <label for="tl-wordmark"
+          >{t('uiTranslate.wordmark')}<HelpDot tip={t('uiTranslate.wordmarkHint')} /></label
+        >
+        <div class="row wrap wm-row">
+          <input
+            id="tl-wordmark"
+            class="input wm-text"
+            bind:value={form.wordmarkText}
+            placeholder={t('uiTranslate.wordmarkPlaceholder')}
+            style={form.script === 'font' && form.font ? `font-family: "${form.font}"` : ''}
+          />
+          <button
+            class="btn sm"
+            onclick={async () => {
+              const img = await pickWordmark()
+              if (img) form.wordmarkImage = img
+            }}><ImageIcon size={13} />{t('uiTranslate.wordmarkImage')}</button
+          >
+          {#if form.wordmarkImage}
+            <img class="wm-preview" src={form.wordmarkImage} alt="" />
+            <button
+              class="btn ghost icon sm"
+              title={t('uiTranslate.wordmarkClear')}
+              onclick={() => (form.wordmarkImage = '')}><X size={13} /></button
+            >
+          {/if}
+        </div>
+      </div>
       <div class="row">
         <button class="btn primary sm" onclick={() => void create()} disabled={!form.name.trim()}
           >{t('common.new')}</button
@@ -325,6 +431,34 @@
     </div>
 
     <div class="row wrap tools">
+      <span class="small muted"
+        >{t('uiTranslate.wordmark')}<HelpDot tip={t('uiTranslate.wordmarkHint')} /></span
+      >
+      <input
+        class="input wm-text"
+        value={current.wordmarkText ?? ''}
+        placeholder={t('uiTranslate.wordmarkPlaceholder')}
+        style={current.font ? `font-family: "${current.font}"` : ''}
+        oninput={(e) => patch({ wordmarkText: (e.currentTarget as HTMLInputElement).value })}
+      />
+      <button
+        class="btn sm"
+        onclick={async () => {
+          const img = await pickWordmark()
+          if (img) patch({ wordmarkImage: img })
+        }}><ImageIcon size={13} />{t('uiTranslate.wordmarkImage')}</button
+      >
+      {#if current.wordmarkImage}
+        <img class="wm-preview" src={current.wordmarkImage} alt="" />
+        <button
+          class="btn ghost icon sm"
+          title={t('uiTranslate.wordmarkClear')}
+          onclick={() => patch({ wordmarkImage: '' })}><X size={13} /></button
+        >
+      {/if}
+    </div>
+
+    <div class="row wrap tools">
       <input class="input find" bind:value={query} placeholder={t('uiTranslate.search')} />
       <label class="row small"
         >{t('uiTranslate.showSource')}
@@ -340,6 +474,13 @@
       <label class="row small check"
         ><input type="checkbox" bind:checked={onlyTodo} />{t('uiTranslate.onlyTodo')}</label
       >
+      {#if staleCount}
+        <label class="row small check stale-filter"
+          ><input type="checkbox" bind:checked={onlyStale} />{t('uiTranslate.onlyStale', {
+            n: staleCount
+          })}</label
+        >
+      {/if}
     </div>
 
     <div class="split">
@@ -367,10 +508,16 @@
         {/if}
         {#each shown.slice(0, 400) as e (e.key)}
           {@const value = current.values[e.key] ?? ''}
-          <div class="tl card">
+          {@const was = staleOf(e.key, e.source)}
+          <div class="tl card" class:stale={was !== null}>
             <div class="src">
               <span class="tiny muted key">{e.key}</span>
               <span class="text">{sourceDict[e.key] ?? e.source}</span>
+              {#if was !== null}
+                <span class="tiny warn" title={t('uiTranslate.staleWas', { text: was })}
+                  >{t('uiTranslate.stale')}</span
+                >
+              {/if}
             </div>
             <div class="to">
               <input
@@ -378,7 +525,8 @@
                 dir={current.rtl ? 'rtl' : 'auto'}
                 style={current.font ? `font-family: "${current.font}"` : ''}
                 {value}
-                oninput={(ev) => setValue(e.key, (ev.currentTarget as HTMLInputElement).value)}
+                oninput={(ev) =>
+                  setValue(e.key, (ev.currentTarget as HTMLInputElement).value, e.source)}
                 placeholder={e.source}
               />
               {#if !paramsMatch(e.source, value)}
@@ -510,5 +658,23 @@
   }
   .warn {
     color: var(--warn);
+  }
+  .tl.stale {
+    border-color: var(--warn);
+  }
+  .wm-row {
+    gap: 6px;
+  }
+  .input.wm-text {
+    width: 200px;
+  }
+  .wm-preview {
+    height: 28px;
+    max-width: 180px;
+    object-fit: contain;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    background: var(--bg-elev);
   }
 </style>

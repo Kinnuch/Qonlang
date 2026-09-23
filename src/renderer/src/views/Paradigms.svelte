@@ -1455,9 +1455,9 @@
           <table class="tbl slots">
             <thead
               ><tr
-                ><th></th><th>{t('paradigms.slot')}</th><th>{t('paradigms.gloss')}</th><th
-                  >{t('paradigms.generator')}</th
-                ><th colspan="2">{t('paradigms.pipeline')}</th></tr
+                ><th></th><th>{t('paradigms.slot')}</th><th>{t('paradigms.generator')}</th><th
+                  colspan="2">{t('paradigms.pipeline')}</th
+                ></tr
               ></thead
             >
             <tbody>
@@ -1500,8 +1500,11 @@
                       title={t('paradigms.relocate.button')}
                       onclick={() => openRelocate(s.key)}><MoveRight size={13} /></button
                     >
+                    <!-- gloss 缩写写在槽位名下面（原来单独一列，表格太宽；这一格下面本来就空着） -->
+                    {#if s.abbr && s.abbr !== s.label}<div class="slot-abbr mono small muted">
+                        {s.abbr}
+                      </div>{/if}
                   </td>
-                  <td class="mono small muted">{s.abbr}</td>
                   {#if folded}
                     <td colspan="3" class="fold-cell">
                       <button class="fold-sum" onclick={() => toggleSection(foldId(s.key))}
@@ -1685,7 +1688,7 @@
     <div class="field">
       <span class="small muted">{t('common.name')}</span>
       <div id="p-name-field">
-        <LocalizedInput bind:value={p.name} languages={glossLangs} onchange={touch} />
+        <LocalizedInput bind:value={p.name} onchange={touch} />
       </div>
     </div>
     {#if !p.appliesToAll}
@@ -1822,7 +1825,8 @@
             <tbody>
               {#each freeRows as r (r.slot.key)}
                 <tr title={r.trace.join('\n')}>
-                  <td class="muted">{r.slot.label}</td>
+                  <td class="muted slot-name" title={r.slot.label}>{r.slot.abbr || r.slot.label}</td
+                  >
                   <td class="data">{r.generated || '—'}</td>
                   <td class="st">
                     {#if r.generated}
@@ -1889,7 +1893,8 @@
             <tbody>
               {#each testRows as r (r.slot.key)}
                 <tr title={r.trace.join('\n')}>
-                  <td class="muted">{r.slot.label}</td>
+                  <td class="muted slot-name" title={r.slot.label}>{r.slot.abbr || r.slot.label}</td
+                  >
                   <td class="data">{r.generated || '—'}</td>
                   <td class="st">
                     {#if r.status === 'same'}<span class="ok"><Check size={12} /></span>
@@ -2357,6 +2362,15 @@
     cursor: default;
     user-select: none;
   }
+  .slot-abbr {
+    margin-top: 2px;
+    letter-spacing: 0.02em;
+  }
+  /* 测试台里的槽位写 gloss 缩写 */
+  .test .slot-name {
+    font-family: var(--font-gloss);
+    letter-spacing: 0.02em;
+  }
   /* 流水线的起点（在这里画的，SlotPipeline 里 .step 的样式够不着，照着写一份） */
   .start {
     display: inline-flex;
@@ -2432,8 +2446,7 @@
   .relocate-list button:hover {
     background: var(--bg-hover);
   }
-  .slots tr:not(.folded) td.label,
-  .slots tr:not(.folded) td.mono {
+  .slots tr:not(.folded) td.label {
     padding-top: 22px;
   }
   .slots tbody tr:nth-child(even) {

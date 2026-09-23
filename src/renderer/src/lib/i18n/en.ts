@@ -2399,8 +2399,43 @@ const en: Dict = {
       skin: 'Theme',
       settings: 'Settings',
       tour: 'Guided tour',
-      uiTranslate: 'Interface translation'
-    }
+      uiTranslate: 'Interface translation',
+      bench: 'Translation workbench'
+    },
+    wordmark: 'App name wordmark',
+    wordmarkHint:
+      'What replaces the “Qonlang / 千语集” lettering on the start page and in About: text is written in this language’s font, or use an image. The icon on the left stays.',
+    wordmarkPlaceholder: 'Empty: use the built-in one',
+    wordmarkImage: 'Use an image…',
+    wordmarkClear: 'Remove the image',
+    wordmarkTooBig: 'The image is too large (keep it under 300 KB)',
+    onlyStale: 'Only changed source text ({n})',
+    stale: 'Source changed',
+    staleWas: 'Source text when translated: {text}'
+  },
+  bench: {
+    title: 'Translation workbench',
+    hint: 'Write the translation first: the app looks up words in the lexicon that it may need and floats them below as bubbles. Drag the ones you want into the row above (or click to add them at the end) and pick a form for each, and the original text builds itself.',
+    forSentence: 'New sentence',
+    forPhrase: 'New phrase',
+    addSentence: 'Add to corpus',
+    addPhrase: 'Add to phrasebook',
+    textLabel: 'Text (drag words to reorder)',
+    pickForm: 'Which form to use',
+    dropHere: 'Drag words from below into here',
+    freeWord: 'Not in the lexicon? Type it',
+    translationLabel: 'Translation',
+    translationPlaceholder: 'What this sentence should say',
+    candidates: 'Words you may need',
+    candidateCount: '{n} found',
+    bubbleTitle: 'Drag it into the row above, or click to add it at the end',
+    noCandidates: 'Nothing in the lexicon matches — you can type words directly above.',
+    typeFirst: 'Write the translation first; the words you may need will appear here.',
+    addAll: 'Add all in order',
+    base: 'Base form',
+    open: 'Workbench',
+    openHint: 'Pick words from the translation and build the text in the workbench',
+    added: 'Added, with its analysis already attached'
   },
   settings: {
     search: 'Search settings',
@@ -2530,7 +2565,17 @@ const en: Dict = {
     about: 'About',
     version: 'Version',
     userData: 'Data directory',
-    license: 'MIT licensed'
+    license: 'MIT licensed',
+    galleryLong: 'When a sentence of the day is too long',
+    galleryLongHint:
+      'What the sentence of the day on the start page does with sentences that do not fit on one line.',
+    galleryLongSkip: 'Only pick ones that fit',
+    galleryLongCut: 'Cut it short (between words)',
+    galleryLongWrap: 'Wrap onto more lines',
+    glossInputs: 'Languages to write definitions in',
+    glossInputsHint:
+      'Which languages get an input box in definitions, translations and similar fields, comma-separated (e.g. zh, en). Left empty, only the interface language gets one; languages that already have text are always shown.',
+    glossInputsPlaceholder: 'Empty: interface language only'
   },
   topbar: {
     currentLanguage: 'Current language',

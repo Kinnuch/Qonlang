@@ -291,7 +291,6 @@
             <div class="grow">
               <LocalizedInput
                 bind:value={p.name}
-                languages={glossLangs}
                 placeholder={t('taxonomy.posName')}
                 onchange={() => projectState.touch()}
               />
@@ -438,7 +437,6 @@
               <div class="grow">
                 <LocalizedInput
                   bind:value={c.name}
-                  languages={glossLangs}
                   placeholder={t('taxonomy.categoryName')}
                   onchange={() => projectState.touch()}
                 />
@@ -590,7 +588,6 @@
             <div class="grow">
               <LocalizedInput
                 bind:value={f.name}
-                languages={glossLangs}
                 placeholder={t('taxonomy.customFieldName')}
                 onchange={() => projectState.touch()}
               />

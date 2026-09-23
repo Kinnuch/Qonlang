@@ -725,6 +725,8 @@ export interface Generated {
 
 /**
  * 微调：每行一条。`-x` 去词尾 x，`+x` 追加，`^-x` 去词首，`^+x` 前置；含 > 的行是规则。
+ * 音类定义（`V=aeiou`、`{名}=a b c`）、特征（`[+名] = …`）、多合字母（`th|θ`）是声明，
+ * 对这一步里的每条规则都生效（跟规则语言里「一段文本」的规矩一样）。
  */
 export function applyAdjust(
   ctx: MorphContext,
@@ -735,12 +737,15 @@ export function applyAdjust(
 ): string {
   if (!text || !text.trim()) return surface
   let s = surface
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim()
-    if (!line || line.startsWith(';')) continue
+  const lines = text.split(/\r?\n/).map((l) => l.trim())
+  // 规则还是一行一行单独跑，编译时把这一步里的声明带上
+  const decls = lines.filter((l) => l && !l.startsWith(';') && isDeclaration(l))
+  const prefix = decls.length ? decls.join('\n') + '\n' : ''
+  for (const line of lines) {
+    if (!line || line.startsWith(';') || isDeclaration(line)) continue
     const before = s
     if (line.includes('>')) {
-      const prog = ruleOf(ctx, line)
+      const prog = ruleOf(ctx, prefix + line)
       const err = prog.diagnostics.find((d) => d.severity === 'error')
       if (err) {
         trace.push(`${label} ✗ ${line}: ${err.message}`)
@@ -764,6 +769,17 @@ export function applyAdjust(
     trace.push(`${label} ${line}: ${before} → ${s}`)
   }
   return s
+}
+
+/**
+ * 微调里的一行是不是声明（不是要跑的规则）：音类定义 `V=aeiou` / `{名}=a b c`、
+ * 特征 `[+名] = …`、多合字母 `th|θ`
+ */
+function isDeclaration(line: string): boolean {
+  if (line.includes('>')) return false
+  if (/^(\S|\{[^{}]+\})\s*=/u.test(line)) return true
+  if (/^\[[+-][^\]]+\]\s*=/u.test(line)) return true
+  return /^[^\s|+\-^]+\|[^\s|]+$/u.test(line)
 }
 
 /** 词缀文本按条件挑过之后，轨迹里写成「原文 → 挑出来的」 */

@@ -78,6 +78,11 @@ export interface ProjectSettings {
   defaultLanguageId: Id | null
   /** 释义等多语言字段的首选语言顺序 */
   glossLanguages: string[]
+  /**
+   * 释义、译文这些多语言字段给哪几种语言输入框（lib/core/glossInputs.ts）。
+   * 不写（或空）就只给当前界面语言一个框；已经有内容的语言不管在不在这里都照样显示
+   */
+  glossInputs?: string[]
   /** 例句分词时视为语素边界的符号 */
   morphemeBoundaries: string[]
   /**

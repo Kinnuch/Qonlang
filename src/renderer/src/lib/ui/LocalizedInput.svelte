@@ -1,8 +1,15 @@
 <script lang="ts">
-  /** 多语言文本字段：按项目的释义语言顺序给每种语言一个输入框 */
+  /**
+   * 多语言文本字段（释义、译文、名字）：默认只给当前界面语言一个框，
+   * 项目设置里列了「释义要填的语言」就按那几种给；已经有内容的语言照样摆出来。
+   */
+  import { projectState } from '$lib/state/project.svelte'
+  import { i18n } from '$lib/i18n/index.svelte'
+  import { glossInputLanguages } from '$lib/core/glossInputs'
+
   let {
     value = $bindable<Record<string, string>>({}),
-    languages = ['zh', 'en'],
+    languages,
     multiline = false,
     placeholder = '',
     onchange
@@ -14,11 +21,14 @@
     onchange?: () => void
   } = $props()
 
-  const extra = $derived(Object.keys(value).filter((k) => !languages.includes(k) && value[k]))
+  const langs = $derived(
+    languages ?? glossInputLanguages(projectState.project?.settings, i18n.locale, i18n.custom?.base)
+  )
+  const extra = $derived(Object.keys(value).filter((k) => !langs.includes(k) && value[k]))
 </script>
 
 <div class="loc">
-  {#each [...languages, ...extra] as lang (lang)}
+  {#each [...langs, ...extra] as lang (lang)}
     <div class="row">
       <span class="lang">{lang}</span>
       {#if multiline}

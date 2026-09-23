@@ -51,7 +51,8 @@ describe('slot layout', () => {
   it('gives the third dimension onwards a table each', () => {
     const d = dims(kase, num, def)
     const tables = slotTables(d)
-    expect(tables.map((x) => x.caption)).toEqual(['有定性 无定', '有定性 定'])
+    // 取值有 gloss 缩写就写缩写（维度名照写全名）
+    expect(tables.map((x) => x.caption)).toEqual(['有定性 INDF', '有定性 DEF'])
     expect(cellKey(d, d[0].values[0], d[1].values[0], tables[1].fixed)).toBe(
       slotKey([
         { categoryId: 'case', valueId: 'nom' },

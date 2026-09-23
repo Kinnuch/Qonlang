@@ -1966,7 +1966,6 @@
           </div>
           <LocalizedInput
             bind:value={s.definition}
-            languages={glossLangs}
             multiline
             placeholder={t('lexicon.definition')}
             onchange={() => touch(l)}
@@ -2390,7 +2389,9 @@
             {#each grp.slots as s (grp.id + '|' + s.slot.key)}
               {@const f = l.forms[s.key]}
               <div class="row kv" title={f?.trace?.join('\n') ?? ''}>
-                <span class="slot small">{s.slot.label}</span>
+                <span class="slot small" class:gl={!!s.slot.abbr} title={s.slot.label}
+                  >{s.slot.abbr || s.slot.label}</span
+                >
                 <input
                   class="input data"
                   class:derived={f && !f.override}
@@ -2904,6 +2905,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  /* 槽位写成 gloss 缩写时用 gloss 那种字体 */
+  .slot.gl {
+    font-family: var(--font-gloss);
+    letter-spacing: 0.02em;
   }
   .input.derived {
     color: var(--accent-text);

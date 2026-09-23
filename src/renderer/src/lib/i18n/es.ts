@@ -2433,8 +2433,43 @@ export default {
       skin: 'Apariencia',
       settings: 'Configuración',
       tour: 'Guía ilustrada',
-      uiTranslate: 'Traducción de la interfaz'
-    }
+      uiTranslate: 'Traducción de la interfaz',
+      bench: 'Mesa de traducción'
+    },
+    wordmark: 'Logotipo del nombre',
+    wordmarkHint:
+      'Qué sustituye las letras «Qonlang / 千语集» en la página de inicio y en «Acerca de»: texto, escrito con la fuente de este idioma, o una imagen. El icono de la izquierda no cambia.',
+    wordmarkPlaceholder: 'Vacío: usar el incorporado',
+    wordmarkImage: 'Usar una imagen…',
+    wordmarkClear: 'Quitar la imagen',
+    wordmarkTooBig: 'La imagen es demasiado grande (menos de 300 KB)',
+    onlyStale: 'Solo con el original cambiado ({n})',
+    stale: 'Original cambiado',
+    staleWas: 'Original al traducir: {text}'
+  },
+  bench: {
+    title: 'Mesa de traducción',
+    hint: 'Escriba primero la traducción: el programa busca en el léxico las palabras que probablemente necesite y las deja flotando abajo como burbujas. Arrastre las que quiera a la fila de arriba (o haga clic para añadirlas al final), elija una forma para cada una y el texto se va armando.',
+    forSentence: 'Oración nueva',
+    forPhrase: 'Frase nueva',
+    addSentence: 'Añadir al corpus',
+    addPhrase: 'Añadir a las frases',
+    textLabel: 'Texto (arrastre las palabras para cambiar el orden)',
+    pickForm: 'Qué forma usar',
+    dropHere: 'Arrastre aquí las palabras de abajo',
+    freeWord: '¿No está en el léxico? Escríbala',
+    translationLabel: 'Traducción',
+    translationPlaceholder: 'Lo que debe decir esta oración',
+    candidates: 'Palabras que puede necesitar',
+    candidateCount: '{n} encontradas',
+    bubbleTitle: 'Arrástrela a la fila de arriba o haga clic para añadirla al final',
+    noCandidates: 'No hay nada en el léxico que encaje: puede escribir directamente arriba.',
+    typeFirst: 'Escriba primero la traducción; aquí aparecerán las palabras que puede necesitar.',
+    addAll: 'Añadir todas en orden',
+    base: 'Forma base',
+    open: 'Mesa',
+    openHint: 'Elegir palabras a partir de la traducción y armar el texto en la mesa',
+    added: 'Añadida, con su análisis ya puesto'
   },
   settings: {
     search: 'Buscar en la configuración',
@@ -2570,7 +2605,17 @@ export default {
     about: 'Acerca de',
     version: 'Versión',
     userData: 'Directorio de datos',
-    license: 'Código abierto MIT'
+    license: 'Código abierto MIT',
+    galleryLong: 'Cuando la oración del día es demasiado larga',
+    galleryLongHint:
+      'Qué hace la oración del día de la página de inicio con las oraciones que no caben en una línea.',
+    galleryLongSkip: 'Elegir solo las que caben',
+    galleryLongCut: 'Recortar (entre palabras)',
+    galleryLongWrap: 'Pasar a otra línea',
+    glossInputs: 'Idiomas de las definiciones',
+    glossInputsHint:
+      'Qué idiomas tienen casilla en definiciones, traducciones y campos parecidos, separados por comas (p. ej. zh, en). Vacío: solo el idioma de la interfaz; los idiomas que ya tienen texto siempre se muestran.',
+    glossInputsPlaceholder: 'Vacío: solo el idioma de la interfaz'
   },
   topbar: {
     currentLanguage: 'Lengua actual',

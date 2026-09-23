@@ -107,6 +107,11 @@ export interface Prefs {
   collapsedSections: string[]
   /** 词库里屈折形怎么排：列表、表格（维度排成行列）、树形图；显示模式与录入模式共用 */
   formsLayout?: FormsLayout
+  /**
+   * 开始页每日一句遇到一行放不下的句子：skip 只从放得下的里挑（默认）；
+   * cut 照样挑，放不下的在词与词之间截断（按项目的分词方式）；wrap 放不下就换行，卡片跟着长高
+   */
+  galleryLong?: 'skip' | 'cut' | 'wrap'
 }
 
 /** 屈折形的三种看法 */

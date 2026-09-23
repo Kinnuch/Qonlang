@@ -2368,8 +2368,43 @@ export default {
       skin: '테마',
       settings: '설정',
       tour: '그림 안내',
-      uiTranslate: '인터페이스 번역'
-    }
+      uiTranslate: '인터페이스 번역',
+      bench: '번역 작업대'
+    },
+    wordmark: '프로그램 이름 글자',
+    wordmarkHint:
+      '시작 페이지와 「정보」의 「千语集 / Qonlang」 글자를 무엇으로 바꿀지. 글자는 이 언어의 글꼴로 쓰고, 그림도 쓸 수 있습니다. 왼쪽 아이콘은 바뀌지 않습니다.',
+    wordmarkPlaceholder: '비움: 기본 제공 글자 사용',
+    wordmarkImage: '그림으로 바꾸기…',
+    wordmarkClear: '그림 빼기',
+    wordmarkTooBig: '그림이 너무 큽니다 (300 KB 미만으로)',
+    onlyStale: '원문이 바뀐 것만 ({n})',
+    stale: '원문이 바뀜',
+    staleWas: '번역할 때의 원문: {text}'
+  },
+  bench: {
+    title: '번역 작업대',
+    hint: '먼저 번역을 씁니다. 번역을 보고 어휘에서 쓸 만한 낱말을 찾아 아래에 방울로 띄웁니다. 쓸 낱말을 위 줄로 끌어오고(또는 눌러서 끝에 붙이고) 낱말마다 형태를 고르면 원문이 짜입니다.',
+    forSentence: '새 예문',
+    forPhrase: '새 구절',
+    addSentence: '말뭉치에 넣기',
+    addPhrase: '구절에 넣기',
+    textLabel: '원문 (낱말을 끌면 순서가 바뀝니다)',
+    pickForm: '쓸 형태',
+    dropHere: '아래 낱말을 여기로 끌어오세요',
+    freeWord: '어휘에 없으면 직접 쓰기',
+    translationLabel: '번역',
+    translationPlaceholder: '이 문장으로 하려는 말',
+    candidates: '쓸 만한 낱말',
+    candidateCount: '{n}개',
+    bubbleTitle: '위 줄로 끌거나, 눌러서 끝에 붙이세요',
+    noCandidates: '어휘에서 맞는 낱말을 못 찾았습니다. 위에 직접 쓸 수 있습니다.',
+    typeFirst: '먼저 번역을 쓰면 쓸 만한 낱말이 여기에 나옵니다.',
+    addAll: '모두 순서대로 올리기',
+    base: '기본형',
+    open: '작업대',
+    openHint: '작업대에서 번역을 보며 낱말을 골라 원문을 짜기',
+    added: '넣었습니다. 분석도 붙어 있습니다'
   },
   settings: {
     search: '설정 검색',
@@ -2493,7 +2528,16 @@ export default {
     about: '정보',
     version: '버전',
     userData: '데이터 폴더',
-    license: 'MIT 오픈 소스'
+    license: 'MIT 오픈 소스',
+    galleryLong: '오늘의 문장이 너무 길 때',
+    galleryLongHint: '시작 페이지의 오늘의 문장이 한 줄에 들어가지 않을 때 어떻게 할지.',
+    galleryLongSkip: '들어가는 것만 고르기',
+    galleryLongCut: '잘라서 보이기 (낱말과 낱말 사이에서)',
+    galleryLongWrap: '줄을 바꿔 보이기',
+    glossInputs: '뜻풀이를 쓸 언어',
+    glossInputsHint:
+      '뜻풀이·번역 같은 칸에 어떤 언어의 입력칸을 줄지 쉼표로 적습니다(예: zh, en). 비우면 인터페이스 언어만. 이미 내용이 있는 언어는 늘 보입니다.',
+    glossInputsPlaceholder: '비움: 인터페이스 언어만'
   },
   topbar: {
     currentLanguage: '현재 언어',

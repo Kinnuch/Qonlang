@@ -297,9 +297,18 @@
     <div class="brand">
       <div class="logo">{@html appIconSvg}</div>
       <div>
-        <h1 class="wordmark" class:en={!i18n.locale.startsWith('zh')} aria-label={t('app.name')}>
-          {@html i18n.locale.startsWith('zh') ? wordmarkZh : wordmarkEn}
-        </h1>
+        <!-- 自己翻的界面语言可以把字标换成自己的文字或图（只换这块，左边的图标不换） -->
+        {#if i18n.custom?.wordmarkImage}
+          <h1 class="wordmark custom" aria-label={t('app.name')}>
+            <img class="wm-img" src={i18n.custom.wordmarkImage} alt={t('app.name')} />
+          </h1>
+        {:else if i18n.custom?.wordmarkText?.trim()}
+          <h1 class="wordmark custom wm-text">{i18n.custom.wordmarkText}</h1>
+        {:else}
+          <h1 class="wordmark" class:en={!i18n.locale.startsWith('zh')} aria-label={t('app.name')}>
+            {@html i18n.locale.startsWith('zh') ? wordmarkZh : wordmarkEn}
+          </h1>
+        {/if}
         <p class="muted small">{t('app.tagline')}</p>
       </div>
     </div>
@@ -803,6 +812,23 @@
      现在留 2px，各种文字下面看着的空当都跟中文那版差不多 */
   .wordmark.en {
     margin-bottom: 2px;
+  }
+  /* 换成自己的字标：图按字标的高度缩放，文字用这门语言的字体（--font-ui-locale）写 */
+  .wordmark.custom {
+    margin-bottom: 4px;
+  }
+  .wm-img {
+    display: block;
+    height: 24px;
+    max-width: 180px;
+    object-fit: contain;
+    object-position: left center;
+  }
+  .wordmark.wm-text {
+    line-height: 1.1;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--brand-mark);
   }
   .actions {
     display: flex;

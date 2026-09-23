@@ -37,6 +37,25 @@
           <option value="dark">{t('settings.themeDark')}</option>
         </select>
       </div>
+      <div class="field">
+        <label for="s-gallery-long"
+          >{t('settings.galleryLong')}<HelpDot tip={t('settings.galleryLongHint')} /></label
+        >
+        <select
+          id="s-gallery-long"
+          class="select"
+          value={ui.prefs.galleryLong ?? 'skip'}
+          onchange={(e) => {
+            ui.prefs.galleryLong = (e.currentTarget as HTMLSelectElement).value as
+              'skip' | 'cut' | 'wrap'
+            void ui.savePrefs()
+          }}
+        >
+          <option value="skip">{t('settings.galleryLongSkip')}</option>
+          <option value="cut">{t('settings.galleryLongCut')}</option>
+          <option value="wrap">{t('settings.galleryLongWrap')}</option>
+        </select>
+      </div>
       <label class="row check">
         <input
           type="checkbox"
