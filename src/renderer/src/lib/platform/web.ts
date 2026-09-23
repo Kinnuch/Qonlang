@@ -404,6 +404,13 @@ export const webPlatform: PlatformAPI = {
     await kvSet(SNAPSHOT_KEY, content)
   },
 
+  async loadStudySettings(projectId) {
+    return (await kvGet<string>(`study:${projectId}`)) ?? null
+  },
+  async saveStudySettings(projectId, content) {
+    await kvSet(`study:${projectId}`, content)
+  },
+
   setDirty(d) {
     dirtyFlag = d
   },

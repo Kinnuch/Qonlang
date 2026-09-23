@@ -30,7 +30,8 @@
     RotateCw,
     Copy,
     Sparkles,
-    Languages as LanguagesIcon
+    Languages as LanguagesIcon,
+    GraduationCap
   } from '@lucide/svelte'
   import { refreshPage } from '$lib/ui/refresh'
   import { chars } from '$lib/state/chars.svelte'
@@ -50,6 +51,7 @@
   import { searchMark } from '$lib/ui/searchMark'
   import PluginViews from '$lib/plugins/PluginViews.svelte'
   import UiTranslate from './UiTranslate.svelte'
+  import StudyExport from './StudyExport.svelte'
   import { BUILTIN_PLUGINS } from '$lib/plugins/builtin'
   const pluginPages = $derived(
     pluginRegistry.views.filter((v) => v.item.where === 'page').map((v) => v.item)
@@ -71,6 +73,7 @@
 
   const icons: Record<Section, Component<{ size?: number }>> = {
     uiTranslate: LanguagesIcon,
+    studyExport: GraduationCap,
     languages: Globe,
     phonology: AudioLines,
     script: PenTool,
@@ -454,6 +457,8 @@
           <ScriptView bind:inspectorTitle bind:inspectorTitleStyle />
         {:else if ui.section === 'uiTranslate'}
           <UiTranslate bind:inspectorTitle />
+        {:else if ui.section === 'studyExport'}
+          <StudyExport bind:inspectorTitle />
         {:else if ui.section === 'phonology'}
           <Phonology bind:inspectorTitle />
         {:else if ui.section === 'paradigms'}

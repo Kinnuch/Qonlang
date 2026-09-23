@@ -273,6 +273,9 @@ export interface PlatformAPI {
   /** 崩溃恢复用的快照（不等于保存） */
   loadSnapshot(): Promise<string | null>
   saveSnapshot(content: string | null): Promise<void>
+  /** 学习包导出的设置（不进项目文件，按项目 id 存在本机）；没有时返回 null */
+  loadStudySettings(projectId: string): Promise<string | null>
+  saveStudySettings(projectId: string, content: string): Promise<void>
 
   /** 通知宿主当前是否有未保存改动（桌面版用来拦截关窗） */
   setDirty(dirty: boolean): void

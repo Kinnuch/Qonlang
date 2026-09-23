@@ -62,6 +62,7 @@ export default {
     settings: '設定',
     skin: '主題',
     extending: '外掛與 MCP',
+    studyExport: '匯出學習包',
     inspector: '檢視器',
     home: '返回開始頁（關閉當前專案）',
     welcome: '開始',
@@ -2245,6 +2246,99 @@ export default {
     }
   },
   /** 界面翻译（自带插件）：把软件里的文案逐条翻成自己的语言 */
+  studyExport: {
+    title: '匯出學習包',
+    open: '匯出學習包',
+    openDesc:
+      '該匯出模式下：為 Qonlang Study 另行設定課程、隱藏的內容、詞的級別與作者錄音，這些設定不會寫入專案檔案。',
+    back: '返回設定',
+    hint: '這裡的設定只儲存在本機，不會寫入專案檔案；匯出時與專案一起打包成學習包。',
+    readOnly: '純欣賞模式下無法匯出學習包。',
+    loadFromPack: '從學習包讀回設定',
+    export: '匯出學習包…',
+    exported: '已匯出學習包（{size}）',
+    loadedFromPack: '已讀回學習包中的設定',
+    otherProject: '該學習包來自專案「{name}」，已保留能與當前專案對應的部分',
+    notAPack: '該檔案不是學習包',
+    author: '作者署名',
+    languages: '匯出的語言',
+    languagesHint:
+      '請勾選要放進學習包的語言；點選「編輯」即可設定該語言的封面、課程、隱藏的內容、級別、顯示方式與錄音。',
+    counts: '{lexemes} 個詞條 · {sentences} 條例句 · {phrases} 條短語',
+    editLanguage: '編輯',
+    filter: '篩選',
+    tabs: {
+      cover: '封面',
+      lessons: '課程',
+      hidden: '隱藏',
+      levels: '級別',
+      display: '顯示',
+      audio: '錄音'
+    },
+    kinds: {
+      lexeme: '詞條',
+      sentence: '例句',
+      phrase: '短語',
+      doc: '文件'
+    },
+    picker: {
+      search: '輸入文字即可搜尋，點選結果新增',
+      none: '沒有符合條件的條目',
+      more: '還有 {n} 條，請輸入更多文字縮小範圍',
+      remove: '移出'
+    },
+    cover: {
+      title: '課程名稱',
+      intro: '介紹',
+      introHint: '顯示在學習軟體中這門語言的首頁，支援 Markdown。'
+    },
+    lessons: {
+      add: '新建一課',
+      fromDocs: '按文件生成',
+      hint: '每一課可以掛一篇文件作為課文，並指定本課的新詞、例句與短語；拖動左側的把手即可調整順序。沒有排進課程的內容仍會出現在學習軟體的詞庫與複習裡。',
+      lessonN: '第 {n} 課',
+      title: '本課標題',
+      remove: '刪除這一課',
+      doc: '課文',
+      noDoc: '不掛文件',
+      words: '新詞',
+      sentences: '例句',
+      phrases: '短語',
+      empty: '還沒有課程。請點選「新建一課」，或點選「按文件生成」為每篇文件建一課。',
+      fromDocsNone: '沒有可以生成課程的文件（已排進課程或已隱藏的文件不會重複生成）',
+      fromDocsDone: '已按文件生成 {n} 課'
+    },
+    hidden: {
+      placeholders: '勾選佔位詞條',
+      hint: '勾選的內容不會出現在學習軟體裡，例如草稿、佔位符與不想公開的詞。點選「勾選佔位詞條」即可一次勾選所有不含字母的詞條。',
+      count: '已隱藏 {n} 條'
+    },
+    levels: {
+      hint: '學習軟體按詞頻自動分級；如需把個別詞固定到某一級，請在下方新增。',
+      add: '固定級別的詞',
+      level: '第 {n} 級'
+    },
+    display: {
+      hint: '學習者開啟時預設使用的寫法，學習者仍可以自行切換。',
+      ortho: '正字法',
+      script: '文字',
+      scriptNone: '不顯示文字',
+      ipa: '顯示國際音標'
+    },
+    audio: {
+      onlyRecorded: '僅顯示已錄音的條目',
+      count: '已錄 {n} 條',
+      batch: '批次匯入錄音',
+      hint: '學習軟體優先播放作者錄音，沒有錄音時朗讀國際音標。批次匯入時，檔名（不含副檔名）與詞頭、短語原文或例句原文相同即可自動對應。',
+      play: '播放',
+      stop: '停止',
+      record: '錄音',
+      file: '選擇音訊檔案',
+      remove: '刪除錄音',
+      noMic: '無法使用麥克風，請檢查系統的麥克風許可權',
+      batchDone: '已對應 {n} 個檔案，{m} 個檔案沒有找到對應的條目'
+    }
+  },
   uiTranslate: {
     title: '介面翻譯',
     pluginHint: '列出軟體介面的全部文案供逐條翻譯，完成後即可作為一種介面語言使用。',

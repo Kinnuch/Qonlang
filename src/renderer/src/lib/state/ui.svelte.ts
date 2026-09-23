@@ -20,6 +20,8 @@ export type Section =
   | 'settings'
   /** 自带插件「界面翻译」开着时才出现在导航里（所以不在 SECTIONS 里） */
   | 'uiTranslate'
+  /** 「设置 → 导出」里点「导出学习包」进的页面（不在导航里） */
+  | 'studyExport'
 
 export const SECTIONS: Section[] = [
   'languages',

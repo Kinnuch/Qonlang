@@ -1,8 +1,3 @@
-/**
- * Français 文案。结构、键名、注释跟 zh.ts 一一对应（tests/core/i18n.test.ts 会核）。
- * zh.ts 新增条目后：`node scripts/i18n-values.mjs dump src/renderer/src/lib/i18n/fr.ts 旧.json`，
- * 再 `derive zh.ts 旧.json fr.ts` 补出结构，然后把留着中文的那几条译过来。
- */
 export default {
   app: {
     name: 'Qonlang',
@@ -63,6 +58,7 @@ export default {
     settings: 'Paramètres',
     skin: 'Thème',
     extending: 'Extensions et MCP',
+    studyExport: 'Exporter un pack d’étude',
     inspector: 'Inspecteur',
     home: 'Retour à l’accueil (ferme le projet en cours)',
     welcome: 'Accueil',
@@ -2383,6 +2379,104 @@ export default {
     }
   },
   /** 界面翻译（自带插件）：把软件里的文案逐条翻成自己的语言 */
+  studyExport: {
+    title: 'Exporter un pack d’étude',
+    open: 'Exporter un pack d’étude',
+    openDesc:
+      'Dans ce mode d’export : définissez à part, pour Qonlang Study, les leçons, les éléments masqués, le niveau des mots et vos propres enregistrements ; rien de tout cela n’est écrit dans le fichier du projet.',
+    back: 'Retour aux réglages',
+    hint: 'Ces réglages sont conservés sur cet ordinateur seulement, jamais dans le fichier du projet ; l’export les regroupe avec le projet dans un pack d’étude.',
+    readOnly: 'Impossible d’exporter un pack d’étude depuis une copie en lecture seule.',
+    loadFromPack: 'Reprendre les réglages d’un pack d’étude',
+    export: 'Exporter le pack d’étude…',
+    exported: 'Pack d’étude exporté ({size})',
+    loadedFromPack: 'Réglages repris du pack d’étude',
+    otherProject:
+      'Ce pack d’étude vient du projet « {name} » ; seules les parties qui correspondent au projet actuel ont été gardées',
+    notAPack: 'Ce fichier n’est pas un pack d’étude',
+    author: 'Auteur',
+    languages: 'Langues à exporter',
+    languagesHint:
+      'Cochez les langues à mettre dans le pack ; cliquez sur « Modifier » pour régler la couverture, les leçons, les éléments masqués, les niveaux, l’affichage et les enregistrements de cette langue.',
+    counts: '{lexemes} entrées · {sentences} phrases · {phrases} expressions',
+    editLanguage: 'Modifier',
+    filter: 'Filtrer',
+    tabs: {
+      cover: 'Couverture',
+      lessons: 'Leçons',
+      hidden: 'Masqués',
+      levels: 'Niveaux',
+      display: 'Affichage',
+      audio: 'Enregistrements'
+    },
+    kinds: {
+      lexeme: 'Entrées',
+      sentence: 'Phrases',
+      phrase: 'Expressions',
+      doc: 'Documents'
+    },
+    picker: {
+      search: 'Tapez pour chercher, puis cliquez sur un résultat pour l’ajouter',
+      none: 'Aucun résultat',
+      more: 'Encore {n} ; tapez davantage pour affiner',
+      remove: 'Retirer'
+    },
+    cover: {
+      title: 'Nom du cours',
+      intro: 'Présentation',
+      introHint:
+        'Affichée sur la page d’accueil de cette langue dans l’application d’étude. Markdown est pris en charge.'
+    },
+    lessons: {
+      add: 'Nouvelle leçon',
+      fromDocs: 'Une leçon par document',
+      hint: 'Chaque leçon peut prendre un document comme texte et indiquer ses nouveaux mots, phrases et expressions ; faites glisser la poignée à gauche pour changer l’ordre. Les éléments qui ne sont dans aucune leçon apparaissent quand même dans le lexique et les révisions de l’application d’étude.',
+      lessonN: 'Leçon {n}',
+      title: 'Titre de la leçon',
+      remove: 'Supprimer cette leçon',
+      doc: 'Texte',
+      noDoc: 'Aucun document',
+      words: 'Nouveaux mots',
+      sentences: 'Phrases',
+      phrases: 'Expressions',
+      empty:
+        'Aucune leçon pour l’instant. Cliquez sur « Nouvelle leçon », ou sur « Une leçon par document » pour créer une leçon par document.',
+      fromDocsNone:
+        'Aucun document à transformer en leçon (les documents déjà dans une leçon ou masqués sont ignorés)',
+      fromDocsDone: '{n} leçons créées à partir des documents'
+    },
+    hidden: {
+      placeholders: 'Cocher les entrées provisoires',
+      hint: 'Les éléments cochés n’apparaissent jamais dans l’application d’étude : brouillons, entrées provisoires, mots que vous préférez garder pour vous. « Cocher les entrées provisoires » coche d’un coup toutes les entrées qui ne contiennent aucune lettre.',
+      count: '{n} masqués'
+    },
+    levels: {
+      hint: 'L’application d’étude classe les mots par niveau selon leur fréquence ; ajoutez un mot ci-dessous pour le fixer au niveau de votre choix.',
+      add: 'Mots à niveau fixe',
+      level: 'Niveau {n}'
+    },
+    display: {
+      hint: 'Ce que les apprenants voient par défaut ; ils peuvent toujours changer eux-mêmes.',
+      ortho: 'Orthographe',
+      script: 'Écriture',
+      scriptNone: 'Pas d’écriture',
+      ipa: 'Afficher l’API'
+    },
+    audio: {
+      onlyRecorded: 'Seulement les éléments enregistrés',
+      count: '{n} enregistrés',
+      batch: 'Importer des enregistrements en lot',
+      hint: 'L’application d’étude joue d’abord votre enregistrement et lit l’API à voix haute s’il n’y en a pas. Lors d’un import en lot, un fichier correspond quand son nom (sans l’extension) est identique à une vedette, une expression ou une phrase.',
+      play: 'Lire',
+      stop: 'Arrêter',
+      record: 'Enregistrer',
+      file: 'Choisir un fichier audio',
+      remove: 'Supprimer l’enregistrement',
+      noMic:
+        'Le microphone n’est pas disponible ; vérifiez l’autorisation du microphone dans le système',
+      batchDone: '{n} fichiers associés, {m} fichiers sans élément correspondant'
+    }
+  },
   uiTranslate: {
     title: 'Traduction de l’interface',
     pluginHint:

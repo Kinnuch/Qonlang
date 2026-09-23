@@ -12,6 +12,7 @@
     FileSpreadsheet,
     FileText,
     FolderOutput,
+    GraduationCap,
     Languages,
     Copy,
     Plug,
@@ -571,6 +572,16 @@
           ><Eye size={16} />{t('readonly.export')}</button
         >
         <span class="small muted">{t('readonly.exportDesc')}</span>
+      </div>
+      <div class="row">
+        <button
+          class="btn"
+          data-study-pack
+          onclick={() =>
+            projectState.readOnly ? ui.toast(t('readonly.exportBlocked')) : ui.go('studyExport')}
+          ><GraduationCap size={16} />{t('studyExport.open')}</button
+        >
+        <span class="small muted">{t('studyExport.openDesc')}</span>
       </div>
     </section>
 

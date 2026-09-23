@@ -131,6 +131,11 @@ const backupsDir = (): string => join(userData(), 'Backups')
 const fontsDir = (): string => join(userData(), 'fonts')
 /** 插件目录：一个插件一个子目录，里面 plugin.json + 入口 js */
 const pluginsDir = (): string => join(userData(), 'plugins')
+/** 学习包导出的设置（给 Qonlang Study 的）：不进项目文件，按项目 id 各存一份 */
+const studyDir = (): string => join(userData(), 'study-export')
+/** 项目 id 只留字母数字和连字符，免得拼出目录外的路径 */
+const studyFile = (projectId: string): string =>
+  join(studyDir(), (String(projectId).replace(/[^A-Za-z0-9-]/g, '') || 'untitled') + '.json')
 
 // ───────────────────────── MCP ─────────────────────────
 /** 跑着的 MCP 服务（设置里开了才有） */
@@ -1208,6 +1213,18 @@ function registerIpc(): void {
   ipcMain.handle('snapshot:save', async (_e, content: string | null) => {
     if (content == null) await fs.unlink(snapshotFile()).catch(() => {})
     else await atomicWrite(snapshotFile(), content)
+  })
+
+  ipcMain.handle('study:load', async (_e, projectId: string) => {
+    try {
+      return await fs.readFile(studyFile(projectId), 'utf8')
+    } catch {
+      return null
+    }
+  })
+  ipcMain.handle('study:save', async (_e, projectId: string, content: string) => {
+    await fs.mkdir(studyDir(), { recursive: true })
+    await atomicWrite(studyFile(projectId), content)
   })
 
   ipcMain.handle('shell:showInFolder', (_e, path: string) => shell.showItemInFolder(path))

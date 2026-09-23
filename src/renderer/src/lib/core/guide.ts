@@ -16,6 +16,8 @@ const SLUGS: Record<string, string> = {
   docs: 'docs',
   skin: 'skin',
   settings: 'settings',
+  /** 导出学习包的说明在「设置」页里 */
+  studyExport: 'settings',
   chars: 'chars',
   extending: 'extending',
   welcome: ''

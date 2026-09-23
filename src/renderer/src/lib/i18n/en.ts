@@ -62,6 +62,7 @@ const en: Dict = {
     settings: 'Settings',
     skin: 'Theme',
     extending: 'Plugins & MCP',
+    studyExport: 'Export a study pack',
     inspector: 'Inspector',
     home: 'Back to the start page (closes the project)',
     welcome: 'Start',
@@ -2346,6 +2347,102 @@ const en: Dict = {
     }
   },
   /** 界面翻译（自带插件）：把软件里的文案逐条翻成自己的语言 */
+  studyExport: {
+    title: 'Export a study pack',
+    open: 'Export a study pack',
+    openDesc:
+      'For Qonlang Study: set up lessons, hidden items, word levels and your own recordings separately; none of this is written into the project file.',
+    back: 'Back to Settings',
+    hint: 'These settings are kept on this computer only, never in the project file; exporting bundles them with the project into a study pack.',
+    readOnly: 'Study packs cannot be exported from a read-only copy.',
+    loadFromPack: 'Load settings from a study pack',
+    export: 'Export study pack…',
+    exported: 'Study pack exported ({size})',
+    loadedFromPack: 'Settings loaded from the study pack',
+    otherProject:
+      'This study pack came from the project “{name}”; the parts that match the current project were kept',
+    notAPack: 'This file is not a study pack',
+    author: 'Author credit',
+    languages: 'Languages to export',
+    languagesHint:
+      'Tick the languages to put in the pack; click “Edit” to set that language’s cover, lessons, hidden items, levels, display and recordings.',
+    counts: '{lexemes} entries · {sentences} sentences · {phrases} phrases',
+    editLanguage: 'Edit',
+    filter: 'Filter',
+    tabs: {
+      cover: 'Cover',
+      lessons: 'Lessons',
+      hidden: 'Hidden',
+      levels: 'Levels',
+      display: 'Display',
+      audio: 'Recordings'
+    },
+    kinds: {
+      lexeme: 'Entries',
+      sentence: 'Sentences',
+      phrase: 'Phrases',
+      doc: 'Documents'
+    },
+    picker: {
+      search: 'Type to search, then click a result to add it',
+      none: 'Nothing matches',
+      more: '{n} more; type more to narrow it down',
+      remove: 'Remove'
+    },
+    cover: {
+      title: 'Course name',
+      intro: 'Introduction',
+      introHint: 'Shown on this language’s home page in the study app. Markdown is supported.'
+    },
+    lessons: {
+      add: 'New lesson',
+      fromDocs: 'One lesson per document',
+      hint: 'Each lesson can use a document as its text and list its new words, sentences and phrases; drag the handle on the left to reorder. Items not in any lesson still show up in the study app’s word list and reviews.',
+      lessonN: 'Lesson {n}',
+      title: 'Lesson title',
+      remove: 'Delete this lesson',
+      doc: 'Text',
+      noDoc: 'No document',
+      words: 'New words',
+      sentences: 'Sentences',
+      phrases: 'Phrases',
+      empty:
+        'No lessons yet. Click “New lesson”, or “One lesson per document” to make a lesson for each document.',
+      fromDocsNone:
+        'No documents left to turn into lessons (documents already in a lesson or hidden are skipped)',
+      fromDocsDone: '{n} lessons created from documents'
+    },
+    hidden: {
+      placeholders: 'Tick placeholder entries',
+      hint: 'Ticked items never appear in the study app — drafts, placeholders, words you would rather keep private. “Tick placeholder entries” ticks every entry that contains no letters.',
+      count: '{n} hidden'
+    },
+    levels: {
+      hint: 'The study app levels words by frequency; add a word below to pin it to a level of your choice.',
+      add: 'Words with a fixed level',
+      level: 'Level {n}'
+    },
+    display: {
+      hint: 'What learners see by default; they can still switch it themselves.',
+      ortho: 'Orthography',
+      script: 'Script',
+      scriptNone: 'No script',
+      ipa: 'Show IPA'
+    },
+    audio: {
+      onlyRecorded: 'Only items with a recording',
+      count: '{n} recorded',
+      batch: 'Import recordings in bulk',
+      hint: 'The study app plays your recording first and reads the IPA aloud when there is none. When importing in bulk, a file matches when its name (without the extension) equals a headword, a phrase or a sentence.',
+      play: 'Play',
+      stop: 'Stop',
+      record: 'Record',
+      file: 'Choose an audio file',
+      remove: 'Delete the recording',
+      noMic: 'The microphone is not available; please check the system microphone permission',
+      batchDone: '{n} files matched, {m} files had no matching item'
+    }
+  },
   uiTranslate: {
     title: 'Interface translation',
     pluginHint:

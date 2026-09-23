@@ -58,6 +58,7 @@ export default {
     settings: '设置',
     skin: '主题',
     extending: '插件与 MCP',
+    studyExport: '导出学习包',
     inspector: '检视器',
     home: '返回开始页（关闭当前项目）',
     welcome: '开始',
@@ -2241,6 +2242,99 @@ export default {
     }
   },
   /** 界面翻译（自带插件）：把软件里的文案逐条翻成自己的语言 */
+  studyExport: {
+    title: '导出学习包',
+    open: '导出学习包',
+    openDesc:
+      '该导出模式下：为 Qonlang Study 另行设置课程、隐藏的内容、词的级别与作者录音，这些设置不会写入项目文件。',
+    back: '返回设置',
+    hint: '这里的设置只保存在本机，不会写入项目文件；导出时与项目一起打包成学习包。',
+    readOnly: '纯欣赏模式下无法导出学习包。',
+    loadFromPack: '从学习包读回设置',
+    export: '导出学习包…',
+    exported: '已导出学习包（{size}）',
+    loadedFromPack: '已读回学习包中的设置',
+    otherProject: '该学习包来自项目「{name}」，已保留能与当前项目对应的部分',
+    notAPack: '该文件不是学习包',
+    author: '作者署名',
+    languages: '导出的语言',
+    languagesHint:
+      '请勾选要放进学习包的语言；点击「编辑」即可设置该语言的封面、课程、隐藏的内容、级别、显示方式与录音。',
+    counts: '{lexemes} 个词条 · {sentences} 条例句 · {phrases} 条短语',
+    editLanguage: '编辑',
+    filter: '筛选',
+    tabs: {
+      cover: '封面',
+      lessons: '课程',
+      hidden: '隐藏',
+      levels: '级别',
+      display: '显示',
+      audio: '录音'
+    },
+    kinds: {
+      lexeme: '词条',
+      sentence: '例句',
+      phrase: '短语',
+      doc: '文档'
+    },
+    picker: {
+      search: '输入文字即可搜索，点击结果添加',
+      none: '没有符合条件的条目',
+      more: '还有 {n} 条，请输入更多文字缩小范围',
+      remove: '移出'
+    },
+    cover: {
+      title: '课程名称',
+      intro: '介绍',
+      introHint: '显示在学习软件中这门语言的首页，支持 Markdown。'
+    },
+    lessons: {
+      add: '新建一课',
+      fromDocs: '按文档生成',
+      hint: '每一课可以挂一篇文档作为课文，并指定本课的新词、例句与短语；拖动左侧的把手即可调整顺序。没有排进课程的内容仍会出现在学习软件的词库与复习里。',
+      lessonN: '第 {n} 课',
+      title: '本课标题',
+      remove: '删除这一课',
+      doc: '课文',
+      noDoc: '不挂文档',
+      words: '新词',
+      sentences: '例句',
+      phrases: '短语',
+      empty: '还没有课程。请点击「新建一课」，或点击「按文档生成」为每篇文档建一课。',
+      fromDocsNone: '没有可以生成课程的文档（已排进课程或已隐藏的文档不会重复生成）',
+      fromDocsDone: '已按文档生成 {n} 课'
+    },
+    hidden: {
+      placeholders: '勾选占位词条',
+      hint: '勾选的内容不会出现在学习软件里，例如草稿、占位符与不想公开的词。点击「勾选占位词条」即可一次勾选所有不含字母的词条。',
+      count: '已隐藏 {n} 条'
+    },
+    levels: {
+      hint: '学习软件按词频自动分级；如需把个别词固定到某一级，请在下方添加。',
+      add: '固定级别的词',
+      level: '第 {n} 级'
+    },
+    display: {
+      hint: '学习者打开时默认使用的写法，学习者仍可以自行切换。',
+      ortho: '正字法',
+      script: '文字',
+      scriptNone: '不显示文字',
+      ipa: '显示国际音标'
+    },
+    audio: {
+      onlyRecorded: '仅显示已录音的条目',
+      count: '已录 {n} 条',
+      batch: '批量导入录音',
+      hint: '学习软件优先播放作者录音，没有录音时朗读国际音标。批量导入时，文件名（不含扩展名）与词头、短语原文或例句原文相同即可自动对应。',
+      play: '播放',
+      stop: '停止',
+      record: '录音',
+      file: '选择音频文件',
+      remove: '删除录音',
+      noMic: '无法使用麦克风，请检查系统的麦克风权限',
+      batchDone: '已对应 {n} 个文件，{m} 个文件没有找到对应的条目'
+    }
+  },
   uiTranslate: {
     title: '界面翻译',
     pluginHint: '列出软件界面的全部文案供逐条翻译，完成后即可作为一种界面语言使用。',

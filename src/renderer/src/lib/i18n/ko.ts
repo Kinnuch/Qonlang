@@ -1,8 +1,3 @@
-/**
- * 한국어 文案。结构、键名、注释跟 zh.ts 一一对应（tests/core/i18n.test.ts 会核）。
- * zh.ts 新增条目后：`node scripts/i18n-values.mjs dump src/renderer/src/lib/i18n/ko.ts 旧.json`，
- * 再 `derive zh.ts 旧.json ko.ts` 补出结构，然后把留着中文的那几条译过来。
- */
 export default {
   app: {
     name: 'Qonlang',
@@ -63,6 +58,7 @@ export default {
     settings: '설정',
     skin: '테마',
     extending: '플러그인과 MCP',
+    studyExport: '학습 팩 내보내기',
     inspector: '인스펙터',
     home: '시작 페이지로 돌아가기 (현재 프로젝트를 닫습니다)',
     welcome: '시작',
@@ -2316,6 +2312,102 @@ export default {
     }
   },
   /** 界面翻译（自带插件）：把软件里的文案逐条翻成自己的语言 */
+  studyExport: {
+    title: '학습 팩 내보내기',
+    open: '학습 팩 내보내기',
+    openDesc:
+      '이 내보내기 방식에서는 Qonlang Study용 과, 숨길 항목, 단어 레벨, 작가 녹음을 따로 설정합니다. 이 설정은 프로젝트 파일에 기록되지 않습니다.',
+    back: '설정으로 돌아가기',
+    hint: '여기서 한 설정은 이 컴퓨터에만 저장되며 프로젝트 파일에는 기록되지 않습니다. 내보낼 때 프로젝트와 함께 학습 팩으로 묶입니다.',
+    readOnly: '읽기 전용 사본에서는 학습 팩을 내보낼 수 없습니다.',
+    loadFromPack: '학습 팩에서 설정 불러오기',
+    export: '학습 팩 내보내기…',
+    exported: '학습 팩을 내보냈습니다 ({size})',
+    loadedFromPack: '학습 팩의 설정을 불러왔습니다',
+    otherProject:
+      '이 학습 팩은 프로젝트 “{name}”에서 나왔습니다. 현재 프로젝트와 대응되는 부분만 남겼습니다',
+    notAPack: '이 파일은 학습 팩이 아닙니다',
+    author: '작가 이름',
+    languages: '내보낼 언어',
+    languagesHint:
+      '학습 팩에 넣을 언어를 체크하십시오. “편집”을 클릭하면 그 언어의 표지, 과, 숨길 항목, 레벨, 표시 방식, 녹음을 설정할 수 있습니다.',
+    counts: '표제어 {lexemes}개 · 예문 {sentences}개 · 구절 {phrases}개',
+    editLanguage: '편집',
+    filter: '필터',
+    tabs: {
+      cover: '표지',
+      lessons: '과',
+      hidden: '숨김',
+      levels: '레벨',
+      display: '표시',
+      audio: '녹음'
+    },
+    kinds: {
+      lexeme: '표제어',
+      sentence: '예문',
+      phrase: '구절',
+      doc: '문서'
+    },
+    picker: {
+      search: '입력하면 검색됩니다. 결과를 클릭하면 추가됩니다',
+      none: '조건에 맞는 항목이 없습니다',
+      more: '{n}개가 더 있습니다. 더 입력해 범위를 좁히십시오',
+      remove: '빼기'
+    },
+    cover: {
+      title: '과정 이름',
+      intro: '소개',
+      introHint: '학습 앱에서 이 언어의 첫 페이지에 표시됩니다. Markdown을 지원합니다.'
+    },
+    lessons: {
+      add: '과 추가',
+      fromDocs: '문서마다 생성',
+      hint: '각 과에 문서를 본문으로 붙이고 그 과의 새 단어, 예문, 구절을 지정할 수 있습니다. 왼쪽 손잡이를 끌면 순서를 바꿀 수 있습니다. 어느 과에도 들어가지 않은 항목도 학습 앱의 단어장과 복습에는 나타납니다.',
+      lessonN: '제 {n}과',
+      title: '과 제목',
+      remove: '이 과 삭제',
+      doc: '본문',
+      noDoc: '문서 없음',
+      words: '새 단어',
+      sentences: '예문',
+      phrases: '구절',
+      empty:
+        '아직 과가 없습니다. “과 추가”를 클릭하거나 “문서마다 생성”을 클릭해 문서마다 과를 하나씩 만드십시오.',
+      fromDocsNone:
+        '과로 만들 수 있는 문서가 없습니다 (이미 과에 들어갔거나 숨긴 문서는 다시 만들지 않습니다)',
+      fromDocsDone: '문서로 {n}개 과를 만들었습니다'
+    },
+    hidden: {
+      placeholders: '자리표시 표제어 체크',
+      hint: '체크한 항목은 학습 앱에 나타나지 않습니다(초안, 자리표시, 공개하고 싶지 않은 단어 등). “자리표시 표제어 체크”를 클릭하면 글자가 없는 표제어를 한 번에 모두 체크합니다.',
+      count: '{n}개 숨김'
+    },
+    levels: {
+      hint: '학습 앱은 단어 빈도에 따라 자동으로 레벨을 나눕니다. 특정 단어의 레벨을 고정하려면 아래에서 추가하십시오.',
+      add: '레벨을 고정할 단어',
+      level: '{n}레벨'
+    },
+    display: {
+      hint: '학습자가 열었을 때의 기본 표기입니다. 학습자가 직접 바꿀 수도 있습니다.',
+      ortho: '정서법',
+      script: '문자',
+      scriptNone: '문자 표시 안 함',
+      ipa: 'IPA 표시'
+    },
+    audio: {
+      onlyRecorded: '녹음된 항목만 표시',
+      count: '{n}개 녹음됨',
+      batch: '녹음 일괄 가져오기',
+      hint: '학습 앱은 작가 녹음을 먼저 재생하고, 녹음이 없으면 IPA를 읽어 줍니다. 일괄로 가져올 때 파일 이름(확장자 제외)이 표제어, 구절 원문, 예문 원문과 같으면 자동으로 대응됩니다.',
+      play: '재생',
+      stop: '정지',
+      record: '녹음',
+      file: '오디오 파일 선택',
+      remove: '녹음 삭제',
+      noMic: '마이크를 사용할 수 없습니다. 시스템의 마이크 권한을 확인하십시오',
+      batchDone: '파일 {n}개를 대응시켰고, {m}개는 대응하는 항목을 찾지 못했습니다'
+    }
+  },
   uiTranslate: {
     title: '인터페이스 번역',
     pluginHint: '화면의 문구를 하나씩 나열해 번역하고, 완성한 것을 인터페이스 언어로 씁니다.',

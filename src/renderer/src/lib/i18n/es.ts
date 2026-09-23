@@ -1,8 +1,3 @@
-/**
- * Español 文案。结构、键名、注释跟 zh.ts 一一对应（tests/core/i18n.test.ts 会核）。
- * zh.ts 新增条目后：`node scripts/i18n-values.mjs dump src/renderer/src/lib/i18n/es.ts 旧.json`，
- * 再 `derive zh.ts 旧.json es.ts` 补出结构，然后把留着中文的那几条译过来。
- */
 export default {
   app: {
     name: 'Qonlang',
@@ -63,6 +58,7 @@ export default {
     settings: 'Configuración',
     skin: 'Apariencia',
     extending: 'Complementos y MCP',
+    studyExport: 'Exportar un paquete de estudio',
     inspector: 'Inspector',
     home: 'Volver a la página de inicio (cierra el proyecto actual)',
     welcome: 'Inicio',
@@ -2378,6 +2374,103 @@ export default {
     }
   },
   /** 界面翻译（自带插件）：把软件里的文案逐条翻成自己的语言 */
+  studyExport: {
+    title: 'Exportar un paquete de estudio',
+    open: 'Exportar un paquete de estudio',
+    openDesc:
+      'En este modo de exportación: configure aparte, para Qonlang Study, las lecciones, los elementos ocultos, el nivel de las palabras y sus propias grabaciones; nada de esto se escribe en el archivo del proyecto.',
+    back: 'Volver a Ajustes',
+    hint: 'Estos ajustes se guardan solo en este equipo, nunca en el archivo del proyecto; al exportar se empaquetan con el proyecto en un paquete de estudio.',
+    readOnly: 'No se puede exportar un paquete de estudio desde una copia de solo lectura.',
+    loadFromPack: 'Cargar ajustes desde un paquete de estudio',
+    export: 'Exportar paquete de estudio…',
+    exported: 'Paquete de estudio exportado ({size})',
+    loadedFromPack: 'Ajustes cargados desde el paquete de estudio',
+    otherProject:
+      'Este paquete de estudio procede del proyecto «{name}»; se han conservado las partes que coinciden con el proyecto actual',
+    notAPack: 'Este archivo no es un paquete de estudio',
+    author: 'Autoría',
+    languages: 'Idiomas que exportar',
+    languagesHint:
+      'Marque los idiomas que irán en el paquete; haga clic en «Editar» para configurar la portada, las lecciones, los elementos ocultos, los niveles, la visualización y las grabaciones de ese idioma.',
+    counts: '{lexemes} entradas · {sentences} oraciones · {phrases} frases',
+    editLanguage: 'Editar',
+    filter: 'Filtrar',
+    tabs: {
+      cover: 'Portada',
+      lessons: 'Lecciones',
+      hidden: 'Ocultos',
+      levels: 'Niveles',
+      display: 'Visualización',
+      audio: 'Grabaciones'
+    },
+    kinds: {
+      lexeme: 'Entradas',
+      sentence: 'Oraciones',
+      phrase: 'Frases',
+      doc: 'Documentos'
+    },
+    picker: {
+      search: 'Escriba para buscar y haga clic en un resultado para añadirlo',
+      none: 'No hay coincidencias',
+      more: '{n} más; escriba más para acotar',
+      remove: 'Quitar'
+    },
+    cover: {
+      title: 'Nombre del curso',
+      intro: 'Presentación',
+      introHint:
+        'Se muestra en la página de inicio de este idioma en la aplicación de estudio. Admite Markdown.'
+    },
+    lessons: {
+      add: 'Nueva lección',
+      fromDocs: 'Una lección por documento',
+      hint: 'Cada lección puede usar un documento como texto e indicar sus palabras nuevas, oraciones y frases; arrastre el asa de la izquierda para cambiar el orden. Los elementos que no estén en ninguna lección siguen apareciendo en el vocabulario y los repasos de la aplicación de estudio.',
+      lessonN: 'Lección {n}',
+      title: 'Título de la lección',
+      remove: 'Eliminar esta lección',
+      doc: 'Texto',
+      noDoc: 'Sin documento',
+      words: 'Palabras nuevas',
+      sentences: 'Oraciones',
+      phrases: 'Frases',
+      empty:
+        'Aún no hay lecciones. Haga clic en «Nueva lección», o en «Una lección por documento» para crear una lección por cada documento.',
+      fromDocsNone:
+        'No quedan documentos para convertir en lecciones (se omiten los que ya están en una lección o están ocultos)',
+      fromDocsDone: 'Se crearon {n} lecciones a partir de los documentos'
+    },
+    hidden: {
+      placeholders: 'Marcar las entradas provisionales',
+      hint: 'Los elementos marcados nunca aparecen en la aplicación de estudio: borradores, entradas provisionales, palabras que prefiere no mostrar. «Marcar las entradas provisionales» marca de una vez todas las entradas que no contienen letras.',
+      count: '{n} ocultos'
+    },
+    levels: {
+      hint: 'La aplicación de estudio asigna niveles según la frecuencia; añada abajo una palabra para fijarla en el nivel que elija.',
+      add: 'Palabras con nivel fijo',
+      level: 'Nivel {n}'
+    },
+    display: {
+      hint: 'Lo que ven los alumnos por defecto; pueden cambiarlo ellos mismos.',
+      ortho: 'Ortografía',
+      script: 'Escritura',
+      scriptNone: 'Sin escritura',
+      ipa: 'Mostrar AFI'
+    },
+    audio: {
+      onlyRecorded: 'Solo los elementos grabados',
+      count: '{n} grabados',
+      batch: 'Importar grabaciones en lote',
+      hint: 'La aplicación de estudio reproduce primero su grabación y, si no hay, lee el AFI en voz alta. Al importar en lote, un archivo se asocia cuando su nombre (sin la extensión) coincide con una entrada, una frase o una oración.',
+      play: 'Reproducir',
+      stop: 'Detener',
+      record: 'Grabar',
+      file: 'Elegir un archivo de audio',
+      remove: 'Eliminar la grabación',
+      noMic: 'El micrófono no está disponible; revise el permiso del micrófono en el sistema',
+      batchDone: '{n} archivos asociados, {m} archivos sin elemento correspondiente'
+    }
+  },
   uiTranslate: {
     title: 'Traducción de la interfaz',
     pluginHint:

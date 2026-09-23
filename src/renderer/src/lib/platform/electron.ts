@@ -160,6 +160,13 @@ export const electronPlatform: PlatformAPI = {
     await bridge().invoke('snapshot:save', content)
   },
 
+  async loadStudySettings(projectId) {
+    return (await bridge().invoke('study:load', projectId)) as string | null
+  },
+  async saveStudySettings(projectId, content) {
+    await bridge().invoke('study:save', projectId, content)
+  },
+
   setDirty(dirty) {
     void bridge().invoke('app:setDirty', dirty)
   },

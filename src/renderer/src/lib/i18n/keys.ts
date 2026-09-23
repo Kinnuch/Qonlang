@@ -58,6 +58,7 @@ const GROUP_OF: Record<string, string> = {
   mcp: 'extending',
   plugins: 'extending',
   csv: 'io',
+  studyExport: 'io',
   projectCsv: 'io',
   importPreview: 'io',
   dict: 'io',
