@@ -21,6 +21,7 @@
   import type { Id, LocalizedText, Project, Sentence, Token } from '$lib/core/model'
   import { analyzeToken, buildIndex, tokenize, type GlossIndex } from '$lib/engine/gloss'
   import { piecesOf } from '$lib/engine/gloss/candidates'
+  import { tokensMatchText } from '$lib/engine/gloss/tokens'
   import { createSentence } from '$lib/core/factory'
   import { WordResolver } from '$lib/engine/gloss/resolve'
   import { collectEvidence } from '$lib/engine/gloss/candidates'
@@ -325,11 +326,27 @@
     s.id = p.phraseId
     s.text = p.text
     s.translation = p.translations ?? {}
-    s.tokens = tokenize(p.text, {
+    const opts = {
       mode: settings.tokenizer,
       pattern: settings.tokenizerPattern,
       letters: idx.wordChars + (settings.tokenizerLetters ?? '')
-    }).map((w) => ({
+    }
+    // 短语在项目里「改」过就存着自己的分析（0.12.1 起）：原文没动过就照它来，跟短语页看到的一样；
+    // 原来这里每次都从原文重新自动分析，项目里指定过的词条到了开始页又变回自动认的那个
+    const own = src.project.phrasebook.find((x) => x.id === p.phraseId)?.tokens
+    if (
+      own?.length &&
+      tokensMatchText(
+        p.text,
+        own.map((t) => t.surface),
+        opts
+      )
+    ) {
+      s.tokens = own
+      src.phrases.set(p.phraseId, s)
+      return s
+    }
+    s.tokens = tokenize(p.text, opts).map((w) => ({
       surface: w,
       analyses: analyzeToken(idx, w, settings.morphemeBoundaries, hint),
       chosen: 0,
@@ -393,9 +410,20 @@
             ? slide.languageId
             : null
     const lang = lid ? src.project.languages.find((l) => l.id === lid) : null
-    // 项目名跟语言名一样（一个项目就一门语言时常见）就只写一个
-    return lang?.name && lang.name !== name ? `${name} · ${lang.name}` : name
+    // 项目名跟语言名一样（一个项目就一门语言时常见）就只写一个；
+    // 只差空格、竖线、中点这些的也算一样（「海岛诺连语 | Sma Nóriendi」与「海岛诺连语 Sma Nóriendi」）
+    const bare = (x: string): string =>
+      x
+        .normalize('NFC')
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, '')
+    const same =
+      !!lang?.name && (bare(lang.name).includes(bare(name)) || bare(name).includes(bare(lang.name)))
+    return lang?.name && !same ? `${name} · ${lang.name}` : name
   })
+
+  /** 落款的宽度：只有最后一行（跟落款在同一高度）让出这么宽，上面几行照样用满 */
+  let fromW = $state(0)
 
   onDestroy(() => wordHover.hide(true))
 </script>
@@ -433,7 +461,7 @@
             >{slide.kind === 'image' ? t('welcome.dailyWord') : t('welcome.dailySentence')}</span
           >
         </div>
-        <div class="content">
+        <div class="content" style:--from-room={`${Math.max(0, fromW - 22)}px`}>
           {#if slide.kind === 'sentence' || slide.kind === 'phrase'}
             {@const sen = slide.kind === 'sentence' ? slide.sentence : phraseSentence(src, slide)}
             {@const inCorpus = slide.kind === 'sentence'}
@@ -475,7 +503,7 @@
             <span class="sub">{slide.kind === 'image' ? slide.gloss : slide.translation}</span>
           {/if}
         </div>
-        <span class="from">{fromText}</span>
+        <span class="from" bind:offsetWidth={fromW}>{fromText}</span>
       </div>
     {/key}
     {#if slides.length > 1}
@@ -561,8 +589,13 @@
     gap: 3px;
     min-width: 0;
     margin-top: 10px;
-    /* 右边留给落款 */
-    padding-inline-end: 96px;
+  }
+  /*
+   * 落款贴在右下角，跟最后一行（译文，没有译文就是原文）在同一高度：只有这一行让出落款的宽度，
+   * 让多少按落款实际多宽算（原来所有行固定留 96px，项目名、语言名一长还是压上去）
+   */
+  .content > :last-child {
+    padding-inline-end: var(--from-room, 0px);
   }
   .main {
     font-size: 18px;
@@ -592,7 +625,8 @@
     z-index: 1;
     right: 20px;
     bottom: 10px;
-    max-width: 40%;
+    /* 落款再长也只占这么宽（多的省略），译文才是主角 */
+    max-width: 34%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
