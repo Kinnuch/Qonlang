@@ -35,7 +35,7 @@
   import { isWordMode, type DeckDim, type DeckGroup, type DeckModel } from '$lib/engine/attach'
   import { t } from '$lib/i18n/index.svelte'
   import HelpDot from './HelpDot.svelte'
-  import { X } from '@lucide/svelte'
+  import { X, ChevronDown, ChevronUp } from '@lucide/svelte'
 
   let {
     model,
@@ -45,6 +45,7 @@
     kind,
     posId = null,
     posOptions = [],
+    expanded = $bindable(true),
     caret = 32,
     hue,
     act
@@ -59,6 +60,8 @@
     posId?: string | null
     /** 手打的词能挑的词类 */
     posOptions?: { id: string; name: string }[]
+    /** 展开着（收起时只留最上面一行：词类、词、释义） */
+    expanded?: boolean
     /** 小三角指着上面哪个词（离卡片左边多远） */
     caret?: number
     /** 每一组的色相（见 hueTable） */
@@ -87,7 +90,12 @@
   const pieceId = (id: string): string => id.replace(/:2$/, '')
 </script>
 
-<section class="deck" style="--caret:{caret}px" aria-label={t('bench.deckTitle')}>
+<section
+  class="deck"
+  class:folded={!expanded}
+  style="--caret:{caret}px"
+  aria-label={t('bench.deckTitle')}
+>
   <div class="row wrap head">
     {#if kind === 'free' && posOptions.length}
       <!-- 手打的词：挑它算作哪个词类，就按那个词类的构形推、按它找能搭的 -->
@@ -107,198 +115,211 @@
     <span class="data lemma">{title}</span>
     {#if gloss}<span class="small muted">{gloss}</span>{/if}
     <HelpDot tip={t('bench.deckHelp')} />
+    <div class="grow"></div>
+    <!-- 收起 / 展开：收起时只留这一行，换词、离开再回来都记着 -->
+    <button
+      class="btn ghost xs fold"
+      aria-expanded={expanded}
+      onclick={() => (expanded = !expanded)}
+      >{#if expanded}<ChevronUp size={14} />{t('common.collapse')}{:else}<ChevronDown
+          size={14}
+        />{t('common.expand')}{/if}</button
+    >
   </div>
 
-  <!-- 拼出来的样子：各段按组上色、下面写 gloss；附加的几段可以拖着换先后，点 × 去掉 -->
-  <div class="strip" role="list" title={t('bench.stripHint')}>
-    {#each model.built.parts as p (p.id)}
-      {@const piece = p.id !== 'core'}
-      <span
-        class="seg"
-        class:core={!piece}
-        class:dragging={dragging === pieceId(p.id)}
-        style="--h:{hue(p.groupId)}"
-        role="listitem"
-        draggable={piece}
-        ondragstart={(e) => {
-          if (!piece) return
-          dragging = pieceId(p.id)
-          e.dataTransfer?.setData('text/x-qonlang-piece', pieceId(p.id))
-        }}
-        ondragend={() => (dragging = null)}
-        ondragover={(e) => {
-          if (piece && dragging && dragging !== pieceId(p.id)) e.preventDefault()
-        }}
-        ondrop={(e) => {
-          e.preventDefault()
-          if (dragging && piece) act.reorder(dragging, pieceId(p.id))
-          dragging = null
-        }}
-      >
-        <span class="data f">{p.form}</span>
-        <span class="g">{p.gloss || ' '}</span>
-        {#if piece}
-          <button
-            class="x"
-            title={t('bench.removePiece')}
-            onclick={() => act.removePiece(pieceId(p.id))}><X size={10} /></button
-          >
-        {/if}
-      </span>
-    {/each}
-    {#if model.built.missing}<span class="small warn">{t('bench.missing')}</span>{/if}
-  </div>
-
-  {#if kind === 'morpheme'}
-    <p class="small muted">{t('bench.morphemeHint')}</p>
-    <button class="btn sm" onclick={act.attachPrev}>{t('bench.attachPrev')}</button>
-  {:else if kind === 'free'}
-    <p class="small muted">{t('bench.freeHint')}</p>
-  {/if}
-
-  {#snippet lane(d: DeckDim, pick: (dimId: string, valueId: string) => void)}
-    <div class="lane">
-      <span class="lane-name" style="--h:{hue(d.groupId)}">{d.name}</span>
-      <div class="pills">
-        {#each d.values as v (v.id)}
-          <button
-            class="pill"
-            class:on={v.selected}
-            style="--h:{hue(d.groupId)}"
-            disabled={!v.form}
-            aria-pressed={v.selected}
-            title={v.form ? `${v.name} → ${v.form}` : `${v.name}：${t('bench.missing')}`}
-            onclick={() => pick(d.id, v.id)}
-          >
-            <span class="abbr">{v.abbr || v.name}</span>
-            <span class="data fm">{v.form ?? '—'}</span>
-          </button>
-        {/each}
-      </div>
-    </div>
-  {/snippet}
-
-  {#each model.own as o (o.key)}
-    <div class="sec">
-      <div class="row sec-head">
-        <span class="sec-title">{t('bench.own', { name: o.name })}</span>
-        {#if o.active}<button class="btn ghost xs" onclick={act.clearOwn}
-            >{t('bench.useBase')}</button
-          >{/if}
-      </div>
-      {#each o.dims as d (d.id)}
-        {@render lane(d, (dimId, valueId) => act.pickOwn(o.key, dimId, valueId))}
-      {/each}
-    </div>
-  {/each}
-
-  {#each model.companions as c (c.key)}
-    <div class="sec">
-      <div class="row wrap sec-head">
-        <span class="sec-title"
-          >{c.name === c.posName
-            ? t('bench.companionPos', { pos: c.posName })
-            : t('bench.companion', { pos: c.posName, name: c.name })}</span
+  {#if expanded}
+    <!-- 拼出来的样子：各段按组上色、下面写 gloss；附加的几段可以拖着换先后，点 × 去掉 -->
+    <div class="strip" role="list" title={t('bench.stripHint')}>
+      {#each model.built.parts as p (p.id)}
+        {@const piece = p.id !== 'core'}
+        <span
+          class="seg"
+          class:core={!piece}
+          class:dragging={dragging === pieceId(p.id)}
+          style="--h:{hue(p.groupId)}"
+          role="listitem"
+          draggable={piece}
+          ondragstart={(e) => {
+            if (!piece) return
+            dragging = pieceId(p.id)
+            e.dataTransfer?.setData('text/x-qonlang-piece', pieceId(p.id))
+          }}
+          ondragend={() => (dragging = null)}
+          ondragover={(e) => {
+            if (piece && dragging && dragging !== pieceId(p.id)) e.preventDefault()
+          }}
+          ondrop={(e) => {
+            e.preventDefault()
+            if (dragging && piece) act.reorder(dragging, pieceId(p.id))
+            dragging = null
+          }}
         >
-        {#if c.lexemes.length > 1}
-          <select
-            class="select xs"
-            value={c.lexemeId}
-            title={t('bench.companionWord')}
-            onchange={(e) => act.companionWord(c.key, (e.currentTarget as HTMLSelectElement).value)}
-          >
-            {#each c.lexemes as l (l.id)}<option value={l.id}>{l.lemma}</option>{/each}
-          </select>
-        {/if}
-        {#if c.active}<button class="btn ghost xs" onclick={() => act.clearCompanion(c.key)}
-            >{t('bench.companionOff')}</button
-          >{/if}
-      </div>
-      {#each c.dims as d (d.id)}
-        {@render lane(d, (dimId, valueId) => act.pickCompanion(c.key, dimId, valueId))}
-      {/each}
-    </div>
-  {/each}
-
-  <!-- 一组一行：先摆出 shown 个（有根据的；全是猜的就摆几个），其余点「+N」展开；挑中的总摆着 -->
-  {#snippet markerLane(g: DeckGroup)}
-    {@const open = opened.has(g.id) || g.shown >= g.markers.length}
-    {@const hidden = g.markers.length - g.shown}
-    <div class="lane">
-      <span class="lane-name" style="--h:{hue(g.id)}">{groupLabel(g)}</span>
-      <div class="pills">
-        {#each g.markers as m, i (m.key)}
-          {#if open || i < g.shown || m.selected}
+          <span class="data f">{p.form}</span>
+          <span class="g">{p.gloss || ' '}</span>
+          {#if piece}
             <button
-              class="pill mk"
-              class:on={m.selected}
-              class:word={isWordMode(m.mode)}
-              class:weak={m.weak}
-              style="--h:{hue(g.id)}"
-              aria-pressed={m.selected}
-              title={`${modeLabel(m.mode)} · ${t('bench.becomes', { form: m.preview })}${m.weak ? ' · ' + t('bench.guess') : ''}`}
-              onclick={() => act.toggle(m.key, m.mode)}
+              class="x"
+              title={t('bench.removePiece')}
+              onclick={() => act.removePiece(pieceId(p.id))}><X size={10} /></button
             >
-              <span class="data fm">{m.form}</span>
-              <span class="gl">{m.gloss}</span>
-            </button>
           {/if}
-        {/each}
-        {#if hidden > 0}
-          <button
-            class="more"
-            aria-expanded={opened.has(g.id)}
-            title={opened.has(g.id) ? t('bench.less') : t('bench.moreTitle', { n: hidden })}
-            onclick={() => toggleOpen(g.id)}
-            >{opened.has(g.id) ? t('bench.less') : t('bench.more', { n: hidden })}</button
-          >
-        {/if}
-      </div>
+        </span>
+      {/each}
+      {#if model.built.missing}<span class="small warn">{t('bench.missing')}</span>{/if}
     </div>
-  {/snippet}
 
-  {#if model.groups.length}
-    <div class="sec">
-      <div class="sec-head"><span class="sec-title">{t('bench.attach')}</span></div>
-      {#each model.groups as g (g.id)}{@render markerLane(g)}{/each}
-    </div>
-  {/if}
-  {#if othersCount}
-    <details class="sec others">
-      <summary class="small muted">{t('bench.others', { n: othersCount })}</summary>
-      {#each model.others as g (g.id)}{@render markerLane(g)}{/each}
-    </details>
-  {/if}
+    {#if kind === 'morpheme'}
+      <p class="small muted">{t('bench.morphemeHint')}</p>
+      <button class="btn sm" onclick={act.attachPrev}>{t('bench.attachPrev')}</button>
+    {:else if kind === 'free'}
+      <p class="small muted">{t('bench.freeHint')}</p>
+    {/if}
 
-  {#each model.mutations as mu (mu.paradigmId)}
-    <div class="sec">
+    {#snippet lane(d: DeckDim, pick: (dimId: string, valueId: string) => void)}
       <div class="lane">
-        <span class="lane-name">{t('bench.mutation', { name: mu.name })}</span>
+        <span class="lane-name" style="--h:{hue(d.groupId)}">{d.name}</span>
         <div class="pills">
-          <button
-            class="pill"
-            class:on={!mu.slots.some((s) => s.selected)}
-            onclick={() => act.mutation(mu.paradigmId, null)}
-          >
-            <span class="abbr">{t('bench.none')}</span>
-            <span class="data fm">{mu.base}</span>
-          </button>
-          {#each mu.slots as s (s.key)}
+          {#each d.values as v (v.id)}
             <button
               class="pill"
-              class:on={s.selected}
-              aria-pressed={s.selected}
-              title={`${s.name} → ${s.form}`}
-              onclick={() => act.mutation(mu.paradigmId, s.selected ? null : s.key)}
+              class:on={v.selected}
+              style="--h:{hue(d.groupId)}"
+              disabled={!v.form}
+              aria-pressed={v.selected}
+              title={v.form ? `${v.name} → ${v.form}` : `${v.name}：${t('bench.missing')}`}
+              onclick={() => pick(d.id, v.id)}
             >
-              <span class="abbr">{s.abbr || s.name}</span>
-              <span class="data fm">{s.form}</span>
+              <span class="abbr">{v.abbr || v.name}</span>
+              <span class="data fm">{v.form ?? '—'}</span>
             </button>
           {/each}
         </div>
       </div>
-    </div>
-  {/each}
+    {/snippet}
+
+    {#each model.own as o (o.key)}
+      <div class="sec">
+        <div class="row sec-head">
+          <span class="sec-title">{t('bench.own', { name: o.name })}</span>
+          {#if o.active}<button class="btn ghost xs" onclick={act.clearOwn}
+              >{t('bench.useBase')}</button
+            >{/if}
+        </div>
+        {#each o.dims as d (d.id)}
+          {@render lane(d, (dimId, valueId) => act.pickOwn(o.key, dimId, valueId))}
+        {/each}
+      </div>
+    {/each}
+
+    {#each model.companions as c (c.key)}
+      <div class="sec">
+        <div class="row wrap sec-head">
+          <span class="sec-title"
+            >{c.name === c.posName
+              ? t('bench.companionPos', { pos: c.posName })
+              : t('bench.companion', { pos: c.posName, name: c.name })}</span
+          >
+          {#if c.lexemes.length > 1}
+            <select
+              class="select xs"
+              value={c.lexemeId}
+              title={t('bench.companionWord')}
+              onchange={(e) =>
+                act.companionWord(c.key, (e.currentTarget as HTMLSelectElement).value)}
+            >
+              {#each c.lexemes as l (l.id)}<option value={l.id}>{l.lemma}</option>{/each}
+            </select>
+          {/if}
+          {#if c.active}<button class="btn ghost xs" onclick={() => act.clearCompanion(c.key)}
+              >{t('bench.companionOff')}</button
+            >{/if}
+        </div>
+        {#each c.dims as d (d.id)}
+          {@render lane(d, (dimId, valueId) => act.pickCompanion(c.key, dimId, valueId))}
+        {/each}
+      </div>
+    {/each}
+
+    <!-- 一组一行：先摆出 shown 个（有根据的；全是猜的就摆几个），其余点「+N」展开；挑中的总摆着 -->
+    {#snippet markerLane(g: DeckGroup)}
+      {@const open = opened.has(g.id) || g.shown >= g.markers.length}
+      {@const hidden = g.markers.length - g.shown}
+      <div class="lane">
+        <span class="lane-name" style="--h:{hue(g.id)}">{groupLabel(g)}</span>
+        <div class="pills">
+          {#each g.markers as m, i (m.key)}
+            {#if open || i < g.shown || m.selected}
+              <button
+                class="pill mk"
+                class:on={m.selected}
+                class:word={isWordMode(m.mode)}
+                class:weak={m.weak}
+                style="--h:{hue(g.id)}"
+                aria-pressed={m.selected}
+                title={`${modeLabel(m.mode)} · ${t('bench.becomes', { form: m.preview })}${m.weak ? ' · ' + t('bench.guess') : ''}`}
+                onclick={() => act.toggle(m.key, m.mode)}
+              >
+                <span class="data fm">{m.form}</span>
+                <span class="gl">{m.gloss}</span>
+              </button>
+            {/if}
+          {/each}
+          {#if hidden > 0}
+            <button
+              class="more"
+              aria-expanded={opened.has(g.id)}
+              title={opened.has(g.id) ? t('bench.less') : t('bench.moreTitle', { n: hidden })}
+              onclick={() => toggleOpen(g.id)}
+              >{opened.has(g.id) ? t('bench.less') : t('bench.more', { n: hidden })}</button
+            >
+          {/if}
+        </div>
+      </div>
+    {/snippet}
+
+    {#if model.groups.length}
+      <div class="sec">
+        <div class="sec-head"><span class="sec-title">{t('bench.attach')}</span></div>
+        {#each model.groups as g (g.id)}{@render markerLane(g)}{/each}
+      </div>
+    {/if}
+    {#if othersCount}
+      <details class="sec others">
+        <summary class="small muted">{t('bench.others', { n: othersCount })}</summary>
+        {#each model.others as g (g.id)}{@render markerLane(g)}{/each}
+      </details>
+    {/if}
+
+    {#each model.mutations as mu (mu.paradigmId)}
+      <div class="sec">
+        <div class="lane">
+          <span class="lane-name">{t('bench.mutation', { name: mu.name })}</span>
+          <div class="pills">
+            <button
+              class="pill"
+              class:on={!mu.slots.some((s) => s.selected)}
+              onclick={() => act.mutation(mu.paradigmId, null)}
+            >
+              <span class="abbr">{t('bench.none')}</span>
+              <span class="data fm">{mu.base}</span>
+            </button>
+            {#each mu.slots as s (s.key)}
+              <button
+                class="pill"
+                class:on={s.selected}
+                aria-pressed={s.selected}
+                title={`${s.name} → ${s.form}`}
+                onclick={() => act.mutation(mu.paradigmId, s.selected ? null : s.key)}
+              >
+                <span class="abbr">{s.abbr || s.name}</span>
+                <span class="data fm">{s.form}</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+      </div>
+    {/each}
+  {/if}
 </section>
 
 <style>
@@ -313,6 +334,14 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+  }
+  /* 收起时只剩最上面一行 */
+  .deck.folded {
+    padding-block: 8px;
+  }
+  .fold {
+    gap: 4px;
+    align-self: center;
   }
   .deck::before {
     content: '';

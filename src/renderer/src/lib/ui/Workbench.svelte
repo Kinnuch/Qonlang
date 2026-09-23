@@ -30,6 +30,8 @@
     words: BenchWord[]
     free: string
     selectedId: string | null
+    /** 附着台收起了没有 */
+    deckOpen?: boolean
   }
 </script>
 
@@ -113,8 +115,16 @@
   let free = $state(start?.free ?? '')
   /** 正在编辑的词（附着台给它摆） */
   let selectedId = $state<string | null>(start?.selectedId ?? null)
+  /** 附着台展开着（收起后换词、离开再回来都还收着） */
+  let deckOpen = $state(start?.deckOpen ?? true)
   $effect(() => {
-    const s: BenchSaved = { translation, words: $state.snapshot(words), free, selectedId }
+    const s: BenchSaved = {
+      translation,
+      words: $state.snapshot(words),
+      free,
+      selectedId,
+      deckOpen
+    }
     untrack(() => onsave?.(s))
   })
 
@@ -592,6 +602,7 @@
         kind={deckKind}
         posId={selected.posId ?? null}
         {posOptions}
+        bind:expanded={deckOpen}
         {caret}
         {hue}
         {act}
