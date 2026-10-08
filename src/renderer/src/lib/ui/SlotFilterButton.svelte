@@ -49,15 +49,18 @@
   ])
 
   const W = 340
+  /** 贴着漏斗放在下面；页面滚动、窗口缩放时跟着挪 */
+  function place(): void {
+    if (!btn) return
+    const r = btn.getBoundingClientRect()
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8))
+    const top = r.bottom + 4
+    panelStyle = `left:${left}px;top:${top}px;width:${W}px;max-height:${Math.max(160, window.innerHeight - top - 12)}px`
+  }
   function toggle(e: MouseEvent): void {
     e.stopPropagation()
     open = !open
-    if (open && btn) {
-      const r = btn.getBoundingClientRect()
-      const left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8))
-      const top = r.bottom + 4
-      panelStyle = `left:${left}px;top:${top}px;width:${W}px;max-height:${Math.max(160, window.innerHeight - top - 12)}px`
-    }
+    if (open) place()
   }
   const valueName = (d: SlotFilterDim, id: string): { name: string; abbr: string } => {
     const v = d.category.values.find((x) => x.id === id)
@@ -80,11 +83,17 @@
     const key = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') open = false
     }
+    // 滚动不收起：筛完列表变短时滚动区会自己往回滚一下，收起的话点着点着面板就没了
+    const follow = (): void => place()
     window.addEventListener('pointerdown', down, true)
     window.addEventListener('keydown', key)
+    window.addEventListener('scroll', follow, true)
+    window.addEventListener('resize', follow)
     return () => {
       window.removeEventListener('pointerdown', down, true)
       window.removeEventListener('keydown', key)
+      window.removeEventListener('scroll', follow, true)
+      window.removeEventListener('resize', follow)
     }
   })
 </script>
