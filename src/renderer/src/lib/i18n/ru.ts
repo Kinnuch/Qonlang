@@ -1,3 +1,8 @@
+/**
+ * Русский 文案。结构、键名、注释跟 zh.ts 一一对应（tests/core/i18n.test.ts 会核）。
+ * zh.ts 新增条目后：`node scripts/i18n-values.mjs dump src/renderer/src/lib/i18n/ru.ts 旧.json`，
+ * 再 `derive zh.ts 旧.json ru.ts` 补出结构，然后把留着中文的那几条译过来。
+ */
 export default {
   app: {
     name: 'Qonlang',
@@ -1982,6 +1987,19 @@ export default {
     batchDisable: 'Отключить все отфильтрованные',
     batchEnabled: 'Включено слотов: {n}',
     batchDisabled: 'Отключено слотов: {n}',
+    slotFilter: {
+      button: 'Фильтр слотов',
+      hint: 'Если в одной категории выбрано несколько значений, достаточно совпадения с любым; условия из разных категорий должны выполняться все.',
+      state: 'Состояние',
+      all: 'Все',
+      on: 'Включённые',
+      off: 'Отключённые',
+      shown: 'Показано слотов: {n} из {total}',
+      enableShown: 'Включить эти ({n})',
+      disableShown: 'Отключить эти ({n})',
+      none: 'Нет подходящих слотов.',
+      hidden: 'Этот слот скрыт фильтром слотов.'
+    },
     slotsExplain:
       'По одному значению каждой категории составляют слот ({dims}); без отключённых остаётся слотов: {n}. Один слот — одна создаваемая форма.',
     infixPresets: {

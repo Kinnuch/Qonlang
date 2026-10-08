@@ -49,6 +49,15 @@
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import SlotPipeline from '$lib/ui/SlotPipeline.svelte'
+  import SlotFilterButton from '$lib/ui/SlotFilterButton.svelte'
+  import {
+    NO_SLOT_FILTER,
+    pruneSlotFilter,
+    slotFilterActive,
+    slotFilterDims,
+    slotPasses,
+    type SlotFilter
+  } from '$lib/ui/slotFilter'
   import TabStrip from '$lib/ui/TabStrip.svelte'
   import { flashOn } from '$lib/ui/flash'
   let derivedFlash = $state(0)
@@ -126,6 +135,8 @@
     freeInput: string
     /** 上锁时按维度筛选要看哪些槽位（只影响显示，不进项目） */
     dimFilter: Id[]
+    /** 槽位表头漏斗里的筛选，每个构形各记各的 */
+    slotFilters: Record<Id, SlotFilter>
   }>('paradigms')
   let activeId = $state<Id | null>(memo.activeId ?? null)
   const active = $derived(
@@ -238,12 +249,39 @@
     const keys = new Set(slots.map((s) => s.key))
     const rest = active.disabledSlots.filter((k) => !keys.has(k))
     active.disabledSlots = on ? rest : [...rest, ...keys]
+    keepShown(keys)
     touch()
     ui.toast(t(on ? 'paradigms.batchEnabled' : 'paradigms.batchDisabled', { n: keys.size }))
   }
-  /** 顶栏搜索：按槽位名或 gloss 缩写筛（推导与检查仍然跑全部槽位） */
-  const slots = $derived.by(() => {
-    const shown = allSlots.filter(inFilter)
+  // ── 表头漏斗：按启用 / 停用、按维度的取值筛槽位 ──
+  let slotFilters = $state<Record<Id, SlotFilter>>(memo.slotFilters ?? {})
+  const filterDims = $derived(
+    active ? slotFilterDims(allSlots, active.dimensionIds, project.categories) : []
+  )
+  /** 删掉的维度、取值不再算进筛选 */
+  const slotFilter = $derived(
+    pruneSlotFilter((active && slotFilters[active.id]) || NO_SLOT_FILTER, filterDims)
+  )
+  function setSlotFilter(f: SlotFilter): void {
+    if (!active) return
+    slotFilters = { ...slotFilters, [active.id]: f }
+    kept = { id: null, keys: new Set() }
+  }
+  const disabledSet = $derived(new Set(active?.disabledSlots ?? []))
+  /**
+   * 只看启用的（或停用的）时，刚勾掉的行先留在列表里：不然一点就消失，下一行顶上来容易点错。
+   * 改了筛选、换了构形就不再留
+   */
+  let kept = $state<{ id: Id | null; keys: Set<string> }>({ id: null, keys: new Set() })
+  function keepShown(keys: Iterable<string>): void {
+    if (!active || slotFilter.state === 'all') return
+    const prev = kept.id === active.id ? kept.keys : []
+    kept = { id: active.id, keys: new Set([...prev, ...keys]) }
+  }
+  /** 顶栏搜索（按槽位名或 gloss 缩写）、上锁时的维度筛选、漏斗里点的取值都满足的格，还没按启用 / 停用筛 */
+  const slotsAnyState = $derived.by(() => {
+    const byValues = { ...slotFilter, state: 'all' as const }
+    const shown = allSlots.filter((s) => inFilter(s) && slotPasses(s, byValues, disabledSet))
     const pq = parseQuery(ui.search, SEARCH_FIELDS.paradigms)
     if (!pq.terms.length) return shown
     return shown.filter((s) =>
@@ -251,6 +289,19 @@
         f === 'slot' ? [s.label] : f === 'gloss' ? [s.abbr] : [s.label, s.abbr]
       )
     )
+  })
+  /** 列表里显示的槽位（推导与检查仍然跑全部槽位） */
+  const slots = $derived.by(() => {
+    if (slotFilter.state === 'all') return slotsAnyState
+    const want = slotFilter.state === 'off'
+    const keep = kept.id === active?.id ? kept.keys : null
+    return slotsAnyState.filter((s) => disabledSet.has(s.key) === want || !!keep?.has(s.key))
+  })
+  /** 「去掉停用的还剩几个」按全部槽位算，不跟着搜索、筛选变 */
+  const enabledCount = $derived(allSlots.filter((s) => !disabledSet.has(s.key)).length)
+  const stateCounts = $derived.by(() => {
+    const off = slotsAnyState.filter((s) => disabledSet.has(s.key)).length
+    return { all: slotsAnyState.length, on: slotsAnyState.length - off, off }
   })
   const boundPos = $derived(
     active ? project.posList.filter((p) => ownParadigmIds(p).includes(active.id)) : []
@@ -574,7 +625,19 @@
   async function openSlot(key: string): Promise<void> {
     const idx = slots.findIndex((s) => s.key === key)
     if (idx < 0) {
-      ui.toast(t('paradigms.slotHidden'))
+      const s = slotByKey.get(key)
+      // 被漏斗筛掉的：提示里给一个「清空筛选」，清完接着跳过去
+      if (s && !slotPasses(s, slotFilter, disabledSet))
+        ui.toast(t('paradigms.slotFilter.hidden'), {
+          action: {
+            label: t('paradigms.clearFilter'),
+            run: () => {
+              setSlotFilter(NO_SLOT_FILTER)
+              void tick().then(() => openSlot(key))
+            }
+          }
+        })
+      else ui.toast(t('paradigms.slotHidden'))
       return
     }
     if (sectionCollapsed(foldId(key))) setSectionsCollapsed([foldId(key)], false)
@@ -619,7 +682,8 @@
       editVariantId,
       layout,
       benchMode,
-      freeInput
+      freeInput,
+      slotFilters
     })
   })
   // 槽位多的时候分批画（维度一多就是几百行）
@@ -759,6 +823,7 @@
     const i = active.disabledSlots.indexOf(key)
     if (i >= 0) active.disabledSlots.splice(i, 1)
     else active.disabledSlots.push(key)
+    keepShown([key])
     touch()
   }
   /** 生成器下拉里的四项：无 / 查表 / 组合 / 组合 + 影响发音 */
@@ -1163,10 +1228,10 @@
             )}</button
           >
         </div>
-        <p class="small muted" class:warn-text={slots.length > SLOT_WARN}>
+        <p class="small muted" class:warn-text={allSlots.length > SLOT_WARN}>
           {locked
             ? t('paradigms.lockedExplain', { n: slots.length, total: allSlots.length })
-            : t('paradigms.slotsExplain', { n: slots.length, dims: dimSizes })}
+            : t('paradigms.slotsExplain', { n: enabledCount, dims: dimSizes })}
         </p>
         <div class="dims">
           {#each active.dimensionIds as id, i (id)}
@@ -1241,9 +1306,16 @@
       <section class="block" data-tour="paradigms-slots">
         <div class="row slots-head">
           <h3 class="grow">
-            {t('paradigms.slots')} <span class="badge">{slots.length}</span>
+            {t('paradigms.slots')}
+            <span class="badge" class:accent={slots.length < allSlots.length}
+              >{slots.length < allSlots.length
+                ? `${slots.length} / ${allSlots.length}`
+                : slots.length}</span
+            >
             <HelpDot tip={t('paradigms.affixHint')} />
           </h3>
+          <!-- 表格、树形图没有勾选框那一列：漏斗放到这一行 -->
+          {#if layout !== 'visual' && allSlots.length}{@render funnel()}{/if}
           {#if layout === 'visual' && slots.length > 1}
             <button
               class="btn ghost sm fold-all"
@@ -1385,7 +1457,19 @@
             {/each}
           </ul>
         {/snippet}
-        {#if slots.length === 0}
+        {#snippet funnel()}
+          <SlotFilterButton
+            dims={filterDims}
+            filter={slotFilter}
+            onchange={setSlotFilter}
+            counts={stateCounts}
+            shown={slots.length}
+            total={allSlots.length}
+            onbatch={setShownEnabled}
+            {glossLangs}
+          />
+        {/snippet}
+        {#if allSlots.length === 0}
           <p class="small muted">{t('paradigms.noSlots')}</p>
         {:else if layout !== 'visual'}
           <p class="small muted layout-note">
@@ -1452,15 +1536,31 @@
             </div>
           {/if}
         {:else}
-          <table class="tbl slots">
+          <table class="tbl slots" class:empty={!slots.length}>
             <thead
               ><tr
-                ><th></th><th>{t('paradigms.slot')}</th><th>{t('paradigms.generator')}</th><th
-                  colspan="2">{t('paradigms.pipeline')}</th
+                ><th class="lead"
+                  ><!-- 漏斗对着下面那一列勾选框（左边空出收起按钮的位置） --><span class="lead-in"
+                    ><span class="fold-gap"></span>{@render funnel()}</span
+                  ></th
+                ><th>{t('paradigms.slot')}</th><th>{t('paradigms.generator')}</th><th colspan="2"
+                  >{t('paradigms.pipeline')}</th
                 ></tr
               ></thead
             >
             <tbody>
+              {#if !slots.length}
+                <tr
+                  ><td colspan="5" class="none-row"
+                    ><span class="small muted">{t('paradigms.slotFilter.none')}</span
+                    >{#if slotFilterActive(slotFilter)}<button
+                        class="btn ghost sm"
+                        onclick={() => setSlotFilter(NO_SLOT_FILTER)}
+                        >{t('paradigms.clearFilter')}</button
+                      >{/if}</td
+                  ></tr
+                >
+              {/if}
               {#each slots.slice(0, lzSlots.shown) as s (s.key)}
                 {@const disabled = active.disabledSlots.includes(s.key)}
                 {@const g = active.generators[gkey(s.key)] ?? { kind: 'none' }}
@@ -2277,6 +2377,26 @@
   }
   .fold-btn:hover {
     color: var(--text);
+  }
+  /* 表头里收起按钮那一格空着，漏斗正对下面的勾选框 */
+  .fold-gap {
+    width: 17px;
+    flex: none;
+  }
+  .slots th.lead {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+  /* 一格都没筛出来时：前几列照内容收窄，不把表头摊满整行 */
+  .slots.empty th:not(:last-child) {
+    width: 1%;
+  }
+  .slots td.none-row {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .none-row .btn {
+    margin-inline-start: 8px;
   }
   /* 收起的一行：各格上下留得少，写法挤成一行，放不下的省略 */
   .slots tr.folded td {

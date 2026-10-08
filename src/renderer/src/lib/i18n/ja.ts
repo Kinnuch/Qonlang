@@ -1,3 +1,8 @@
+/**
+ * 日本語 文案。结构、键名、注释跟 zh.ts 一一对应（tests/core/i18n.test.ts 会核）。
+ * zh.ts 新增条目后：`node scripts/i18n-values.mjs dump src/renderer/src/lib/i18n/ja.ts 旧.json`，
+ * 再 `derive zh.ts 旧.json ja.ts` 补出结构，然后把留着中文的那几条译过来。
+ */
 export default {
   app: {
     name: '千語集',
@@ -1952,6 +1957,19 @@ export default {
     batchDisable: '絞り込んだものをすべて無効化',
     batchEnabled: '{n} 個のスロットを有効にしました',
     batchDisabled: '{n} 個のスロットを無効にしました',
+    slotFilter: {
+      button: 'スロットを絞り込む',
+      hint: '同じ文法範疇で複数の値を選んだときは、どれか一つに当てはまれば表示されます。異なる文法範疇の条件はすべて満たす必要があります。',
+      state: '状態',
+      all: 'すべて',
+      on: '有効',
+      off: '無効',
+      shown: '{total} 個中 {n} 個のスロットを表示',
+      enableShown: 'この {n} 個を有効化',
+      disableShown: 'この {n} 個を無効化',
+      none: '条件に合うスロットはありません。',
+      hidden: 'このスロットはスロットの絞り込みで非表示になっています。'
+    },
     slotsExplain:
       '各文法範疇から値を一つずつ取ってスロットを作ります（{dims}）。無効なものを除くと {n} 個残ります。一つのスロットが、生成する形一つに当たります。',
     infixPresets: {

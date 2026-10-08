@@ -1989,6 +1989,19 @@ const en: Dict = {
     batchDisable: 'Disable the filtered slots',
     batchEnabled: 'Enabled {n} slots',
     batchDisabled: 'Disabled {n} slots',
+    slotFilter: {
+      button: 'Filter slots',
+      hint: 'Pick several values in one dimension to match any of them; picks in different dimensions must all match.',
+      state: 'Status',
+      all: 'All',
+      on: 'Enabled',
+      off: 'Disabled',
+      shown: 'Showing {n} of {total} slots',
+      enableShown: 'Enable these {n}',
+      disableShown: 'Disable these {n}',
+      none: 'No slots match.',
+      hidden: 'This slot is hidden by the slot filter.'
+    },
     slotsExplain:
       'One value from each dimension makes a slot ({dims}); {n} remain once disabled ones are dropped. Each slot is one form to generate.',
     infixPresets: {

@@ -1903,6 +1903,19 @@ export default {
     batchDisable: '停用篩選出的全部槽位',
     batchEnabled: '已啟用 {n} 個槽位',
     batchDisabled: '已停用 {n} 個槽位',
+    slotFilter: {
+      button: '篩選槽位',
+      hint: '同一維度裡選了幾個取值時，滿足其中一個即可；不同維度要同時滿足。',
+      state: '狀態',
+      all: '全部',
+      on: '已啟用',
+      off: '已停用',
+      shown: '顯示 {n} / {total} 個槽位',
+      enableShown: '啟用這 {n} 個',
+      disableShown: '停用這 {n} 個',
+      none: '沒有符合條件的槽位。',
+      hidden: '該格被槽位篩選隱藏了。'
+    },
     slotsExplain:
       '每個維度各取一個值組合成一個槽位（{dims}），去掉停用的還剩 {n} 個；每個槽位對應一個需要生成的形式。',
     infixPresets: {

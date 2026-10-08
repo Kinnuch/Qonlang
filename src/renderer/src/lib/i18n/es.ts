@@ -1,3 +1,8 @@
+/**
+ * Español 文案。结构、键名、注释跟 zh.ts 一一对应（tests/core/i18n.test.ts 会核）。
+ * zh.ts 新增条目后：`node scripts/i18n-values.mjs dump src/renderer/src/lib/i18n/es.ts 旧.json`，
+ * 再 `derive zh.ts 旧.json es.ts` 补出结构，然后把留着中文的那几条译过来。
+ */
 export default {
   app: {
     name: 'Qonlang',
@@ -2008,6 +2013,19 @@ export default {
     batchDisable: 'Desactivar las filtradas',
     batchEnabled: 'Se han activado {n} ranuras',
     batchDisabled: 'Se han desactivado {n} ranuras',
+    slotFilter: {
+      button: 'Filtrar ranuras',
+      hint: 'Si elige varios valores de una misma categoría, basta con que se cumpla uno; los de categorías distintas deben cumplirse todos.',
+      state: 'Estado',
+      all: 'Todas',
+      on: 'Activadas',
+      off: 'Desactivadas',
+      shown: 'Se muestran {n} de {total} ranuras',
+      enableShown: 'Activar estas {n}',
+      disableShown: 'Desactivar estas {n}',
+      none: 'Ninguna ranura cumple las condiciones.',
+      hidden: 'El filtro de ranuras oculta esta ranura.'
+    },
     slotsExplain:
       'Un valor de cada categoría forma una ranura ({dims}); al descontar las desactivadas quedan {n}. Cada ranura es una forma que hay que generar.',
     infixPresets: {

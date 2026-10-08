@@ -1,3 +1,9 @@
+/**
+ * العربية 文案。结构、键名、注释跟 zh.ts 一一对应（tests/core/i18n.test.ts 会核）。
+ * zh.ts 新增条目后：`node scripts/i18n-values.mjs dump src/renderer/src/lib/i18n/ar.ts 旧.json`，
+ * 再 `derive zh.ts 旧.json ar.ts` 补出结构，然后把留着中文的那几条译过来。
+ * 阿拉伯语：只有文字本身从右往左（app.css 的 data-rtl-text），布局不翻；文案别以拉丁字母打头（整段会按从左往右排），也别加方向控制字符。
+ */
 export default {
   app: {
     name: 'Qonlang',
@@ -1957,6 +1963,19 @@ export default {
     batchDisable: 'تعطيل كل الخانات المصفّاة',
     batchEnabled: 'فُعّلت {n} خانة',
     batchDisabled: 'عُطّلت {n} خانة',
+    slotFilter: {
+      button: 'تصفية الخانات',
+      hint: 'إذا اخترت عدة قيم في المقولة نفسها فيكفي أن تطابق إحداها، أما الشروط من مقولات مختلفة فيجب أن تتحقق كلها.',
+      state: 'الحالة',
+      all: 'الكل',
+      on: 'المفعَّلة',
+      off: 'المعطَّلة',
+      shown: 'تُعرض {n} من {total} خانة',
+      enableShown: 'تفعيل هذه الخانات ({n})',
+      disableShown: 'تعطيل هذه الخانات ({n})',
+      none: 'لا توجد خانات مطابقة.',
+      hidden: 'هذه الخانة مخفية بتصفية الخانات.'
+    },
     slotsExplain:
       'تتكوّن الخانة من قيمة واحدة من كل مقولة ({dims})، ويبقى منها {n} بعد استبعاد المعطَّلة؛ وكل خانة صيغة واحدة تُولَّد.',
     infixPresets: {

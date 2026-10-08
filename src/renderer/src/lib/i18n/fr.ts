@@ -1,3 +1,8 @@
+/**
+ * Français 文案。结构、键名、注释跟 zh.ts 一一对应（tests/core/i18n.test.ts 会核）。
+ * zh.ts 新增条目后：`node scripts/i18n-values.mjs dump src/renderer/src/lib/i18n/fr.ts 旧.json`，
+ * 再 `derive zh.ts 旧.json fr.ts` 补出结构，然后把留着中文的那几条译过来。
+ */
 export default {
   app: {
     name: 'Qonlang',
@@ -2012,6 +2017,19 @@ export default {
     batchDisable: 'Désactiver tous les emplacements filtrés',
     batchEnabled: '{n} emplacements activés',
     batchDisabled: '{n} emplacements désactivés',
+    slotFilter: {
+      button: 'Filtrer les emplacements',
+      hint: 'Plusieurs valeurs choisies dans une même catégorie : il suffit que l’une corresponde. Les choix de catégories différentes doivent tous correspondre.',
+      state: 'État',
+      all: 'Tous',
+      on: 'Activés',
+      off: 'Désactivés',
+      shown: '{n} emplacements affichés sur {total}',
+      enableShown: 'Activer ces {n}',
+      disableShown: 'Désactiver ces {n}',
+      none: 'Aucun emplacement ne correspond.',
+      hidden: 'Cet emplacement est masqué par le filtre des emplacements.'
+    },
     slotsExplain:
       'Une valeur prise dans chaque catégorie forme un emplacement ({dims}) ; une fois les emplacements désactivés retirés, il en reste {n}. Un emplacement correspond à une forme à générer.',
     infixPresets: {

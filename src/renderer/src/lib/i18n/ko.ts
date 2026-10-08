@@ -1,3 +1,8 @@
+/**
+ * 한국어 文案。结构、键名、注释跟 zh.ts 一一对应（tests/core/i18n.test.ts 会核）。
+ * zh.ts 新增条目后：`node scripts/i18n-values.mjs dump src/renderer/src/lib/i18n/ko.ts 旧.json`，
+ * 再 `derive zh.ts 旧.json ko.ts` 补出结构，然后把留着中文的那几条译过来。
+ */
 export default {
   app: {
     name: 'Qonlang',
@@ -1960,6 +1965,19 @@ export default {
     batchDisable: '걸러진 슬롯 모두 끄기',
     batchEnabled: '슬롯 {n}개를 켰습니다',
     batchDisabled: '슬롯 {n}개를 껐습니다',
+    slotFilter: {
+      button: '슬롯 거르기',
+      hint: '한 차원에서 값을 여러 개 고르면 그중 하나만 맞아도 되고, 서로 다른 차원의 조건은 모두 맞아야 합니다.',
+      state: '상태',
+      all: '전체',
+      on: '켜짐',
+      off: '꺼짐',
+      shown: '슬롯 {total}개 중 {n}개 표시',
+      enableShown: '이 {n}개 켜기',
+      disableShown: '이 {n}개 끄기',
+      none: '조건에 맞는 슬롯이 없습니다.',
+      hidden: '이 칸은 슬롯 필터에 걸러졌습니다.'
+    },
     slotsExplain:
       '각 차원에서 값을 하나씩 골라 슬롯 하나를 만듭니다 ({dims}). 끈 것을 빼면 {n}개가 남습니다. 슬롯 하나가 만들어 낼 형태 하나입니다.',
     infixPresets: {

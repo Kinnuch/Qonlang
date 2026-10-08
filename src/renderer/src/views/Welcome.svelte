@@ -2,7 +2,10 @@
   import RuleSyntax from '$lib/ui/RuleSyntax.svelte'
   import appIconSvg from '../assets/brand/app-icon.svg?raw'
   import wordmarkZh from '../assets/brand/wordmark-zh.svg?raw'
+  import wordmarkZhHant from '../assets/brand/wordmark-zh-hant.svg?raw'
   import wordmarkEn from '../assets/brand/wordmark-en.svg?raw'
+  import wordmarkRu from '../assets/brand/wordmark-ru.svg?raw'
+  import wordmarkAr from '../assets/brand/wordmark-ar.svg?raw'
   import DailyGallery from '$lib/ui/DailyGallery.svelte'
   import RecentProjects from '$lib/ui/RecentProjects.svelte'
   import AppSettings from '$lib/ui/AppSettings.svelte'
@@ -127,8 +130,46 @@
     | 'settings'
     | null
   >('changelog')
+  /**
+   * 开始页的字标按界面语言挑：简体、繁体、俄文、阿拉伯文各有一版（设计稿给的），其余用 Qonlang。
+   * kind 决定高度（见 .wm-*）：各版字的大小看着要一样，带下伸的那几版整体高一些
+   */
+  const WORDMARKS: Record<string, { svg: string; kind: string }> = {
+    zh: { svg: wordmarkZh, kind: 'zh' },
+    'zh-Hant': { svg: wordmarkZhHant, kind: 'zh' },
+    ru: { svg: wordmarkRu, kind: 'ru' },
+    ar: { svg: wordmarkAr, kind: 'ar' }
+  }
+  const wordmark = $derived(WORDMARKS[i18n.locale] ?? { svg: wordmarkEn, kind: 'en' })
   /** 「新建项目」点开的起步模板下拉 */
   let pickTemplate = $state(false)
+  /**
+   * 鼠标移出下拉才收起，但不马上收：从按钮挪到列表、手稍微偏一点出了边，回来得及（按钮和列表中间那条缝
+   * 另有 CSS 垫着，见 .tpl-list::before）。点别处、按 Esc 立刻收
+   */
+  let newWrap = $state<HTMLDivElement | null>(null)
+  let leaveTimer: ReturnType<typeof setTimeout> | undefined
+  const keepTemplates = (): void => clearTimeout(leaveTimer)
+  const leaveTemplates = (): void => {
+    clearTimeout(leaveTimer)
+    leaveTimer = setTimeout(() => (pickTemplate = false), 300)
+  }
+  $effect(() => {
+    if (!pickTemplate) return
+    const onDown = (e: PointerEvent): void => {
+      if (newWrap && !newWrap.contains(e.target as Node)) pickTemplate = false
+    }
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') pickTemplate = false
+    }
+    window.addEventListener('pointerdown', onDown, true)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      clearTimeout(leaveTimer)
+      window.removeEventListener('pointerdown', onDown, true)
+      window.removeEventListener('keydown', onKey)
+    }
+  })
   const togglePanel = (p: typeof footerPanel): void => {
     footerPanel = footerPanel === p ? null : p
   }
@@ -305,11 +346,11 @@
         {:else if i18n.custom?.wordmarkText?.trim()}
           <h1 class="wordmark custom wm-text">{i18n.custom.wordmarkText}</h1>
         {:else}
-          <h1 class="wordmark" class:en={!i18n.locale.startsWith('zh')} aria-label={t('app.name')}>
-            {@html i18n.locale.startsWith('zh') ? wordmarkZh : wordmarkEn}
+          <h1 class="wordmark wm-{wordmark.kind}" aria-label={t('app.name')}>
+            {@html wordmark.svg}
           </h1>
         {/if}
-        <p class="muted small">{t('app.tagline')}</p>
+        <p class="muted small tagline">{t('app.tagline')}</p>
       </div>
     </div>
 
@@ -319,7 +360,9 @@
         class="new-wrap"
         data-tour="welcome-new"
         role="presentation"
-        onmouseleave={() => (pickTemplate = false)}
+        bind:this={newWrap}
+        onmouseenter={keepTemplates}
+        onmouseleave={leaveTemplates}
       >
         <button
           class="btn primary"
@@ -804,18 +847,31 @@
     height: 19px;
     width: auto;
   }
-  .wordmark.en :global(svg) {
+  .wordmark.wm-en :global(svg) {
     height: 27px;
   }
-  /* 英文字标（中文以外都用它）下面约三分之一是 g 的下伸。原来靠负边距把它塞进副标题的行距里，
-     可日文、韩文、俄文、阿拉伯文这些字的上沿比拉丁字母高，副标题就顶到字标上了；
+  /* 俄文、阿拉伯文跟英文同一个比例（设计稿里字的大小一样），各自带的下伸不同，整体高度不同 */
+  .wordmark.wm-ru :global(svg) {
+    height: 24px;
+  }
+  .wordmark.wm-ar :global(svg) {
+    height: 27px;
+  }
+  /* 英文字标下面约三分之一是 g 的下伸（俄文是 К 的尾巴，阿拉伯文是字母往下拐的那一笔）。原来靠负边距
+     把它塞进副标题的行距里，可日文、韩文、俄文、阿拉伯文这些字的上沿比拉丁字母高，副标题就顶到字标上了；
      现在留 2px，各种文字下面看着的空当都跟中文那版差不多 */
-  .wordmark.en {
+  .wordmark.wm-en,
+  .wordmark.wm-ru,
+  .wordmark.wm-ar {
     margin-bottom: 2px;
   }
   /* 换成自己的字标：图按字标的高度缩放，文字用这门语言的字体（--font-ui-locale）写 */
   .wordmark.custom {
     margin-bottom: 4px;
+  }
+  /* 副标题长的语言（俄文）折成两行时两行差不多长，不剩一个词孤零零在第二行 */
+  .tagline {
+    text-wrap: balance;
   }
   .wm-img {
     display: block;
@@ -935,6 +991,15 @@
     padding: 4px;
     gap: 2px;
     box-shadow: var(--shadow-lg);
+  }
+  /* 按钮和列表之间那 4px 缝：垫一块看不见的，鼠标从按钮挪下来不算移出 */
+  .tpl-list::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 6px;
   }
   .tpl-row {
     display: flex;
