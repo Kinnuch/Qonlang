@@ -5,6 +5,7 @@
  */
 import type { OpenResult, PlatformAPI, Prefs, RecentEntry, SaveTarget } from './types'
 import { DEFAULT_PREFS } from './types'
+import { pickLocale } from '$lib/i18n/systemLocale'
 
 const DB_NAME = 'qianyuji'
 const STORE = 'kv'
@@ -391,7 +392,13 @@ export const webPlatform: PlatformAPI = {
   },
 
   async getPrefs() {
-    return { ...DEFAULT_PREFS, ...lsGet<Partial<Prefs>>(LS_PREFS, {}) }
+    const saved = lsGet<Partial<Prefs>>(LS_PREFS, {})
+    // 第一次打开跟着浏览器的语言走
+    return {
+      ...DEFAULT_PREFS,
+      locale: saved.locale ?? pickLocale(navigator.languages ?? []),
+      ...saved
+    }
   },
   async setPrefs(p) {
     lsSet(LS_PREFS, p)
@@ -416,6 +423,9 @@ export const webPlatform: PlatformAPI = {
   },
   setReadOnly() {
     // 网页版没有开发者工具可关
+  },
+  setNativeText() {
+    // 网页版没有原生菜单
   },
   onSaveAndClose(cb) {
     saveAndCloseCb = cb

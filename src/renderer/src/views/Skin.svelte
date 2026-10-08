@@ -69,7 +69,7 @@
 
   const skin = $derived(ui.prefs.skin)
   const theme = $derived(ui.resolvedTheme)
-  const zh = $derived(i18n.locale === 'zh')
+  const zh = $derived(i18n.locale.startsWith('zh'))
   const SLOTS: FontSlot[] = ['ui', 'data', 'mono', 'corpusText', 'corpusTr', 'gloss', 'script']
   /** 顶栏搜索：字体按名称、说明、标签筛 */
   const fontQuery = $derived(parseQuery(ui.search, SEARCH_FIELDS.skin))

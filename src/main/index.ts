@@ -13,6 +13,7 @@ import {
 } from 'electron'
 import { join, basename, dirname } from 'path'
 import { startMcpServer, type McpServerHandle, type McpTool } from './mcp'
+import { nativeLabel, pickLocale } from './locale'
 import {
   promises as fs,
   accessSync,
@@ -40,13 +41,17 @@ import {
 } from './windowState'
 import {
   installerCandidates,
+  isPrerelease,
   macBundleMovable,
   macBundlePath,
   macReplaceScript,
   newerThan,
+  newestVersion,
+  notesForLocale,
   parseLatestYml,
   pickInstaller,
   versionFromReleaseUrl,
+  versionsFromReleaseFeed,
   type Installer,
   type InstallerTarget,
   type ReleaseAsset
@@ -122,11 +127,87 @@ interface RecentEntry {
   openedAt: string
 }
 
+/**
+ * 已经有一个千语集开着时，这个进程就是「后开的」：照样能用，开头提醒一句（两个窗口改同一个项目会互相覆盖），
+ * 崩溃快照也另写一个文件，不跟先开的那个抢。锁跟着数据目录走，验收用的隔离实例互不相干
+ */
+const isPrimary = app.requestSingleInstanceLock()
+
 const userData = (): string => app.getPath('userData')
 const prefsFile = (): string => join(userData(), 'prefs.json')
 const windowFile = (): string => join(userData(), 'window.json')
 const recentFile = (): string => join(userData(), 'recent.json')
-const snapshotFile = (): string => join(userData(), 'snapshot.laim.json')
+/** 先开的用 snapshot.laim.json；后开的各用各的 snapshot-<进程号>.laim.json */
+const snapshotFile = (): string =>
+  join(userData(), isPrimary ? 'snapshot.laim.json' : `snapshot-${process.pid}.laim.json`)
+const ORPHAN_SNAPSHOT = /^snapshot-(\d+)\.laim\.json$/
+
+/** 这个进程还在不在（后开的千语集崩了，它留下的快照才能接手） */
+function processAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
+
+/**
+ * 启动时找崩溃快照：只有先开的那个会接手。自己的没有时，看看后开的千语集有没有崩了留下的
+ * （进程已经不在），挑最新的那份改名成自己的，之后照常恢复或丢弃
+ */
+async function loadSnapshot(): Promise<string | null> {
+  if (!isPrimary) return null
+  try {
+    return await fs.readFile(snapshotFile(), 'utf8')
+  } catch {
+    // 自己没有，往下找别人留下的
+  }
+  const orphans: { file: string; mtime: number }[] = []
+  for (const f of await fs.readdir(userData()).catch(() => [] as string[])) {
+    const m = ORPHAN_SNAPSHOT.exec(f)
+    if (!m || processAlive(Number(m[1]))) continue
+    const st = await fs.stat(join(userData(), f)).catch(() => null)
+    if (st) orphans.push({ file: join(userData(), f), mtime: st.mtimeMs })
+  }
+  orphans.sort((a, b) => b.mtime - a.mtime)
+  if (!orphans.length) return null
+  try {
+    await fs.rename(orphans[0].file, snapshotFile())
+    return await fs.readFile(snapshotFile(), 'utf8')
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 每个打开、保存过的项目文件那一刻的样子（修改时间、大小、内容摘要）。保存前对一下：
+ * 对不上说明在别处被改过（另一个千语集窗口、网盘同步……），先不写，让界面问用户
+ */
+const fileStamps = new Map<string, { mtimeMs: number; size: number; hash: string }>()
+const contentHash = (content: string): string => createHash('sha1').update(content).digest('hex')
+
+async function rememberStamp(path: string, content: string): Promise<void> {
+  const st = await fs.stat(path).catch(() => null)
+  if (st) fileStamps.set(path, { mtimeMs: st.mtimeMs, size: st.size, hash: contentHash(content) })
+}
+
+/** 文件在上次打开或保存之后有没有被别处改过：修改时间、大小都没变就算没改；变了再比内容（只是碰了一下不算） */
+async function changedElsewhere(path: string): Promise<boolean> {
+  const known = fileStamps.get(path)
+  if (!known) return false
+  const st = await fs.stat(path).catch(() => null)
+  // 文件不见了（挪走、删掉）：照常写，等于重新存一份
+  if (!st) return false
+  if (st.mtimeMs === known.mtimeMs && st.size === known.size) return false
+  const now = await fs.readFile(path, 'utf8').catch(() => null)
+  if (now === null) return false
+  if (contentHash(now) === known.hash) {
+    fileStamps.set(path, { ...known, mtimeMs: st.mtimeMs, size: st.size })
+    return false
+  }
+  return true
+}
 const backupsDir = (): string => join(userData(), 'Backups')
 const fontsDir = (): string => join(userData(), 'fonts')
 /** 插件目录：一个插件一个子目录，里面 plugin.json + 入口 js */
@@ -251,8 +332,8 @@ export interface UpdateCheck {
 
 const REPO_URL = 'https://github.com/Kinnuch/Qonlang'
 
-/** 上一次问到的 Release 与它的 ETag：没变时 GitHub 回 304（注意：不登录时 304 也照扣匿名额度） */
-let releaseCache: { etag: string; info: UpdateInfo } | null = null
+/** 上一次问到的 Release 与它的 ETag（按问的是哪一个分开记）：没变时 GitHub 回 304（注意：不登录时 304 也照扣匿名额度） */
+const releaseCache = new Map<string, { etag: string; info: UpdateInfo }>()
 /** 接口被限流了：到 GitHub 说的恢复时间之前不再问 */
 let apiBlockedUntil = 0
 /** 最近一次查到的新版本（下载时按里面的校验值核对） */
@@ -269,35 +350,37 @@ function installerTarget(): InstallerTarget {
 }
 
 /**
- * 问 GitHub 接口最新的 Release（带安装包的校验值与更新说明）。
+ * 问 GitHub 接口某个 Release（带安装包的校验值与更新说明）：which 是 'latest'（最新的正式版）
+ * 或 'tags/v1.0.0-beta.2' 这样指名一个版本。
  * 离线、出错给 null；被限流（403 / 429）时记下恢复时间，沿用上一次问到的
  */
-function fetchLatestRelease(): Promise<{ info: UpdateInfo | null; limited?: boolean }> {
+function fetchRelease(which = 'latest'): Promise<{ info: UpdateInfo | null; limited?: boolean }> {
+  const cached = releaseCache.get(which)
   if (Date.now() < apiBlockedUntil)
-    return Promise.resolve({ info: releaseCache?.info ?? null, limited: true })
+    return Promise.resolve({ info: cached?.info ?? null, limited: true })
   return new Promise((resolve) => {
     const req = net.request({
-      url: 'https://api.github.com/repos/Kinnuch/Qonlang/releases/latest',
+      url: `https://api.github.com/repos/Kinnuch/Qonlang/releases/${which}`,
       redirect: 'follow'
     })
     req.setHeader('User-Agent', 'Qonlang')
     req.setHeader('Accept', 'application/vnd.github+json')
-    if (releaseCache) req.setHeader('If-None-Match', releaseCache.etag)
+    if (cached) req.setHeader('If-None-Match', cached.etag)
     const timer = setTimeout(() => {
       req.abort()
       resolve({ info: null })
     }, 8000)
     req.on('response', (res) => {
-      if (res.statusCode === 304 && releaseCache) {
+      if (res.statusCode === 304 && cached) {
         clearTimeout(timer)
-        return resolve({ info: releaseCache.info })
+        return resolve({ info: cached.info })
       }
       if (res.statusCode !== 200) {
         clearTimeout(timer)
         if (res.statusCode === 403 || res.statusCode === 429) {
           const reset = Number([res.headers['x-ratelimit-reset']].flat()[0] ?? 0)
           apiBlockedUntil = reset > 0 ? reset * 1000 : Date.now() + 3600_000
-          return resolve({ info: releaseCache?.info ?? null, limited: true })
+          return resolve({ info: cached?.info ?? null, limited: true })
         }
         return resolve({ info: null })
       }
@@ -317,12 +400,13 @@ function fetchLatestRelease(): Promise<{ info: UpdateInfo | null; limited?: bool
           const info: UpdateInfo = {
             version,
             url: j.html_url ?? `${REPO_URL}/releases`,
-            notes: (j.body ?? '').slice(0, 1200),
+            // 中英两段都留着，回给界面前按界面语言挑一段（notesForLocale）
+            notes: (j.body ?? '').slice(0, 8000),
             installer: pickInstaller(j.assets ?? [], installerTarget())
           }
           const etag = res.headers['etag']
           const tag = Array.isArray(etag) ? etag[0] : etag
-          if (tag) releaseCache = { etag: String(tag), info }
+          if (tag) releaseCache.set(which, { etag: String(tag), info })
           resolve({ info })
         } catch {
           resolve({ info: null })
@@ -420,13 +504,24 @@ async function releaseByConvention(version: string): Promise<UpdateInfo> {
 /**
  * 检查更新：先问 github.com/…/releases/latest 跳到哪个版本（不占接口额度）；
  * 比当前新才问一次接口拿校验值与说明，接口被限流或连不上就按命名规则找安装包。
- * 跳转也拿不到时退回问接口；都不行就给出失败原因
+ * 跳转也拿不到时退回问接口；都不行就给出失败原因。
+ * 正在用测试版（1.0.0-beta.1 这类）时连测试版一起看：releases/latest 只指向正式版，改问 Release 的 Atom 订阅
  */
 async function checkUpdate(): Promise<UpdateCheck> {
+  const r = await (isPrerelease(app.getVersion()) ? checkWithPrereleases() : checkStable())
+  if (!r.info) return r
+  const prefs = await getPrefs()
+  return {
+    ...r,
+    info: { ...r.info, notes: notesForLocale(r.info.notes, prefs.locale).slice(0, 1500) }
+  }
+}
+
+async function checkStable(): Promise<UpdateCheck> {
   const head = await probe(`${REPO_URL}/releases/latest`)
   let latest = head.location ? versionFromReleaseUrl(head.location) : null
   if (!latest) {
-    const api = await fetchLatestRelease()
+    const api = await fetchRelease()
     if (!api.info)
       return {
         status: 'failed',
@@ -442,12 +537,25 @@ async function checkUpdate(): Promise<UpdateCheck> {
     lastInfo = api.info
     return { status: 'newer', latest, info: api.info }
   }
+  return releaseInfo(latest, 'latest')
+}
+
+/** 测试版：Atom 订阅里列着最近的 Release（含测试版），挑最新的；订阅拿不到时退回只看正式版 */
+async function checkWithPrereleases(): Promise<UpdateCheck> {
+  const xml = await fetchText(`${REPO_URL}/releases.atom`)
+  const latest = xml ? newestVersion(versionsFromReleaseFeed(xml)) : null
+  if (!latest) return checkStable()
+  return releaseInfo(latest, `tags/v${latest}`)
+}
+
+/** 已经知道最新的版本号：不比当前新就说是最新的；新的话问接口拿校验值与说明，问不到按命名规则找安装包 */
+async function releaseInfo(latest: string, which: string): Promise<UpdateCheck> {
   if (!newerThan(latest, app.getVersion())) return { status: 'latest', latest }
   if (lastInfo?.version === latest && lastInfo.installer)
     return { status: 'newer', latest, info: lastInfo }
-  const api = await fetchLatestRelease()
+  const api = await fetchRelease(which)
   let info = api.info?.version === latest ? api.info : null
-  // 接口没问到，或者那时 Release 上还没有本机的包（两个平台的包先后传）：按命名规则再找一遍
+  // 接口没问到，或者那时 Release 上还没有本机的包（几个平台的包先后传）：按命名规则再找一遍
   if (!info?.installer) {
     const byName = await releaseByConvention(latest)
     if (byName.installer || !info) info = { ...byName, notes: info?.notes ?? '' }
@@ -683,8 +791,21 @@ async function installUpdate(
   return { ok: true, manual: true }
 }
 
+/** 界面语言：原生菜单、对话框没收到界面发来的文字时，按它用中文或英文兜底 */
+let uiLocale = 'zh'
+/** 界面按当前语言发来的原生文字（菜单、右键菜单、关窗对话框） */
+let nativeText: Record<string, string> = {}
+const N = (key: string): string => nativeLabel(nativeText, uiLocale, key)
+
+/** 第一次启动（还没存过设置）时的界面语言：跟着系统语言走 */
+const firstRunLocale = (): string =>
+  pickLocale([...app.getPreferredSystemLanguages(), app.getLocale()])
+
 async function getPrefs(): Promise<Prefs> {
-  return { ...DEFAULT_PREFS, ...(await readJson<Partial<Prefs>>(prefsFile(), {})) }
+  const saved = await readJson<Partial<Prefs>>(prefsFile(), {})
+  const prefs = { ...DEFAULT_PREFS, locale: saved.locale ?? firstRunLocale(), ...saved }
+  uiLocale = prefs.locale
+  return prefs
 }
 
 /** 原子写入：先写临时文件再改名 */
@@ -719,23 +840,6 @@ let readOnlyOpen = false
 let forceClose = false
 let mainWindow: BrowserWindow | null = null
 let winStateTimer: ReturnType<typeof setTimeout> | null = null
-
-const dialogText = {
-  zh: {
-    title: '有未保存的改动',
-    body: '要在关闭前保存吗？',
-    save: '保存并关闭',
-    discard: '不保存',
-    cancel: '取消'
-  },
-  en: {
-    title: 'Unsaved changes',
-    body: 'Save before closing?',
-    save: 'Save and close',
-    discard: "Don't save",
-    cancel: 'Cancel'
-  }
-}
 
 /** 上次关窗时的大小与位置；头一次启动或者文件坏了给 null，按屏幕算默认值 */
 function readWindowState(): WindowState | null {
@@ -840,13 +944,11 @@ function createWindow(): void {
     if (!dirty || forceClose) return
     e.preventDefault()
     void (async () => {
-      const prefs = await getPrefs()
-      const tx = dialogText[prefs.locale.startsWith('zh') ? 'zh' : 'en']
       const r = await dialog.showMessageBox(mainWindow!, {
         type: 'question',
-        title: tx.title,
-        message: tx.body,
-        buttons: [tx.save, tx.discard, tx.cancel],
+        title: N('closeTitle'),
+        message: N('closeBody'),
+        buttons: [N('closeSave'), N('closeDiscard'), N('closeCancel')],
         defaultId: 0,
         cancelId: 2,
         noLink: true
@@ -867,60 +969,39 @@ function createWindow(): void {
   mainWindow.webContents.on('context-menu', (_e, params) => {
     void (async () => {
       const prefs = await getPrefs()
-      const zh = prefs.locale.startsWith('zh')
-      const L = (z: string, e: string): string => (zh ? z : e)
       const send = (a: string) => () => mainWindow?.webContents.send('menu', a)
       const items: MenuItemConstructorOptions[] = []
       if (params.isEditable) {
         items.push(
-          { role: 'undo', label: L('撤销输入', 'Undo typing'), enabled: params.editFlags.canUndo },
-          { role: 'redo', label: L('重做输入', 'Redo typing'), enabled: params.editFlags.canRedo },
+          { role: 'undo', label: N('undoTyping'), enabled: params.editFlags.canUndo },
+          { role: 'redo', label: N('redoTyping'), enabled: params.editFlags.canRedo },
           { type: 'separator' },
-          { role: 'cut', label: L('剪切', 'Cut'), enabled: params.editFlags.canCut },
-          { role: 'copy', label: L('复制', 'Copy'), enabled: params.editFlags.canCopy },
-          { role: 'paste', label: L('粘贴', 'Paste'), enabled: params.editFlags.canPaste },
-          { role: 'selectAll', label: L('全选', 'Select all') },
+          { role: 'cut', label: N('cut'), enabled: params.editFlags.canCut },
+          { role: 'copy', label: N('copy'), enabled: params.editFlags.canCopy },
+          { role: 'paste', label: N('paste'), enabled: params.editFlags.canPaste },
+          { role: 'selectAll', label: N('selectAll') },
           { type: 'separator' }
         )
       } else if (params.selectionText) {
-        items.push({ role: 'copy', label: L('复制', 'Copy') }, { type: 'separator' })
+        items.push({ role: 'copy', label: N('copy') }, { type: 'separator' })
       }
       if (params.linkURL) {
         items.push(
-          { label: L('复制链接', 'Copy link'), click: () => clipboard.writeText(params.linkURL) },
+          { label: N('copyLink'), click: () => clipboard.writeText(params.linkURL) },
           { type: 'separator' }
         )
       }
       items.push(
-        {
-          label: L('撤销上一步改动', 'Undo last change'),
-          accelerator: 'CmdOrCtrl+Z',
-          click: send('undo')
-        },
-        { label: L('重做', 'Redo'), accelerator: 'CmdOrCtrl+Y', click: send('redo') },
-        { label: L('返回上一页', 'Back'), accelerator: 'Alt+Left', click: send('back') },
+        { label: N('undoChange'), accelerator: 'CmdOrCtrl+Z', click: send('undo') },
+        { label: N('redo'), accelerator: 'CmdOrCtrl+Y', click: send('redo') },
+        { label: N('back'), accelerator: 'Alt+Left', click: send('back') },
         { type: 'separator' },
-        {
-          label: L('命令面板', 'Command palette'),
-          accelerator: 'CmdOrCtrl+K',
-          click: send('palette')
-        },
-        {
-          label: L('字符面板', 'Character panel'),
-          accelerator: 'CmdOrCtrl+I',
-          click: send('chars')
-        },
-        { label: L('保存', 'Save'), accelerator: 'CmdOrCtrl+S', click: send('save') },
-        {
-          label: L('另存为…', 'Save as…'),
-          accelerator: 'CmdOrCtrl+Shift+S',
-          click: send('saveAs')
-        },
+        { label: N('palette'), accelerator: 'CmdOrCtrl+K', click: send('palette') },
+        { label: N('chars'), accelerator: 'CmdOrCtrl+I', click: send('chars') },
+        { label: N('save'), accelerator: 'CmdOrCtrl+S', click: send('save') },
+        { label: N('saveAs'), accelerator: 'CmdOrCtrl+Shift+S', click: send('saveAs') },
         { type: 'separator' },
-        {
-          label: L('使用指南', 'User guide'),
-          click: () => void shell.openExternal(guideUrlFor(prefs.locale))
-        }
+        { label: N('guide'), click: () => void shell.openExternal(guideUrlFor(prefs.locale)) }
       )
       Menu.buildFromTemplate(items).popup({ window: mainWindow! })
     })()
@@ -943,10 +1024,19 @@ function registerIpc(): void {
     version: app.getVersion(),
     platform: 'electron',
     userDataPath: userData(),
-    initialSection: process.env['QIANYUJI_SECTION'] ?? null
+    initialSection: process.env['QIANYUJI_SECTION'] ?? null,
+    secondInstance: !isPrimary,
+    home: app.getPath('home'),
+    os: `${process.platform} ${process.getSystemVersion()} ${process.arch}`,
+    electron: process.versions.electron
   }))
   ipcMain.handle('app:setDirty', (_e, d: boolean) => {
     dirty = d
+  })
+  ipcMain.handle('app:setNativeText', (_e, locale: string, text: Record<string, string>) => {
+    uiLocale = locale
+    nativeText = text ?? {}
+    buildMenu()
   })
   ipcMain.handle('app:setReadOnly', (_e, on: boolean) => {
     readOnlyOpen = on
@@ -968,12 +1058,16 @@ function registerIpc(): void {
     })
     if (r.canceled || !r.filePaths[0]) return null
     const path = r.filePaths[0]
-    return { path, content: await fs.readFile(path, 'utf8') }
+    const content = await fs.readFile(path, 'utf8')
+    await rememberStamp(path, content)
+    return { path, content }
   })
 
   ipcMain.handle('project:read', async (_e, path: string) => {
     try {
-      return { content: await fs.readFile(path, 'utf8') }
+      const content = await fs.readFile(path, 'utf8')
+      await rememberStamp(path, content)
+      return { content }
     } catch {
       return null
     }
@@ -987,9 +1081,13 @@ function registerIpc(): void {
     return r.canceled || !r.filePath ? null : r.filePath
   })
 
-  ipcMain.handle('project:write', async (_e, path: string, content: string) => {
+  /** 写项目文件。force 不给时先看文件在别处改过没有，改过就不写、回 conflict，让界面问用户 */
+  ipcMain.handle('project:write', async (_e, path: string, content: string, force?: boolean) => {
+    if (!force && (await changedElsewhere(path))) return { conflict: true }
     await backup(path)
     await atomicWrite(path, content)
+    await rememberStamp(path, content)
+    return { ok: true }
   })
 
   ipcMain.handle('project:exportFolder', async (_e, files: Record<string, string>) => {
@@ -1205,7 +1303,7 @@ function registerIpc(): void {
 
   ipcMain.handle('snapshot:load', async () => {
     try {
-      return await fs.readFile(snapshotFile(), 'utf8')
+      return await loadSnapshot()
     } catch {
       return null
     }
@@ -1244,78 +1342,88 @@ function buildMenu(): void {
     tpl.push({
       label: app.name,
       submenu: [
-        { role: 'about', label: '关于千语集 / About Qonlang' },
+        { role: 'about', label: N('menuAbout') },
         { type: 'separator' },
-        { role: 'services' },
+        { role: 'services', label: N('services') },
         { type: 'separator' },
-        { role: 'hide' },
-        { role: 'hideOthers' },
-        { role: 'unhide' },
+        { role: 'hide', label: N('hide') },
+        { role: 'hideOthers', label: N('hideOthers') },
+        { role: 'unhide', label: N('unhide') },
         { type: 'separator' },
-        { role: 'quit' }
+        { role: 'quit', label: N('quit') }
       ]
     })
   }
   tpl.push(
     {
-      label: '文件 / File',
+      label: N('menuFile'),
       submenu: [
         {
-          label: '保存 / Save',
+          label: N('save'),
           accelerator: 'CmdOrCtrl+S',
           click: () => mainWindow?.webContents.send('menu', 'save')
         },
         {
-          label: '另存为 / Save As…',
+          label: N('saveAs'),
           accelerator: 'CmdOrCtrl+Shift+S',
           click: () => mainWindow?.webContents.send('menu', 'saveAs')
         },
         {
-          label: '打开 / Open…',
+          label: N('open'),
           accelerator: 'CmdOrCtrl+O',
           click: () => mainWindow?.webContents.send('menu', 'open')
         },
         { type: 'separator' },
-        isMac ? { role: 'close' } : { role: 'quit' }
+        isMac ? { role: 'close', label: N('closeWindow') } : { role: 'quit', label: N('quit') }
       ]
     },
     {
-      label: '编辑 / Edit',
+      label: N('menuEdit'),
       submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
+        { role: 'undo', label: N('menuUndo') },
+        { role: 'redo', label: N('menuRedo') },
         { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        { role: 'delete' },
-        { role: 'selectAll' }
+        { role: 'cut', label: N('cut') },
+        { role: 'copy', label: N('copy') },
+        { role: 'paste', label: N('paste') },
+        { role: 'delete', label: N('menuDelete') },
+        { role: 'selectAll', label: N('selectAll') }
       ]
     },
     {
-      label: '视图 / View',
+      label: N('menuView'),
       submenu: [
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
+        { role: 'resetZoom', label: N('resetZoom') },
+        { role: 'zoomIn', label: N('zoomIn') },
+        { role: 'zoomOut', label: N('zoomOut') },
         { type: 'separator' },
-        { role: 'togglefullscreen' },
+        { role: 'togglefullscreen', label: N('fullscreen') },
         { type: 'separator' },
-        { role: 'toggleDevTools' }
+        { role: 'toggleDevTools', label: N('devTools') }
       ]
     },
     {
-      label: '窗口 / Window',
+      label: N('menuWindow'),
       submenu: isMac
-        ? [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, { role: 'front' }]
-        : [{ role: 'minimize' }]
+        ? [
+            { role: 'minimize', label: N('minimize') },
+            { role: 'zoom', label: N('zoomWindow') },
+            { type: 'separator' },
+            { role: 'front', label: N('front') }
+          ]
+        : [{ role: 'minimize', label: N('minimize') }]
     },
     {
-      label: '帮助 / Help',
+      label: N('menuHelp'),
       submenu: [
         {
-          label: '使用指南 / User guide',
+          label: N('guide'),
           click: () => void getPrefs().then((p) => shell.openExternal(guideUrlFor(p.locale)))
+        },
+        // 交给界面去开：正文里带上诊断信息（跟设置「关于」里的按钮一样）
+        {
+          label: N('reportIssue'),
+          click: () => mainWindow?.webContents.send('menu', 'reportIssue')
         },
         {
           label: 'GitHub',

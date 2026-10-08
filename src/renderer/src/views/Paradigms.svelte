@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { traceLine } from '$lib/ui/engineText'
   import { tick } from 'svelte'
   import type { PageView } from '$lib/state/ui.svelte'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
@@ -1404,7 +1405,7 @@
               class:off
               class:dim={!shownKeys.has(s.key)}
               class:bad={f?.status === 'diff'}
-              title={[s.label, sum, ...(f?.trace ?? [])].filter(Boolean).join('\n')}
+              title={[s.label, sum, ...(f?.trace ?? []).map(traceLine)].filter(Boolean).join('\n')}
               onclick={() => openSlot(s.key)}
             >
               {#if off}
@@ -1430,7 +1431,7 @@
                     class:off
                     class:dim={!shownKeys.has(s.key)}
                     class:bad={f?.status === 'diff'}
-                    title={[s.label, ...(f?.trace ?? [])].join('\n')}
+                    title={[s.label, ...(f?.trace ?? []).map(traceLine)].join('\n')}
                     onclick={() => openSlot(s.key)}
                   >
                     <span>{n.label}</span>
@@ -1924,7 +1925,7 @@
           <table class="tbl small test">
             <tbody>
               {#each freeRows as r (r.slot.key)}
-                <tr title={r.trace.join('\n')}>
+                <tr title={r.trace.map(traceLine).join('\n')}>
                   <td class="muted slot-name" title={r.slot.label}>{r.slot.abbr || r.slot.label}</td
                   >
                   <td class="data">{r.generated || '—'}</td>
@@ -1992,7 +1993,7 @@
           <table class="tbl small test" use:flashOn={derivedFlash}>
             <tbody>
               {#each testRows as r (r.slot.key)}
-                <tr title={r.trace.join('\n')}>
+                <tr title={r.trace.map(traceLine).join('\n')}>
                   <td class="muted slot-name" title={r.slot.label}>{r.slot.abbr || r.slot.label}</td
                   >
                   <td class="data">{r.generated || '—'}</td>

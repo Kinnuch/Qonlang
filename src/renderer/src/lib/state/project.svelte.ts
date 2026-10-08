@@ -202,6 +202,7 @@ class ProjectState {
     platform.setReadOnly(!!p.meta.readOnly)
     this.currentLanguageId = p.settings.defaultLanguageId ?? p.languages[0]?.id ?? null
     this.lastSavedAt = target ? p.meta.updatedAt : null
+    this.conflictPaused = false
     this.markClean()
     this.resetHistory()
     ui.resetHistory()
@@ -276,7 +277,51 @@ class ProjectState {
     }
   }
 
-  async save(saveAs = false): Promise<boolean> {
+  /**
+   * 保存时发现文件在别处被改过（另一个千语集窗口、网盘同步……）、用户挑了「先不保存」：
+   * 自动保存先停下，免得每隔几十秒问一次；手动保存（Ctrl+S）会再问，存成功了就恢复
+   */
+  conflictPaused = $state(false)
+  /** 正在问「文件在别处被改过」时又来的保存（Ctrl+S、关窗保存）等同一个回答，不再叠一个对话框 */
+  private conflictAsk: Promise<boolean> | null = null
+
+  /**
+   * 保存。auto：自动保存（暂停着就不存）。文件在别处被改过时先问：覆盖、另存为，或者先不保存
+   */
+  async save(saveAs = false, opts: { auto?: boolean } = {}): Promise<boolean> {
+    if (this.conflictAsk) return this.conflictAsk
+    if (opts.auto && this.conflictPaused) return false
+    const r = await this.saveOnce(saveAs, false)
+    if (r !== 'conflict') return r
+    this.conflictAsk = this.askConflict()
+    try {
+      return await this.conflictAsk
+    } finally {
+      this.conflictAsk = null
+    }
+  }
+
+  private async askConflict(): Promise<boolean> {
+    // 问的时候先把自动保存停下，免得对话框还开着又来一次
+    this.conflictPaused = true
+    const choice = await ui.choose(
+      t('saveConflict.title'),
+      t('saveConflict.body', { name: this.fileName }),
+      [
+        { value: 'cancel', label: t('saveConflict.cancel') },
+        { value: 'saveAs', label: t('saveConflict.saveAs') },
+        { value: 'overwrite', label: t('saveConflict.overwrite'), danger: true }
+      ]
+    )
+    if (choice === 'overwrite' || choice === 'saveAs') {
+      const done = await this.saveOnce(choice === 'saveAs', true)
+      if (done === true) return true
+    }
+    ui.toast(t('saveConflict.paused'))
+    return false
+  }
+
+  private async saveOnce(saveAs: boolean, force: boolean): Promise<boolean | 'conflict'> {
     if (!this.project || this.saving) return false
     if (this.readOnly && !saveAs) {
       ui.toast(t('readonly.blocked'))
@@ -293,9 +338,16 @@ class ProjectState {
       const json = this.serializeNow()
       if (json !== this.committed) this.commit()
       const content = await diskTextFromJson(json)
-      const target = await platform.saveProject(saveAs ? null : this.target, content, this.fileName)
+      const target = await platform.saveProject(
+        saveAs ? null : this.target,
+        content,
+        this.fileName,
+        force
+      )
+      if (target === 'conflict') return 'conflict'
       if (!target) return false
       this.target = target
+      this.conflictPaused = false
       // 示例另存出去的那份就是自己的项目了
       this.example = false
       this.lastSavedAt = now()
@@ -325,7 +377,7 @@ class ProjectState {
         await diskTextFromJson(JSON.stringify(p)),
         (p.meta.name || 'qonlang') + PROJECT_EXTENSION
       )
-      if (!target) return false
+      if (!target || target === 'conflict') return false
       this.load(p, target)
       this.lastSavedAt = now()
       await this.remember()

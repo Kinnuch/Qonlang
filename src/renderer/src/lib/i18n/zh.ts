@@ -118,7 +118,10 @@ export default {
       notYet: '还有空格未填或填错',
       exportHtml: '导出网页',
       exportPng: '导出图片',
-      exportTitle: '{lang} 交叉填字'
+      exportTitle: '{lang} 交叉填字',
+      clear: '清空',
+      status: '{bad} 个填错，{empty} 个没填',
+      madeWith: '用千语集 Qonlang 制作'
     }
   },
   mcp: {
@@ -200,6 +203,12 @@ export default {
     changelog: '更新日志',
     developer: '开发者',
     friends: '友链',
+    friendBlurbs: {
+      gilatod: 'Gilatod，长期合作的朋友的主站。',
+      kikomas: 'kikomas 的蓝地群岛设定资料库。',
+      cathamos: 'Cathamos 的个人站点。',
+      sicusa: 'GitHub 主页。'
+    },
     syntax: '规则语法',
     credits: '致谢',
     creditRoles: {
@@ -704,7 +713,8 @@ export default {
     installing: '正在安装，软件即将重新打开…',
     failed: '下载失败：{err}',
     later: '稍后再说',
-    skip: '跳过该版本'
+    skip: '跳过该版本',
+    githubHint: '安装包从 GitHub 下载，国内网络可能很慢或无法连接。'
   },
   stats: {
     title: '统计',
@@ -1950,6 +1960,7 @@ export default {
       adjust: '微调',
       paradigm: '构形'
     },
+    affixPlaceholder: '@语素 / -s',
     adjustPlaceholder: '输入形如 at > / _# 的形式。也可以使用简写 -at、+u、^-e、^+a等等',
     nestPick: '选择一个构形',
     nestHint: '叠加另一个构形的流水线',
@@ -2548,7 +2559,9 @@ export default {
       none: '还没有安装插件。',
       loaded: '已载入',
       failed: '载入失败',
-      counts: '面板 {views} · 命令 {commands} · 导入导出 {io} · 生成器 {generators}'
+      counts: '面板 {views} · 命令 {commands} · 导入导出 {io} · 生成器 {generators}',
+      noManifest: 'plugin.json 读不出来',
+      loadFailed: '插件「{name}」载入失败：{msg}'
     },
     showHistory: '在词条卡中显示历史形式',
     showHistoryHint:
@@ -2644,6 +2657,12 @@ export default {
     resizerHint: '拖动以调整检视器宽度，双击此栏以恢复默认宽度设置'
   },
   errors: {
+    svelte: {
+      each_key_duplicate: '列表里有两项的标识重复了（常见于两条同名的内容）',
+      state_unsafe_mutation: '显示过程中改动了数据',
+      effect_update_depth_exceeded: '数据来回互相更新，停不下来'
+    },
+    unknown: '未知错误',
     pageCrashed: '该页面出现错误，其他页面不受影响。',
     retry: '重试',
     goLanguages: '返回「语言」模块',
@@ -2665,5 +2684,132 @@ export default {
     saveAndClose: '保存并关闭',
     discardAndClose: '不保存',
     closeProject: '关闭项目'
+  },
+  native: {
+    closeTitle: '有未保存的改动',
+    closeBody: '要在关闭前保存吗？',
+    closeSave: '保存并关闭',
+    closeDiscard: '不保存',
+    closeCancel: '取消',
+    undoTyping: '撤销输入',
+    redoTyping: '重做输入',
+    cut: '剪切',
+    copy: '复制',
+    paste: '粘贴',
+    selectAll: '全选',
+    copyLink: '复制链接',
+    undoChange: '撤销上一步改动',
+    redo: '重做',
+    back: '返回上一页',
+    palette: '命令面板',
+    chars: '字符面板',
+    save: '保存',
+    saveAs: '另存为…',
+    open: '打开…',
+    guide: '使用指南',
+    reportIssue: '报告问题',
+    menuAbout: '关于千语集',
+    menuFile: '文件',
+    menuEdit: '编辑',
+    menuView: '视图',
+    menuWindow: '窗口',
+    menuHelp: '帮助',
+    menuUndo: '撤销',
+    menuRedo: '重做',
+    menuDelete: '删除',
+    resetZoom: '实际大小',
+    zoomIn: '放大',
+    zoomOut: '缩小',
+    fullscreen: '切换全屏',
+    devTools: '开发者工具',
+    minimize: '最小化',
+    quit: '退出',
+    closeWindow: '关闭窗口',
+    zoomWindow: '缩放',
+    front: '前置全部窗口',
+    services: '服务',
+    hide: '隐藏千语集',
+    hideOthers: '隐藏其他',
+    unhide: '全部显示'
+  },
+  saveConflict: {
+    title: '文件在别处被改过',
+    body: '「{name}」在打开或上次保存之后被其他程序改过（比如另一个千语集窗口、网盘同步）。直接保存会覆盖那边的改动。',
+    overwrite: '覆盖保存',
+    saveAs: '另存为…',
+    cancel: '先不保存',
+    paused: '没有保存，自动保存已暂停。按 Ctrl+S 可以重新选择。'
+  },
+  secondInstance: {
+    title: '已经有一个千语集开着',
+    body: '两个窗口可以同时使用。同一个项目请只在一个窗口里修改；另一个窗口保存过之后，这边保存时会先提醒你。'
+  },
+  feedback: {
+    report: '报告问题',
+    copy: '复制诊断信息',
+    hint: '「报告问题」会在 GitHub 上新建一条问题，正文里已经附上诊断信息（版本、系统、界面语言、项目大小和最近的报错，不含项目内容）；「复制诊断信息」把同样的内容复制下来，可以贴到别处。',
+    copied: '已复制诊断信息',
+    copyFailed: '复制失败：{msg}',
+    issueWhat: '遇到了什么问题',
+    issueSteps: '怎样能重现'
+  },
+  ruleMsg: {
+    includeInner: '「{ref}」里第 {line} 行：{msg}',
+    includeNoStage: '「{ref}」里没有叫「{stage}」的阶段',
+    includeCycle: '「{ref}」转着圈引用了自己',
+    includeNotFound: '找不到叫「{ref}」的音变',
+    includeTooDeep: '引用套得太深了（最多四层）',
+    includeSyntax: '引用要写成 `-@ 规则集名 : 起始阶段 .. 终止阶段`',
+    clauseNeedsPosition: '「{piece}」要以音节位置开头：1、2、-1、-2、0、* 或 -*（或者单独一个 @）',
+    clauseNoUnderscore: '「{piece}」的环境缺少 _',
+    excNoUnderscore: '排除环境「{env}」缺少 _',
+    envNoUnderscore: '环境「{env}」缺少 _',
+    undefinedClassLetter: '未定义的音类 {name}，按字面字符处理',
+    undefinedClassBraced: '未定义的音类 {{name}}',
+    undefinedMorpheme: '未定义的语素 @{name}',
+    undefinedFeature: '未定义的特征 {name}',
+    featureEmpty: '特征 [{feature}] 没有成员',
+    featureNeedsMembers: '替换里的 [{feature}] 要在特征定义里列出成员，才能按位置对应',
+    regexInvalid: '正则无法编译：{msg}',
+    missingArrow: '缺少 >',
+    onlyOneQuestion:
+      '一条规则的目标、替换里各只能有一个 ?（满足环境 ? 不满足环境）；要写问号本身用 \\?',
+    elseTargetEmpty: '? 后面（不满足环境时）要改的目标不能为空',
+    elseUnused: '没有写环境：处处都算满足，? 后面那一路用不上'
+  },
+  traceMsg: {
+    labelAdjust: '微调',
+    labelAdjustPre: '微调(前)',
+    labelAdjustPost: '微调(后)',
+    adjustError: '{label} ✗ {line}: {msg}',
+    adjustUnknown: '{label} ? {line}',
+    adjustLine: '{label} {rest}',
+    prefix: '前缀 {rest}',
+    suffix: '后缀 {rest}',
+    circumfix: '环缀 {rest}',
+    infix: '中缀 {rest}',
+    pattern: '模板 {rest}',
+    reduplication: '重叠 {rest}',
+    ruleSetMissing: '规则集不存在',
+    paradigmMissing: '构形不存在',
+    paradigmTooDeep: '构形 {name}：套得太深（超过 {n} 层），停在这里',
+    paradigmNoSlot: '构形 {name}：没选槽位',
+    paradigmEmptySlot: '构形 {name} · {slot}：这一格没有写法',
+    paradigmResult: '构形 {rest}',
+    inheritMissing: '继承的构形不存在',
+    inheritTooDeep: '继承 {name}：套得太深（超过 {n} 层），停在这里',
+    inheritSlotGone: '继承 {name}：那一格已经不在了',
+    inheritEdited: '继承 {name} · {slot}（手改过）: {form}',
+    inheritNoForm: '继承 {name} · {slot}：那一格没有形式',
+    inheritResult: '继承 {rest}',
+    pronStart: '发音起点: {rest}',
+    pron: '发音: {rest}',
+    plugin: '插件生成器 {rest}',
+    stemFallback: '退回词干 {rest}',
+    stem: '词干 {rest}',
+    conditionUnmatched: '条件没对上任何取值：{list}',
+    joined: '拼接: {rest}',
+    lemmaRef: '引用词条 {rest}',
+    morphemeMissing: '未找到语素 {rest}'
   }
 }

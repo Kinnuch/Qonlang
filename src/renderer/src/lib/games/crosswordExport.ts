@@ -13,7 +13,38 @@ export interface ExportInfo {
   language: string
   /** 出处：项目名 */
   project: string
+  /** 导出的网页、图片上的字：按导出时的界面语言（没给就用英文） */
+  labels?: Partial<CrosswordLabels>
+  /** 网页的 lang（界面语言代码） */
+  lang?: string
 }
+
+export interface CrosswordLabels {
+  across: string
+  down: string
+  check: string
+  reveal: string
+  clear: string
+  allRight: string
+  /** 「{bad} 个填错，{empty} 个空着」 */
+  status: string
+  madeWith: string
+}
+
+const DEFAULT_LABELS: CrosswordLabels = {
+  across: 'Across',
+  down: 'Down',
+  check: 'Check',
+  reveal: 'Reveal',
+  clear: 'Clear',
+  allRight: 'All correct!',
+  status: '{bad} wrong, {empty} blank',
+  madeWith: 'Made with Qonlang · 千语集'
+}
+const labelsOf = (info: ExportInfo): CrosswordLabels => ({
+  ...DEFAULT_LABELS,
+  ...(info.labels ?? {})
+})
 
 /** 每个格子的题号（起点格才有） */
 export function numberMap(cw: Crossword): Map<string, number> {
@@ -23,6 +54,7 @@ export function numberMap(cw: Crossword): Map<string, number> {
 }
 
 export function crosswordHtml(cw: Crossword, info: ExportInfo): string {
+  const L = labelsOf(info)
   const nums = numberMap(cw)
   const answer = cw.grid.map((row) => row.map((c) => c ?? ''))
   const clue = (dir: 'across' | 'down'): string =>
@@ -47,7 +79,7 @@ export function crosswordHtml(cw: Crossword, info: ExportInfo): string {
     .map((row) => `<tr>${row}</tr>`)
     .join('\n')
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
+<html lang="${esc(info.lang ?? 'en')}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(info.title)}</title>
 <style>
@@ -79,19 +111,20 @@ export function crosswordHtml(cw: Crossword, info: ExportInfo): string {
 <div class="wrap">
   <table>${cells}</table>
   <div class="clues">
-    <div><h2>Across</h2><ol>${clue('across')}</ol></div>
-    <div><h2>Down</h2><ol>${clue('down')}</ol></div>
+    <div><h2>${esc(L.across)}</h2><ol>${clue('across')}</ol></div>
+    <div><h2>${esc(L.down)}</h2><ol>${clue('down')}</ol></div>
   </div>
 </div>
 <div class="bar">
-  <button id="check">Check</button>
-  <button id="reveal">Reveal</button>
-  <button id="clear">Clear</button>
+  <button id="check">${esc(L.check)}</button>
+  <button id="reveal">${esc(L.reveal)}</button>
+  <button id="clear">${esc(L.clear)}</button>
   <span class="msg" id="msg"></span>
 </div>
-<footer>Made with Qonlang · 千语集</footer>
+<footer>${esc(L.madeWith)}</footer>
 <script>
   const answer = ${JSON.stringify(answer)};
+  const L = ${JSON.stringify({ allRight: L.allRight, status: L.status }).replace(/</g, '\\u003c')};
   const inputs = [...document.querySelectorAll('input')];
   const same = (a, b) => (a || '').toLowerCase() === (b || '').toLowerCase();
   const at = (i) => answer[+i.dataset.r][+i.dataset.c];
@@ -103,7 +136,7 @@ export function crosswordHtml(cw: Crossword, info: ExportInfo): string {
       if (same(i.value.trim(), at(i))) i.classList.add('ok'); else { i.classList.add('bad'); bad++; }
     }
     document.getElementById('msg').textContent =
-      bad === 0 && empty === 0 ? 'All correct!' : bad + ' wrong, ' + empty + ' blank';
+      bad === 0 && empty === 0 ? L.allRight : L.status.replace('{bad}', bad).replace('{empty}', empty);
   };
   document.getElementById('reveal').onclick = () => {
     for (const i of inputs) { i.value = at(i); i.classList.remove('bad'); i.classList.add('ok'); }
@@ -127,6 +160,7 @@ export function crosswordPng(
   info: ExportInfo,
   opts: { cell?: number; scale?: number } = {}
 ): Promise<Blob> {
+  const L = labelsOf(info)
   const cell = opts.cell ?? 40
   const scale = opts.scale ?? 2
   const pad = 24
@@ -176,8 +210,8 @@ export function crosswordPng(
   const y = top + gridH + 28
   ctx.font = '600 13px system-ui, sans-serif'
   ctx.fillStyle = '#111'
-  ctx.fillText('横', pad, y)
-  ctx.fillText('竖', pad + clueW / 2, y)
+  ctx.fillText(L.across, pad, y)
+  ctx.fillText(L.down, pad + clueW / 2, y)
   ctx.font = '13px system-ui, sans-serif'
   const draw = (list: typeof across, x: number): void => {
     let yy = y + lineH
@@ -191,7 +225,7 @@ export function crosswordPng(
   draw(down, pad + clueW / 2)
   ctx.fillStyle = '#999'
   ctx.font = '11px system-ui, sans-serif'
-  ctx.fillText('Made with Qonlang · 千语集', pad, height - pad / 2)
+  ctx.fillText(L.madeWith, pad, height - pad / 2)
 
   return new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png')

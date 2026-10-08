@@ -20,9 +20,12 @@
     RefreshCw,
     Scissors,
     Table,
-    Trash2
+    Trash2,
+    Bug,
+    ClipboardCopy
   } from '@lucide/svelte'
   import { updates } from '$lib/state/updates.svelte'
+  import { copyDiagnostics, reportIssue } from '$lib/state/diagnostics'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import AppSettings from '$lib/ui/AppSettings.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
@@ -654,10 +657,24 @@
     {#if info?.userDataPath}
       <p class="small muted">{t('settings.userData')}: {info.userDataPath}</p>
     {/if}
+    <!-- 报告问题：在 GitHub 新建一条，正文先放好诊断信息；复制诊断信息给别的地方用 -->
+    <div class="row feedback">
+      <button class="btn sm" onclick={() => void reportIssue()}
+        ><Bug size={14} />{t('feedback.report')}</button
+      >
+      <button class="btn sm ghost" onclick={() => void copyDiagnostics()}
+        ><ClipboardCopy size={14} />{t('feedback.copy')}</button
+      >
+      <HelpDot tip={t('feedback.hint')} />
+    </div>
   </section>
 </div>
 
 <style>
+  .feedback {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
   .mcp-log {
     list-style: none;
     margin: 0;

@@ -125,7 +125,10 @@ export default {
       notYet: 'Il reste des cases vides ou fausses',
       exportHtml: 'Exporter en page web',
       exportPng: 'Exporter en image',
-      exportTitle: 'Mots croisés en {lang}'
+      exportTitle: 'Mots croisés en {lang}',
+      clear: 'Effacer',
+      status: '{bad} erreurs, {empty} cases vides',
+      madeWith: 'Créé avec Qonlang'
     }
   },
   mcp: {
@@ -213,6 +216,12 @@ export default {
     changelog: 'Journal des modifications',
     developer: 'Développeur',
     friends: 'Liens amis',
+    friendBlurbs: {
+      gilatod: 'Gilatod : le site principal d’amis avec qui nous collaborons depuis longtemps.',
+      kikomas: 'Le wiki de l’univers des îles Shohna, par kikomas.',
+      cathamos: 'Le site personnel de Cathamos.',
+      sicusa: 'Page GitHub.'
+    },
     syntax: 'Syntaxe des règles',
     credits: 'Remerciements',
     creditRoles: {
@@ -350,7 +359,7 @@ export default {
     importFormat: 'Format de fichier',
     importFiles: 'Fichiers : {names}',
     editorPlaceholder:
-      'Saisissez vos règles ici. Exemple :\nV=aeiou\n-* 祖语\na > e / _i\n-* 现代语',
+      'Saisissez vos règles ici. Exemple :\nV=aeiou\n-* Proto\na > e / _i\n-* Moderne',
     diagnostics: 'Diagnostics',
     noDiagnostics: 'Aucun problème',
     warnings: '{n} avertissements',
@@ -415,7 +424,7 @@ export default {
     className: 'Nom de la classe de sons',
     classMembers: 'Membres',
     classNameHint:
-      'Une seule majuscule, ou un nom long quelconque (à appeler alors sous la forme {长名})',
+      'Une seule majuscule, ou un nom long quelconque (à appeler alors sous la forme {Nom})',
     membersHint:
       'Les digrammes doivent être séparés par des espaces ; sinon, écrivez les membres à la suite.',
     digraphFrom: 'Graphie',
@@ -471,7 +480,7 @@ export default {
     syllable: '',
     nucleus: 'Noyau',
     nucleusAny: 'indifférent',
-    nucleusTip: 'Contenu du noyau syllabique, par exemple V, {双元音}, [áé]',
+    nucleusTip: 'Contenu du noyau syllabique, par exemple V, {diph}, [áé]',
     env: 'Environnement',
     except: 'Exception',
     addClause: 'Ajouter une ligne',
@@ -499,7 +508,7 @@ export default {
     featureMinus: 'les sons qui n’ont pas ce trait [-]',
     featureName: 'Nom du trait',
     featureMembers: 'Membres (séparés par des espaces)',
-    featureHint: 'Dans les règles, un trait créé ici s’appelle sous la forme [+特征] ou [-特征].',
+    featureHint: 'Dans les règles, un trait créé ici s’appelle sous la forme [+nom] ou [-nom].',
     special: 'Regarder d’abord l’accent spécial noté sur l’entrée (@)',
     specialTip:
       'Voir la case à cocher « Influence sur l’accent → Transmettre l’accent spécial » des entrées du module Lexique ou Morphèmes',
@@ -514,7 +523,7 @@ export default {
   },
   stressSettings: {
     affects: 'Influence sur l’accent',
-    hint: 'Une fois cette case cochée, ce mot suit les règles d’accentuation des changements phonétiques et des orthographes : les lignes marquées <词类> choisissent selon la classe de mots, et celles marquées @ appliquent l’accent spécial indiqué ici.',
+    hint: 'Une fois cette case cochée, ce mot suit les règles d’accentuation des changements phonétiques et des orthographes : les lignes marquées <classe> choisissent selon la classe de mots, et celles marquées @ appliquent l’accent spécial indiqué ici.',
     morphemeHint:
       'Un morphème n’a pas de classe de mots : c’est son type qui est transmis (racine, suffixe, etc.), et vous pouvez en plus indiquer la classe de mots qu’il vaut. Lors de l’évolution phonétique, un morphème est traité comme un mot ; ajouté à un mot dans un paradigme, son accent spécial déplace l’accent sur cet affixe ; si une classe de mots est indiquée, le mot entier est traité comme appartenant à cette classe.',
     passPos: 'Transmettre la classe de mots',
@@ -564,7 +573,7 @@ export default {
     codepoints: 'Points de code'
   },
   morphemes: {
-    hint: 'Les paradigmes appellent ces affixes avec @语素, et le corpus s’en sert pour segmenter les mots automatiquement.',
+    hint: 'Les paradigmes appellent ces affixes avec @morphème, et le corpus s’en sert pour segmenter les mots automatiquement.',
     title: 'Morphèmes',
     sortType: 'Par type',
     empty: 'Cette langue n’a encore aucun morphème.',
@@ -751,7 +760,9 @@ export default {
     installing: 'Installation en cours, le logiciel va se rouvrir…',
     failed: 'Échec du téléchargement : {err}',
     later: 'Plus tard',
-    skip: 'Ignorer cette version'
+    skip: 'Ignorer cette version',
+    githubHint:
+      'Le programme d’installation se télécharge depuis GitHub, ce qui peut être lent ou impossible sur certains réseaux.'
   },
   stats: {
     title: 'Statistiques',
@@ -945,7 +956,7 @@ export default {
   search: {
     help: 'La zone de recherche accepte la recherche avancée : champ=texte ne retient que le contenu de ce champ (par exemple gloss=PL), champ==texte exige une correspondance exacte, et /regex/ cherche avec une expression régulière.',
     fields: 'Champs de cette page : {fields}',
-    dimFields: 'Les noms de catégories grammaticales servent aussi de champs : 性=阴、数=复数'
+    dimFields: 'Les noms de catégories grammaticales servent aussi de champs : genre=fém, nombre=pl'
   },
   tour: {
     title: 'Visite guidée',
@@ -1051,7 +1062,7 @@ export default {
       docs: [
         'Cliquez ici pour créer un document.',
         'La liste des pages s’affiche à gauche, répartie entre les documents communs au projet et ceux qui appartiennent à la langue courante.',
-        'Le document a trois modes : édition, colonnes et aperçu. Par ailleurs, une forme comme [[词头]] écrite dans un document renvoie à une entrée précise du lexique.',
+        'Le document a trois modes : édition, colonnes et aperçu. Par ailleurs, une forme comme [[lemme]] écrite dans un document renvoie à une entrée précise du lexique.',
         'La barre d’outils offre le gras, les titres, les listes, les tableaux et les autres écritures courantes ; « Insérer un lien » permet de choisir directement une entrée ou un objet d’un autre module et écrit le lien au bon format.',
         'L’aperçu met la page en forme telle qu’elle sera au final, et ses liens ouvrent directement l’objet visé.'
       ],
@@ -1489,7 +1500,7 @@ export default {
     formatGuideHint: 'Consulter des exemples d’import CSV dans le guide d’utilisation',
     markers: 'Marques dans les mots, les définitions et les remarques',
     markersHint:
-      'Il s’agit des marques entre crochets du type 【专】【古】 ; si l’option des parenthèses est cochée ci-dessus, les parenthèses qui remplissent les conditions sont reconnues elles aussi. Ces marques sont en général définies comme des registres.',
+      'Il s’agit des marques entre crochets du type 【NP】 ou [vx] ; si l’option des parenthèses est cochée ci-dessus, les parenthèses qui remplissent les conditions sont reconnues elles aussi. Ces marques sont en général définies comme des registres.',
     marker: 'Marque',
     markerCount: 'Nombre · colonnes',
     markerAction: 'Traitement',
@@ -1514,7 +1525,7 @@ export default {
     posNew: 'nouvelle',
     codes: 'Codes en tête de définition',
     codesHint:
-      'Chiffres collés au début du texte d’une définition, par exemple la valence verbale « 1离开；2前往 ». Définis comme étiquette, ils n’apparaissent plus dans la définition.',
+      'Chiffres collés au début du texte d’une définition, par exemple la valence verbale « 1partir ; 2aller à ». Définis comme étiquette, ils n’apparaissent plus dans la définition.',
     code: 'Code',
     codeValue: 'Étiquette',
     codeActions: {
@@ -1723,7 +1734,7 @@ export default {
     search: 'Rechercher dans les documents : titre ou corps',
     title: 'Documents',
     page: 'Page',
-    hint: 'Écrivez [[单词]] pour créer un lien vers une entrée du lexique.',
+    hint: 'Écrivez [[mot]] pour créer un lien vers une entrée du lexique.',
     insertLink: 'Insérer un lien',
     linkSearch: 'Rechercher un nom…',
     linkHelp:
@@ -1754,9 +1765,9 @@ export default {
     projectWide: 'Tout le projet',
     updated: 'Mis à jour le',
     placeholder:
-      'Rédigez ici un document au format Markdown…  ## titre - liste **gras** *italique* `code` [[词头]] | tableau | cellule | | --- | --- |',
+      'Rédigez ici un document au format Markdown…  ## titre - liste **gras** *italique* `code` [[lemme]] | tableau | cellule | | --- | --- |',
     syntax:
-      'Pris en charge : titres #, listes - / 1., citations >, blocs de code ```, tableaux | |, **gras**, *italique*, `code`, [lien](https://…), [[词头]], [[语素:na-]].'
+      'Pris en charge : titres #, listes - / 1., citations >, blocs de code ```, tableaux | |, **gras**, *italique*, `code`, [lien](https://…), [[lemme]], [[morpheme:na-]].'
   },
   palette: {
     placeholder:
@@ -2070,6 +2081,7 @@ export default {
       adjust: 'ajustement',
       paradigm: 'Paradigme'
     },
+    affixPlaceholder: '@morphème / -s',
     adjustPlaceholder:
       'Saisissez une forme du type at > / _#. Les abrégés -at, +u, ^-e, ^+a, etc. sont également acceptés',
     nestPick: 'Choisir un paradigme',
@@ -2150,7 +2162,7 @@ export default {
     deleted: 'Paradigme « {name} » supprimé',
     hint: 'Une fois un paradigme lié à une classe de mots, un panneau d’emplacements apparaît automatiquement dans la saisie des entrées correspondantes.',
     affixHint:
-      'Utilisez @ pour renvoyer à un morphème, et une forme du type {阴:g|k} pour un choix conditionnel ; pour le détail, reportez-vous à l’aide-mémoire « Syntaxe des règles », en haut à droite de la fenêtre.',
+      'Utilisez @ pour renvoyer à un morphème, et une forme du type {F:g|k} pour un choix conditionnel ; pour le détail, reportez-vous à l’aide-mémoire « Syntaxe des règles », en haut à droite de la fenêtre.',
     adjust: 'Ajustements',
     adjustPre: 'avant les changements phonétiques…',
     adjustStem: 'sur le radical…',
@@ -2708,7 +2720,9 @@ export default {
       loaded: 'Chargée',
       failed: 'Échec du chargement',
       counts:
-        'Panneaux {views} · Commandes {commands} · Import et export {io} · Générateurs {generators}'
+        'Panneaux {views} · Commandes {commands} · Import et export {io} · Générateurs {generators}',
+      noManifest: 'Impossible de lire plugin.json',
+      loadFailed: 'L’extension « {name} » n’a pas pu être chargée : {msg}'
     },
     showHistory: 'Afficher les formes anciennes sur la carte d’entrée',
     showHistoryHint:
@@ -2819,6 +2833,13 @@ export default {
       'Faites glisser pour régler la largeur de l’inspecteur ; double-cliquez sur cette barre pour rétablir la largeur par défaut'
   },
   errors: {
+    svelte: {
+      each_key_duplicate:
+        'Deux éléments d’une liste ont le même identifiant (souvent deux contenus portant le même nom)',
+      state_unsafe_mutation: 'Des données ont été modifiées pendant l’affichage de la page',
+      effect_update_depth_exceeded: 'Des données se mettent à jour mutuellement sans fin'
+    },
+    unknown: 'Erreur inconnue',
     pageCrashed:
       'Une erreur s’est produite sur cette page ; les autres pages ne sont pas touchées.',
     retry: 'Réessayer',
@@ -2844,5 +2865,139 @@ export default {
     saveAndClose: 'Enregistrer et fermer',
     discardAndClose: 'Ne pas enregistrer',
     closeProject: 'Fermer le projet'
+  },
+  native: {
+    closeTitle: 'Modifications non enregistrées',
+    closeBody: 'Enregistrer avant de fermer ?',
+    closeSave: 'Enregistrer et fermer',
+    closeDiscard: 'Ne pas enregistrer',
+    closeCancel: 'Annuler',
+    undoTyping: 'Annuler la saisie',
+    redoTyping: 'Rétablir la saisie',
+    cut: 'Couper',
+    copy: 'Copier',
+    paste: 'Coller',
+    selectAll: 'Tout sélectionner',
+    copyLink: 'Copier le lien',
+    undoChange: 'Annuler la dernière modification',
+    redo: 'Rétablir',
+    back: 'Page précédente',
+    palette: 'Palette de commandes',
+    chars: 'Panneau des caractères',
+    save: 'Enregistrer',
+    saveAs: 'Enregistrer sous…',
+    open: 'Ouvrir…',
+    guide: 'Guide d’utilisation',
+    reportIssue: 'Signaler un problème',
+    menuAbout: 'À propos de Qonlang',
+    menuFile: 'Fichier',
+    menuEdit: 'Édition',
+    menuView: 'Affichage',
+    menuWindow: 'Fenêtre',
+    menuHelp: 'Aide',
+    menuUndo: 'Annuler',
+    menuRedo: 'Rétablir',
+    menuDelete: 'Supprimer',
+    resetZoom: 'Taille réelle',
+    zoomIn: 'Zoom avant',
+    zoomOut: 'Zoom arrière',
+    fullscreen: 'Basculer en plein écran',
+    devTools: 'Outils de développement',
+    minimize: 'Réduire',
+    quit: 'Quitter',
+    closeWindow: 'Fermer la fenêtre',
+    zoomWindow: 'Réduire/agrandir',
+    front: 'Tout ramener au premier plan',
+    services: 'Services',
+    hide: 'Masquer Qonlang',
+    hideOthers: 'Masquer les autres',
+    unhide: 'Tout afficher'
+  },
+  saveConflict: {
+    title: 'Le fichier a été modifié ailleurs',
+    body: '« {name} » a été modifié par un autre programme depuis son ouverture ou le dernier enregistrement (une autre fenêtre de Qonlang, un dossier synchronisé dans le nuage…). L’enregistrer maintenant écraserait ces modifications.',
+    overwrite: 'Écraser',
+    saveAs: 'Enregistrer sous…',
+    cancel: 'Ne pas enregistrer pour l’instant',
+    paused:
+      'Rien n’a été enregistré. L’enregistrement automatique est suspendu ; appuyez sur Ctrl+S pour choisir à nouveau.'
+  },
+  secondInstance: {
+    title: 'Qonlang est déjà ouvert',
+    body: 'Vous pouvez utiliser les deux fenêtres. Ne modifiez un même projet que dans l’une d’elles ; si l’autre fenêtre l’a enregistré, celle-ci vous prévient avant d’enregistrer.'
+  },
+  feedback: {
+    report: 'Signaler un problème',
+    copy: 'Copier les informations de diagnostic',
+    hint: '« Signaler un problème » ouvre un nouveau ticket sur GitHub, avec les informations de diagnostic déjà remplies (version, système, langue de l’interface, taille du projet et erreurs récentes — sans le contenu du projet). « Copier les informations de diagnostic » copie le même texte pour le coller ailleurs.',
+    copied: 'Informations de diagnostic copiées',
+    copyFailed: 'Copie impossible : {msg}',
+    issueWhat: 'Quel est le problème',
+    issueSteps: 'Comment le reproduire'
+  },
+  ruleMsg: {
+    includeInner: 'Ligne {line} de « {ref} » : {msg}',
+    includeNoStage: '« {ref} » n’a pas de stade appelé « {stage} »',
+    includeCycle: '« {ref} » renvoie à lui-même',
+    includeNotFound: 'Aucun jeu de règles ne s’appelle « {ref} »',
+    includeTooDeep: 'Renvois trop imbriqués (quatre niveaux au plus)',
+    includeSyntax: 'Un renvoi s’écrit `-@ jeu de règles : stade de départ .. stade d’arrivée`',
+    clauseNeedsPosition:
+      '« {piece} » doit commencer par une position de syllabe : 1, 2, -1, -2, 0, * ou -* (ou un @ seul)',
+    clauseNoUnderscore: 'L’environnement de « {piece} » n’a pas de _',
+    excNoUnderscore: 'L’environnement d’exclusion « {env} » n’a pas de _',
+    envNoUnderscore: 'L’environnement « {env} » n’a pas de _',
+    undefinedClassLetter: 'Classe {name} non définie ; elle est prise comme un caractère littéral',
+    undefinedClassBraced: 'Classe {{name}} non définie',
+    undefinedMorpheme: 'Morphème @{name} non défini',
+    undefinedFeature: 'Trait {name} non défini',
+    featureEmpty: 'Le trait [{feature}] n’a aucun membre',
+    featureNeedsMembers:
+      'Pour faire correspondre [{feature}] position par position dans un remplacement, listez ses membres dans la définition du trait',
+    regexInvalid: 'L’expression régulière ne compile pas : {msg}',
+    missingArrow: 'Il manque >',
+    onlyOneQuestion:
+      'Une règle ne peut avoir qu’un seul ? dans sa cible et un seul dans son remplacement (l’environnement correspond ? ne correspond pas) ; écrivez \\? pour un point d’interrogation littéral',
+    elseTargetEmpty:
+      'La cible après ? (quand l’environnement ne correspond pas) ne peut pas être vide',
+    elseUnused:
+      'Aucun environnement n’est écrit : il correspond toujours, et la partie après ? ne sert jamais'
+  },
+  traceMsg: {
+    labelAdjust: 'Ajustement',
+    labelAdjustPre: 'Ajustement (avant)',
+    labelAdjustPost: 'Ajustement (après)',
+    adjustError: '{label} ✗ {line}: {msg}',
+    adjustUnknown: '{label} ? {line}',
+    adjustLine: '{label} {rest}',
+    prefix: 'Préfixe {rest}',
+    suffix: 'Suffixe {rest}',
+    circumfix: 'Circonfixe {rest}',
+    infix: 'Infixe {rest}',
+    pattern: 'Schème {rest}',
+    reduplication: 'Redoublement {rest}',
+    ruleSetMissing: 'Le jeu de règles n’existe plus',
+    paradigmMissing: 'Le paradigme n’existe plus',
+    paradigmTooDeep:
+      'Paradigme {name} : imbrication trop profonde (plus de {n} niveaux), arrêt ici',
+    paradigmNoSlot: 'Paradigme {name} : aucun emplacement choisi',
+    paradigmEmptySlot:
+      'Paradigme {name} · {slot} : cet emplacement n’indique pas comment se former',
+    paradigmResult: 'Paradigme {rest}',
+    inheritMissing: 'Le paradigme hérité n’existe plus',
+    inheritTooDeep: 'Hérité de {name} : imbrication trop profonde (plus de {n} niveaux), arrêt ici',
+    inheritSlotGone: 'Hérité de {name} : cet emplacement n’existe plus',
+    inheritEdited: 'Hérité de {name} · {slot} (modifié à la main) : {form}',
+    inheritNoForm: 'Hérité de {name} · {slot} : cet emplacement n’a pas de forme',
+    inheritResult: 'Hérité de {rest}',
+    pronStart: 'Prononciation de départ : {rest}',
+    pron: 'Prononciation : {rest}',
+    plugin: 'Générateur d’extension {rest}',
+    stemFallback: 'Repli sur le radical {rest}',
+    stem: 'Radical {rest}',
+    conditionUnmatched: 'Conditions qui ne correspondent à aucune valeur : {list}',
+    joined: 'Assemblage : {rest}',
+    lemmaRef: 'Renvoie à l’entrée {rest}',
+    morphemeMissing: 'Morphème introuvable : {rest}'
   }
 }

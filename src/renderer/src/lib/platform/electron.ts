@@ -44,13 +44,18 @@ export const electronPlatform: PlatformAPI = {
     } satisfies OpenResult
   },
 
-  async saveProject(target, content, suggestedName) {
+  async saveProject(target, content, suggestedName, force) {
     let path = target?.path ?? null
     if (!path) {
       path = (await bridge().invoke('project:saveAs', suggestedName)) as string | null
       if (!path) return null
+      // 另存为是用户自己挑的位置（要覆盖的话对话框已经问过了），不再比对
+      force = true
     }
-    await bridge().invoke('project:write', path, content)
+    const r = (await bridge().invoke('project:write', path, content, !!force)) as {
+      conflict?: boolean
+    } | null
+    if (r?.conflict) return 'conflict'
     return { path, handleKey: null, name: baseName(path) } satisfies SaveTarget
   },
 
@@ -174,6 +179,11 @@ export const electronPlatform: PlatformAPI = {
     // 只是个提醒：宿主不认（旧版本的主进程）也不算出错
     void bridge()
       .invoke('app:setReadOnly', readOnly)
+      .catch(() => {})
+  },
+  setNativeText(locale, text) {
+    void bridge()
+      .invoke('app:setNativeText', locale, text)
       .catch(() => {})
   },
   onSaveAndClose(cb) {

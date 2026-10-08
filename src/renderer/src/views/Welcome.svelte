@@ -16,12 +16,15 @@
   import { onMount } from 'svelte'
   import { platform, type RecentEntry } from '$lib/platform'
   import { projectState } from '$lib/state/project.svelte'
+  import { copyDiagnostics, reportIssue } from '$lib/state/diagnostics'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { i18n, t, pickText, localeOptions } from '$lib/i18n/index.svelte'
   import type { ProjectTemplate } from '$lib/core/model'
   import { createLanguage } from '$lib/core/factory'
   import { mdToHtml } from '$lib/core/markdown'
   import { parseProject } from '$lib/core/serialize'
+  import { localizeExampleDocs, type ExampleDocsEn } from '$lib/core/exampleDocs'
   import { guideUrl } from '$lib/core/guide'
   import { SKIN_PRESETS, EMPTY_FONTS } from '$lib/skin/presets'
   import { inkTransition } from '$lib/skin/ink'
@@ -44,9 +47,11 @@
     Sparkles,
     HeartHandshake,
     BookText,
-    Copy
+    Copy,
+    Bug
   } from '@lucide/svelte'
-  import changelogRaw from '../../../../CHANGELOG.md?raw'
+  import changelogZh from '../../../../CHANGELOG.md?raw'
+  import changelogEn from '../../../../CHANGELOG.en.md?raw'
   import wechatQr from '../assets/img/wechat-qr.png'
   import iconGilatod from '../assets/friends/gilatod.png'
   import iconKikomas from '../assets/friends/kikomas.png'
@@ -67,21 +72,21 @@
       name: '荏苒之境主站',
       url: 'https://gilatod.art',
       icon: iconGilatod,
-      blurb: 'Gilatod，长期合作的朋友的主站。'
+      blurb: 'gilatod'
     },
     {
       name: '蓝地群岛 Wiki',
       url: 'https://shohna.fandom.com/zh/wiki/%E8%93%9D%E5%9C%B0%E7%BE%A4%E5%B2%9B_Wiki',
       icon: iconKikomas,
-      blurb: 'kikomas 的蓝地群岛设定资料库。'
+      blurb: 'kikomas'
     },
     {
       name: 'Cathamos',
       url: 'https://cathamos.github.io',
       icon: iconCathamos,
-      blurb: 'Cathamos 的个人站点。'
+      blurb: 'cathamos'
     },
-    { name: 'Sicusa', url: 'https://github.com/sicusa', icon: null, blurb: 'GitHub 主页。' }
+    { name: 'Sicusa', url: 'https://github.com/sicusa', icon: null, blurb: 'sicusa' }
   ]
   /** 致谢：名字原样写，不跟着界面语言翻译 */
   const CREDITS: {
@@ -216,6 +221,11 @@
     try {
       const raw = (await ex.load()).default
       const project = parseProject(raw)
+      // 界面不是中文：示例里的文档换成英文那份
+      if (!i18n.locale.startsWith('zh')) {
+        const en = (await import('../../../../examples/docs-en.json')).default as ExampleDocsEn
+        localizeExampleDocs(project, ex.id, en, i18n.locale)
+      }
       if (copy) {
         // 复制一份：先问存到哪，存下来的就是自己的项目
         if (await projectState.saveCopy(project)) footerPanel = null
@@ -236,8 +246,8 @@
   const GAMES: GameId[] = ['flashcard', 'sage', 'wordle', 'crossword']
   let game = $state<GameId | null>(null)
 
-  /** 极简 Markdown：标题、列表、段落 */
-  const changelogHtml = mdToHtml(changelogRaw)
+  /** 极简 Markdown：标题、列表、段落；界面不是中文时显示英文的更新日志 */
+  const changelogHtml = $derived(mdToHtml(i18n.locale.startsWith('zh') ? changelogZh : changelogEn))
   const open = (url: string): void => void platform.openExternal(url)
 
   let { snapshot, onsnapshothandled }: { snapshot: string | null; onsnapshothandled: () => void } =
@@ -455,7 +465,7 @@
         ><Settings2 size={17} /><span>{t('settings.title')}</span></button
       >
       <span class="grow"></span>
-      <span class="muted small">v{version}</span>
+      <span class="muted small ver">v{version}</span>
     </div>
   </aside>
 
@@ -631,6 +641,16 @@
           <div class="card panel md">{@html changelogHtml}</div>
         {:else if footerPanel === 'dev'}
           <div class="card panel dev">
+            <!-- 遇到问题先引到 GitHub：报告问题（正文带诊断信息）、复制诊断信息 -->
+            <div class="row feedback">
+              <button class="btn sm primary" onclick={() => void reportIssue()}
+                ><Bug size={14} />{t('feedback.report')}</button
+              >
+              <button class="btn sm" onclick={() => void copyDiagnostics()}
+                ><Copy size={14} />{t('feedback.copy')}</button
+              >
+              <HelpDot tip={t('feedback.hint')} />
+            </div>
             <strong>{DEV.name}</strong>
             <button class="link" onclick={() => open(DEV.site)}>{DEV.site}</button>
             <button class="link" onclick={() => open(DEV.github)}>{DEV.github}</button>
@@ -648,7 +668,9 @@
                     >{f.name[0]}</span
                   >{/if}
                 <span class="grow"
-                  ><strong>{f.name}</strong><span class="small muted">{f.blurb}</span></span
+                  ><strong>{f.name}</strong><span class="small muted"
+                    >{t(`welcome.friendBlurbs.${f.blurb}`)}</span
+                  ></span
                 >
                 <ExternalLink size={13} />
               </button>
@@ -936,6 +958,13 @@
   }
   .foot {
     justify-content: space-between;
+    /* 按钮文字长的界面语言、测试版那种长版本号放不下时，版本号自己换到下一行（靠右），不挤出栏外 */
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+  .ver {
+    margin-inline-start: auto;
+    white-space: nowrap;
   }
   .main {
     /* 上下留白收着点：中间这一栏尽量在常见窗口高度里不出滚动条 */
@@ -1191,6 +1220,11 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+  }
+  .dev .feedback {
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
   }
   .link {
     border: 0;

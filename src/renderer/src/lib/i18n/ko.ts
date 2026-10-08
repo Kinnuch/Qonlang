@@ -124,7 +124,10 @@ export default {
       notYet: '아직 비었거나 틀린 칸이 있습니다',
       exportHtml: '웹 페이지 내보내기',
       exportPng: '이미지 내보내기',
-      exportTitle: '{lang} 십자말풀이'
+      exportTitle: '{lang} 십자말풀이',
+      clear: '지우기',
+      status: '틀림 {bad}개, 빈칸 {empty}개',
+      madeWith: 'Qonlang으로 만들었습니다'
     }
   },
   mcp: {
@@ -206,6 +209,12 @@ export default {
     changelog: '업데이트 기록',
     developer: '개발자',
     friends: '친구 링크',
+    friendBlurbs: {
+      gilatod: 'Gilatod: 오랫동안 함께해 온 친구들의 메인 사이트.',
+      kikomas: 'kikomas의 蓝地群岛(Shohna Isles) 설정 자료집.',
+      cathamos: 'Cathamos의 개인 사이트.',
+      sicusa: 'GitHub 페이지.'
+    },
     syntax: '규칙 문법',
     credits: '감사의 말',
     creditRoles: {
@@ -340,7 +349,7 @@ export default {
     importTitle: '규칙 세트 가져오기',
     importFormat: '파일 형식',
     importFiles: '파일: {names}',
-    editorPlaceholder: '여기에 규칙을 입력하세요. 예: V=aeiou -* 祖语 a > e / _i -* 现代语',
+    editorPlaceholder: '여기에 규칙을 입력하세요. 예:\nV=aeiou\n-* 조어\na > e / _i\n-* 현대어',
     diagnostics: '진단',
     noDiagnostics: '문제 없음',
     warnings: '경고 {n}개',
@@ -404,7 +413,7 @@ export default {
     addDigraph: '다중 자모 추가',
     className: '부류 이름',
     classMembers: '구성원',
-    classNameHint: '대문자 한 글자, 또는 임의의 긴 이름 ({长名} 형태로 참조해야 합니다)',
+    classNameHint: '대문자 한 글자, 또는 임의의 긴 이름 ({이름} 형태로 참조해야 합니다)',
     membersHint: '다중 자모는 공백으로 구분해야 하고, 그렇지 않으면 그냥 이어 쓰면 됩니다',
     digraphFrom: '표기',
     digraphTo: '내부 기호',
@@ -458,7 +467,7 @@ export default {
     syllable: '번째 음절',
     nucleus: '음절핵',
     nucleusAny: '제한 없음',
-    nucleusTip: '음절핵을 이루는 요소. 예: V, {双元音}, [áé]',
+    nucleusTip: '음절핵을 이루는 요소. 예: V, {이중모음}, [áé]',
     env: '환경',
     except: '제외',
     addClause: '한 줄 추가',
@@ -499,7 +508,7 @@ export default {
   },
   stressSettings: {
     affects: '강세에 미치는 영향',
-    hint: '체크하면 이 단어에 음운 변화와 정서법의 강세 규칙이 적용됩니다. 항목에 <词类> 가 표시된 것은 품사에 따라 고르고, 규칙에 @ 가 표시된 것은 여기서 지정한 특수 강세대로 처리합니다.',
+    hint: '체크하면 이 단어에 음운 변화와 정서법의 강세 규칙이 적용됩니다. 항목에 <품사> 가 표시된 것은 품사에 따라 고르고, 규칙에 @ 가 표시된 것은 여기서 지정한 특수 강세대로 처리합니다.',
     morphemeHint:
       '형태소 자체에는 품사가 없습니다. 넘겨지는 것은 그 유형 (어근, 접미사 등)이며, 어느 품사로 칠지 따로 지정할 수 있습니다. 음운 변화를 적용할 때 형태소는 단어 하나처럼 다룹니다. 패러다임에서 단어에 붙일 때는 특수 강세가 그 접사로 옮겨 가고, 품사를 지정했다면 단어 전체를 그 품사로 처리합니다.',
     passPos: '품사 전달',
@@ -548,7 +557,7 @@ export default {
     codepoints: '코드 포인트'
   },
   morphemes: {
-    hint: '패러다임에서는 @语素 로 여기 있는 접사를 참조하고, 말뭉치는 이를 바탕으로 단어를 자동으로 나눕니다.',
+    hint: '패러다임에서는 @형태소 로 여기 있는 접사를 참조하고, 말뭉치는 이를 바탕으로 단어를 자동으로 나눕니다.',
     title: '형태소',
     sortType: '유형별',
     empty: '이 언어에는 아직 형태소가 없습니다.',
@@ -730,7 +739,9 @@ export default {
     installing: '설치 중입니다. 프로그램이 곧 다시 열립니다…',
     failed: '내려받기에 실패했습니다: {err}',
     later: '나중에',
-    skip: '이 버전 건너뛰기'
+    skip: '이 버전 건너뛰기',
+    githubHint:
+      '설치 파일은 GitHub에서 내려받습니다. 네트워크에 따라 느리거나 연결되지 않을 수 있습니다.'
   },
   stats: {
     title: '통계',
@@ -904,7 +915,7 @@ export default {
     testTip:
       '테스트 패널은 어떤 입력이든 가져오기 설정 그대로 해석하며, 설정을 고칠 때마다 결과를 다시 계산합니다.',
     testNoMatch: '이 부분은 알아볼 수 없습니다',
-    phLexc: '{"Lexicon":{"abc":{"Senses":[{"definition":"释义"}]}}}',
+    phLexc: '{"Lexicon":{"abc":{"Senses":[{"definition":"뜻"}]}}}',
     phCsv: '고른 열에 맞춰 데이터를 한 줄 입력하세요. 머리글은 적지 않습니다',
     phTable: '한 줄에 하나씩, 열은 위에서 고른 구분자로 나눕니다',
     phGlyphs: '한 줄에 하나씩: 문자 전사 이름',
@@ -923,7 +934,7 @@ export default {
   search: {
     help: '검색창은 고급 검색을 지원합니다. 필드=내용 은 그 필드의 내용을 찾고 (보기: gloss=PL), 필드==내용 은 내용이 똑같은 것만 찾습니다. /정규식/ 은 정규 표현식으로 찾습니다.',
     fields: '이 페이지의 필드: {fields}',
-    dimFields: '문법 차원의 이름도 필드로 쓸 수 있습니다: 性=阴、数=复数'
+    dimFields: '문법 차원의 이름도 필드로 쓸 수 있습니다: 성=여성, 수=복수'
   },
   tour: {
     title: '안내 둘러보기',
@@ -1029,7 +1040,7 @@ export default {
       docs: [
         '여기를 누르면 문서를 새로 만듭니다.',
         '왼쪽에는 문서 페이지 목록이 나오며, 프로젝트 전체에서 쓰는 문서와 현재 언어에만 딸린 문서로 나뉩니다.',
-        '문서에는 편집, 분할, 미리 보기 세 모드가 있습니다. 또 문서 안에 [[词头]] 같은 형식으로 적으면 어휘의 특정 항목으로 이어집니다.',
+        '문서에는 편집, 분할, 미리 보기 세 모드가 있습니다. 또 문서 안에 [[표제어]] 같은 형식으로 적으면 어휘의 특정 항목으로 이어집니다.',
         '도구 모음에는 굵게, 제목, 목록, 표 같은 자주 쓰는 서식이 있습니다. 「링크 넣기」로는 항목이나 다른 모듈의 대상을 바로 골라, 올바른 링크 형식으로 자동으로 적어 줍니다.',
         '미리 보기 면은 최종 모습대로 짜서 보여 주며, 그 안의 링크는 눌러서 가리키는 대상을 바로 열 수 있습니다.'
       ],
@@ -1454,7 +1465,7 @@ export default {
     formatGuideHint: '사용 설명서에서 CSV 가져오기 보기를 확인하세요',
     markers: '단어, 뜻풀이, 메모 안의 표지',
     markersHint:
-      '【专】【古】 같은 대괄호 표지를 말합니다. 위에서 소괄호 알아보기를 체크했다면 조건에 맞는 소괄호도 알아보며, 이런 괄호는 보통 사용역으로 설정합니다.',
+      '【고유】【옛】 같은 대괄호 표지를 말합니다. 위에서 소괄호 알아보기를 체크했다면 조건에 맞는 소괄호도 알아보며, 이런 괄호는 보통 사용역으로 설정합니다.',
     marker: '표지',
     markerCount: '횟수 · 들어 있는 열',
     markerAction: '처리',
@@ -1478,7 +1489,7 @@ export default {
     posNew: '새로 만듦',
     codes: '뜻풀이 첫머리의 코드',
     codesHint:
-      '뜻풀이 바로 앞에 붙은 숫자를 말합니다. 동사 결합가 「1离开；2前往」 같은 것입니다. 태그로 설정하면 뜻풀이에는 나오지 않습니다.',
+      '뜻풀이 바로 앞에 붙은 숫자를 말합니다. 동사 결합가 「1떠나다; 2가다」 같은 것입니다. 태그로 설정하면 뜻풀이에는 나오지 않습니다.',
     code: '코드',
     codeValue: '태그',
     codeActions: {
@@ -1679,7 +1690,7 @@ export default {
     search: '문서 검색: 제목 또는 본문',
     title: '문서',
     page: '문서 페이지',
-    hint: '[[单词]] 같은 형태로 어휘의 항목을 링크합니다.',
+    hint: '[[단어]] 같은 형태로 어휘의 항목을 링크합니다.',
     insertLink: '링크 삽입',
     linkSearch: '이름 검색……',
     linkHelp:
@@ -1710,9 +1721,9 @@ export default {
     projectWide: '프로젝트 전체',
     updated: '수정',
     placeholder:
-      '여기에 Markdown 형식으로 작성하세요……  ## 제목 - 목록 **굵게** *기울임* `코드` [[词头]] | 표 | 칸 | | --- | --- |',
+      '여기에 Markdown 형식으로 작성하세요……  ## 제목 - 목록 **굵게** *기울임* `코드` [[표제어]] | 표 | 칸 | | --- | --- |',
     syntax:
-      '지원: # 제목, - / 1. 목록, > 인용, ``` 코드 블록, | 표 |, **굵게**, *기울임*, `코드`, [링크](https://…), [[词头]], [[语素:na-]].'
+      '지원: # 제목, - / 1. 목록, > 인용, ``` 코드 블록, | 표 |, **굵게**, *기울임*, `코드`, [링크](https://…), [[표제어]], [[morpheme:na-]].'
   },
   palette: {
     placeholder:
@@ -2017,6 +2028,7 @@ export default {
       adjust: '미세 조정',
       paradigm: '패러다임'
     },
+    affixPlaceholder: '@형태소 / -s',
     adjustPlaceholder:
       'at > / _# 같은 형태로 입력합니다. -at, +u, ^-e, ^+a 같은 약식도 쓸 수 있습니다',
     nestPick: '패러다임 하나 고르기',
@@ -2096,7 +2108,7 @@ export default {
     deleted: '패러다임 「{name}」을(를) 삭제했습니다',
     hint: '패러다임을 해당 품사에 묶으면, 항목 입력 화면에 대응하는 슬롯 패널이 자동으로 생깁니다.',
     affixHint:
-      '@ 로 형태소를 참조하고, {阴:g|k} 같은 형태로 조건에 따라 고릅니다. 자세한 사용법은 프로그램 오른쪽 위의 규칙 문법서를 보세요.',
+      '@ 로 형태소를 참조하고, {여:g|k} 같은 형태로 조건에 따라 고릅니다. 자세한 사용법은 프로그램 오른쪽 위의 규칙 문법서를 보세요.',
     adjust: '미세 조정',
     adjustPre: '음운 변화 적용 전…',
     adjustStem: '어간에…',
@@ -2633,7 +2645,9 @@ export default {
       none: '아직 설치된 플러그인이 없습니다.',
       loaded: '불러옴',
       failed: '불러오기 실패',
-      counts: '패널 {views} · 명령 {commands} · 가져오기 내보내기 {io} · 생성기 {generators}'
+      counts: '패널 {views} · 명령 {commands} · 가져오기 내보내기 {io} · 생성기 {generators}',
+      noManifest: 'plugin.json을 읽을 수 없습니다',
+      loadFailed: '플러그인 「{name}」을(를) 불러오지 못했습니다: {msg}'
     },
     showHistory: '항목 카드에 역사 형태 표시',
     showHistoryHint:
@@ -2732,6 +2746,13 @@ export default {
       '끌어서 인스펙터 너비를 조절하고, 이 칸을 두 번 누르면 기본 너비 설정으로 되돌립니다'
   },
   errors: {
+    svelte: {
+      each_key_duplicate:
+        '목록에서 두 항목의 식별자가 겹칩니다(같은 이름의 내용이 둘일 때 자주 생깁니다)',
+      state_unsafe_mutation: '화면을 그리는 도중에 데이터가 바뀌었습니다',
+      effect_update_depth_exceeded: '데이터가 서로를 계속 갱신해 멈추지 않습니다'
+    },
+    unknown: '알 수 없는 오류',
     pageCrashed: '이 페이지에서 오류가 났습니다. 다른 페이지는 영향을 받지 않습니다.',
     retry: '다시 시도',
     goLanguages: '「언어」 페이지로 돌아가기',
@@ -2755,5 +2776,134 @@ export default {
     saveAndClose: '저장하고 닫기',
     discardAndClose: '저장 안 함',
     closeProject: '프로젝트 닫기'
+  },
+  native: {
+    closeTitle: '저장하지 않은 변경 사항이 있습니다',
+    closeBody: '닫기 전에 저장할까요?',
+    closeSave: '저장하고 닫기',
+    closeDiscard: '저장 안 함',
+    closeCancel: '취소',
+    undoTyping: '입력 실행 취소',
+    redoTyping: '입력 다시 실행',
+    cut: '잘라내기',
+    copy: '복사',
+    paste: '붙여넣기',
+    selectAll: '모두 선택',
+    copyLink: '링크 복사',
+    undoChange: '마지막 변경 실행 취소',
+    redo: '다시 실행',
+    back: '이전 페이지로',
+    palette: '명령 팔레트',
+    chars: '문자 패널',
+    save: '저장',
+    saveAs: '다른 이름으로 저장…',
+    open: '열기…',
+    guide: '사용 설명서',
+    reportIssue: '문제 신고',
+    menuAbout: 'Qonlang 정보',
+    menuFile: '파일',
+    menuEdit: '편집',
+    menuView: '보기',
+    menuWindow: '창',
+    menuHelp: '도움말',
+    menuUndo: '실행 취소',
+    menuRedo: '다시 실행',
+    menuDelete: '삭제',
+    resetZoom: '실제 크기',
+    zoomIn: '확대',
+    zoomOut: '축소',
+    fullscreen: '전체 화면 전환',
+    devTools: '개발자 도구',
+    minimize: '최소화',
+    quit: '종료',
+    closeWindow: '창 닫기',
+    zoomWindow: '확대/축소',
+    front: '모두 앞으로 가져오기',
+    services: '서비스',
+    hide: 'Qonlang 가리기',
+    hideOthers: '기타 가리기',
+    unhide: '모두 보기'
+  },
+  saveConflict: {
+    title: '파일이 다른 곳에서 변경되었습니다',
+    body: '「{name}」이(가) 연 뒤 또는 마지막으로 저장한 뒤에 다른 프로그램(다른 Qonlang 창, 클라우드 동기화 등)에서 변경되었습니다. 지금 저장하면 그쪽 변경 내용을 덮어씁니다.',
+    overwrite: '덮어쓰기',
+    saveAs: '다른 이름으로 저장…',
+    cancel: '지금은 저장 안 함',
+    paused: '저장하지 않았습니다. 자동 저장이 일시 중지되었으며, Ctrl+S 로 다시 고를 수 있습니다.'
+  },
+  secondInstance: {
+    title: 'Qonlang이 이미 열려 있습니다',
+    body: '두 창을 함께 쓸 수 있습니다. 같은 프로젝트는 한 창에서만 수정하세요. 다른 창에서 저장한 뒤에는 이 창에서 저장하기 전에 알려 드립니다.'
+  },
+  feedback: {
+    report: '문제 신고',
+    copy: '진단 정보 복사',
+    hint: '「문제 신고」는 GitHub에 새 이슈를 만들고 본문에 진단 정보(버전, 시스템, 인터페이스 언어, 프로젝트 크기, 최근 오류. 프로젝트 내용은 넣지 않음)를 미리 넣어 둡니다. 「진단 정보 복사」는 같은 내용을 복사하므로 다른 곳에 붙여 넣을 수 있습니다.',
+    copied: '진단 정보를 복사했습니다',
+    copyFailed: '복사하지 못했습니다: {msg}',
+    issueWhat: '어떤 문제가 있었나요',
+    issueSteps: '재현 방법'
+  },
+  ruleMsg: {
+    includeInner: '「{ref}」의 {line}번째 줄: {msg}',
+    includeNoStage: '「{ref}」에 「{stage}」라는 단계가 없습니다',
+    includeCycle: '「{ref}」이(가) 자기 자신을 돌아서 참조합니다',
+    includeNotFound: '「{ref}」라는 규칙 세트를 찾을 수 없습니다',
+    includeTooDeep: '참조가 너무 깊게 중첩되었습니다(최대 4단계)',
+    includeSyntax: '참조는 `-@ 규칙 세트 이름 : 시작 단계 .. 끝 단계` 형태로 씁니다',
+    clauseNeedsPosition:
+      '「{piece}」은(는) 음절 위치로 시작해야 합니다: 1, 2, -1, -2, 0, * 또는 -*(또는 @ 하나만)',
+    clauseNoUnderscore: '「{piece}」의 환경에 _ 가 없습니다',
+    excNoUnderscore: '제외 환경 「{env}」에 _ 가 없습니다',
+    envNoUnderscore: '환경 「{env}」에 _ 가 없습니다',
+    undefinedClassLetter: '정의되지 않은 음소 부류 {name}. 글자 그대로 처리합니다',
+    undefinedClassBraced: '정의되지 않은 음소 부류 {{name}}',
+    undefinedMorpheme: '정의되지 않은 형태소 @{name}',
+    undefinedFeature: '정의되지 않은 자질 {name}',
+    featureEmpty: '자질 [{feature}]에 구성원이 없습니다',
+    featureNeedsMembers:
+      '치환에서 [{feature}]를 위치대로 대응시키려면 자질 정의에 구성원을 나열하세요',
+    regexInvalid: '정규식을 컴파일할 수 없습니다: {msg}',
+    missingArrow: '> 가 없습니다',
+    onlyOneQuestion:
+      '규칙 하나의 대상과 치환에는 ? 를 각각 하나만 쓸 수 있습니다(환경에 맞을 때 ? 맞지 않을 때). 물음표 자체는 \\? 로 씁니다',
+    elseTargetEmpty: '? 뒤(환경에 맞지 않을 때)의 대상은 비울 수 없습니다',
+    elseUnused: '환경을 쓰지 않아 늘 맞으므로 ? 뒤는 쓰이지 않습니다'
+  },
+  traceMsg: {
+    labelAdjust: '미세 조정',
+    labelAdjustPre: '미세 조정(앞)',
+    labelAdjustPost: '미세 조정(뒤)',
+    adjustError: '{label} ✗ {line}: {msg}',
+    adjustUnknown: '{label} ? {line}',
+    adjustLine: '{label} {rest}',
+    prefix: '접두사 {rest}',
+    suffix: '접미사 {rest}',
+    circumfix: '접환사 {rest}',
+    infix: '접요사 {rest}',
+    pattern: '패턴 {rest}',
+    reduplication: '중첩 {rest}',
+    ruleSetMissing: '규칙 세트가 없습니다',
+    paradigmMissing: '패러다임이 없습니다',
+    paradigmTooDeep: '패러다임 {name}: 너무 깊게 중첩되어({n}단계 초과) 여기서 멈춥니다',
+    paradigmNoSlot: '패러다임 {name}: 슬롯을 고르지 않았습니다',
+    paradigmEmptySlot: '패러다임 {name} · {slot}: 이 슬롯에는 만드는 방법이 없습니다',
+    paradigmResult: '패러다임 {rest}',
+    inheritMissing: '상속한 패러다임이 없습니다',
+    inheritTooDeep: '상속 {name}: 너무 깊게 중첩되어({n}단계 초과) 여기서 멈춥니다',
+    inheritSlotGone: '상속 {name}: 그 슬롯은 더 이상 없습니다',
+    inheritEdited: '상속 {name} · {slot}(직접 수정함): {form}',
+    inheritNoForm: '상속 {name} · {slot}: 그 슬롯에는 형태가 없습니다',
+    inheritResult: '상속 {rest}',
+    pronStart: '발음 시작: {rest}',
+    pron: '발음: {rest}',
+    plugin: '플러그인 생성기 {rest}',
+    stemFallback: '어간으로 되돌림 {rest}',
+    stem: '어간 {rest}',
+    conditionUnmatched: '어떤 값에도 맞지 않은 조건: {list}',
+    joined: '결합: {rest}',
+    lemmaRef: '항목 참조 {rest}',
+    morphemeMissing: '형태소를 찾을 수 없음 {rest}'
   }
 }

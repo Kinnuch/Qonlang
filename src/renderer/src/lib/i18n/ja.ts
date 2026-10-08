@@ -123,7 +123,10 @@ export default {
       notYet: '未記入または誤りのマスがあります',
       exportHtml: 'ウェブページをエクスポート',
       exportPng: '画像をエクスポート',
-      exportTitle: '{lang} のクロスワード'
+      exportTitle: '{lang} のクロスワード',
+      clear: '消去',
+      status: '{bad} 個まちがい、{empty} 個未記入',
+      madeWith: '千語集 Qonlang で作成'
     }
   },
   mcp: {
@@ -207,6 +210,12 @@ export default {
     changelog: '更新履歴',
     developer: '開発者',
     friends: 'リンク集',
+    friendBlurbs: {
+      gilatod: 'Gilatod：長年協力している友人たちのメインサイト。',
+      kikomas: 'kikomas による蓝地群岛（Shohna Isles）の設定資料集。',
+      cathamos: 'Cathamos の個人サイト。',
+      sicusa: 'GitHub のページ。'
+    },
     syntax: '規則文法',
     credits: 'クレジット',
     creditRoles: {
@@ -336,7 +345,7 @@ export default {
     importTitle: '規則セットのインポート',
     importFormat: 'ファイル形式',
     importFiles: 'ファイル：{names}',
-    editorPlaceholder: 'ここに規則を入力します。例： V=aeiou -* 祖语 a > e / _i -* 现代语',
+    editorPlaceholder: 'ここに規則を入力します。例：\nV=aeiou\n-* 祖語\na > e / _i\n-* 現代語',
     diagnostics: '診断',
     noDiagnostics: '問題ありません',
     warnings: '警告 {n} 件',
@@ -358,7 +367,7 @@ export default {
       whole: 'セット全体',
       missing: '「{name}」という音変化は見つかりません',
       open: '開く',
-      hint: '-@ 规则集名 : 起始阶段 .. 终止阶段 を使うと、他の音変化の規則セットを参照できます'
+      hint: '-@ 規則セット名 : 開始段階 .. 終了段階 を使うと、他の音変化の規則セットを参照できます'
     },
     stageBindings: '段階に対応する言語',
     noStages: 'テキストにはまだ -* の段階マーカーがありません。',
@@ -400,7 +409,7 @@ export default {
     addDigraph: '二重字（多重字）を追加',
     className: '音類名',
     classMembers: 'メンバー',
-    classNameHint: '大文字 1 文字、または任意の長い名前（{长名} の形で参照します）',
+    classNameHint: '大文字 1 文字、または任意の長い名前（{名前} の形で参照します）',
     membersHint: '二重字（多重字）はスペースで区切り、それ以外は続けて書きます',
     digraphFrom: '綴り',
     digraphTo: '内部記号',
@@ -454,7 +463,7 @@ export default {
     syllable: '音節目',
     nucleus: '音節核',
     nucleusAny: '指定なし',
-    nucleusTip: '音節核の構成要素（例：V、{双元音}、[áé]）',
+    nucleusTip: '音節核の構成要素（例：V、{二重母音}、[áé]）',
     env: '環境',
     except: '除外',
     addClause: '項目を追加',
@@ -480,7 +489,7 @@ export default {
     featureMinus: 'この素性を持たない音 [-]',
     featureName: '素性名',
     featureMembers: 'メンバー（スペース区切り）',
-    featureHint: '規則では [+特征] または [-特征] の形で、作成した素性を参照できます。',
+    featureHint: '規則では [+名前] または [-名前] の形で、作成した素性を参照できます。',
     special: 'まず語彙項目に指定された特殊強勢を見る（@）',
     specialTip:
       '詳しくは「語彙」または「形態素」モジュールの語彙項目にあるチェック「強勢への影響 → 特殊強勢を渡す」をご覧ください',
@@ -495,7 +504,7 @@ export default {
   },
   stressSettings: {
     affects: '強勢への影響',
-    hint: 'チェックすると、この語に「音変化」と「正書法」の強勢規則が適用されます。<词类> と書かれた項目は品詞によって選ばれ、@ が付いた規則ではここで指定した特殊強勢が使われます。',
+    hint: 'チェックすると、この語に「音変化」と「正書法」の強勢規則が適用されます。<品詞> と書かれた項目は品詞によって選ばれ、@ が付いた規則ではここで指定した特殊強勢が使われます。',
     morphemeHint:
       '形態素そのものには品詞がありません。渡されるのはその種類（語根、接尾辞など）で、別にどの品詞として扱うかを指定できます。音変化の推導では、形態素を 1 つの語として扱います。パラダイムで語に付け加えた場合、特殊強勢はその接辞に移ります。品詞を指定した場合は、語全体をその品詞として扱います。',
     passPos: '品詞を渡す',
@@ -724,7 +733,9 @@ export default {
     installing: 'インストール中です。まもなくソフトが開き直します…',
     failed: 'ダウンロードに失敗しました：{err}',
     later: 'あとで',
-    skip: 'このバージョンをスキップ'
+    skip: 'このバージョンをスキップ',
+    githubHint:
+      'インストーラーは GitHub からダウンロードします。ネットワークによっては遅かったり、つながらなかったりすることがあります。'
   },
   stats: {
     title: '統計',
@@ -1024,7 +1035,7 @@ export default {
       docs: [
         'ここを押してドキュメントを新規作成します。',
         '左にはドキュメントのページ一覧が表示され、プロジェクト共通のページと、現在の言語専用のページに分かれます。',
-        'ドキュメントには編集、分割、プレビューの三つのモードがあります。また、ドキュメント内で [[词头]] のように書くと、語彙の特定の語彙項目にリンクできます。',
+        'ドキュメントには編集、分割、プレビューの三つのモードがあります。また、ドキュメント内で [[見出し語]] のように書くと、語彙の特定の語彙項目にリンクできます。',
         'ツールバーには、太字、見出し、箇条書き、表といったよく使う書き方がそろっています。「リンクを挿入」では、語彙項目や他のモジュールの対象を選ぶだけで、正しいリンクの形が書き込まれます。',
         'プレビュー画面は最終的な体裁で組まれ、中のリンクからは対応する対象をそのまま開けます。'
       ],
@@ -1448,7 +1459,7 @@ export default {
     formatGuideHint: 'ユーザーガイドで CSV インポートの例を見る',
     markers: '単語、語義、備考の中のマーカー',
     markersHint:
-      '【专】【古】のような角括弧のマーカーのことです。上で丸括弧の認識をチェックしている場合は、条件に合う丸括弧も認識されます。この種の括弧は、ふつうレジスターとして設定されます。',
+      '【固】【古】のような角括弧のマーカーのことです。上で丸括弧の認識をチェックしている場合は、条件に合う丸括弧も認識されます。この種の括弧は、ふつうレジスターとして設定されます。',
     marker: 'マーカー',
     markerCount: '回数 · 対象の列',
     markerAction: '処理',
@@ -1472,7 +1483,7 @@ export default {
     posNew: '新規作成',
     codes: '語義の先頭にあるコード',
     codesHint:
-      '語義の先頭で文字にすぐ続く数字のことです。たとえば動詞の結合価を表す「1离开；2前往」など。タグに設定すると、語義には表示されません。',
+      '語義の先頭で文字にすぐ続く数字のことです。たとえば動詞の結合価を表す「1離れる；2向かう」など。タグに設定すると、語義には表示されません。',
     code: 'コード',
     codeValue: 'タグ',
     codeActions: {
@@ -1673,11 +1684,11 @@ export default {
     search: 'ドキュメントを検索：タイトルまたは本文',
     title: 'ドキュメント',
     page: 'ドキュメントページ',
-    hint: '[[单词]] のように書くと、語彙の語彙項目にリンクできます。',
+    hint: '[[単語]] のように書くと、語彙の語彙項目にリンクできます。',
     insertLink: 'リンクを挿入',
     linkSearch: '名前で検索……',
     linkHelp:
-      '[[名前]] はまず語彙項目として探します。接頭辞を付けると種類で探します：词条 / 语素 / 语言 / 音变 / 构形 / 文字 / 例句 / 短语 / 文档。英語の接頭辞（morpheme: など）も同じように使えます。音変化とパラダイムでは、# でさらに特定の段階やスロットを指定でき、| の後ろに表示する文字を書きます。',
+      '[[名前]] はまず語彙項目として探します。接頭辞を付けると種類で探します：lexeme / morpheme / language / soundchange / paradigm / script / sentence / phrase / doc。中国語の接頭辞（语素: など）も同じように使えます。音変化とパラダイムでは、# でさらに特定の段階やスロットを指定でき、| の後ろに表示する文字を書きます。',
     linkMissing: '{kind}が見つかりません：{name}',
     linkSubMissing: '「{name}」に「{sub}」はありません',
     kinds: {
@@ -1704,9 +1715,9 @@ export default {
     projectWide: 'プロジェクト全体',
     updated: '更新日時',
     placeholder:
-      'ここに Markdown 形式で書きます……  ## 見出し - リスト **太字** *斜体* `コード` [[词头]] | 表 | セル | | --- | --- |',
+      'ここに Markdown 形式で書きます……  ## 見出し - リスト **太字** *斜体* `コード` [[見出し語]] | 表 | セル | | --- | --- |',
     syntax:
-      '対応：# 見出し、- / 1. リスト、> 引用、``` コードブロック、| 表 |、**太字**、*斜体*、`コード`、[リンク](https://…)、[[词头]]、[[语素:na-]]。'
+      '対応：# 見出し、- / 1. リスト、> 引用、``` コードブロック、| 表 |、**太字**、*斜体*、`コード`、[リンク](https://…)、[[見出し語]]、[[morpheme:na-]]。'
   },
   palette: {
     placeholder:
@@ -2010,6 +2021,7 @@ export default {
       adjust: '微調整',
       paradigm: 'パラダイム'
     },
+    affixPlaceholder: '@形態素 / -s',
     adjustPlaceholder:
       'at > / _# のような形式で入力します。-at、+u、^-e、^+a などの省略記法も使えます',
     nestPick: 'パラダイムを一つ選ぶ',
@@ -2090,7 +2102,7 @@ export default {
     deleted: 'パラダイム「{name}」を削除しました',
     hint: 'パラダイムを対応する品詞に割り当てると、語彙項目の入力画面に対応するスロットのパネルが自動的に表示されます。',
     affixHint:
-      '@ で形態素を参照し、{阴:g|k} のような形式で条件による選択ができます。詳しい使い方は画面右上の規則構文の手引きをご覧ください。',
+      '@ で形態素を参照し、{女:g|k} のような形式で条件による選択ができます。詳しい使い方は画面右上の規則構文の手引きをご覧ください。',
     adjust: '微調整',
     adjustPre: '音変化の前…',
     adjustStem: '語幹に対して…',
@@ -2631,7 +2643,9 @@ export default {
       loaded: '読み込み済み',
       failed: '読み込みに失敗',
       counts:
-        'パネル {views} · コマンド {commands} · インポートとエクスポート {io} · ジェネレーター {generators}'
+        'パネル {views} · コマンド {commands} · インポートとエクスポート {io} · ジェネレーター {generators}',
+      noManifest: 'plugin.json を読み込めません',
+      loadFailed: 'プラグイン「{name}」を読み込めませんでした：{msg}'
     },
     showHistory: '語彙項目のカードに歴史形を表示',
     showHistoryHint:
@@ -2737,6 +2751,13 @@ export default {
       'ドラッグしてインスペクターの幅を調整します。このバーをダブルクリックすると既定の幅に戻ります'
   },
   errors: {
+    svelte: {
+      each_key_duplicate:
+        'リストの中で二つの項目の識別子が重なっています（同じ名前の内容が二つあるときによく起きます）',
+      state_unsafe_mutation: '表示の途中でデータが変更されました',
+      effect_update_depth_exceeded: 'データが互いに更新し合って止まらなくなりました'
+    },
+    unknown: '不明なエラー',
     pageCrashed: 'このページでエラーが発生しました。ほかのページには影響ありません。',
     retry: '再試行',
     goLanguages: '「言語」ページに戻る',
@@ -2761,5 +2782,135 @@ export default {
     saveAndClose: '保存して閉じる',
     discardAndClose: '保存しない',
     closeProject: 'プロジェクトを閉じる'
+  },
+  native: {
+    closeTitle: '未保存の変更があります',
+    closeBody: '閉じる前に保存しますか？',
+    closeSave: '保存して閉じる',
+    closeDiscard: '保存しない',
+    closeCancel: 'キャンセル',
+    undoTyping: '入力を元に戻す',
+    redoTyping: '入力をやり直す',
+    cut: '切り取り',
+    copy: 'コピー',
+    paste: '貼り付け',
+    selectAll: 'すべて選択',
+    copyLink: 'リンクをコピー',
+    undoChange: '直前の変更を元に戻す',
+    redo: 'やり直し',
+    back: '前のページに戻る',
+    palette: 'コマンドパレット',
+    chars: '文字パネル',
+    save: '保存',
+    saveAs: '名前を付けて保存…',
+    open: '開く…',
+    guide: 'ユーザーガイド',
+    reportIssue: '問題を報告',
+    menuAbout: '千語集について',
+    menuFile: 'ファイル',
+    menuEdit: '編集',
+    menuView: '表示',
+    menuWindow: 'ウィンドウ',
+    menuHelp: 'ヘルプ',
+    menuUndo: '元に戻す',
+    menuRedo: 'やり直す',
+    menuDelete: '削除',
+    resetZoom: '実際のサイズ',
+    zoomIn: '拡大',
+    zoomOut: '縮小',
+    fullscreen: '全画面表示の切り替え',
+    devTools: '開発者ツール',
+    minimize: '最小化',
+    quit: '終了',
+    closeWindow: 'ウインドウを閉じる',
+    zoomWindow: '拡大/縮小',
+    front: 'すべてを手前に移動',
+    services: 'サービス',
+    hide: '千語集を隠す',
+    hideOthers: 'ほかを隠す',
+    unhide: 'すべてを表示'
+  },
+  saveConflict: {
+    title: 'ファイルがほかの場所で変更されています',
+    body: '「{name}」は、開いた後または前回の保存後に、ほかのプログラム（別の千語集ウィンドウやクラウド同期など）によって変更されました。このまま保存すると、そちらの変更が上書きされます。',
+    overwrite: '上書き保存',
+    saveAs: '名前を付けて保存…',
+    cancel: '今は保存しない',
+    paused: '保存しませんでした。自動保存を一時停止しています。Ctrl+S でもう一度選べます。'
+  },
+  secondInstance: {
+    title: '千語集はすでに開いています',
+    body: '二つのウィンドウを同時に使えます。同じプロジェクトはどちらか一方のウィンドウだけで編集してください。もう一方のウィンドウで保存された後は、こちらで保存する前にお知らせします。'
+  },
+  feedback: {
+    report: '問題を報告',
+    copy: '診断情報をコピー',
+    hint: '「問題を報告」は GitHub に新しい Issue を作り、本文に診断情報（バージョン、システム、表示言語、プロジェクトの規模、最近のエラー。プロジェクトの内容は含みません）をあらかじめ入れます。「診断情報をコピー」は同じ内容をコピーするので、ほかの場所に貼り付けられます。',
+    copied: '診断情報をコピーしました',
+    copyFailed: 'コピーできませんでした：{msg}',
+    issueWhat: 'どんな問題が起きましたか',
+    issueSteps: '再現する手順'
+  },
+  ruleMsg: {
+    includeInner: '「{ref}」の {line} 行目：{msg}',
+    includeNoStage: '「{ref}」には「{stage}」という段階がありません',
+    includeCycle: '「{ref}」が自分自身を循環して参照しています',
+    includeNotFound: '「{ref}」という規則セットが見つかりません',
+    includeTooDeep: '参照の入れ子が深すぎます（4 段階まで）',
+    includeSyntax: '参照は `-@ 規則セット名 : 開始段階 .. 終了段階` の形で書きます',
+    clauseNeedsPosition:
+      '「{piece}」は音節の位置で始めてください：1、2、-1、-2、0、* または -*（または @ だけ）',
+    clauseNoUnderscore: '「{piece}」の環境に _ がありません',
+    excNoUnderscore: '除外環境「{env}」に _ がありません',
+    envNoUnderscore: '環境「{env}」に _ がありません',
+    undefinedClassLetter: '未定義の音類 {name}。文字どおりの文字として扱います',
+    undefinedClassBraced: '未定義の音類 {{name}}',
+    undefinedMorpheme: '未定義の形態素 @{name}',
+    undefinedFeature: '未定義の素性 {name}',
+    featureEmpty: '素性 [{feature}] にメンバーがありません',
+    featureNeedsMembers:
+      '置換で [{feature}] を位置どおりに対応させるには、素性の定義にメンバーを列挙してください',
+    regexInvalid: '正規表現をコンパイルできません：{msg}',
+    missingArrow: '> がありません',
+    onlyOneQuestion:
+      '一つの規則では、対象と置換のそれぞれに ? は一つだけ書けます（環境に合う場合 ? 合わない場合）。疑問符そのものは \\? と書きます',
+    elseTargetEmpty: '? の後ろ（環境に合わない場合）の対象は空にできません',
+    elseUnused: '環境が書かれていないため常に当てはまり、? の後ろは使われません'
+  },
+  traceMsg: {
+    labelAdjust: '微調整',
+    labelAdjustPre: '微調整(前)',
+    labelAdjustPost: '微調整(後)',
+    adjustError: '{label} ✗ {line}: {msg}',
+    adjustUnknown: '{label} ? {line}',
+    adjustLine: '{label} {rest}',
+    prefix: '接頭辞 {rest}',
+    suffix: '接尾辞 {rest}',
+    circumfix: '接周辞 {rest}',
+    infix: '接中辞 {rest}',
+    pattern: 'テンプレート {rest}',
+    reduplication: '重複 {rest}',
+    ruleSetMissing: '規則セットがありません',
+    paradigmMissing: 'パラダイムがありません',
+    paradigmTooDeep:
+      'パラダイム {name}：入れ子が深すぎます（{n} 段階を超えました）。ここで止めます',
+    paradigmNoSlot: 'パラダイム {name}：スロットが選ばれていません',
+    paradigmEmptySlot: 'パラダイム {name} · {slot}：このスロットには作り方が書かれていません',
+    paradigmResult: 'パラダイム {rest}',
+    inheritMissing: '継承元のパラダイムがありません',
+    inheritTooDeep: '継承 {name}：入れ子が深すぎます（{n} 段階を超えました）。ここで止めます',
+    inheritSlotGone: '継承 {name}：そのスロットはもうありません',
+    inheritEdited: '継承 {name} · {slot}（手で修正済み）: {form}',
+    inheritNoForm: '継承 {name} · {slot}：そのスロットには形がありません',
+    inheritResult: '継承 {rest}',
+    pronStart: '発音の始まり: {rest}',
+    pron: '発音: {rest}',
+    plugin: 'プラグインの生成器 {rest}',
+    stemFallback: '語幹にフォールバック {rest}',
+    stem: '語幹 {rest}',
+    conditionUnmatched: 'どの値にも当てはまらなかった条件：{list}',
+    joined: '連結: {rest}',
+    lemmaRef: '語彙項目を参照 {rest}',
+    morphemeMissing: '形態素が見つかりません {rest}'
   }
 }

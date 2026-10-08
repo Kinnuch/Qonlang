@@ -72,7 +72,13 @@ const GROUP_OF: Record<string, string> = {
   placeholder: 'common',
   topbar: 'common',
   errors: 'common',
-  dialog: 'common'
+  dialog: 'common',
+  native: 'common',
+  saveConflict: 'common',
+  secondInstance: 'common',
+  feedback: 'settings',
+  ruleMsg: 'soundChanges',
+  traceMsg: 'paradigms'
 }
 
 /** 这一条归到翻译台的哪一类 */

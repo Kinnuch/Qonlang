@@ -43,7 +43,6 @@
   import Docs from './Docs.svelte'
   import CommandPalette from '$lib/ui/CommandPalette.svelte'
   import PromptDialog from '$lib/ui/PromptDialog.svelte'
-  import ConfirmDialog from '$lib/ui/ConfirmDialog.svelte'
   import NewLexemeDialog from '$lib/ui/NewLexemeDialog.svelte'
   import { errorMessage } from '$lib/ui/errorText'
   import GuideTour from '$lib/ui/GuideTour.svelte'
@@ -135,7 +134,7 @@
     const again = Date.now() - lastPageError < 3000
     lastPageError = Date.now()
     const page = t(`nav.${ui.section}`)
-    const msg = errorMessage(error, i18n.locale)
+    const msg = errorMessage(error)
     if (again) {
       ui.crash(t('errors.crashTitle', { page }), msg)
       return
@@ -525,7 +524,6 @@
 <GuideTour />
 <CommandPalette />
 <PromptDialog />
-<ConfirmDialog />
 <NewLexemeDialog />
 <SentenceMergeDialog />
 

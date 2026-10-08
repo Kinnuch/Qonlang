@@ -77,7 +77,7 @@
 
   function label(s: Sym | undefined): string {
     if (!s) return ''
-    return i18n.locale === 'zh' ? `${s.zh} · ${s.en}` : `${s.en} · ${s.zh}`
+    return i18n.locale.startsWith('zh') ? `${s.zh} · ${s.en}` : `${s.en} · ${s.zh}`
   }
   function title(sym: string, info?: Sym): string {
     const i = info ?? symbolInfo(sym)
@@ -223,14 +223,15 @@
             <table class="chart">
               <thead>
                 <tr
-                  ><th></th>{#each PLACES as p (p.en)}<th>{i18n.locale === 'zh' ? p.zh : p.en}</th
+                  ><th></th>{#each PLACES as p (p.en)}<th
+                      >{i18n.locale.startsWith('zh') ? p.zh : p.en}</th
                     >{/each}</tr
                 >
               </thead>
               <tbody>
                 {#each PULMONIC as row, mi (mi)}
                   <tr>
-                    <th>{i18n.locale === 'zh' ? MANNERS[mi].zh : MANNERS[mi].en}</th>
+                    <th>{i18n.locale.startsWith('zh') ? MANNERS[mi].zh : MANNERS[mi].en}</th>
                     {#each row as cell, pi (pi)}
                       <td>
                         {#if cell[0]}{@render symButton(cell[0], {
@@ -252,7 +253,7 @@
           {@render grid(OTHER_PULMONIC)}
         {:else if tab === 'nonPulmonic'}
           {#each NON_PULMONIC as g (g.en)}
-            <h4>{i18n.locale === 'zh' ? g.zh : g.en}</h4>
+            <h4>{i18n.locale.startsWith('zh') ? g.zh : g.en}</h4>
             {@render grid(g.items)}
           {/each}
         {:else if tab === 'vowels'}
@@ -260,14 +261,15 @@
             <table class="chart">
               <thead>
                 <tr
-                  ><th></th>{#each BACKNESS as b (b.en)}<th>{i18n.locale === 'zh' ? b.zh : b.en}</th
+                  ><th></th>{#each BACKNESS as b (b.en)}<th
+                      >{i18n.locale.startsWith('zh') ? b.zh : b.en}</th
                     >{/each}</tr
                 >
               </thead>
               <tbody>
                 {#each VOWELS as row, hi (hi)}
                   <tr>
-                    <th>{i18n.locale === 'zh' ? HEIGHTS[hi].zh : HEIGHTS[hi].en}</th>
+                    <th>{i18n.locale.startsWith('zh') ? HEIGHTS[hi].zh : HEIGHTS[hi].en}</th>
                     {#each row as cell, bi (bi)}
                       <td>
                         {#if cell[0]}{@render symButton(cell[0], {
@@ -293,7 +295,7 @@
             {#each DIACRITICS as s (s.s)}
               <div class="cell">
                 {@render symButton(s.s, s)}
-                <span class="small muted">{i18n.locale === 'zh' ? s.zh : s.en}</span>
+                <span class="small muted">{i18n.locale.startsWith('zh') ? s.zh : s.en}</span>
               </div>
             {/each}
           </div>
@@ -302,7 +304,7 @@
             {#each SUPRASEGMENTALS as s (s.s)}
               <div class="cell">
                 {@render symButton(s.s, s)}<span class="small muted"
-                  >{i18n.locale === 'zh' ? s.zh : s.en}</span
+                  >{i18n.locale.startsWith('zh') ? s.zh : s.en}</span
                 >
               </div>
             {/each}
@@ -312,7 +314,7 @@
             {#each TONES as s (s.s)}
               <div class="cell">
                 {@render symButton(s.s, s)}<span class="small muted"
-                  >{i18n.locale === 'zh' ? s.zh : s.en}</span
+                  >{i18n.locale.startsWith('zh') ? s.zh : s.en}</span
                 >
               </div>
             {/each}
@@ -322,14 +324,14 @@
             {#each SYMBOLS as s (s.s)}
               <div class="cell">
                 {@render symButton(s.s, s)}<span class="small muted"
-                  >{i18n.locale === 'zh' ? s.zh : s.en}</span
+                  >{i18n.locale.startsWith('zh') ? s.zh : s.en}</span
                 >
               </div>
             {/each}
           </div>
         {:else if tab === 'latin'}
           {#each LATIN_EXTRA as g (g.en)}
-            <h4>{i18n.locale === 'zh' ? g.zh : g.en}</h4>
+            <h4>{i18n.locale.startsWith('zh') ? g.zh : g.en}</h4>
             <div class="grid">
               {#each g.items as s, i (s + i)}{@render symButton(s, undefined)}{/each}
             </div>
@@ -348,7 +350,7 @@
                   <span class="cp small"
                     ><span class="mono">{codepoints(c)[0]}</span>
                     {symbolInfo(c)
-                      ? i18n.locale === 'zh'
+                      ? i18n.locale.startsWith('zh')
                         ? symbolInfo(c)!.zh
                         : symbolInfo(c)!.en
                       : ''}</span
@@ -383,7 +385,7 @@
                   <button class="sym" title={title(s.s, s)} onclick={() => appendMark(s.s)}
                     >{show(s)}</button
                   >
-                  <span class="small muted">{i18n.locale === 'zh' ? s.zh : s.en}</span>
+                  <span class="small muted">{i18n.locale.startsWith('zh') ? s.zh : s.en}</span>
                 </div>
               {/each}
               {#each TONES.filter((x) => x.combining) as s (s.s)}
@@ -391,12 +393,12 @@
                   <button class="sym" title={title(s.s, s)} onclick={() => appendMark(s.s)}
                     >{show(s)}</button
                   >
-                  <span class="small muted">{i18n.locale === 'zh' ? s.zh : s.en}</span>
+                  <span class="small muted">{i18n.locale.startsWith('zh') ? s.zh : s.en}</span>
                 </div>
               {/each}
               <div class="cell">
                 <button class="sym" onclick={() => appendMark('ː')}>ː</button><span
-                  class="small muted">{i18n.locale === 'zh' ? '长' : 'long'}</span
+                  class="small muted">{i18n.locale.startsWith('zh') ? '长' : 'long'}</span
                 >
               </div>
             </div>

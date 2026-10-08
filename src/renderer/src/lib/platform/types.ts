@@ -1,7 +1,8 @@
 import type { Skin, UserSkinPreset } from '$lib/skin/presets'
 import type { CustomLocale } from '$lib/i18n/index.svelte'
 
-export type MenuAction = 'save' | 'saveAs' | 'open' | 'undo' | 'redo' | 'palette' | 'chars' | 'back'
+export type MenuAction =
+  'save' | 'saveAs' | 'open' | 'undo' | 'redo' | 'palette' | 'chars' | 'back' | 'reportIssue'
 /**
  * 平台适配层：渲染层只认这个接口，不直接碰 Node 或浏览器专有 API。
  * Electron 实现走 IPC；网页实现走 File System Access API + IndexedDB。
@@ -202,6 +203,14 @@ export interface AppInfo {
   userDataPath: string | null
   /** 开发用：启动后直接进入的页面（环境变量 QIANYUJI_SECTION） */
   initialSection?: string | null
+  /** 桌面版：已经有一个千语集开着，这个是后开的（开头提醒一句） */
+  secondInstance?: boolean
+  /** 诊断信息用：系统与版本（桌面版：win32 10.0.26200 x64） */
+  os?: string
+  /** 诊断信息用：Electron 版本 */
+  electron?: string
+  /** 诊断信息用：用户主目录（数据目录里这一段换成 ~） */
+  home?: string
 }
 
 export interface PlatformAPI {
@@ -212,12 +221,16 @@ export interface PlatformAPI {
   openProject(): Promise<OpenResult | null>
   /** 打开最近项目；文件不存在或权限被拒返回 null */
   openRecent(entry: RecentEntry): Promise<OpenResult | null>
-  /** target 为 null 时弹出另存为对话框；用户取消返回 null */
+  /**
+   * target 为 null 时弹出另存为对话框；用户取消返回 null。
+   * 文件在打开、上次保存之后被别处改过时不写，返回 'conflict'（force 为 true 时照写不误）
+   */
   saveProject(
     target: SaveTarget | null,
     content: string,
-    suggestedName: string
-  ): Promise<SaveTarget | null>
+    suggestedName: string,
+    force?: boolean
+  ): Promise<SaveTarget | 'conflict' | null>
   /** 导出为文件夹格式；用户取消返回 false */
   exportFolder(files: Record<string, string>, suggestedName: string): Promise<boolean>
   /** 让用户选若干文本文件并读出内容（导入用） */
@@ -281,6 +294,8 @@ export interface PlatformAPI {
   setDirty(dirty: boolean): void
   /** 通知宿主开着的是不是纯欣赏项目（桌面版正式包里这时不让开开发者工具） */
   setReadOnly(readOnly: boolean): void
+  /** 把原生菜单、右键菜单、关窗对话框要用的文字按当前界面语言发给宿主（桌面版） */
+  setNativeText(locale: string, text: Record<string, string>): void
   /** 宿主要求「保存后关闭」时回调 */
   onSaveAndClose(cb: () => Promise<void>): void
   /** 保存完毕，允许关闭 */

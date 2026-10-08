@@ -1,7 +1,7 @@
 <script lang="ts">
   /** 填字：用词库排盘，提示是释义；可以导出成单文件 HTML（别人能玩）或 PNG（打印） */
   import type { Language, Project } from '$lib/core/model'
-  import { t } from '$lib/i18n/index.svelte'
+  import { i18n, t } from '$lib/i18n/index.svelte'
   import { platform } from '$lib/platform'
   import { gameWords, makeRandom, todaySeed } from './words'
   import { splitLetters } from './letters'
@@ -70,7 +70,19 @@
   const info = $derived({
     title: t('games.crossword.exportTitle', { lang: language.name }),
     language: language.name,
-    project: project.meta.name
+    project: project.meta.name,
+    lang: i18n.locale,
+    // 导出的网页、图片上的字跟着界面语言
+    labels: {
+      across: t('games.crossword.across'),
+      down: t('games.crossword.down'),
+      check: t('games.crossword.check'),
+      reveal: t('games.crossword.reveal'),
+      clear: t('games.crossword.clear'),
+      allRight: t('games.crossword.allRight'),
+      status: t('games.crossword.status'),
+      madeWith: t('games.crossword.madeWith')
+    }
   })
   async function exportHtml(): Promise<void> {
     if (!cw || busy) return

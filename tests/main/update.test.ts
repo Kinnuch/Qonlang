@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
   installerCandidates,
+  isPrerelease,
   macBundleMovable,
   macBundlePath,
   macReplaceScript,
   newerThan,
+  newestVersion,
+  notesForLocale,
   parseLatestYml,
   pickInstaller,
   sha256FromDigest,
   versionFromReleaseUrl,
+  versionsFromReleaseFeed,
   type ReleaseAsset
 } from '../../src/main/update'
 
@@ -74,6 +78,47 @@ describe('newerThan', () => {
     expect(newerThan('0.10.0', '0.9.9')).toBe(true)
     expect(newerThan('0.8.2', '0.8.2')).toBe(false)
     expect(newerThan('0.8.1', '0.8.1-local')).toBe(false)
+    expect(newerThan('0.8.2', '0.8.1-local')).toBe(true)
+  })
+  it('测试版：比上一个正式版新、比同号正式版旧，测试版之间按序号', () => {
+    expect(newerThan('1.0.0-beta.1', '0.12.4')).toBe(true)
+    expect(newerThan('1.0.0', '1.0.0-beta.1')).toBe(true)
+    expect(newerThan('1.0.0-beta.1', '1.0.0')).toBe(false)
+    expect(newerThan('1.0.0-beta.2', '1.0.0-beta.1')).toBe(true)
+    expect(newerThan('1.0.0-beta.10', '1.0.0-beta.9')).toBe(true)
+    expect(newerThan('1.0.0-beta10', '1.0.0-beta9')).toBe(true)
+    expect(newerThan('1.0.0-rc.1', '1.0.0-beta.3')).toBe(true)
+    expect(newerThan('1.0.0-beta.1', '1.0.0-beta.1')).toBe(false)
+    expect(newerThan('1.0.1-beta.1', '1.0.0')).toBe(true)
+  })
+  it('哪些算测试版', () => {
+    expect(isPrerelease('1.0.0-beta.1')).toBe(true)
+    expect(isPrerelease('1.0.0')).toBe(false)
+    expect(isPrerelease('0.12.4-local')).toBe(false)
+  })
+})
+
+describe('测试版的检查更新', () => {
+  it('从 Release 的 Atom 订阅里读出版本号，挑最新的', () => {
+    const xml = [
+      '<entry><link rel="alternate" type="text/html" href="https://github.com/Kinnuch/Qonlang/releases/tag/v1.0.0-beta.2"/></entry>',
+      '<entry><link rel="alternate" type="text/html" href="https://github.com/Kinnuch/Qonlang/releases/tag/v1.0.0-beta.1"/></entry>',
+      '<entry><link rel="alternate" type="text/html" href="https://github.com/Kinnuch/Qonlang/releases/tag/v0.12.4"/></entry>'
+    ].join('')
+    const vs = versionsFromReleaseFeed(xml)
+    expect(vs).toEqual(['1.0.0-beta.2', '1.0.0-beta.1', '0.12.4'])
+    expect(newestVersion(vs)).toBe('1.0.0-beta.2')
+    expect(newestVersion([...vs, '1.0.0'])).toBe('1.0.0')
+    expect(
+      versionFromReleaseUrl('https://github.com/Kinnuch/Qonlang/releases/tag/v1.0.0-beta.1')
+    ).toBe('1.0.0-beta.1')
+  })
+  it('更新说明按界面语言挑中文或英文那一段，没分段的原样给', () => {
+    const body = ['## 中文', '', '- 新增漏斗', '', '## English', '', '- A funnel', ''].join('\n')
+    expect(notesForLocale(body, 'zh')).toBe('- 新增漏斗')
+    expect(notesForLocale(body, 'zh-Hant')).toBe('- 新增漏斗')
+    expect(notesForLocale(body, 'fr')).toBe('- A funnel')
+    expect(notesForLocale('**Full Changelog**: x', 'en')).toBe('**Full Changelog**: x')
   })
 })
 

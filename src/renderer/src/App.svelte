@@ -7,6 +7,8 @@
   import { projectState } from '$lib/state/project.svelte'
   import { i18n, t } from '$lib/i18n/index.svelte'
   import { errorMessage } from '$lib/ui/errorText'
+  import { reportIssue } from '$lib/state/diagnostics'
+  import zh from '$lib/i18n/zh'
   import { parseProject, readProjectText } from '$lib/core/serialize'
   import { SECTIONS, type Section } from '$lib/state/ui.svelte'
   import { chars } from '$lib/state/chars.svelte'
@@ -16,6 +18,8 @@
   import Toasts from '$lib/ui/Toasts.svelte'
   import ProgressOverlay from '$lib/ui/ProgressOverlay.svelte'
   import UpdateNotice from '$lib/ui/UpdateNotice.svelte'
+  // 确认框挂在最外层：开始页上也要能弹（第二个千语集的提醒、开始页里的确认）
+  import ConfirmDialog from '$lib/ui/ConfirmDialog.svelte'
   import { refreshPage } from '$lib/ui/refresh'
   import { backgroundStyle } from '$lib/skin/presets'
 
@@ -25,7 +29,7 @@
   onMount(() => {
     // 页面边界接不到的错（点按钮时的处理函数、异步任务）：也挂一条红条，不让它悄悄没了
     const shown = (e: unknown): void => {
-      const msg = errorMessage(e, i18n.locale)
+      const msg = errorMessage(e)
       // 窗口大小变化时浏览器自己报的良性警告，不算出错
       if (/ResizeObserver loop/i.test(msg)) return
       ui.crash(t('errors.unexpectedTitle'), msg)
@@ -45,6 +49,7 @@
       else if (a === 'back') ui.back()
       else if (a === 'palette' && projectState.project) ui.paletteOpen = !ui.paletteOpen
       else if (a === 'chars') chars.toggle()
+      else if (a === 'reportIssue') void reportIssue()
     })
     void (async () => {
       await ui.loadPrefs()
@@ -57,6 +62,12 @@
       if (ui.prefs.mcpEnabled && ui.prefs.mcpToken)
         void platform.mcpStart(ui.prefs.mcpPort ?? 7421, ui.prefs.mcpToken)
       snapshot = await platform.loadSnapshot()
+      // 已经有一个千语集开着：照样能用，提醒一句两个窗口别改同一个项目
+      const appInfo = await platform.info()
+      if (appInfo.secondInstance)
+        void ui.choose(t('secondInstance.title'), t('secondInstance.body'), [
+          { value: 'ok', label: t('common.ok'), primary: true }
+        ])
       if (!snapshot && ui.prefs.reopenLast) {
         const recent = await platform.getRecent()
         if (recent[0]) {
@@ -64,7 +75,7 @@
           if (r) {
             try {
               projectState.load(parseProject(await readProjectText(r.content)), r.target)
-              const initial = (await platform.info()).initialSection
+              const initial = appInfo.initialSection
               if (initial && SECTIONS.includes(initial as Section)) ui.section = initial as Section
             } catch {
               /* 留在欢迎页 */
@@ -94,6 +105,16 @@
       !!ui.prefs.skin?.dark?.['--skin-pattern']
   )
 
+  // 原生菜单、右键菜单、关窗对话框：按当前界面语言把文字发给主进程（换语言就重发）
+  const NATIVE_KEYS = Object.keys(zh.native)
+  $effect(() => {
+    const locale = i18n.locale
+    platform.setNativeText(
+      locale,
+      Object.fromEntries(NATIVE_KEYS.map((k) => [k, t(`native.${k}`)]))
+    )
+  })
+
   // 标题栏
   $effect(() => {
     const name = projectState.project?.meta.name || ''
@@ -106,7 +127,7 @@
     if (!secs || secs <= 0) return
     const id = setInterval(() => {
       if (projectState.dirty && projectState.target && !projectState.saving)
-        void projectState.save()
+        void projectState.save(false, { auto: true })
     }, secs * 1000)
     return () => clearInterval(id)
   })
@@ -176,7 +197,7 @@
   <svelte:boundary
     onerror={(e, reset) => {
       console.error(e)
-      ui.crash(t('errors.crashTitle', { page: t('nav.welcome') }), errorMessage(e, i18n.locale))
+      ui.crash(t('errors.crashTitle', { page: t('nav.welcome') }), errorMessage(e))
       setTimeout(reset, 0)
     }}
   >
@@ -197,6 +218,7 @@
   <div class="skin-bg" aria-hidden="true" style={backgroundStyle(ui.prefs.skin.background)}></div>
 {/if}
 <Toasts />
+<ConfirmDialog />
 <ProgressOverlay />
 <UpdateNotice />
 

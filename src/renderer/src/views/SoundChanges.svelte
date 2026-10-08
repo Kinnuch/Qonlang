@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ruleMsg } from '$lib/ui/engineText'
   import { navScroll } from '$lib/ui/navScroll'
   import { scrollToItem } from '$lib/ui/reveal'
   import { sectionCollapsed, setSectionsCollapsed } from '$lib/ui/section.svelte'
@@ -482,7 +483,7 @@
               <button class="link" onclick={() => jump(d.line)}
                 >{t('soundChanges.lineN', { n: d.line })}</button
               >
-              {d.message}
+              {ruleMsg(d.message)}
             </li>
           {/each}
         </ul>

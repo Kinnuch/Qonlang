@@ -122,7 +122,10 @@ const en: Dict = {
       notYet: 'Still blank or wrong squares',
       exportHtml: 'Export web page',
       exportPng: 'Export image',
-      exportTitle: '{lang} crossword'
+      exportTitle: '{lang} crossword',
+      clear: 'Clear',
+      status: '{bad} wrong, {empty} blank',
+      madeWith: 'Made with Qonlang'
     }
   },
   mcp: {
@@ -209,6 +212,12 @@ const en: Dict = {
     changelog: 'Changelog',
     developer: 'Developer',
     friends: 'Friends',
+    friendBlurbs: {
+      gilatod: 'Gilatod — the home site of long-time collaborators.',
+      kikomas: 'kikomas’s worldbuilding wiki for the Shohna Isles.',
+      cathamos: 'Cathamos’s personal site.',
+      sicusa: 'GitHub profile.'
+    },
     syntax: 'Rule syntax',
     credits: 'Credits',
     creditRoles: {
@@ -742,7 +751,9 @@ const en: Dict = {
     installing: 'Installing — the app will reopen shortly…',
     failed: 'Download failed: {err}',
     later: 'Later',
-    skip: 'Skip this version'
+    skip: 'Skip this version',
+    githubHint:
+      'The installer downloads from GitHub, which can be slow or unreachable on some networks.'
   },
   stats: {
     title: 'Statistics',
@@ -2041,6 +2052,7 @@ const en: Dict = {
       adjust: 'tweak',
       paradigm: 'Paradigm'
     },
+    affixPlaceholder: '@morpheme / -s',
     adjustPlaceholder: 'at > / _#   or shorthand -at, +u, ^-e, ^+a',
     nestPick: 'Pick a paradigm',
     nestHint:
@@ -2664,7 +2676,9 @@ const en: Dict = {
       none: 'No plugins installed yet.',
       loaded: 'Loaded',
       failed: 'Failed to load',
-      counts: 'Panels {views} · Commands {commands} · Import/export {io} · Generators {generators}'
+      counts: 'Panels {views} · Commands {commands} · Import/export {io} · Generators {generators}',
+      noManifest: 'plugin.json could not be read',
+      loadFailed: 'Plugin “{name}” failed to load: {msg}'
     },
     showHistory: 'Show the history row on entry cards',
     showHistoryHint:
@@ -2769,6 +2783,13 @@ const en: Dict = {
     resizerHint: 'Drag to resize the inspector; double-click to follow the window width again'
   },
   errors: {
+    svelte: {
+      each_key_duplicate:
+        'Two items in a list share the same key (often two entries with the same name)',
+      state_unsafe_mutation: 'Data was changed while the page was being drawn',
+      effect_update_depth_exceeded: 'Data kept updating itself in a loop'
+    },
+    unknown: 'Unknown error',
     pageCrashed: 'This page hit an error; other pages are unaffected.',
     retry: 'Retry',
     goLanguages: 'Go to Languages',
@@ -2791,6 +2812,136 @@ const en: Dict = {
     saveAndClose: 'Save and close',
     discardAndClose: "Don't save",
     closeProject: 'Close project'
+  },
+  native: {
+    closeTitle: 'Unsaved changes',
+    closeBody: 'Save before closing?',
+    closeSave: 'Save and close',
+    closeDiscard: 'Don’t save',
+    closeCancel: 'Cancel',
+    undoTyping: 'Undo typing',
+    redoTyping: 'Redo typing',
+    cut: 'Cut',
+    copy: 'Copy',
+    paste: 'Paste',
+    selectAll: 'Select all',
+    copyLink: 'Copy link',
+    undoChange: 'Undo last change',
+    redo: 'Redo',
+    back: 'Back',
+    palette: 'Command palette',
+    chars: 'Character panel',
+    save: 'Save',
+    saveAs: 'Save as…',
+    open: 'Open…',
+    guide: 'User guide',
+    reportIssue: 'Report a problem',
+    menuAbout: 'About Qonlang',
+    menuFile: 'File',
+    menuEdit: 'Edit',
+    menuView: 'View',
+    menuWindow: 'Window',
+    menuHelp: 'Help',
+    menuUndo: 'Undo',
+    menuRedo: 'Redo',
+    menuDelete: 'Delete',
+    resetZoom: 'Actual Size',
+    zoomIn: 'Zoom In',
+    zoomOut: 'Zoom Out',
+    fullscreen: 'Toggle Full Screen',
+    devTools: 'Developer Tools',
+    minimize: 'Minimize',
+    quit: 'Quit',
+    closeWindow: 'Close Window',
+    zoomWindow: 'Zoom',
+    front: 'Bring All to Front',
+    services: 'Services',
+    hide: 'Hide Qonlang',
+    hideOthers: 'Hide Others',
+    unhide: 'Show All'
+  },
+  saveConflict: {
+    title: 'The file was changed elsewhere',
+    body: '“{name}” was changed by another program after you opened or last saved it (another Qonlang window, a cloud-sync folder…). Saving now would overwrite those changes.',
+    overwrite: 'Overwrite',
+    saveAs: 'Save as…',
+    cancel: 'Don’t save yet',
+    paused: 'Not saved. Autosave is paused; press Ctrl+S to choose again.'
+  },
+  secondInstance: {
+    title: 'Qonlang is already open',
+    body: 'You can use both windows. Please edit a project in only one of them; if the other window has saved it, this one warns you before saving.'
+  },
+  feedback: {
+    report: 'Report a problem',
+    copy: 'Copy diagnostics',
+    hint: '“Report a problem” opens a new issue on GitHub with diagnostics already filled in (version, system, interface language, project size and recent errors — no project content). “Copy diagnostics” copies the same text so you can paste it elsewhere.',
+    copied: 'Diagnostics copied',
+    copyFailed: 'Could not copy: {msg}',
+    issueWhat: 'What went wrong',
+    issueSteps: 'How to reproduce it'
+  },
+  ruleMsg: {
+    includeInner: 'Line {line} of “{ref}”: {msg}',
+    includeNoStage: '“{ref}” has no stage called “{stage}”',
+    includeCycle: '“{ref}” refers back to itself',
+    includeNotFound: 'There is no rule set called “{ref}”',
+    includeTooDeep: 'References are nested too deep (four levels at most)',
+    includeSyntax: 'Write a reference as `-@ rule set : from stage .. to stage`',
+    clauseNeedsPosition:
+      '“{piece}” must start with a syllable position: 1, 2, -1, -2, 0, * or -* (or a lone @)',
+    clauseNoUnderscore: 'The environment of “{piece}” has no _',
+    excNoUnderscore: 'The exception environment “{env}” has no _',
+    envNoUnderscore: 'The environment “{env}” has no _',
+    undefinedClassLetter: 'Undefined class {name}; it is treated as a literal character',
+    undefinedClassBraced: 'Undefined class {{name}}',
+    undefinedMorpheme: 'Undefined morpheme @{name}',
+    undefinedFeature: 'Undefined feature {name}',
+    featureEmpty: 'Feature [{feature}] has no members',
+    featureNeedsMembers:
+      'To map [{feature}] in a replacement position by position, list its members in the feature definition',
+    regexInvalid: 'The regular expression does not compile: {msg}',
+    missingArrow: 'Missing >',
+    onlyOneQuestion:
+      'A rule can have only one ? in its target and one in its replacement (environment matches ? does not match); write \\? for a literal question mark',
+    elseTargetEmpty:
+      'The target after ? (used when the environment does not match) cannot be empty',
+    elseUnused: 'No environment is written, so it always matches and the part after ? is never used'
+  },
+  traceMsg: {
+    labelAdjust: 'Tweak',
+    labelAdjustPre: 'Tweak (before)',
+    labelAdjustPost: 'Tweak (after)',
+    adjustError: '{label} ✗ {line}: {msg}',
+    adjustUnknown: '{label} ? {line}',
+    adjustLine: '{label} {rest}',
+    prefix: 'Prefix {rest}',
+    suffix: 'Suffix {rest}',
+    circumfix: 'Circumfix {rest}',
+    infix: 'Infix {rest}',
+    pattern: 'Pattern {rest}',
+    reduplication: 'Reduplication {rest}',
+    ruleSetMissing: 'The rule set no longer exists',
+    paradigmMissing: 'The paradigm no longer exists',
+    paradigmTooDeep: 'Paradigm {name}: nested too deep (more than {n} levels), stopped here',
+    paradigmNoSlot: 'Paradigm {name}: no slot chosen',
+    paradigmEmptySlot: 'Paradigm {name} · {slot}: this slot has no setup',
+    paradigmResult: 'Paradigm {rest}',
+    inheritMissing: 'The inherited paradigm no longer exists',
+    inheritTooDeep: 'Inherited from {name}: nested too deep (more than {n} levels), stopped here',
+    inheritSlotGone: 'Inherited from {name}: that slot no longer exists',
+    inheritEdited: 'Inherited from {name} · {slot} (edited by hand): {form}',
+    inheritNoForm: 'Inherited from {name} · {slot}: that slot has no form',
+    inheritResult: 'Inherited from {rest}',
+    pronStart: 'Pronunciation starts as: {rest}',
+    pron: 'Pronunciation: {rest}',
+    plugin: 'Plugin generator {rest}',
+    stemFallback: 'Fell back to the stem {rest}',
+    stem: 'Stem {rest}',
+    conditionUnmatched: 'These conditions matched no value: {list}',
+    joined: 'Joined: {rest}',
+    lemmaRef: 'Uses the entry {rest}',
+    morphemeMissing: 'Morpheme not found: {rest}'
   }
 }
 

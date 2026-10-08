@@ -5,6 +5,7 @@
  */
 import { platform } from '$lib/platform'
 import { ui } from '$lib/state/ui.svelte'
+import { t } from '$lib/i18n/index.svelte'
 import { makePluginApi } from './api'
 import { pluginRegistry } from './registry.svelte'
 import type { InstalledPlugin, PluginManifest, PluginModule } from './types'
@@ -34,7 +35,7 @@ class PluginHost {
           manifest: { ...m, id, name: m.name || id },
           dir: r.dir,
           enabled: !off.has(id),
-          error: r.error ?? (r.manifest ? undefined : 'plugin.json 读不出来'),
+          error: r.error ?? (r.manifest ? undefined : t('settings.plugins.noManifest')),
           loaded: this.modules.has(id)
         }
       })
@@ -68,7 +69,9 @@ class PluginHost {
       this.mark(id, { loaded: true, error: undefined })
     } catch (e) {
       this.mark(id, { loaded: false, error: (e as Error).message })
-      ui.error(`插件「${p.manifest.name}」载入失败：${(e as Error).message}`)
+      ui.error(
+        t('settings.plugins.loadFailed', { name: p.manifest.name, msg: (e as Error).message })
+      )
     }
   }
 

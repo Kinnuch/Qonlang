@@ -1,5 +1,7 @@
-# 打 tag（v0.3.0 这种）或手动触发时，同时在 Windows 与 macOS 上出安装包。
-# 打 tag 时每个平台的 job 直接把自己的产物挂到同名 GitHub Release（两个 job 各自追加，不经过 artifact 中转）。
+# 打 tag（v0.3.0 这种）或手动触发时，同时在 Windows、macOS 与 Linux 上出安装包。
+# 打 tag 时每个平台的 job 直接把自己的产物挂到同名 GitHub Release（几个 job 各自追加，不经过 artifact 中转）。
+# 版本号带「-」的（v1.0.0-beta.1）标成预发布：正式版用户的检查更新只看 releases/latest，收不到测试版。
+# Release 的说明从中英两份更新日志里摘（scripts/release-notes.mjs），每个 job 写的都一样。
 name: Release installers
 
 on:
@@ -32,6 +34,12 @@ jobs:
               dist/*-mac-arm64.dmg
               dist/*-mac-x64.zip
               dist/*-mac-arm64.zip
+          - os: ubuntu-latest
+            script: build:linux
+            artifact: linux
+            files: |
+              dist/*.AppImage
+              dist/*.deb
     runs-on: ${{ matrix.os }}
     env:
       # 没有签名证书：跳过 macOS 签名与公证
@@ -52,6 +60,10 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.files }}
           if-no-files-found: error
+      - name: Release notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: node scripts/release-notes.mjs "${GITHUB_REF_NAME#v}" > release-notes.md
       - name: Attach to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
@@ -59,4 +71,5 @@ jobs:
           name: Qonlang ${{ github.ref_name }}
           files: ${{ matrix.files }}
           fail_on_unmatched_files: true
-          generate_release_notes: true
+          body_path: release-notes.md
+          prerelease: ${{ contains(github.ref_name, '-') }}

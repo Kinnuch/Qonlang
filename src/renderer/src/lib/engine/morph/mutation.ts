@@ -161,6 +161,37 @@ export function clearMutationCache(): void {
 
 /** 这门语言所有「作用于所有词」的构形槽位各自的对照表 */
 export function mutationTables(project: Project, languageId: Id): MutationTable[] {
+  const steps = tableSteps(project, languageId)
+  let r = steps.next()
+  while (!r.done) r = steps.next()
+  return r.value
+}
+
+/**
+ * 空下来时先把对照表分成小段算好（每段几毫秒，中间让出线程）：大项目里一口气算要几百毫秒，
+ * 进短语、语料页时会卡一下。算好的跟 mutationTables 存在同一个缓存里，之后再要就是现成的
+ */
+export async function warmMutationTables(
+  project: Project,
+  languageId: Id,
+  sliceMs = 8,
+  cancelled: () => boolean = () => false
+): Promise<void> {
+  const steps = tableSteps(project, languageId)
+  let t0 = performance.now()
+  let r = steps.next()
+  while (!r.done) {
+    if (performance.now() - t0 > sliceMs) {
+      await new Promise((res) => setTimeout(res, 0))
+      if (cancelled()) return
+      t0 = performance.now()
+    }
+    r = steps.next()
+  }
+}
+
+/** 算对照表的每一小步（每推一个样本词让一次）；有缓存直接给结果 */
+function* tableSteps(project: Project, languageId: Id): Generator<void, MutationTable[]> {
   const paradigms = paradigmsFor(project, languageId)
   if (!paradigms.length) return []
   const language = project.languages.find((l) => l.id === languageId)
@@ -185,6 +216,7 @@ export function mutationTables(project: Project, languageId: Id): MutationTable[
       }
       for (const l of samples) {
         const out = generateForm(ctx, l, p, slot)
+        yield
         if (!out) continue
         const base = runRules(spelled, stemOf(l, gen.stem).value, { trace: false }).output
         const change = edgeChange(norm(base), norm(out.surface))

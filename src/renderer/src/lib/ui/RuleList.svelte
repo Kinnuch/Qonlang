@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ruleMsg } from '$lib/ui/engineText'
   import { matchText, parseQuery } from '$lib/core/query'
   /**
    * 规则列表视图：把规则文本投影成可逐条编辑的卡片。
@@ -1174,7 +1175,7 @@
               value={item.raw}
               onchange={(e) => replaceLine(item.line, (e.currentTarget as HTMLInputElement).value)}
             />
-            <span class="small">{item.message}</span>
+            <span class="small">{ruleMsg(item.message ?? '')}</span>
             <button class="btn ghost icon sm danger" onclick={() => removeRule(item.line)}
               ><Trash2 size={14} /></button
             >

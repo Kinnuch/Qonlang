@@ -19,6 +19,7 @@ import {
   paradigmsFor,
   resolveGenerator,
   selectAllomorph,
+  type LexemeSlot,
   type MorphContext
 } from '../morph'
 import { nucleusSet } from '../phon'
@@ -164,6 +165,49 @@ const FALLBACK_VOWELS = 'aeiouyæøœɑɛɔəɪʊɨʉɯ'
 /** 可能是字母的符号：转写里常见的几种撇号、送气 / 喉塞记号 */
 const LETTERLIKE = new Set(Array.from("'’‘ʼʻʽ`´ʔʕ"))
 
+/**
+ * 撇号这类符号，词库里有词（单词或屈折形）以它开头或结尾就当字母（阿拉伯语转写的 'llhi）。
+ * 分词只要这个：短语、语料列表画出来时用它切词，不必先把整个分词索引建出来（大项目要一两百毫秒）。
+ */
+let wordCharsCache = new WeakMap<Project, Map<Id, { stamp: string; chars: string }>>()
+export function wordCharsFor(project: Project, languageId: Id): string {
+  const stamp = project.meta.updatedAt + '|' + project.lexemes.length
+  let byLang = wordCharsCache.get(project)
+  if (!byLang) wordCharsCache.set(project, (byLang = new Map()))
+  const hit = byLang.get(languageId)
+  if (hit && hit.stamp === stamp) return hit.chars
+  const edge = new Set<string>()
+  const note = (form: string): void => {
+    const s = form.trim()
+    if (!s) return
+    for (const c of [s[0], s[s.length - 1]]) if (LETTERLIKE.has(c)) edge.add(c)
+  }
+  for (const l of project.lexemes) {
+    if (l.languageId !== languageId) continue
+    note(l.lemma)
+    for (const f of Object.values(l.forms)) for (const v of variants(f.surface)) note(v)
+  }
+  const chars = [...edge].join('')
+  byLang.set(languageId, { stamp, chars })
+  return chars
+}
+
+/**
+ * 词条用到的槽位，同一组构形（构形 + 变体，按先后）只算一次：大项目里几千个词条共用几套构形，
+ * 每个词条现算一遍槽位表要上百毫秒。一次建索引里用，项目改了下次建索引自然重算。
+ */
+function slotsMemo(project: Project, glossLangs: string[]): (l: Lexeme) => LexemeSlot[] {
+  const memo = new Map<string, LexemeSlot[]>()
+  return (l) => {
+    const lps = paradigmsFor(project, l)
+    if (!lps.length) return []
+    const sig = lps.map((lp) => lp.paradigm.id + '#' + (lp.variantId ?? '')).join('|')
+    let hit = memo.get(sig)
+    if (!hit) memo.set(sig, (hit = lexemeSlots(project, l, glossLangs)))
+    return hit
+  }
+}
+
 export interface BuildIndexOptions {
   /** 这一句的确认记录不进索引（准确率自测时用：拿别的句子学到的东西分析这一句） */
   excludeSentenceId?: Id
@@ -222,13 +266,6 @@ export function buildIndex(
       return source
     }
   }
-  // 撇号这类符号，词库里有词以它开头或结尾就当字母（阿拉伯语转写的 'llhi）
-  const edgeChars = new Set<string>()
-  const noteEdges = (form: string): void => {
-    const s = form.trim()
-    if (!s) return
-    for (const c of [s[0], s[s.length - 1]]) if (LETTERLIKE.has(c)) edgeChars.add(c)
-  }
   const boundaries = project.settings.morphemeBoundaries
   // 本语言（含祖语）的前缀与附着词，用来还原脱落词头的写法
   const prefixForms = [
@@ -239,19 +276,18 @@ export function buildIndex(
         .filter((f) => f.length > 0)
     )
   ]
+  const slotsOf = slotsMemo(project, glossLangs)
   for (const l of project.lexemes) {
     if (l.languageId !== languageId) continue
-    noteEdges(l.lemma)
     for (const v of variants(l.lemma))
       for (const k of formKeys(v, boundaries, prefixForms)) push(idx.lemma, k, l)
     for (const st of Object.values(l.stems))
       for (const v of variants(st))
         for (const k of formKeys(v, boundaries, prefixForms)) push(idx.stems, k, l)
     const abbrs = new Map<string, string>()
-    for (const s of lexemeSlots(project, l, glossLangs)) abbrs.set(s.key, s.slot.abbr)
+    for (const s of slotsOf(l)) abbrs.set(s.key, s.slot.abbr)
     for (const [slot, f] of Object.entries(l.forms)) {
       for (const v of variants(f.surface)) {
-        noteEdges(v)
         for (const k of formKeys(v.trim().replace(/^\*/, ''), boundaries, prefixForms))
           push(idx.forms, k, { lexeme: l, slot, abbr: abbrs.get(slot) ?? slot })
       }
@@ -276,7 +312,7 @@ export function buildIndex(
       if (m.type === 'prefix' || m.type === 'clitic') idx.prefixes.push({ form: f, morpheme: m })
     }
   }
-  idx.wordChars = [...edgeChars].join('')
+  idx.wordChars = wordCharsFor(project, languageId)
   // 带空格的形式（ar mae 这种限定词 + 名词分开写的屈折形）
   for (const k of [...idx.lemma.keys(), ...idx.forms.keys(), ...idx.stems.keys()]) {
     if (!k.includes(' ')) continue
@@ -362,11 +398,10 @@ function virtualForms(
   if (!ctx || !project.paradigms.length) return out
   const boundaries = project.settings.morphemeBoundaries
   let budget = VIRTUAL_CAP
+  const slotsOf = slotsMemo(project, project.settings.glossLanguages)
   for (const l of project.lexemes) {
     if (l.languageId !== languageId || budget <= 0) continue
-    const lps = paradigmsFor(project, l)
-    if (!lps.length) continue
-    for (const s of lexemeSlots(project, l)) {
+    for (const s of slotsOf(l)) {
       if (l.forms[s.key]?.surface.trim()) continue
       const g = resolveGenerator(
         s.lp.paradigm,
@@ -936,6 +971,7 @@ let typeCache = new WeakMap<Project, { stamp: string; types: Map<Id, string> }>(
 export function clearGlossCaches(): void {
   typeCache = new WeakMap()
   indexCache = new WeakMap()
+  wordCharsCache = new WeakMap()
   clearDiscontinuousCache()
 }
 function morphemeType(project: Project, id: Id): string | undefined {

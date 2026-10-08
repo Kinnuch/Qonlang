@@ -136,6 +136,8 @@
       {#if info.notes}
         <pre class="notes small">{info.notes}</pre>
       {/if}
+      <!-- 下载前说一句：安装包在 GitHub 上，国内网络可能很慢 -->
+      <p class="small muted">{t('update.githubHint')}</p>
       <div class="row foot">
         <button class="btn primary sm" onclick={install}
           ><Download size={14} />{info.installer

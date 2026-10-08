@@ -19,3 +19,18 @@ jobs:
       - run: npm run typecheck
       - run: npx vitest run
       - run: npx electron-vite build
+
+  # Linux 包（AppImage、deb）只能在 Linux 上打：每次推送都打一遍，免得发版时才发现打不出来
+  package-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx electron-vite build
+      - run: npx electron-builder --linux --publish never
+      - name: List outputs
+        run: ls -la dist | grep -v '^d'

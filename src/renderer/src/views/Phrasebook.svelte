@@ -1,3 +1,9 @@
+<script module lang="ts">
+  import type { Token as CachedToken } from '$lib/core/model'
+  /** 写法 → 分析：跨进出页面留着；键里带项目的修改时间，项目一改就作废 */
+  let sharedTokens: { key: string; m: Map<string, CachedToken> } | null = null
+</script>
+
 <script lang="ts">
   import { orthoIpaLabel } from '$lib/ui/labels'
   import { navScroll } from '$lib/ui/navScroll'
@@ -29,6 +35,8 @@
   import { textScript } from '$lib/script/lexiconScript'
   import { fontCss } from '$lib/script/fonts'
   import { analyzeSentence, analyzeToken, glossIndexFor } from '$lib/engine/gloss'
+  import { warmMutationTables } from '$lib/engine/morph/mutation'
+  import { untrack } from 'svelte'
   import { WordResolver } from '$lib/engine/gloss/resolve'
   import { spanTokens, tokenSpans, tokensMatchText } from '$lib/engine/gloss/tokens'
   import { rewriteWordInText, tokenizeOptionsFor, writeChoice } from '$lib/engine/gloss/assign'
@@ -177,11 +185,12 @@
     }
   }
   /** 同一个写法只分析一次：列表里每个词都要判断能不能点，不能为此把整句分析一遍 */
-  let tokenCache: { key: string; m: Map<string, Token> } | null = null
   function tokenOf(word: string, languageId: Id): Token {
-    const key = languageId + '|' + project.meta.updatedAt
-    if (tokenCache?.key !== key) tokenCache = { key, m: new Map() }
-    let tk = tokenCache.m.get(word)
+    const key = project.meta.updatedAt
+    if (sharedTokens?.key !== key) sharedTokens = { key, m: new Map() }
+    const tokenCache = sharedTokens
+    const ck = languageId + '|' + word
+    let tk = tokenCache.m.get(ck)
     if (!tk) {
       const analyses = analyzeToken(
         glossIndexFor(project, languageId),
@@ -190,7 +199,7 @@
       )
       const i = analyses.findIndex((a) => a.lexemeId)
       tk = { surface: word, analyses, chosen: Math.max(0, i), confirmed: false }
-      tokenCache.m.set(word, tk)
+      tokenCache.m.set(ck, tk)
     }
     return tk
   }
@@ -227,12 +236,44 @@
   /**
    * 认词要先把整份词库的索引建起来（大项目几百毫秒），进页面时先别做：
    * 列表照样立刻画出来，空下来再补上下划线。悬浮、点词不等这个，该建的时候就地建。
+   * 空下来之后也不一口气做完：词首音变的对照表分小段算（warmMutationTables），
+   * 第一屏里没存分析的词也一小段一小段地先分析好，最后才亮下划线——中间不会有半秒的卡顿
    */
   let linksReady = $state(false)
   $effect(() => {
-    const idle = requestIdleCallback(() => (linksReady = true), { timeout: 400 })
-    return () => cancelIdleCallback(idle)
+    let cancelled = false
+    const isCancelled = (): boolean => cancelled
+    const idle = requestIdleCallback(
+      () => void prepareLinks(isCancelled).then(() => !cancelled && (linksReady = true)),
+      { timeout: 400 }
+    )
+    return () => {
+      cancelled = true
+      cancelIdleCallback(idle)
+    }
   })
+  async function prepareLinks(cancelled: () => boolean): Promise<void> {
+    const first = untrack(() => list.slice(0, lz.shown))
+    const langs = [...new Set(first.map((p) => p.languageId))]
+    for (const l of langs) {
+      await warmMutationTables(project, l, 8, cancelled)
+      if (cancelled()) return
+    }
+    // 第一屏里没存分析的词：每段 8 毫秒，中间让出线程
+    let t0 = performance.now()
+    for (const p of first) {
+      if (ownTokens(p)) continue
+      for (const sp of phraseView(p).spans) {
+        if (!sp.word) continue
+        tokenOf(sp.text, p.languageId)
+        if (performance.now() - t0 > 8) {
+          await new Promise((res) => setTimeout(res, 0))
+          if (cancelled()) return
+          t0 = performance.now()
+        }
+      }
+    }
+  }
   /** 这一段能不能点：有分析就按分析判断，没有就按写法现查一个词 */
   function spanLinkable(
     p: Phrase,

@@ -3,7 +3,7 @@
  * 语料与短语共用这一套：两边的「改」必须一个样子（纯函数，不碰界面状态）。
  */
 import type { Analysis, Id, Project, Token } from '$lib/core/model'
-import { analyzeToken, glossIndexFor, lexemeGloss, senseGloss } from './index'
+import { analyzeToken, glossIndexFor, lexemeGloss, senseGloss, wordCharsFor } from './index'
 import type { TokenizeOptions } from './tokens'
 import { matchCase, replaceWordAt, wordAt, wordRangeOfToken } from './rewrite'
 
@@ -28,8 +28,7 @@ export function tokenizeOptionsFor(project: Project, languageId: Id): TokenizeOp
   return {
     mode: project.settings.tokenizer,
     pattern: project.settings.tokenizerPattern,
-    letters:
-      glossIndexFor(project, languageId).wordChars + (project.settings.tokenizerLetters ?? '')
+    letters: wordCharsFor(project, languageId) + (project.settings.tokenizerLetters ?? '')
   }
 }
 

@@ -125,7 +125,10 @@ export default {
       notYet: 'Todavía quedan casillas vacías o erróneas',
       exportHtml: 'Exportar página web',
       exportPng: 'Exportar imagen',
-      exportTitle: 'Crucigrama de {lang}'
+      exportTitle: 'Crucigrama de {lang}',
+      clear: 'Borrar',
+      status: '{bad} incorrectas, {empty} en blanco',
+      madeWith: 'Hecho con Qonlang'
     }
   },
   mcp: {
@@ -212,6 +215,13 @@ export default {
     changelog: 'Registro de cambios',
     developer: 'Desarrollador',
     friends: 'Enlaces amigos',
+    friendBlurbs: {
+      gilatod:
+        'Gilatod: el sitio principal de unos amigos con los que colaboramos desde hace tiempo.',
+      kikomas: 'La wiki del mundo de las islas Shohna, de kikomas.',
+      cathamos: 'El sitio personal de Cathamos.',
+      sicusa: 'Página de GitHub.'
+    },
     syntax: 'Sintaxis de las reglas',
     credits: 'Agradecimientos',
     creditRoles: {
@@ -348,7 +358,8 @@ export default {
     importTitle: 'Importar un conjunto de reglas',
     importFormat: 'Formato del archivo',
     importFiles: 'Archivos: {names}',
-    editorPlaceholder: 'Escriba aquí las reglas. Ejemplo: V=aeiou -* 祖语 a > e / _i -* 现代语',
+    editorPlaceholder:
+      'Escriba aquí las reglas. Ejemplo:\nV=aeiou\n-* Proto\na > e / _i\n-* Moderno',
     diagnostics: 'Diagnóstico',
     noDiagnostics: 'Sin problemas',
     warnings: '{n} advertencias',
@@ -370,7 +381,7 @@ export default {
       whole: 'todo el conjunto',
       missing: 'No se encuentra ningún cambio fonético llamado «{name}»',
       open: 'Abrir',
-      hint: 'Con -@ 规则集名 : 起始阶段 .. 终止阶段 puede citar otros conjuntos de reglas de cambio fonético'
+      hint: 'Con -@ conjunto : etapa inicial .. etapa final puede citar otros conjuntos de reglas de cambio fonético'
     },
     stageBindings: 'Lenguas correspondientes a cada etapa',
     noStages: 'El texto todavía no tiene marcadores de etapa -*.',
@@ -413,7 +424,7 @@ export default {
     className: 'Nombre de la clase',
     classMembers: 'Miembros',
     classNameHint:
-      'Una sola letra mayúscula, o un nombre largo cualquiera (que hay que citar con la forma {长名})',
+      'Una sola letra mayúscula, o un nombre largo cualquiera (que hay que citar con la forma {Nombre})',
     membersHint:
       'Los dígrafos hay que separarlos con espacios; en los demás casos basta con escribirlos seguidos',
     digraphFrom: 'Forma escrita',
@@ -468,7 +479,7 @@ export default {
     syllable: '',
     nucleus: 'Núcleo silábico',
     nucleusAny: 'sin restricción',
-    nucleusTip: 'Componentes del núcleo silábico, p. ej. V, {双元音}, [áé]',
+    nucleusTip: 'Componentes del núcleo silábico, p. ej. V, {dipt}, [áé]',
     env: 'Entorno',
     except: 'Excepto',
     addClause: 'Añadir una cláusula',
@@ -496,7 +507,7 @@ export default {
     featureMinus: 'los sonidos que no tienen este rasgo [-]',
     featureName: 'Nombre del rasgo',
     featureMembers: 'Miembros (separados por espacios)',
-    featureHint: 'En las reglas puede citar los rasgos creados escribiendo [+特征] o [-特征].',
+    featureHint: 'En las reglas puede citar los rasgos creados escribiendo [+nombre] o [-nombre].',
     special: 'Usar primero el acento especial marcado en la entrada (@)',
     specialTip:
       'Más detalles en la casilla «Efecto sobre el acento → Transmitir el acento especial» de las entradas del módulo de léxico o del de morfemas',
@@ -511,7 +522,7 @@ export default {
   },
   stressSettings: {
     affects: 'Efecto sobre el acento',
-    hint: 'Al marcarlo, esta palabra aplicará las reglas de acento de los cambios fonéticos y de la ortografía: en las cláusulas marcadas con <词类> se elige según la clase de palabra; en las reglas marcadas con @ se aplica el acento especial indicado aquí.',
+    hint: 'Al marcarlo, esta palabra aplicará las reglas de acento de los cambios fonéticos y de la ortografía: en las cláusulas marcadas con <clase> se elige según la clase de palabra; en las reglas marcadas con @ se aplica el acento especial indicado aquí.',
     morphemeHint:
       'Los morfemas no tienen clase de palabra: lo que se transmite es su tipo (raíz, sufijo, etc.); además puede indicar como qué clase de palabra cuentan. Al derivar cambios fonéticos, el morfema se trata como una palabra; al añadirlo a una palabra dentro de un paradigma, el acento especial pasa a recaer sobre ese afijo; si se indica una clase de palabra, toda la palabra se trata como esa clase.',
     passPos: 'Transmitir la clase de palabra',
@@ -561,7 +572,7 @@ export default {
     codepoints: 'Puntos de código'
   },
   morphemes: {
-    hint: 'Los paradigmas citan estos afijos con @语素 y el corpus los usa para segmentar automáticamente.',
+    hint: 'Los paradigmas citan estos afijos con @morfema y el corpus los usa para segmentar automáticamente.',
     title: 'Morfemas',
     sortType: 'Por tipo',
     empty: 'Esta lengua todavía no tiene morfemas.',
@@ -746,7 +757,9 @@ export default {
     installing: 'Instalando; el programa se volverá a abrir enseguida…',
     failed: 'Error al descargar: {err}',
     later: 'Más tarde',
-    skip: 'Omitir esta versión'
+    skip: 'Omitir esta versión',
+    githubHint:
+      'El instalador se descarga de GitHub, lo que en algunas redes puede ser lento o imposible.'
   },
   stats: {
     title: 'Estadísticas',
@@ -920,7 +933,7 @@ export default {
     testTip:
       'El banco de pruebas analiza cualquier texto siguiendo exactamente la configuración de importación, y el resultado se vuelve a calcular cada vez que se cambia un ajuste.',
     testNoMatch: 'No se reconoce este fragmento',
-    phLexc: '{"Lexicon":{"abc":{"Senses":[{"definition":"释义"}]}}}',
+    phLexc: '{"Lexicon":{"abc":{"Senses":[{"definition":"significado"}]}}}',
     phCsv: 'Escriba una fila de datos con las columnas elegidas, sin encabezado',
     phTable: 'Una entrada por línea, con las columnas separadas por el delimitador elegido arriba',
     phGlyphs: 'Uno por línea: carácter, transliteración, nombre',
@@ -937,10 +950,10 @@ export default {
     hint: 'Abre la sintaxis de las reglas en el panel derecho: los cambios fonéticos, las ortografías, las correspondencias de escritura, los ajustes y los entornos de los alomorfos comparten esta sintaxis'
   },
   search: {
-    help: 'El cuadro de búsqueda admite búsquedas avanzadas: con 字段=内容 se busca el contenido que cumple ese campo (por ejemplo, gloss=PL); con 字段==内容 la coincidencia tiene que ser exacta; con /正则/ se busca mediante una expresión regular.',
+    help: 'El cuadro de búsqueda admite búsquedas avanzadas: con campo=texto se busca el contenido que cumple ese campo (por ejemplo, gloss=PL); con campo==texto la coincidencia tiene que ser exacta; con /regex/ se busca mediante una expresión regular.',
     fields: 'Campos de esta página: {fields}',
     dimFields:
-      'Los nombres de las categorías gramaticales también sirven como campos: 性=阴、数=复数'
+      'Los nombres de las categorías gramaticales también sirven como campos: género=fem, número=pl'
   },
   tour: {
     title: 'Recorrido guiado',
@@ -1046,7 +1059,7 @@ export default {
       docs: [
         'Pulse aquí para crear un documento.',
         'A la izquierda se muestra la lista de páginas del documento, dividida en páginas generales del proyecto y páginas propias de la lengua actual.',
-        'Los documentos tienen tres modos: edición, columnas y vista previa; además, dentro de un documento el formato [[词头]] enlaza con una entrada concreta del léxico.',
+        'Los documentos tienen tres modos: edición, columnas y vista previa; además, dentro de un documento el formato [[lema]] enlaza con una entrada concreta del léxico.',
         'La barra de herramientas ofrece la negrita, los títulos, las listas, las tablas y demás recursos habituales; «Insertar enlace» permite elegir directamente una entrada o un objeto de otro módulo y escribe el enlace con el formato correcto.',
         'La vista previa compone la página con su aspecto definitivo, y desde sus enlaces se pueden abrir directamente los objetos correspondientes.'
       ],
@@ -1484,7 +1497,7 @@ export default {
     formatGuideHint: 'Ir a la «Guía de uso» para ver ejemplos de importación de CSV',
     markers: 'Marcas en las palabras, las definiciones y las notas',
     markersHint:
-      'Es decir, marcas entre corchetes como 【专】【古】; si arriba ha activado el reconocimiento de los paréntesis, también se reconocen los paréntesis que cumplan la condición. Este tipo de marcas suele configurarse como registro.',
+      'Es decir, marcas entre corchetes como 【NP】 o [arc.]; si arriba ha activado el reconocimiento de los paréntesis, también se reconocen los paréntesis que cumplan la condición. Este tipo de marcas suele configurarse como registro.',
     marker: 'Marca',
     markerCount: 'Veces · columnas',
     markerAction: 'Tratamiento',
@@ -1509,7 +1522,7 @@ export default {
     posNew: 'nueva',
     codes: 'Códigos al principio de las definiciones',
     codesHint:
-      'Cifras escritas justo antes del texto de la definición, como la valencia verbal «1离开；2前往»; si se configuran como etiqueta, no aparecen en la definición.',
+      'Cifras escritas justo antes del texto de la definición, como la valencia verbal «1salir; 2ir a»; si se configuran como etiqueta, no aparecen en la definición.',
     code: 'Código',
     codeValue: 'Etiqueta',
     codeActions: {
@@ -1722,7 +1735,7 @@ export default {
     search: 'Buscar documentos: título o cuerpo',
     title: 'Documentos',
     page: 'Página',
-    hint: 'Escriba [[单词]] para enlazar con una entrada del «Léxico».',
+    hint: 'Escriba [[palabra]] para enlazar con una entrada del «Léxico».',
     insertLink: 'Insertar enlace',
     linkSearch: 'Buscar por nombre…',
     linkHelp:
@@ -1753,9 +1766,9 @@ export default {
     projectWide: 'Todo el proyecto',
     updated: 'Actualizado',
     placeholder:
-      'Escriba aquí un documento en formato Markdown…\\\n\\\n## 标题\\\n- 列表\\\n**粗体** *斜体* `代码` [[词头]]\\\n| 表 | 格 |\\\n| --- | --- |',
+      'Escriba aquí un documento en formato Markdown…\\\n\\\n## título\\\n- lista\\\n**negrita** *cursiva* `código` [[lema]]\\\n| tabla | celda |\\\n| --- | --- |',
     syntax:
-      'Se admiten: # títulos, - / 1. listas, > citas, ``` bloques de código, | tablas |, **negrita**, *cursiva*, `código`, [enlace](https://…), [[词头]], [[语素:na-]].'
+      'Se admiten: # títulos, - / 1. listas, > citas, ``` bloques de código, | tablas |, **negrita**, *cursiva*, `código`, [enlace](https://…), [[lema]], [[morpheme:na-]].'
   },
   palette: {
     placeholder:
@@ -2066,6 +2079,7 @@ export default {
       adjust: 'ajuste',
       paradigm: 'Paradigma'
     },
+    affixPlaceholder: '@morfema / -s',
     adjustPlaceholder:
       'Escriba algo de la forma at > / _#. También se admiten abreviaturas como -at, +u, ^-e, ^+a, etc.',
     nestPick: 'Elija un paradigma',
@@ -2147,7 +2161,7 @@ export default {
     deleted: 'Se ha eliminado el paradigma «{name}»',
     hint: 'Cuando un paradigma se vincula a una clase de palabra, la pantalla de edición de sus entradas genera automáticamente el panel de ranuras correspondiente.',
     affixHint:
-      'Use @ para citar un morfema y una expresión de la forma {阴:g|k} para elegir según una condición; para el uso detallado, consulte la sintaxis de las reglas, en la esquina superior derecha de la aplicación.',
+      'Use @ para citar un morfema y una expresión de la forma {F:g|k} para elegir según una condición; para el uso detallado, consulte la sintaxis de las reglas, en la esquina superior derecha de la aplicación.',
     adjust: 'Ajustes',
     adjustPre: 'antes de los cambios fonéticos…',
     adjustStem: 'sobre el tema…',
@@ -2702,7 +2716,9 @@ export default {
       loaded: 'Cargado',
       failed: 'Error al cargar',
       counts:
-        'Paneles {views} · Comandos {commands} · Importación y exportación {io} · Generadores {generators}'
+        'Paneles {views} · Comandos {commands} · Importación y exportación {io} · Generadores {generators}',
+      noManifest: 'No se puede leer plugin.json',
+      loadFailed: 'No se pudo cargar el complemento «{name}»: {msg}'
     },
     showHistory: 'Mostrar las formas históricas en la tarjeta de entrada',
     showHistoryHint:
@@ -2811,6 +2827,13 @@ export default {
       'Arrastre para ajustar el ancho del inspector; haga doble clic en esta barra para volver al ancho predeterminado'
   },
   errors: {
+    svelte: {
+      each_key_duplicate:
+        'Dos elementos de una lista tienen el mismo identificador (suele pasar con dos contenidos del mismo nombre)',
+      state_unsafe_mutation: 'Se modificaron datos mientras se dibujaba la página',
+      effect_update_depth_exceeded: 'Los datos se actualizan entre sí sin parar'
+    },
+    unknown: 'Error desconocido',
     pageCrashed: 'Esta página ha dado un error; las demás no se ven afectadas.',
     retry: 'Reintentar',
     goLanguages: 'Volver a «Lenguas»',
@@ -2835,5 +2858,137 @@ export default {
     saveAndClose: 'Guardar y cerrar',
     discardAndClose: 'No guardar',
     closeProject: 'Cerrar proyecto'
+  },
+  native: {
+    closeTitle: 'Cambios sin guardar',
+    closeBody: '¿Guardar antes de cerrar?',
+    closeSave: 'Guardar y cerrar',
+    closeDiscard: 'No guardar',
+    closeCancel: 'Cancelar',
+    undoTyping: 'Deshacer escritura',
+    redoTyping: 'Rehacer escritura',
+    cut: 'Cortar',
+    copy: 'Copiar',
+    paste: 'Pegar',
+    selectAll: 'Seleccionar todo',
+    copyLink: 'Copiar enlace',
+    undoChange: 'Deshacer el último cambio',
+    redo: 'Rehacer',
+    back: 'Volver a la página anterior',
+    palette: 'Paleta de comandos',
+    chars: 'Panel de caracteres',
+    save: 'Guardar',
+    saveAs: 'Guardar como…',
+    open: 'Abrir…',
+    guide: 'Guía de uso',
+    reportIssue: 'Informar de un problema',
+    menuAbout: 'Acerca de Qonlang',
+    menuFile: 'Archivo',
+    menuEdit: 'Edición',
+    menuView: 'Ver',
+    menuWindow: 'Ventana',
+    menuHelp: 'Ayuda',
+    menuUndo: 'Deshacer',
+    menuRedo: 'Rehacer',
+    menuDelete: 'Eliminar',
+    resetZoom: 'Tamaño real',
+    zoomIn: 'Ampliar',
+    zoomOut: 'Reducir',
+    fullscreen: 'Alternar pantalla completa',
+    devTools: 'Herramientas de desarrollo',
+    minimize: 'Minimizar',
+    quit: 'Salir',
+    closeWindow: 'Cerrar ventana',
+    zoomWindow: 'Zoom',
+    front: 'Traer todo al frente',
+    services: 'Servicios',
+    hide: 'Ocultar Qonlang',
+    hideOthers: 'Ocultar otros',
+    unhide: 'Mostrar todo'
+  },
+  saveConflict: {
+    title: 'El archivo se modificó en otro lugar',
+    body: '«{name}» fue modificado por otro programa después de abrirlo o de guardarlo por última vez (otra ventana de Qonlang, una carpeta sincronizada en la nube…). Si lo guarda ahora, se sobrescribirán esos cambios.',
+    overwrite: 'Sobrescribir',
+    saveAs: 'Guardar como…',
+    cancel: 'No guardar todavía',
+    paused:
+      'No se ha guardado. El guardado automático está en pausa; pulse Ctrl+S para volver a elegir.'
+  },
+  secondInstance: {
+    title: 'Qonlang ya está abierto',
+    body: 'Puede usar las dos ventanas. Modifique cada proyecto en una sola de ellas; si la otra ventana lo ha guardado, esta le avisará antes de guardar.'
+  },
+  feedback: {
+    report: 'Informar de un problema',
+    copy: 'Copiar datos de diagnóstico',
+    hint: '«Informar de un problema» abre una nueva incidencia en GitHub con los datos de diagnóstico ya incluidos (versión, sistema, idioma de la interfaz, tamaño del proyecto y errores recientes; sin el contenido del proyecto). «Copiar datos de diagnóstico» copia el mismo texto para pegarlo en otro sitio.',
+    copied: 'Datos de diagnóstico copiados',
+    copyFailed: 'No se pudo copiar: {msg}',
+    issueWhat: 'Qué problema ha encontrado',
+    issueSteps: 'Cómo reproducirlo'
+  },
+  ruleMsg: {
+    includeInner: 'Línea {line} de «{ref}»: {msg}',
+    includeNoStage: '«{ref}» no tiene ninguna etapa llamada «{stage}»',
+    includeCycle: '«{ref}» se cita a sí mismo',
+    includeNotFound: 'No hay ningún conjunto de reglas llamado «{ref}»',
+    includeTooDeep: 'Las citas están anidadas demasiado (cuatro niveles como máximo)',
+    includeSyntax: 'Una cita se escribe `-@ conjunto : etapa inicial .. etapa final`',
+    clauseNeedsPosition:
+      '«{piece}» debe empezar por una posición de sílaba: 1, 2, -1, -2, 0, * o -* (o una @ sola)',
+    clauseNoUnderscore: 'Al entorno de «{piece}» le falta _',
+    excNoUnderscore: 'Al entorno de exclusión «{env}» le falta _',
+    envNoUnderscore: 'Al entorno «{env}» le falta _',
+    undefinedClassLetter: 'Clase {name} sin definir; se trata como un carácter literal',
+    undefinedClassBraced: 'Clase {{name}} sin definir',
+    undefinedMorpheme: 'Morfema @{name} sin definir',
+    undefinedFeature: 'Rasgo {name} sin definir',
+    featureEmpty: 'El rasgo [{feature}] no tiene miembros',
+    featureNeedsMembers:
+      'Para que [{feature}] se corresponda posición por posición en un reemplazo, enumere sus miembros en la definición del rasgo',
+    regexInvalid: 'La expresión regular no compila: {msg}',
+    missingArrow: 'Falta >',
+    onlyOneQuestion:
+      'Una regla solo puede llevar un ? en el objetivo y otro en el reemplazo (se cumple el entorno ? no se cumple); escriba \\? para un signo de interrogación literal',
+    elseTargetEmpty: 'El objetivo tras ? (cuando no se cumple el entorno) no puede quedar vacío',
+    elseUnused: 'No hay entorno escrito, así que siempre se cumple y la parte tras ? nunca se usa'
+  },
+  traceMsg: {
+    labelAdjust: 'Ajuste',
+    labelAdjustPre: 'Ajuste (antes)',
+    labelAdjustPost: 'Ajuste (después)',
+    adjustError: '{label} ✗ {line}: {msg}',
+    adjustUnknown: '{label} ? {line}',
+    adjustLine: '{label} {rest}',
+    prefix: 'Prefijo {rest}',
+    suffix: 'Sufijo {rest}',
+    circumfix: 'Circunfijo {rest}',
+    infix: 'Infijo {rest}',
+    pattern: 'Patrón {rest}',
+    reduplication: 'Reduplicación {rest}',
+    ruleSetMissing: 'El conjunto de reglas ya no existe',
+    paradigmMissing: 'El paradigma ya no existe',
+    paradigmTooDeep:
+      'Paradigma {name}: anidamiento demasiado profundo (más de {n} niveles); se detiene aquí',
+    paradigmNoSlot: 'Paradigma {name}: no se ha elegido ranura',
+    paradigmEmptySlot: 'Paradigma {name} · {slot}: esta ranura no indica cómo se forma',
+    paradigmResult: 'Paradigma {rest}',
+    inheritMissing: 'El paradigma heredado ya no existe',
+    inheritTooDeep:
+      'Heredado de {name}: anidamiento demasiado profundo (más de {n} niveles); se detiene aquí',
+    inheritSlotGone: 'Heredado de {name}: esa ranura ya no existe',
+    inheritEdited: 'Heredado de {name} · {slot} (editado a mano): {form}',
+    inheritNoForm: 'Heredado de {name} · {slot}: esa ranura no tiene forma',
+    inheritResult: 'Heredado de {rest}',
+    pronStart: 'Pronunciación inicial: {rest}',
+    pron: 'Pronunciación: {rest}',
+    plugin: 'Generador de complemento {rest}',
+    stemFallback: 'Se vuelve al tema {rest}',
+    stem: 'Tema {rest}',
+    conditionUnmatched: 'Condiciones que no coinciden con ningún valor: {list}',
+    joined: 'Unión: {rest}',
+    lemmaRef: 'Usa la entrada {rest}',
+    morphemeMissing: 'No se encuentra el morfema {rest}'
   }
 }

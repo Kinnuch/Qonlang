@@ -5,6 +5,14 @@ import { applySkin } from '$lib/skin/apply'
 import { DEFAULT_SKIN, EMPTY_FONTS } from '$lib/skin/presets'
 import { sizesFromScales } from '$lib/ui/cardBlocks'
 
+/** ui.choose 的一个选项：danger 画成红色按钮，primary 画成主按钮 */
+export interface ChoiceOption {
+  value: string
+  label: string
+  danger?: boolean
+  primary?: boolean
+}
+
 export type Section =
   | 'languages'
   | 'phonology'
@@ -301,6 +309,22 @@ class UiState {
       this.confirmReq = { title, body, okLabel, resolve }
     })
   }
+  /**
+   * 几个选项挑一个的对话框（保存冲突：覆盖 / 另存为 / 先不保存；只给一项就是一句提醒）。
+   * 返回挑的那一项的 value，按 Esc 或点对话框外面返回 null
+   */
+  chooseReq = $state<{
+    title: string
+    body: string
+    options: ChoiceOption[]
+    resolve: (v: string | null) => void
+  } | null>(null)
+  choose(title: string, body: string, options: ChoiceOption[]): Promise<string | null> {
+    return new Promise((resolve) => {
+      if (this.chooseReq) this.chooseReq.resolve(null)
+      this.chooseReq = { title, body, options, resolve }
+    })
+  }
   /** 语料查重确认框：返回用户勾选要合并的那些 */
   mergeReq = $state<{ pairs: DupPair[]; resolve: (v: DupPair[]) => void } | null>(null)
   askMerge(pairs: DupPair[]): Promise<DupPair[]> {
@@ -491,11 +515,20 @@ class UiState {
     return id
   }
 
+  /** 最近的报错（新的在后，最多 20 条）：「复制诊断信息」里带上最后几条 */
+  recentErrors: { at: string; message: string }[] = []
+  private noteError(message: string): void {
+    this.recentErrors.push({ at: new Date().toISOString().slice(0, 19), message })
+    if (this.recentErrors.length > 20) this.recentErrors.shift()
+  }
+
   error(message: string): number {
+    this.noteError(message)
     return this.toast(message, { kind: 'error', timeout: 8000 })
   }
   /** 页面出错：底部一条红色的条，写明哪里出的错和报错信息；不自动消失。同样的报错已经挂着就不再叠一条 */
   crash(title: string, message: string): number {
+    this.noteError(`${title}: ${message}`)
     const same = this.toasts.find(
       (x) => x.kind === 'crash' && x.title === title && x.message === message
     )

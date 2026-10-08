@@ -131,15 +131,94 @@ export function installerCandidates(
   return [{ name: `Qonlang-${version}.AppImage`, auto: false }]
 }
 
-/** 「0.6.1」这类版本号比大小；只比数字段（0.8.1-local 不比 0.8.1 新） */
-export function newerThan(a: string, b: string): boolean {
-  const pa = a.split(/[.-]/).map((x) => Number(x) || 0)
-  const pb = b.split(/[.-]/).map((x) => Number(x) || 0)
+/**
+ * 版本号拆成数字段与测试版标记：1.0.0-beta.2 → [1,0,0] + beta.2。
+ * 本地打的包（0.8.1-local）不算测试版：跟同号的正式版一样大
+ */
+function splitVersion(v: string): { core: number[]; pre: string } {
+  const [main, ...rest] = v.trim().replace(/^v/, '').split('+')[0].split('-')
+  const pre = rest.join('-')
+  return {
+    core: main.split('.').map((x) => Number(x) || 0),
+    pre: /^local\b/i.test(pre) ? '' : pre
+  }
+}
+
+/** 测试版标记逐段比：数字按大小，字母按字典序；段内字母数字混写（beta10）也按自然顺序（beta9 < beta10） */
+function comparePre(a: string, b: string): number {
+  const pa = a.split('.')
+  const pb = b.split('.')
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const d = (pa[i] ?? 0) - (pb[i] ?? 0)
+    if (pa[i] === undefined) return -1
+    if (pb[i] === undefined) return 1
+    const ca = pa[i].match(/\d+|\D+/g) ?? []
+    const cb = pb[i].match(/\d+|\D+/g) ?? []
+    for (let j = 0; j < Math.max(ca.length, cb.length); j++) {
+      if (ca[j] === undefined) return -1
+      if (cb[j] === undefined) return 1
+      const na = /^\d+$/.test(ca[j])
+      const nb = /^\d+$/.test(cb[j])
+      if (na && nb) {
+        const d = Number(ca[j]) - Number(cb[j])
+        if (d) return d
+      } else if (na !== nb) return na ? -1 : 1
+      else if (ca[j] !== cb[j]) return ca[j] < cb[j] ? -1 : 1
+    }
+  }
+  return 0
+}
+
+/**
+ * 「0.6.1」这类版本号比大小。先比数字段；数字段一样时正式版比测试版新（1.0.0 > 1.0.0-beta.2 > 1.0.0-beta.1）。
+ * 本地版不比同号正式版新（0.8.1-local 收不到 0.8.1 的提示，下一个正式版照样提示）
+ */
+export function newerThan(a: string, b: string): boolean {
+  const va = splitVersion(a)
+  const vb = splitVersion(b)
+  for (let i = 0; i < Math.max(va.core.length, vb.core.length); i++) {
+    const d = (va.core[i] ?? 0) - (vb.core[i] ?? 0)
     if (d) return d > 0
   }
-  return false
+  if (!va.pre || !vb.pre) return !va.pre && !!vb.pre
+  return comparePre(va.pre, vb.pre) > 0
+}
+
+/** 测试版（1.0.0-beta.1 这类）：检查更新时连测试版一起看；本地版（-local）不算 */
+export function isPrerelease(v: string): boolean {
+  return !!splitVersion(v).pre
+}
+
+/** Release 的 Atom 订阅里出现的版本号（新的在前；含测试版）。不走接口，不占匿名额度 */
+export function versionsFromReleaseFeed(xml: string): string[] {
+  const out: string[] = []
+  for (const m of xml.matchAll(/\/releases\/tag\/v?([^"'<>\s/?#]+)/g)) {
+    const v = decodeURIComponent(m[1])
+    if (/^\d+(\.\d+)*([.-][0-9A-Za-z.-]+)?$/.test(v) && !out.includes(v)) out.push(v)
+  }
+  return out
+}
+
+/** 一串版本号里最新的那个 */
+export function newestVersion(versions: string[]): string | null {
+  let best: string | null = null
+  for (const v of versions) if (!best || newerThan(v, best)) best = v
+  return best
+}
+
+/**
+ * Release 说明里挑界面语言那一段：说明按「## 中文」「## English」分两段写（发布脚本从两份更新日志里摘的）；
+ * 中文界面（含繁体）取中文段，其余取英文段；没分段的旧说明原样返回
+ */
+export function notesForLocale(body: string, locale: string): string {
+  const zh = /^##\s*中文\s*$/m.exec(body)
+  const en = /^##\s*English\s*$/m.exec(body)
+  if (!zh || !en) return body.trim()
+  const [first, second] = zh.index < en.index ? [zh, en] : [en, zh]
+  const part = (m: RegExpExecArray): string =>
+    m === first
+      ? body.slice(m.index + m[0].length, second.index)
+      : body.slice(m.index + m[0].length)
+  return part(locale.startsWith('zh') ? zh : en).trim()
 }
 
 /** macOS 上正在运行的应用包：…/Qonlang.app/Contents/MacOS/Qonlang → …/Qonlang.app；不是应用包里的就返回 null */

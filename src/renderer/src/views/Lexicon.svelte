@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { traceLine } from '$lib/ui/engineText'
   import { navScroll } from '$lib/ui/navScroll'
   import type { GrammaticalCategory } from '$lib/core/model'
   import { VirtualRows } from '$lib/ui/virtualRows.svelte'
@@ -718,14 +719,14 @@
       const g = key.slice(4)
       const parts = l.senses.map((s) => s.definition[g] ?? '').filter(Boolean)
       if (parts.length < 2) return parts[0] ?? ''
-      const sep = i18n.locale === 'zh' ? '、' : '. '
+      const sep = i18n.locale.startsWith('zh') ? '、' : '. '
       return parts.map((d, i) => `${i + 1}${sep}${d}`).join(' ')
     }
     if (key === 'tags') return l.tags.join(', ')
     if (key === 'dialect')
       return dialectsOf(l)
         .map((d) => d.name || d.abbr)
-        .join(i18n.locale === 'zh' ? '、' : ', ')
+        .join(i18n.locale.startsWith('zh') ? '、' : ', ')
     if (key === 'proto') return etymologyOrigin(project, l.etymology)
     if (key === 'pron')
       return Object.values(l.pronunciations)
@@ -2365,7 +2366,9 @@
                       class:derived={f && !f.override}
                       value={f?.surface ?? ''}
                       placeholder="—"
-                      title={[s.slot.label, ...(f?.trace ?? [])].filter(Boolean).join('\n')}
+                      title={[s.slot.label, ...(f?.trace ?? []).map(traceLine)]
+                        .filter(Boolean)
+                        .join('\n')}
                       oninput={(e) => {
                         l.forms[s.key] = {
                           surface: (e.currentTarget as HTMLInputElement).value,
@@ -2393,7 +2396,7 @@
           {:else}
             {#each grp.slots as s (grp.id + '|' + s.slot.key)}
               {@const f = l.forms[s.key]}
-              <div class="row kv" title={f?.trace?.join('\n') ?? ''}>
+              <div class="row kv" title={f?.trace?.map(traceLine).join('\n') ?? ''}>
                 <span class="slot small" class:gl={!!s.slot.abbr} title={s.slot.label}
                   >{s.slot.abbr || s.slot.label}</span
                 >

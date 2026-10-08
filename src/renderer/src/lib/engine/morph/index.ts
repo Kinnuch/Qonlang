@@ -357,6 +357,12 @@ export interface MorphContext {
   spoken?: { rules: string; map: Map<string, string | null> }
   /** 语言的解析选项缓存 */
   parseOptions?: ReturnType<typeof languageParseOptions>
+  /** 拼写单位与认元音（数音段、挪重音用）：每加一个词缀都要，一次推导里只算一次 */
+  units?: ReturnType<typeof spellingUnits>
+}
+
+function unitsOf(ctx: MorphContext): ReturnType<typeof spellingUnits> {
+  return (ctx.units ??= spellingUnits(ctx.language))
 }
 
 /** 解析一行零碎规则：有缓存就用缓存 */
@@ -453,7 +459,7 @@ function stressAfterAffix(
   morpheme: Morpheme | undefined,
   side: 'prefix' | 'suffix'
 ): void {
-  const { units, isVowel } = spellingUnits(ctx.language)
+  const { units, isVowel } = unitsOf(ctx)
   const n = syllableCount(form, units, isVowel)
   const own = morpheme ? morphemeStress(ctx.project, morpheme) : undefined
   const cur: WordStress = { ...word.current }
@@ -678,7 +684,7 @@ function insertInfix(
 
 /** 把中缀插进一个形式（位置写法跟构形里中缀那一步一样：V1、C-1、<V2、数字……），给构形之外的地方用 */
 export function infixInto(ctx: MorphContext, stem: string, infix: string, at: string): string {
-  const { units, isVowel } = spellingUnits(ctx.language)
+  const { units, isVowel } = unitsOf(ctx)
   return insertInfix(stem, trimHyphens(infix), at, isVowel, units)
 }
 
@@ -806,7 +812,7 @@ function runStep(
   active?: ReadonlyMap<Id, Id>
 ): string {
   // 按音段数的地方用拼写单位：设了正字法时 th、eu 这类写法是一个音
-  const { units: inventory, isVowel } = spellingUnits(ctx.language)
+  const { units: inventory, isVowel } = unitsOf(ctx)
   switch (step.kind) {
     case 'prefix': {
       const text = pick(step.text)
@@ -1124,7 +1130,7 @@ export function generateForm(
     if (!g.pron?.on) return { surface: out, trace }
     return { surface: out, trace, ipa: slotPron(ctx, lexeme, out, g.pron, trace, pick, active) }
   }
-  const { units: inventory, isVowel } = spellingUnits(ctx.language)
+  const { units: inventory, isVowel } = unitsOf(ctx)
   let surface = stem.value
   if (g.kind === 'affix' || g.kind === 'affix-sca') {
     const pre = resolveAffix(ctx, pick(g.prefix ?? ''), surface, 'prefix', active)

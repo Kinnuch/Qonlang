@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ruleMsg } from '$lib/ui/engineText'
   import { navScroll } from '$lib/ui/navScroll'
   import { sectionCollapsed } from '$lib/ui/section.svelte'
   import SectionHead from '$lib/ui/SectionHead.svelte'
@@ -549,7 +550,7 @@
     ui.toast(t('soundChanges.copied'))
   }
 
-  const zh = $derived(i18n.locale === 'zh')
+  const zh = $derived(i18n.locale.startsWith('zh'))
 </script>
 
 {#snippet chartCell(sym: string | null)}
@@ -916,7 +917,7 @@
                 class:err={d.severity === 'error'}
                 class:warn-text={d.severity === 'warning'}
               >
-                {d.message}
+                {ruleMsg(d.message)}
               </p>{/each}
           </div>
         {/if}

@@ -1,4 +1,4 @@
-// 一键发布：检查工作区干净 → 用 package.json 的版本打 tag → 推 tag，GitHub Actions 随后在 Windows 与 macOS 打包并建 Release。
+// 一键发布：检查工作区干净 → 用 package.json 的版本打 tag → 推 tag，GitHub Actions 随后在 Windows、macOS 与 Linux 打包并建 Release。
 // 用法：npm run release            （tag = v<package.json 版本>）
 //       npm run release -- 0.4.0   （先把版本改成 0.4.0 并提交，再打 tag）
 import { execSync } from 'node:child_process'
@@ -30,5 +30,5 @@ run(`git tag -a ${tag} -m "Qonlang ${pkg.version}"`)
 run('git push origin main')
 run(`git push origin ${tag}`)
 console.log(
-  `已推送 ${tag}。到 https://github.com/Kinnuch/Qonlang/actions 看进度，完成后 Release 页会有 Windows 与 macOS 安装包。`
+  `已推送 ${tag}。到 https://github.com/Kinnuch/Qonlang/actions 看进度，完成后 Release 页会有 Windows、macOS 与 Linux 安装包（版本号带「-」的是预发布）。`
 )

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ruleMsg } from '$lib/ui/engineText'
   /**
    * 规则文本编辑器：透明 textarea 叠在高亮层上，行号栏在左，诊断行标红。
    */
@@ -138,7 +139,7 @@
           class="ln"
           class:err={d?.severity === 'error'}
           class:warn={d?.severity === 'warning'}
-          title={d?.message}
+          title={d ? ruleMsg(d.message) : undefined}
         >
           {i + 1}
         </div>

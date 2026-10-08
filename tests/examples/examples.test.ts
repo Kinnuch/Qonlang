@@ -18,6 +18,7 @@ import { groupLanguages } from '$lib/core/languageTree'
 import { historyChain } from '$lib/core/history'
 import { docLink } from '$lib/core/docLinks'
 import { applyAdjust, makeContext } from '$lib/engine/morph'
+import { localizeExampleDocs, type ExampleDocsEn } from '$lib/core/exampleDocs'
 
 const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
@@ -360,5 +361,27 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
         p.lexemes.find((l) => l.lemma === 'wa55')!
       )
     ).toBe('⼧ ⼈')
+  })
+
+  it('示例的每一篇文档都有英文版，英文版里的链接都对得上（界面不是中文时打开示例换成英文那份）', () => {
+    const en = JSON.parse(readFileSync(join(dir, 'docs-en.json'), 'utf8')) as ExampleDocsEn
+    for (const [id, file] of [
+      ['aelith', 'Aelith.laim.json'],
+      ['tsahun', 'Tsahun.laim.json']
+    ] as const) {
+      const p = load(file)
+      const titles = p.docs.map((d) => d.title)
+      expect(Object.keys(en[id]).sort(), id).toEqual([...titles].sort())
+      expect(localizeExampleDocs(p, id, en, 'zh')).toBe(0)
+      expect(localizeExampleDocs(p, id, en, 'en')).toBe(titles.length)
+      for (const d of p.docs) {
+        expect(d.markdown, d.title).not.toMatch(/关于这个示例|语法概要/)
+        for (const m of d.markdown.matchAll(/\[\[([^\]]+)\]\]/g)) {
+          const hit = docLink(p, m[1]).hit
+          expect(hit, `${d.title}: ${m[1]}`).not.toBeNull()
+          expect(hit!.subMissing, m[1]).toBe(false)
+        }
+      }
+    }
   })
 })

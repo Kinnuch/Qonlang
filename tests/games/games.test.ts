@@ -168,4 +168,36 @@ describe('填字导出成单文件网页', () => {
     const nasty = crosswordHtml(cw, { title: '<b>x</b>', language: 'a', project: 'b' })
     expect(nasty).not.toContain('<b>x</b>')
   })
+
+  it('网页上的字跟着导出时的界面语言，没给就用英文', () => {
+    const { p, L } = setup()
+    const units = alphabetUnits(L)
+    const ws = gameWords(p, L.id, { singleWord: true, minLen: 3 }, (w) => splitLetters(w, units))
+    const cw = buildCrossword(ws, units, { size: 11, count: 5, rand: makeRandom(5) })
+    const en = crosswordHtml(cw, { title: 't', language: 'l', project: 'p' })
+    expect(en).toContain('Across')
+    expect(en).toContain('Check')
+    const ja = crosswordHtml(cw, {
+      title: 't',
+      language: 'l',
+      project: 'p',
+      lang: 'ja',
+      labels: { across: 'ヨコ', down: 'タテ', check: '答え合わせ' }
+    })
+    expect(ja).toContain('lang="ja"')
+    expect(ja).toContain('ヨコ')
+    expect(ja).toContain('タテ')
+    expect(ja).toContain('答え合わせ')
+    expect(ja).not.toContain('>Across<')
+    // 没给的几项照样用英文
+    expect(ja).toContain('Reveal')
+    // 塞进脚本里的文字不能提前收尾 <script>
+    const evil = crosswordHtml(cw, {
+      title: 't',
+      language: 'l',
+      project: 'p',
+      labels: { allRight: '</script><b>x</b>' }
+    })
+    expect(evil).not.toContain('</script><b>x</b>')
+  })
 })

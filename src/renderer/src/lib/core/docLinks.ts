@@ -74,7 +74,7 @@ export const DOC_LINK_TARGET: Record<DocLinkKind, { section: string; pending: st
 export function docLinkPrefix(kind: DocLinkKind, locale: string): string {
   if (kind === 'lexeme') return ''
   const set = PREFIXES[kind]
-  return (locale === 'zh' ? set.zh[0] : set.en[0]) ?? set.en[0]
+  return (locale.startsWith('zh') ? set.zh[0] : set.en[0]) ?? set.en[0]
 }
 
 /** 拼一条链接文本 */

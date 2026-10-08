@@ -232,7 +232,7 @@
       {:else if st.kind === 'prefix' || st.kind === 'suffix'}
         <input
           class="input data"
-          placeholder="@语素 / -s"
+          placeholder={t('paradigms.affixPlaceholder')}
           bind:value={st.text}
           oninput={onchange}
         />
