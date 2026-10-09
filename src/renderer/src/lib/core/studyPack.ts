@@ -1,9 +1,9 @@
 /**
- * 学习包：给 Qonlang Study（学语言的软件）用的导出格式。
+ * 学习包：给 Qonsona（学语言的软件）用的导出格式。
  *
  * 学习设置（课程编排、不给学习者看的内容、默认显示、个别词的级别、作者录音……）**不写进项目文件**：
  * 存在本机（按项目 id 记住，下次导出接着用），导出时跟项目一起打进一个 `.qstudy.json`。
- * Qonlang Study 同步千语集引擎时会拿到这个文件，两边读写的是同一份定义。
+ * Qonsona 同步千语集引擎时会拿到这个文件，两边读写的是同一份定义。
  */
 import type { Id, Project } from './model'
 import { projectFromObject, serializeProject } from './serialize'
@@ -11,7 +11,7 @@ import { projectFromObject, serializeProject } from './serialize'
 export const STUDY_PACK_FORMAT = 'qonlang-study-pack'
 export const STUDY_PACK_VERSION = 1
 export const STUDY_PACK_EXTENSION = '.qstudy.json'
-/** 手动钉级别时最多几级（Qonlang Study 按词频分 3–5 级，钉得比实际级数高时落到最后一级） */
+/** 手动钉级别时最多几级（Qonsona 按词频分 3–5 级，钉得比实际级数高时落到最后一级） */
 export const STUDY_MAX_LEVEL = 5
 
 /** 一课：标题、讲解用的文档、这一课的新词和例句、短语 */

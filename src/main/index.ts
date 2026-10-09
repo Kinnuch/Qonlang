@@ -212,7 +212,7 @@ const backupsDir = (): string => join(userData(), 'Backups')
 const fontsDir = (): string => join(userData(), 'fonts')
 /** 插件目录：一个插件一个子目录，里面 plugin.json + 入口 js */
 const pluginsDir = (): string => join(userData(), 'plugins')
-/** 学习包导出的设置（给 Qonlang Study 的）：不进项目文件，按项目 id 各存一份 */
+/** 学习包导出的设置（给 Qonsona 的）：不进项目文件，按项目 id 各存一份 */
 const studyDir = (): string => join(userData(), 'study-export')
 /** 项目 id 只留字母数字和连字符，免得拼出目录外的路径 */
 const studyFile = (projectId: string): string =>

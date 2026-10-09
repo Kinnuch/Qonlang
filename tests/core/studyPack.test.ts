@@ -1,5 +1,5 @@
 /**
- * 学习包（给 Qonlang Study 的导出格式）：默认设置、跟项目对账、按文档排课、写出与读回。
+ * 学习包（给 Qonsona 的导出格式）：默认设置、跟项目对账、按文档排课、写出与读回。
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'

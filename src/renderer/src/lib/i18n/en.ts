@@ -2376,7 +2376,7 @@ const en: Dict = {
     title: 'Export a study pack',
     open: 'Export a study pack',
     openDesc:
-      'For Qonlang Study: set up lessons, hidden items, word levels and your own recordings separately; none of this is written into the project file.',
+      'For Qonsona: set up lessons, hidden items, word levels and your own recordings separately; none of this is written into the project file.',
     back: 'Back to Settings',
     hint: 'These settings are kept on this computer only, never in the project file; exporting bundles them with the project into a study pack.',
     readOnly: 'Study packs cannot be exported from a read-only copy.',

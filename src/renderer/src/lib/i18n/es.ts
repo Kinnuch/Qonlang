@@ -2410,7 +2410,7 @@ export default {
     title: 'Exportar un paquete de estudio',
     open: 'Exportar un paquete de estudio',
     openDesc:
-      'En este modo de exportación: configure aparte, para Qonlang Study, las lecciones, los elementos ocultos, el nivel de las palabras y sus propias grabaciones; nada de esto se escribe en el archivo del proyecto.',
+      'En este modo de exportación: configure aparte, para Qonsona, las lecciones, los elementos ocultos, el nivel de las palabras y sus propias grabaciones; nada de esto se escribe en el archivo del proyecto.',
     back: 'Volver a Ajustes',
     hint: 'Estos ajustes se guardan solo en este equipo, nunca en el archivo del proyecto; al exportar se empaquetan con el proyecto en un paquete de estudio.',
     readOnly: 'No se puede exportar un paquete de estudio desde una copia de solo lectura.',

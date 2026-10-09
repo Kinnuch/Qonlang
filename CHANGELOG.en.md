@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0-beta.2 · unreleased
+
+- The companion language-learning app named on the “Export study pack” page is now called Qonsona (formerly Qonlang Study); the study pack format is unchanged, and .qstudy.json files exported earlier can still be imported
+
 ## 1.0.0-beta.1 · 2026-10-09
 
 The first test build of the 1.0 release. Test builds are marked as **pre-releases** on GitHub: installs of a regular release such as 0.12.4 are not offered them — download one from the release page if you want to try it. Once you have a test build, later test builds and the final release are offered as usual.

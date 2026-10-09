@@ -2413,7 +2413,7 @@ export default {
     title: 'Exporter un pack d’étude',
     open: 'Exporter un pack d’étude',
     openDesc:
-      'Dans ce mode d’export : définissez à part, pour Qonlang Study, les leçons, les éléments masqués, le niveau des mots et vos propres enregistrements ; rien de tout cela n’est écrit dans le fichier du projet.',
+      'Dans ce mode d’export : définissez à part, pour Qonsona, les leçons, les éléments masqués, le niveau des mots et vos propres enregistrements ; rien de tout cela n’est écrit dans le fichier du projet.',
     back: 'Retour aux réglages',
     hint: 'Ces réglages sont conservés sur cet ordinateur seulement, jamais dans le fichier du projet ; l’export les regroupe avec le projet dans un pack d’étude.',
     readOnly: 'Impossible d’exporter un pack d’étude depuis une copie en lecture seule.',

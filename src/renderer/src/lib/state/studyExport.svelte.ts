@@ -1,5 +1,5 @@
 /**
- * 「导出学习包」页的设置（给 Qonlang Study 的）：不进项目文件，按项目 id 存在本机，
+ * 「导出学习包」页的设置（给 Qonsona 的）：不进项目文件，按项目 id 存在本机，
  * 改一下就过一会儿自动存；导出时跟项目一起打进 `.qstudy.json`。格式见 lib/core/studyPack.ts。
  */
 import { platform } from '$lib/platform'

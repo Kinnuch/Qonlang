@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * 导出学习包（给 Qonlang Study 的）：设置课程、不给学习者看的内容、个别词的级别、默认显示、作者录音，
+   * 导出学习包（给 Qonsona 的）：设置课程、不给学习者看的内容、个别词的级别、默认显示、作者录音，
    * 再把项目连同这些设置导出成 `.qstudy.json`。设置不写进项目文件，按项目存在本机（studyExport）。
    */
   import { onDestroy, onMount } from 'svelte'
