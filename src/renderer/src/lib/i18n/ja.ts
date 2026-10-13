@@ -1,9 +1,41 @@
-/**
- * 日本語 文案。结构、键名、注释跟 zh.ts 一一对应（tests/core/i18n.test.ts 会核）。
- * zh.ts 新增条目后：`node scripts/i18n-values.mjs dump src/renderer/src/lib/i18n/ja.ts 旧.json`，
- * 再 `derive zh.ts 旧.json ja.ts` 补出结构，然后把留着中文的那几条译过来。
- */
 export default {
+  account: {
+    title: '共通アカウント',
+    optional: 'ログインは任意です。ローカルのプロジェクトはオフラインでも編集できます。',
+    help: 'Qonlang と Qonsona は同じアカウントを使い、それぞれでログインします。プロジェクトや言語の内容はアップロードもクラウド同期もされません。',
+    offline: 'アカウントサービスに接続できません。ローカルのプロジェクトは編集できます。',
+    desktopOnly:
+      '共通アカウントはデスクトップ版で利用できます。ウェブ版でもローカルのプロジェクトを利用できます。',
+    signedIn: 'ログイン済み',
+    temporary: '安全な保存機能を利用できません。今回のログインは現在のプロセスでのみ有効です。',
+    username: 'ユーザー名',
+    password: 'パスワード',
+    nickname: '表示名',
+    login: 'ログイン',
+    register: '登録',
+    logout: 'ログアウト',
+    saveNickname: '表示名を保存',
+    retry: 'アカウント状態を更新',
+    checking: 'アカウントサービスに接続中…',
+    usernameHint:
+      '英字・数字・アンダースコアを 3～32 文字で入力してください。大文字と小文字は区別されません。',
+    passwordHint: '10～128 文字のパスワードを入力してください。',
+    errors: {
+      OFFLINE: 'アカウントサービスに接続できません。ネットワークを確認して再試行してください。',
+      INVALID_CREDENTIALS: 'ユーザー名またはパスワードが正しくありません。',
+      USERNAME_TAKEN: 'このユーザー名は使用済みです。別の名前を選んでください。',
+      RATE_LIMITED: 'リクエストが多すぎます。しばらくしてから再試行してください。',
+      INVALID_INPUT: '入力内容が正しくありません。確認してください。',
+      INVALID_USERNAME: 'ユーザー名は英字・数字・アンダースコアの 3～32 文字にしてください。',
+      INVALID_PASSWORD: 'パスワードは 10～128 文字にしてください。',
+      INVALID_NICKNAME: '表示名は 1～40 文字にしてください。',
+      UNAUTHORIZED: '先にログインしてください。',
+      SESSION_EXPIRED: 'ログインの有効期限が切れました。再度ログインしてください。',
+      SERVICE_UNAVAILABLE: 'アカウントサービスを利用できません。後で再試行してください。',
+      STORAGE_FAILURE: 'ログイン情報を安全に保存できませんでした。再試行してください。',
+      LOGOUT_OFFLINE: 'この端末ではログアウトしました。サーバー側のセッション失効は未確認です。'
+    }
+  },
   app: {
     name: '千語集',
     tagline: 'すべての人工言語作者のためのワークベンチ',

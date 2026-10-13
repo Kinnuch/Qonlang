@@ -6,10 +6,12 @@
   import { t, localeOptions } from '$lib/i18n/index.svelte'
   import { Eye, Palette, RefreshCw, Save } from '@lucide/svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
+  import AccountPanel from '$lib/ui/AccountPanel.svelte'
   import { filterRows } from '$lib/ui/filterRows'
 </script>
 
 <div class="groups" data-tour="settings-app">
+  <AccountPanel />
   <section class="card group" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
     <h3><Palette size={15} />{t('settings.groups.ui')}</h3>
     <div class="grid">

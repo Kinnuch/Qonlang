@@ -3,6 +3,41 @@
  * 改了下次重新生成就沒了。要改先改 zh.ts，再跑 `npm run i18n:hant`。
  */
 export default {
+  account: {
+    title: '共享賬號',
+    optional: '登入可選；本地工程可離線編輯。',
+    help: 'Qonlang 與 Qonsona 使用同一賬號，各應用分別登入。賬號不會上傳或雲同步工程及語言內容。',
+    offline: '賬號服務暫時無法連線；本地工程仍可編輯。',
+    desktopOnly: '共享賬號請使用桌面版；網頁版仍可使用本地工程。',
+    signedIn: '已登入',
+    temporary: '系統安全儲存不可用；本次登入僅在當前程序保留。',
+    username: '賬號名',
+    password: '密碼',
+    nickname: '暱稱',
+    login: '登入',
+    register: '註冊',
+    logout: '退出登入',
+    saveNickname: '儲存暱稱',
+    retry: '重新整理賬號狀態',
+    checking: '正在連線賬號服務……',
+    usernameHint: '請使用 3–32 位英文字母、數字或下劃線，不區分大小寫。',
+    passwordHint: '請輸入 10–128 個字元的密碼。',
+    errors: {
+      OFFLINE: '無法連線賬號服務。請檢查網路後重試。',
+      INVALID_CREDENTIALS: '賬號名或密碼不正確。',
+      USERNAME_TAKEN: '這個賬號名已被使用，請換一個。',
+      RATE_LIMITED: '請求過於頻繁，請稍後重試。',
+      INVALID_INPUT: '提交的資訊不正確，請檢查輸入。',
+      INVALID_USERNAME: '賬號名須為 3–32 位英文字母、數字或下劃線。',
+      INVALID_PASSWORD: '密碼須為 10–128 個字元。',
+      INVALID_NICKNAME: '暱稱須為 1–40 個字元。',
+      UNAUTHORIZED: '請先登入賬號。',
+      SESSION_EXPIRED: '登入已過期，請重新登入。',
+      SERVICE_UNAVAILABLE: '賬號服務暫時不可用，請稍後重試。',
+      STORAGE_FAILURE: '賬號憑證未能安全儲存，請重試。',
+      LOGOUT_OFFLINE: '本機已退出；遠端會話尚未確認撤銷。'
+    }
+  },
   app: {
     name: '千語集',
     tagline: '給所有造語者的工作臺',

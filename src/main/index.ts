@@ -1,5 +1,6 @@
 import {
   app,
+  safeStorage,
   shell,
   BrowserWindow,
   ipcMain,
@@ -14,6 +15,7 @@ import {
 import { join, basename, dirname } from 'path'
 import { startMcpServer, type McpServerHandle, type McpTool } from './mcp'
 import { nativeLabel, pickLocale } from './locale'
+import { AccountClient } from './account'
 import {
   promises as fs,
   accessSync,
@@ -1020,6 +1022,16 @@ function createWindow(): void {
 }
 
 function registerIpc(): void {
+  const accounts = new AccountClient({
+    userData: userData(),
+    packaged: app.isPackaged,
+    secureStorage: safeStorage,
+    apiBase: process.env.QON_ACCOUNT_API_BASE
+  })
+  ipcMain.handle('account:request', (event, operation: unknown, input?: unknown) => {
+    if (event.senderFrame !== event.sender.mainFrame) throw new Error('Account request denied')
+    return accounts.handle(operation, input)
+  })
   ipcMain.handle('app:info', () => ({
     version: app.getVersion(),
     platform: 'electron',

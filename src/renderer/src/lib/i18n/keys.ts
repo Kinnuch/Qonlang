@@ -55,6 +55,7 @@ const GROUP_OF: Record<string, string> = {
   consistency: 'paradigms',
   example: 'welcome',
   update: 'settings',
+  account: 'settings',
   mcp: 'extending',
   plugins: 'extending',
   csv: 'io',

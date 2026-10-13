@@ -1,7 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { AccountOperation, AccountInput, AccountResult } from '../shared/account'
 
 /** 渲染层只拿到这两个入口；具体通道见 src/main/index.ts */
 const bridge = {
+  account: (operation: AccountOperation, input?: AccountInput): Promise<AccountResult> =>
+    ipcRenderer.invoke('account:request', operation, input),
   invoke: (channel: string, ...args: unknown[]): Promise<unknown> =>
     ipcRenderer.invoke(channel, ...args),
   on: (channel: string, cb: (...args: unknown[]) => void): void => {

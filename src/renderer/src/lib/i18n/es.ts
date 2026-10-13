@@ -1,9 +1,46 @@
-/**
- * Español 文案。结构、键名、注释跟 zh.ts 一一对应（tests/core/i18n.test.ts 会核）。
- * zh.ts 新增条目后：`node scripts/i18n-values.mjs dump src/renderer/src/lib/i18n/es.ts 旧.json`，
- * 再 `derive zh.ts 旧.json es.ts` 补出结构，然后把留着中文的那几条译过来。
- */
 export default {
+  account: {
+    title: 'Cuenta compartida',
+    optional: 'Iniciar sesión es opcional. Los proyectos locales se pueden editar sin conexión.',
+    help: 'Qonlang y Qonsona usan la misma cuenta, con una sesión en cada aplicación. Los proyectos y el contenido lingüístico no se suben ni se sincronizan con la nube.',
+    offline: 'El servicio de cuentas no está disponible. Puedes seguir editando proyectos locales.',
+    desktopOnly:
+      'Las cuentas compartidas están disponibles en la aplicación de escritorio. Los proyectos locales siguen disponibles en la web.',
+    signedIn: 'Sesión iniciada',
+    temporary:
+      'El almacenamiento seguro no está disponible. Esta sesión solo dura durante el proceso actual.',
+    username: 'Nombre de usuario',
+    password: 'Contraseña',
+    nickname: 'Apodo',
+    login: 'Iniciar sesión',
+    register: 'Registrarse',
+    logout: 'Cerrar sesión',
+    saveNickname: 'Guardar apodo',
+    retry: 'Actualizar estado de la cuenta',
+    checking: 'Conectando con el servicio de cuentas…',
+    usernameHint:
+      'Usa entre 3 y 32 letras inglesas, números o guiones bajos. No se distinguen mayúsculas y minúsculas.',
+    passwordHint: 'Introduce una contraseña de entre 10 y 128 caracteres.',
+    errors: {
+      OFFLINE:
+        'No se puede conectar con el servicio de cuentas. Comprueba la conexión e inténtalo de nuevo.',
+      INVALID_CREDENTIALS: 'El nombre de usuario o la contraseña no son correctos.',
+      USERNAME_TAKEN: 'Ese nombre ya está en uso. Elige otro.',
+      RATE_LIMITED: 'Demasiadas solicitudes. Inténtalo más tarde.',
+      INVALID_INPUT: 'La información no es válida. Comprueba lo que has introducido.',
+      INVALID_USERNAME:
+        'El nombre debe tener entre 3 y 32 letras inglesas, números o guiones bajos.',
+      INVALID_PASSWORD: 'La contraseña debe tener entre 10 y 128 caracteres.',
+      INVALID_NICKNAME: 'El apodo debe tener entre 1 y 40 caracteres.',
+      UNAUTHORIZED: 'Inicia sesión primero.',
+      SESSION_EXPIRED: 'La sesión ha caducado. Inicia sesión de nuevo.',
+      SERVICE_UNAVAILABLE: 'El servicio de cuentas no está disponible. Inténtalo más tarde.',
+      STORAGE_FAILURE:
+        'No se pudieron guardar las credenciales de forma segura. Inténtalo de nuevo.',
+      LOGOUT_OFFLINE:
+        'La sesión local se ha cerrado. No se ha confirmado la revocación de la sesión remota.'
+    }
+  },
   app: {
     name: 'Qonlang',
     tagline: 'Un taller para todos los creadores de lenguas',

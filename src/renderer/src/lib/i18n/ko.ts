@@ -1,9 +1,40 @@
-/**
- * 한국어 文案。结构、键名、注释跟 zh.ts 一一对应（tests/core/i18n.test.ts 会核）。
- * zh.ts 新增条目后：`node scripts/i18n-values.mjs dump src/renderer/src/lib/i18n/ko.ts 旧.json`，
- * 再 `derive zh.ts 旧.json ko.ts` 补出结构，然后把留着中文的那几条译过来。
- */
 export default {
+  account: {
+    title: '공유 계정',
+    optional: '로그인은 선택 사항입니다. 로컬 프로젝트는 오프라인에서도 편집할 수 있습니다.',
+    help: 'Qonlang과 Qonsona는 같은 계정을 사용하며 각각 로그인합니다. 프로젝트와 언어 내용은 업로드하거나 클라우드에 동기화하지 않습니다.',
+    offline: '계정 서비스에 연결할 수 없습니다. 로컬 프로젝트는 계속 편집할 수 있습니다.',
+    desktopOnly:
+      '공유 계정은 데스크톱 앱에서 사용할 수 있습니다. 웹에서도 로컬 프로젝트를 사용할 수 있습니다.',
+    signedIn: '로그인됨',
+    temporary: '보안 저장소를 사용할 수 없습니다. 이번 로그인은 현재 프로세스에서만 유지됩니다.',
+    username: '사용자 이름',
+    password: '비밀번호',
+    nickname: '닉네임',
+    login: '로그인',
+    register: '가입',
+    logout: '로그아웃',
+    saveNickname: '닉네임 저장',
+    retry: '계정 상태 새로 고침',
+    checking: '계정 서비스에 연결 중…',
+    usernameHint: '영문자, 숫자 또는 밑줄을 3–32자로 입력하세요. 대소문자를 구분하지 않습니다.',
+    passwordHint: '10–128자의 비밀번호를 입력하세요.',
+    errors: {
+      OFFLINE: '계정 서비스에 연결할 수 없습니다. 네트워크를 확인하고 다시 시도하세요.',
+      INVALID_CREDENTIALS: '사용자 이름 또는 비밀번호가 올바르지 않습니다.',
+      USERNAME_TAKEN: '이미 사용 중인 이름입니다. 다른 이름을 선택하세요.',
+      RATE_LIMITED: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.',
+      INVALID_INPUT: '제출한 정보가 올바르지 않습니다. 입력을 확인하세요.',
+      INVALID_USERNAME: '사용자 이름은 영문자, 숫자 또는 밑줄 3–32자로 입력하세요.',
+      INVALID_PASSWORD: '비밀번호는 10–128자여야 합니다.',
+      INVALID_NICKNAME: '닉네임은 1–40자여야 합니다.',
+      UNAUTHORIZED: '먼저 로그인하세요.',
+      SESSION_EXPIRED: '로그인 세션이 만료되었습니다. 다시 로그인하세요.',
+      SERVICE_UNAVAILABLE: '계정 서비스를 사용할 수 없습니다. 나중에 다시 시도하세요.',
+      STORAGE_FAILURE: '계정 정보를 안전하게 저장하지 못했습니다. 다시 시도하세요.',
+      LOGOUT_OFFLINE: '이 기기에서는 로그아웃했습니다. 서버 세션 취소는 아직 확인되지 않았습니다.'
+    }
+  },
   app: {
     name: 'Qonlang',
     tagline: '모든 인공어 창작자를 위한 작업대',

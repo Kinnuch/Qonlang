@@ -1,3 +1,10 @@
+import type { AccountOperation, AccountInput, AccountResult } from '../../../../shared/account'
+export type {
+  AccountOperation,
+  AccountInput,
+  AccountResult,
+  AccountState
+} from '../../../../shared/account'
 import type { Skin, UserSkinPreset } from '$lib/skin/presets'
 import type { CustomLocale } from '$lib/i18n/index.svelte'
 
@@ -214,6 +221,7 @@ export interface AppInfo {
 }
 
 export interface PlatformAPI {
+  account(operation: AccountOperation, input?: AccountInput): Promise<AccountResult>
   readonly kind: 'electron' | 'web'
   info(): Promise<AppInfo>
 

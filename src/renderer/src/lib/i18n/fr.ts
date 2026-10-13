@@ -1,9 +1,46 @@
-/**
- * Français 文案。结构、键名、注释跟 zh.ts 一一对应（tests/core/i18n.test.ts 会核）。
- * zh.ts 新增条目后：`node scripts/i18n-values.mjs dump src/renderer/src/lib/i18n/fr.ts 旧.json`，
- * 再 `derive zh.ts 旧.json fr.ts` 补出结构，然后把留着中文的那几条译过来。
- */
 export default {
+  account: {
+    title: 'Compte commun',
+    optional: 'La connexion est facultative. Les projets locaux restent modifiables hors ligne.',
+    help: 'Qonlang et Qonsona utilisent le même compte, avec une connexion dans chaque application. Les projets et les contenus linguistiques ne sont ni envoyés ni synchronisés dans le cloud.',
+    offline:
+      'Le service de compte est indisponible. Vous pouvez toujours modifier vos projets locaux.',
+    desktopOnly:
+      'Les comptes communs sont disponibles dans l’application de bureau. Les projets locaux restent disponibles sur le Web.',
+    signedIn: 'Connecté',
+    temporary:
+      'Le stockage sécurisé est indisponible. Cette connexion dure uniquement pendant le processus actuel.',
+    username: 'Nom d’utilisateur',
+    password: 'Mot de passe',
+    nickname: 'Pseudonyme',
+    login: 'Se connecter',
+    register: 'S’inscrire',
+    logout: 'Se déconnecter',
+    saveNickname: 'Enregistrer le pseudonyme',
+    retry: 'Actualiser le compte',
+    checking: 'Connexion au service de compte…',
+    usernameHint:
+      'Utilisez 3 à 32 lettres anglaises, chiffres ou traits de soulignement. La casse est ignorée.',
+    passwordHint: 'Saisissez un mot de passe de 10 à 128 caractères.',
+    errors: {
+      OFFLINE: 'Impossible de joindre le service de compte. Vérifiez la connexion et réessayez.',
+      INVALID_CREDENTIALS: 'Le nom d’utilisateur ou le mot de passe est incorrect.',
+      USERNAME_TAKEN: 'Ce nom d’utilisateur est déjà utilisé. Choisissez-en un autre.',
+      RATE_LIMITED: 'Trop de demandes. Réessayez plus tard.',
+      INVALID_INPUT: 'Les informations sont incorrectes. Vérifiez la saisie.',
+      INVALID_USERNAME:
+        'Le nom d’utilisateur doit contenir 3 à 32 lettres anglaises, chiffres ou traits de soulignement.',
+      INVALID_PASSWORD: 'Le mot de passe doit contenir 10 à 128 caractères.',
+      INVALID_NICKNAME: 'Le pseudonyme doit contenir 1 à 40 caractères.',
+      UNAUTHORIZED: 'Connectez-vous d’abord.',
+      SESSION_EXPIRED: 'Votre session a expiré. Connectez-vous à nouveau.',
+      SERVICE_UNAVAILABLE: 'Le service de compte est indisponible. Réessayez plus tard.',
+      STORAGE_FAILURE:
+        'Les identifiants n’ont pas pu être enregistrés de façon sécurisée. Réessayez.',
+      LOGOUT_OFFLINE:
+        'Déconnexion locale effectuée. La révocation de la session distante n’est pas confirmée.'
+    }
+  },
   app: {
     name: 'Qonlang',
     tagline: 'Un atelier pour tous les idéolinguistes',

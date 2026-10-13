@@ -2,6 +2,8 @@
 
 ## 1.0.0-beta.2 · unreleased
 
+- **Optional shared accounts**: register, sign in, sign out and change your nickname from application settings on the start page or in Settings, using the same account as Qonsona. Local projects remain editable offline; project and language content are not uploaded. The main process encrypts saved credentials with system secure storage, and clearly indicates a temporary session when secure storage is unavailable. All nine interface languages are included.
+
 - The companion language-learning app named on the “Export study pack” page is now called Qonsona (formerly Qonlang Study); the study pack format is unchanged, and .qstudy.json files exported earlier can still be imported
 
 ## 1.0.0-beta.1 · 2026-10-09
@@ -215,7 +217,6 @@ The first test build of the 1.0 release. Test builds are marked as **pre-release
 - The Q icon at the top left of the navigation is aligned with the icons below by its visual centre (the glyph leans left and used to look 2 pixels off)
 - sgiofh added to “Logo design” in the credits; the logo picture lines up with the pixel art below it, names aligned too
 - Fixed: when the installer was missing or failed to start, the main process showed an “A JavaScript error occurred” crash dialog; the reason is now shown in the update notice
-
 
 - **A big overhaul of corpus segmentation, so agglutinative words written together are recognised**: a word can be “prefixes + one or more stems + suffixes”, with several layers of affixes and two words written together plus affixes (`yvplihemeliaxetes` → yvpli-hemelia-xete-s) all split correctly; candidate segmentations are ranked by number of pieces, single letters, allomorph environments, the sentence’s translation and confirmed examples. Each piece split at a boundary symbol is split the same way, and a piece may consist of affixes only
 - **Segmentation learns from confirmed examples**: which entry or morpheme a stretch of text was confirmed as elsewhere, how a run of pieces was confirmed to split (`don` confirmed as `do-n`), and which morpheme usually follows which are all used to rank next time, so the more examples you confirm the more accurate it gets. On the Theusrin test set, first-candidate entry accuracy rose from 73% to 86% and segmentation accuracy from 74% to 78%

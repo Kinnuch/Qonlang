@@ -131,6 +131,13 @@ window.addEventListener('beforeunload', (e) => {
 
 export const webPlatform: PlatformAPI = {
   kind: 'web',
+  async account() {
+    return {
+      ok: false,
+      error: 'DESKTOP_ONLY',
+      state: { supported: false, online: false, persisted: false, user: null }
+    }
+  },
 
   async info() {
     return { version: __APP_VERSION__, platform: 'web', userDataPath: null }

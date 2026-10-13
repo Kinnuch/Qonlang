@@ -3,6 +3,43 @@ import type zh from './zh'
 type Dict = typeof zh
 
 const en: Dict = {
+  account: {
+    title: 'Shared account',
+    optional: 'Signing in is optional. Local projects work offline.',
+    help: 'Qonlang and Qonsona share an account, with separate sign-ins. Projects and language content are not uploaded or synced to the cloud.',
+    offline: 'The account service is unavailable. You can still edit local projects.',
+    desktopOnly:
+      'Shared accounts are available in the desktop app. Local projects remain available on the web.',
+    signedIn: 'Signed in',
+    temporary: 'Secure storage is unavailable. This sign-in lasts only for the current process.',
+    username: 'Username',
+    password: 'Password',
+    nickname: 'Nickname',
+    login: 'Sign in',
+    register: 'Register',
+    logout: 'Sign out',
+    saveNickname: 'Save nickname',
+    retry: 'Refresh account status',
+    checking: 'Connecting to the account service…',
+    usernameHint:
+      'Use 3–32 English letters, numbers or underscores. Usernames are not case-sensitive.',
+    passwordHint: 'Enter a password of 10–128 characters.',
+    errors: {
+      OFFLINE: 'Cannot connect to the account service. Check your connection and try again.',
+      INVALID_CREDENTIALS: 'The username or password is incorrect.',
+      USERNAME_TAKEN: 'This username is already taken. Choose another.',
+      RATE_LIMITED: 'Too many requests. Try again later.',
+      INVALID_INPUT: 'The submitted information is invalid. Check your input.',
+      INVALID_USERNAME: 'Use 3–32 English letters, numbers or underscores for the username.',
+      INVALID_PASSWORD: 'The password must contain 10–128 characters.',
+      INVALID_NICKNAME: 'The nickname must contain 1–40 characters.',
+      UNAUTHORIZED: 'Sign in first.',
+      SESSION_EXPIRED: 'Your session expired. Sign in again.',
+      SERVICE_UNAVAILABLE: 'The account service is unavailable. Try again later.',
+      STORAGE_FAILURE: 'The account credentials could not be saved securely. Try again.',
+      LOGOUT_OFFLINE: 'Signed out locally. Remote session revocation has not been confirmed.'
+    }
+  },
   app: {
     name: 'Qonlang',
     tagline: 'A workbench for every conlanger',
