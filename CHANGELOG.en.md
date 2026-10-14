@@ -1,8 +1,10 @@
 # Changelog
 
-## 1.0.0-beta.2 · unreleased
+## 1.0.0-beta.2 · 2026-10-14
 
 - **Optional shared accounts**: register, sign in, sign out and change your nickname from application settings on the start page or in Settings, using the same account as Qonsona. Local projects remain editable offline; project and language content are not uploaded. The main process encrypts saved credentials with system secure storage, and clearly indicates a temporary session when secure storage is unavailable. All nine interface languages are included.
+
+  The account service's public HTTPS endpoint is currently unavailable, so registration, sign-in and other online operations are temporarily unavailable. Local projects, study-pack export and offline editing continue to work.
 
 - The companion language-learning app named on the “Export study pack” page is now called Qonsona (formerly Qonlang Study); the study pack format is unchanged, and .qstudy.json files exported earlier can still be imported
 
