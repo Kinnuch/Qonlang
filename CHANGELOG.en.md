@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0-beta.3 · 2026-10-25
+
+- **Public shared accounts**: improved registration, sign-in, nickname changes and sign-out using the same account as Qonsona. Signing in remains optional; local projects are not uploaded and remain editable and saveable offline.
+- **Support development**: the start page's static payment image is replaced by a dedicated support page, also available from the project's right-hand inspector sidebar. Sign in, enter an amount in Chinese yuan and confirm it to generate a YunGouOS WeChat payment code. View the original order, refresh payment status or request closure of an unpaid order. Support records are separate from Qonsona tickets; the server verifies signatures and queries the payment channel before confirming payment.
+- **Network security**: upgraded to Electron 43.8.1 with the published TLS certificate-revocation fix, restricted navigation and IPC senders, and escaped Markdown link attributes. Plugins, project formats and offline editing are preserved.
+
 ## 1.0.0-beta.2 · 2026-10-14
 
 - **Optional shared accounts**: register, sign in, sign out and change your nickname from application settings on the start page or in Settings, using the same account as Qonsona. Local projects remain editable offline; project and language content are not uploaded. The main process encrypts saved credentials with system secure storage, and clearly indicates a temporary session when secure storage is unavailable. All nine interface languages are included.

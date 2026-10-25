@@ -13,6 +13,10 @@ a posteriori languages alike; nothing language-specific is baked in.
 
 界面有九种语言：简体中文、繁體中文、English、日本語、한국어、Français、Español、Русский、العربية，第一次打开跟着系统语言。
 
+可选共享账号通过 HTTPS 与 Qonsona 共用身份，本地工程保持离线可用。开始页和项目右侧检视器的「支持开发」可打开独立页面，填写人民币金额并通过 YunGouOS 微信扫码支持开发；不发放 Qonsona 学习券。详见[账号与支持开发指南](https://kinnuch.github.io/cerf/qonlang/settings/#support-development)。
+
+Optional HTTPS accounts share an identity with Qonsona while local projects remain available offline. **Support development** opens a dedicated page from the start page or inspector, accepts a custom CNY amount and uses YunGouOS WeChat checkout without granting Qonsona tickets. See the [English guide](https://kinnuch.github.io/cerf/qonlang/en/settings/#support-development).
+
 ## 开发
 
 ```bash

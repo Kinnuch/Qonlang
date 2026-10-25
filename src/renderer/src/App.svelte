@@ -15,6 +15,7 @@
   import { fontLibrary } from '$lib/state/fonts.svelte'
   import Welcome from './views/Welcome.svelte'
   import Shell from './views/Shell.svelte'
+  import SupportPage from './views/SupportPage.svelte'
   import Toasts from '$lib/ui/Toasts.svelte'
   import ProgressOverlay from '$lib/ui/ProgressOverlay.svelte'
   import UpdateNotice from '$lib/ui/UpdateNotice.svelte'
@@ -46,8 +47,10 @@
       else if (a === 'open') void projectState.open()
       else if (a === 'undo') projectState.undo()
       else if (a === 'redo') projectState.redo()
-      else if (a === 'back') ui.back()
-      else if (a === 'palette' && projectState.project) ui.paletteOpen = !ui.paletteOpen
+      else if (a === 'back') {
+        if (ui.supportOpen) ui.supportOpen = false
+        else ui.back()
+      } else if (a === 'palette' && projectState.project) ui.paletteOpen = !ui.paletteOpen
       else if (a === 'chars') chars.toggle()
       else if (a === 'reportIssue') void reportIssue()
     })
@@ -145,6 +148,15 @@
   }
   function onKeydown(e: KeyboardEvent): void {
     const mod = e.ctrlKey || e.metaKey
+    if (ui.supportOpen && e.altKey && e.key === 'ArrowLeft') {
+      e.preventDefault()
+      ui.supportOpen = false
+      return
+    }
+    if (ui.supportOpen && e.key === 'F5') {
+      e.preventDefault()
+      return
+    }
     if (e.key === 'F5' && projectState.project) {
       e.preventDefault()
       refreshPage()
@@ -192,23 +204,26 @@
 {#if !ready}
   <div class="boot muted">{t('common.loading')}</div>
 {:else if projectState.project}
-  <Shell />
+  <div class="workspace" hidden={ui.supportOpen} inert={ui.supportOpen}><Shell /></div>
 {:else}
-  <svelte:boundary
-    onerror={(e, reset) => {
-      console.error(e)
-      ui.crash(t('errors.crashTitle', { page: t('nav.welcome') }), errorMessage(e))
-      setTimeout(reset, 0)
-    }}
-  >
-    <Welcome
-      {snapshot}
-      onsnapshothandled={() => {
-        snapshot = null
+  <div class="workspace" hidden={ui.supportOpen} inert={ui.supportOpen}>
+    <svelte:boundary
+      onerror={(e, reset) => {
+        console.error(e)
+        ui.crash(t('errors.crashTitle', { page: t('nav.welcome') }), errorMessage(e))
+        setTimeout(reset, 0)
       }}
-    />
-  </svelte:boundary>
+    >
+      <Welcome
+        {snapshot}
+        onsnapshothandled={() => {
+          snapshot = null
+        }}
+      />
+    </svelte:boundary>
+  </div>
 {/if}
+{#if ready && ui.supportOpen}<SupportPage onback={() => (ui.supportOpen = false)} />{/if}
 <!-- 皮肤盖在窗口上的两层：预设的花纹（星月夜的星点）和自定义背景图，都不接鼠标。
      没花纹时这一层不画，省一层盖住整个窗口的合成层 -->
 {#if hasPattern}
@@ -223,6 +238,12 @@
 <UpdateNotice />
 
 <style>
+  .workspace {
+    height: 100%;
+  }
+  .workspace[hidden] {
+    display: none;
+  }
   .boot {
     height: 100%;
     display: grid;

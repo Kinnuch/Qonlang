@@ -31,7 +31,8 @@
     Copy,
     Sparkles,
     Languages as LanguagesIcon,
-    GraduationCap
+    GraduationCap,
+    Coffee
   } from '@lucide/svelte'
   import { refreshPage } from '$lib/ui/refresh'
   import { chars } from '$lib/state/chars.svelte'
@@ -517,6 +518,11 @@
         <RuleSyntax anchor={ui.syntaxAnchor} />
       </div>
     {/if}
+    <div class="inspector-support">
+      <button class="btn" data-support-inspector onclick={() => (ui.supportOpen = true)}
+        ><Coffee size={16} />{t('account.support.title')}</button
+      >
+    </div>
   </aside>
 </div>
 <CharPanel />
@@ -725,5 +731,14 @@
     flex: 1;
     overflow: auto;
     padding: 16px;
+  }
+  .inspector-support {
+    flex: none;
+    padding: 12px 16px;
+    border-block-start: 1px solid var(--border);
+    background: var(--bg-elev);
+  }
+  .inspector-support .btn {
+    width: 100%;
   }
 </style>

@@ -1,4 +1,5 @@
 import type { AccountOperation, AccountInput, AccountResult } from '../../../../shared/account'
+import type { SupportOperation, SupportInput, SupportResult } from '../../../../shared/support'
 import type {
   AppInfo,
   OpenResult,
@@ -12,6 +13,7 @@ import type {
 import { DEFAULT_PREFS } from './types'
 
 type Bridge = {
+  support: (operation: SupportOperation, input?: SupportInput) => Promise<SupportResult>
   account: (operation: AccountOperation, input?: AccountInput) => Promise<AccountResult>
   invoke: (channel: string, ...args: unknown[]) => Promise<unknown>
   on: (channel: string, cb: (...args: unknown[]) => void) => void
@@ -25,6 +27,9 @@ function bridge(): Bridge {
 
 export const electronPlatform: PlatformAPI = {
   kind: 'electron',
+  support(operation, input) {
+    return bridge().support(operation, input)
+  },
   account(operation, input) {
     return bridge().account(operation, input)
   },

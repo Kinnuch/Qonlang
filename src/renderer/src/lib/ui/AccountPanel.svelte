@@ -10,6 +10,7 @@
   import HelpDot from './HelpDot.svelte'
 
   const id = $props.id()
+  let { onstate }: { onstate?: (state: AccountState) => void } = $props()
   let accountState = $state<AccountState>({
     supported: platform.kind === 'electron',
     online: true,
@@ -44,6 +45,8 @@
     try {
       const result = await platform.account(operation, input)
       accountState = result.state
+      onstate?.(accountState)
+      window.dispatchEvent(new CustomEvent('qonlang-account-state', { detail: accountState }))
       error =
         result.error && errorCodes.has(result.error)
           ? result.error

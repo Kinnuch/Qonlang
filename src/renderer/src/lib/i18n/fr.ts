@@ -1,5 +1,82 @@
 export default {
   account: {
+    support: {
+      title: 'Soutenir le développement',
+      back: 'Revenir à la page précédente',
+      intro: 'Choisissez un montant pour aider Qonlang à grandir.',
+      desktopOnly: 'Connectez-vous dans l’application de bureau pour contribuer.',
+      loginHint: 'Connectez-vous pour consulter et vérifier vos contributions.',
+      manageAccount: 'Gérer le compte',
+      amount: 'Montant (CNY)',
+      amountHint: 'Saisissez {min}–{max} CNY, avec deux décimales au maximum.',
+      invalidAmount: 'Vérifiez la plage et limitez le montant à deux décimales.',
+      purpose:
+        'Les contributions financent Qonlang et ne donnent aucun ticket Qonsona ni actif virtuel.',
+      privacy:
+        'Les comptes et commandes ne téléversent ni ne synchronisent vos projets et données linguistiques.',
+      review: 'Vérifier et continuer',
+      confirmTitle: 'Confirmer la contribution',
+      confirmDescription:
+        'La confirmation crée une commande WeChat de ce montant et affiche son QR code. Aucun ticket n’est attribué.',
+      confirmPay: 'Confirmer et afficher le code',
+      history: 'Commandes de soutien',
+      refreshOrders: 'Actualiser les commandes',
+      noOrders: 'Vos contributions apparaîtront ici.',
+      view: 'Voir la commande',
+      pendingTitle: 'Vérifiez d’abord la commande existante',
+      pendingHint:
+        'Une commande reste en attente. Vérifiez ce même paiement avant d’en créer un autre pour éviter un doublon.',
+      resume: 'Reprendre',
+      scanTitle: 'Soutenir via WeChat',
+      orderTotal: 'Montant de la commande',
+      orderId: 'Numéro de commande',
+      scan: 'Ouvrez WeChat et scannez pour payer',
+      countdown: 'Temps d’affichage restant : {time}',
+      pending: 'En attente de confirmation',
+      creating: 'Vérification du paiement',
+      paid: 'Paiement confirmé',
+      closed: 'Clôture confirmée',
+      expired: 'Code masqué ; vérification en cours',
+      refundReview: 'Remboursement en cours d’examen',
+      refunded: 'Remboursement confirmé',
+      thanks: 'Merci de soutenir Qonlang.',
+      hide: 'Masquer le paiement',
+      hideHint:
+        'Masquer cette vue n’annule pas la commande. Vérifiez le paiement ici ou dans l’historique.',
+      offlineOrder:
+        'Connexion indisponible. La commande est conservée ; reconnectez-vous pour la vérifier.',
+      unavailable:
+        'Le paiement est indisponible. Ne payez pas ; vérifiez les commandes existantes.',
+      qrUnavailable:
+        'Code non confirmé. Actualisez cette commande plus tard, sans doublon ni paiement vers un autre code.',
+      expiredHint:
+        'L’affichage a expiré. Le serveur vérifie le paiement et clôture les commandes impayées. Attendez la confirmation avant tout autre paiement.',
+      refundHint:
+        'Conservez le numéro et contactez le développeur. Ce statut ne confirme pas un remboursement.',
+      closeTitle: 'Clôturer cette commande impayée ?',
+      closeDescription:
+        'Le serveur vérifie d’abord le paiement. Attendez la clôture confirmée avant une nouvelle commande ; sinon, vérifiez ce même ordre.',
+      keep: 'Conserver la commande',
+      confirmClose: 'Confirmer la clôture',
+      closeOrder: 'Clôturer la commande impayée',
+      checking: 'Vérification…',
+      checkIn: 'Nouvelle vérification dans {seconds} s',
+      refreshPayment: 'Vérifier le paiement',
+      errors: {
+        PAYMENTS_DISABLED: 'Paiement indisponible. Réessayez plus tard.',
+        PAYMENT_STATUS_UNKNOWN:
+          'Paiement non confirmé. Vérifiez la même commande sans doublon ni nouveau paiement.',
+        PENDING_ORDER: 'Vérifiez la commande en attente avant d’en créer une autre.',
+        ORDER_NOT_FOUND: 'Commande introuvable pour ce compte. Actualisez l’historique.',
+        SERVICE_UNAVAILABLE:
+          'Service de contribution indisponible. Actualisez la même commande plus tard.',
+        DESKTOP_ONLY: 'Utilisez l’application de bureau pour contribuer.',
+        PAYMENT_UNAVAILABLE: 'Paiement indisponible. Vérifiez la même commande plus tard.',
+        REQUEST_PENDING: 'Récupération de la demande précédente. Actualisez bientôt les commandes.',
+        REQUEST_ID_CONFLICT:
+          'La demande doit être vérifiée. Actualisez les commandes avant de continuer.'
+      }
+    },
     title: 'Compte commun',
     optional: 'La connexion est facultative. Les projets locaux restent modifiables hors ligne.',
     help: 'Qonlang et Qonsona utilisent le même compte, avec une connexion dans chaque application. Les projets et les contenus linguistiques ne sont ni envoyés ni synchronisés dans le cloud.',

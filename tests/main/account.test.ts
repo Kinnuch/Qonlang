@@ -30,6 +30,7 @@ async function setup(storage = secureStorage): Promise<{
   const fetch = vi.fn<typeof globalThis.fetch>()
   return {
     client: new AccountClient({
+      version: '1.0.0-beta.3',
       userData: dir,
       packaged: false,
       apiBase: 'http://127.0.0.1:19005/v1',
@@ -91,6 +92,7 @@ describe('Qonlang controlled shared account', () => {
     })
     expect(JSON.parse(init!.body as string).username).toBe('learner')
     const restored = new AccountClient({
+      version: '1.0.0-beta.3',
       userData: dir,
       packaged: false,
       apiBase: client.base,

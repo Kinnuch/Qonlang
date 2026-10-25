@@ -78,6 +78,9 @@ const sameView = (a: PageView | null | undefined, b: PageView | null | undefined
   JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
 
 class UiState {
+  /** 支持开发单独显示，原项目与页面保留在内存里；金额只记输入，不记付款资料。 */
+  supportOpen = $state(false)
+  supportAmount = $state('6.00')
   section = $state<Section>('languages')
   /** 顶栏统一搜索框的内容；换页面时清空，各页面按自己的字段过滤 */
   search = $state('')

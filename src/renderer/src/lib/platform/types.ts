@@ -1,4 +1,12 @@
 import type { AccountOperation, AccountInput, AccountResult } from '../../../../shared/account'
+import type { SupportOperation, SupportInput, SupportResult } from '../../../../shared/support'
+export type {
+  SupportOperation,
+  SupportInput,
+  SupportResult,
+  SupportOrder,
+  SupportCapability
+} from '../../../../shared/support'
 export type {
   AccountOperation,
   AccountInput,
@@ -221,6 +229,7 @@ export interface AppInfo {
 }
 
 export interface PlatformAPI {
+  support(operation: SupportOperation, input?: SupportInput): Promise<SupportResult>
   account(operation: AccountOperation, input?: AccountInput): Promise<AccountResult>
   readonly kind: 'electron' | 'web'
   info(): Promise<AppInfo>

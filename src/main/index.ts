@@ -16,6 +16,13 @@ import { join, basename, dirname } from 'path'
 import { startMcpServer, type McpServerHandle, type McpTool } from './mcp'
 import { nativeLabel, pickLocale } from './locale'
 import { AccountClient } from './account'
+import { pathToFileURL } from 'node:url'
+import {
+  guardIpcHandlers,
+  rendererEntryUrl,
+  safeExternalUrl,
+  secureRendererContents
+} from './renderer-security'
 import {
   promises as fs,
   accessSync,
@@ -66,6 +73,10 @@ const GUIDE_URL = 'https://kinnuch.github.io/cerf/qonlang/'
 /** 使用指南：中文界面打开中文版，其余打开英文版 */
 const guideUrlFor = (locale: string): string => GUIDE_URL + (locale.startsWith('zh') ? '' : 'en/')
 const RECENT_MAX = 10
+const rendererEntry = rendererEntryUrl(
+  pathToFileURL(join(__dirname, '../renderer/index.html')).href,
+  is.dev ? process.env['ELECTRON_RENDERER_URL'] : undefined
+)
 
 interface Prefs {
   locale: string
@@ -923,7 +934,10 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webviewTag: false,
       // 分批跑的活（整库演化、批量推导、一致性检查、进度条）都靠 setTimeout 让出线程；
       // 窗口被挡住时 Chromium 会把这类定时器压到每分钟一次，活就卡住了，所以关掉节流
       backgroundThrottling: false
@@ -1009,20 +1023,19 @@ function createWindow(): void {
     })()
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    void shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+  secureRendererContents(mainWindow.webContents, rendererEntry, (url) => shell.openExternal(url))
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    void mainWindow.loadURL(rendererEntry)
   } else {
     void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
 
 function registerIpc(): void {
+  guardIpcHandlers(ipcMain, () => mainWindow?.webContents ?? null, rendererEntry)
   const accounts = new AccountClient({
+    version: app.getVersion(),
     userData: userData(),
     packaged: app.isPackaged,
     secureStorage: safeStorage,
@@ -1032,6 +1045,9 @@ function registerIpc(): void {
     if (event.senderFrame !== event.sender.mainFrame) throw new Error('Account request denied')
     return accounts.handle(operation, input)
   })
+  ipcMain.handle('support:request', (_event, operation: unknown, input?: unknown) =>
+    accounts.support(operation, input)
+  )
   ipcMain.handle('app:info', () => ({
     version: app.getVersion(),
     platform: 'electron',
@@ -1338,7 +1354,11 @@ function registerIpc(): void {
   })
 
   ipcMain.handle('shell:showInFolder', (_e, path: string) => shell.showItemInFolder(path))
-  ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
+  ipcMain.handle('shell:openExternal', (_e, url: string) => {
+    const safe = safeExternalUrl(url)
+    if (!safe) throw new Error('INVALID_EXTERNAL_URL')
+    return shell.openExternal(safe)
+  })
   ipcMain.handle('app:checkUpdate', () => checkUpdate())
   ipcMain.handle('app:downloadUpdate', (_e, url: string, name: string, version?: string) =>
     downloadUpdate(url, name, version)

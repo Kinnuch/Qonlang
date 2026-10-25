@@ -1,5 +1,79 @@
 export default {
   account: {
+    support: {
+      title: 'Apoyar el desarrollo',
+      back: 'Volver a la página anterior',
+      intro: 'Elige un importe para ayudar a Qonlang a crecer.',
+      desktopOnly: 'Inicia sesión en la aplicación de escritorio para contribuir.',
+      loginHint: 'Inicia sesión para consultar y verificar tus pedidos de apoyo.',
+      manageAccount: 'Gestionar cuenta',
+      amount: 'Importe (CNY)',
+      amountHint: 'Introduce entre {min} y {max} CNY, con hasta dos decimales.',
+      invalidAmount: 'Comprueba el intervalo y usa como máximo dos decimales.',
+      purpose: 'El apoyo financia Qonlang y no concede cupones de Qonsona ni bienes virtuales.',
+      privacy:
+        'Las cuentas y los pedidos no suben ni sincronizan proyectos ni datos lingüísticos locales.',
+      review: 'Revisar y continuar',
+      confirmTitle: 'Confirmar el apoyo',
+      confirmDescription:
+        'Al confirmar se creará un pedido de WeChat por este importe y se mostrará su QR. No se conceden cupones.',
+      confirmPay: 'Confirmar y mostrar el código',
+      history: 'Pedidos de apoyo',
+      refreshOrders: 'Actualizar pedidos',
+      noOrders: 'Tus contribuciones aparecerán aquí.',
+      view: 'Ver pedido',
+      pendingTitle: 'Comprueba primero el pedido existente',
+      pendingHint:
+        'Hay un pedido pendiente. Comprueba ese mismo pedido antes de crear otro para evitar pagos duplicados.',
+      resume: 'Continuar',
+      scanTitle: 'Apoyar con WeChat',
+      orderTotal: 'Total del pedido',
+      orderId: 'Número de pedido',
+      scan: 'Abre WeChat y escanea para pagar',
+      countdown: 'Tiempo restante del código: {time}',
+      pending: 'Esperando confirmación de pago',
+      creating: 'Comprobando el acceso al pago',
+      paid: 'Pago confirmado',
+      closed: 'Cierre del pedido confirmado',
+      expired: 'Código oculto; comprobando el pedido',
+      refundReview: 'Reembolso en revisión',
+      refunded: 'Reembolso confirmado',
+      thanks: 'Gracias por apoyar Qonlang.',
+      hide: 'Ocultar el pago',
+      hideHint:
+        'Ocultar esta vista no cancela el pedido. Verifica el pago aquí o desde el historial.',
+      offlineOrder: 'Sin conexión. El pedido se conserva; vuelve a conectarte para comprobarlo.',
+      unavailable:
+        'El pago no está disponible. No pagues; puedes comprobar los pedidos existentes.',
+      qrUnavailable:
+        'Código sin confirmar. Actualiza este pedido más tarde; no lo dupliques ni pagues otro QR.',
+      expiredHint:
+        'El código ha caducado. El servidor comprobará el pago y cerrará pedidos impagados. Espera la confirmación antes de volver a pagar.',
+      refundHint:
+        'Conserva el número y contacta al desarrollador. Este estado no confirma un reembolso.',
+      closeTitle: '¿Cerrar este pedido impagado?',
+      closeDescription:
+        'El servidor comprobará primero el pago. Crea otro pedido solo tras confirmar el cierre; si hay dudas, comprueba el mismo pedido.',
+      keep: 'Conservar pedido',
+      confirmClose: 'Confirmar cierre del pedido',
+      closeOrder: 'Cerrar pedido impagado',
+      checking: 'Comprobando…',
+      checkIn: 'Comprobar de nuevo en {seconds} s',
+      refreshPayment: 'Comprobar el pago',
+      errors: {
+        PAYMENTS_DISABLED: 'El pago no está disponible. Inténtalo más tarde.',
+        PAYMENT_STATUS_UNKNOWN:
+          'Pago sin confirmar. Comprueba el mismo pedido sin crear ni pagar duplicados.',
+        PENDING_ORDER: 'Comprueba el pedido pendiente antes de crear otro.',
+        ORDER_NOT_FOUND: 'No se encontró el pedido en esta cuenta. Actualiza el historial.',
+        SERVICE_UNAVAILABLE: 'El servicio no está disponible. Actualiza el mismo pedido más tarde.',
+        DESKTOP_ONLY: 'Usa la aplicación de escritorio para contribuir.',
+        PAYMENT_UNAVAILABLE: 'El pago no está disponible. Comprueba el mismo pedido más tarde.',
+        REQUEST_PENDING: 'Recuperando la solicitud anterior. Actualiza los pedidos en breve.',
+        REQUEST_ID_CONFLICT:
+          'Es necesario verificar la solicitud. Actualiza los pedidos antes de continuar.'
+      }
+    },
     title: 'Cuenta compartida',
     optional: 'Iniciar sesión es opcional. Los proyectos locales se pueden editar sin conexión.',
     help: 'Qonlang y Qonsona usan la misma cuenta, con una sesión en cada aplicación. Los proyectos y el contenido lingüístico no se suben ni se sincronizan con la nube.',

@@ -3,6 +3,9 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { AccountInput, AccountResult, AccountState, AccountUser } from '../shared/account'
 import { ACCOUNT_OPERATIONS, type AccountOperation } from '../shared/account'
+import { SUPPORT_OPERATIONS, type SupportOperation, type SupportResult } from '../shared/support'
+import { supportInput, supportCapability, supportOrder } from './support-validation'
+import { SupportJournal } from './support-journal'
 
 interface SecureStorage {
   isEncryptionAvailable(): boolean
@@ -11,11 +14,13 @@ interface SecureStorage {
   getSelectedStorageBackend?(): string
 }
 interface AccountOptions {
+  version: string
   userData: string
   packaged: boolean
   secureStorage: SecureStorage
   apiBase?: string
   fetch?: typeof globalThis.fetch
+  timeoutMs?: number
 }
 interface Session {
   token: string
@@ -32,8 +37,57 @@ const ERRORS = new Set([
   'INVALID_PASSWORD',
   'INVALID_NICKNAME',
   'UNAUTHORIZED',
-  'SESSION_EXPIRED'
+  'SESSION_EXPIRED',
+  'OFFLINE',
+  'STORAGE_FAILURE',
+  'SERVICE_UNAVAILABLE',
+  'INVALID_RESPONSE',
+  'AUTH_CHANGED',
+  'INVALID_AMOUNT',
+  'SUPPORT_REQUEST_PENDING',
+  'SUPPORT_ORDER_PENDING',
+  'IDEMPOTENCY_CONFLICT',
+  'INVALID_FIELDS',
+  'PAYMENT_CLIENT_UPDATE_REQUIRED',
+  'PAYMENTS_DISABLED',
+  'ORDER_NOT_FOUND',
+  'ORDER_MODE_MISMATCH',
+  'PAYMENT_NOT_CONFIRMED',
+  'PAYMENT_CHECK_BUSY',
+  'PAYMENT_PROVIDER_UNAVAILABLE',
+  'PAYMENT_PROVIDER_INVALID',
+  'PAYMENT_ORDER_MISMATCH',
+  'PAYMENT_REFERENCE_MISMATCH',
+  'CLIENT_APP_MISMATCH',
+  'CLIENT_ROUTE_UNAVAILABLE'
 ])
+class RequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message)
+  }
+}
+const definitiveRequestFailure = (error: unknown): error is RequestError =>
+  error instanceof RequestError &&
+  [400, 403, 404, 409, 422].includes(error.status) &&
+  [
+    'INVALID_INPUT',
+    'INVALID_FIELDS',
+    'INVALID_AMOUNT',
+    'SUPPORT_ORDER_PENDING',
+    'IDEMPOTENCY_CONFLICT',
+    'PAYMENT_CLIENT_UPDATE_REQUIRED',
+    'PAYMENTS_DISABLED',
+    'ORDER_NOT_FOUND',
+    'ORDER_MODE_MISMATCH',
+    'PAYMENT_NOT_CONFIRMED',
+    'CLIENT_APP_MISMATCH',
+    'CLIENT_ROUTE_UNAVAILABLE'
+  ].includes(error.message)
+const publicError = (error: unknown): string =>
+  error instanceof Error && ERRORS.has(error.message) ? error.message : 'SERVICE_UNAVAILABLE'
 
 /** 正式版不接受环境配置；开发测试也只允许环回地址，不向任意主机转发令牌。 */
 export function accountApiBase(packaged: boolean, override?: string): string {
@@ -57,7 +111,13 @@ function userFrom(value: unknown): AccountUser {
   if (
     typeof user.id !== 'string' ||
     typeof user.username !== 'string' ||
-    typeof user.nickname !== 'string'
+    typeof user.nickname !== 'string' ||
+    !user.id ||
+    user.id.length > 256 ||
+    !user.username ||
+    user.username.length > 32 ||
+    !user.nickname ||
+    user.nickname.length > 40
   )
     throw new Error('SERVICE_UNAVAILABLE')
   return { id: user.id, username: user.username, nickname: user.nickname }
@@ -107,15 +167,24 @@ export class AccountClient {
   #online = true
   #persisted = false
   #tail: Promise<unknown> = Promise.resolve()
+  #generation = 0
+  #journal: SupportJournal
   constructor(private options: AccountOptions) {
     this.file = join(options.userData, 'account-session.enc')
     this.base = accountApiBase(options.packaged, options.apiBase)
+    this.#journal = new SupportJournal(join(options.userData, 'support-pending.json'))
+    if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(options.version))
+      throw new Error('INVALID_CLIENT_VERSION')
   }
   #canPersist(): boolean {
-    return (
-      this.options.secureStorage.isEncryptionAvailable() &&
-      this.options.secureStorage.getSelectedStorageBackend?.() !== 'basic_text'
-    )
+    try {
+      return (
+        this.options.secureStorage.isEncryptionAvailable() &&
+        this.options.secureStorage.getSelectedStorageBackend?.() !== 'basic_text'
+      )
+    } catch {
+      return false
+    }
   }
   #state(): AccountState {
     return {
@@ -181,48 +250,114 @@ export class AccountClient {
   async #request(
     path: string,
     method: string,
-    body?: AccountInput
+    body?: unknown,
+    generation = this.#generation
   ): Promise<Record<string, unknown>> {
-    let response: Response
+    let active = true
+    const current = (): void => {
+      if (generation !== this.#generation) throw new Error('AUTH_CHANGED')
+      if (!active) throw new Error('OFFLINE')
+    }
+    current()
+    const publicRequest = path === '/auth/login' || path === '/auth/register'
+    const controller = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const work = async (): Promise<Record<string, unknown>> => {
+      let response: Response
+      try {
+        response = await (this.options.fetch ?? globalThis.fetch)(this.base + path, {
+          method,
+          redirect: 'error',
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Qon-App': 'qonlang',
+            'X-Qon-Version': this.options.version,
+            ...(path.startsWith('/qonlang/support')
+              ? { 'X-Qon-Payment-Protocol': 'qonlang-support-v1' }
+              : {}),
+            ...(this.#session && !publicRequest
+              ? { Authorization: `Bearer ${this.#session.token}` }
+              : {})
+          },
+          ...(body ? { body: JSON.stringify(body) } : {})
+        })
+      } catch {
+        current()
+        this.#online = false
+        throw new Error('OFFLINE')
+      }
+      current()
+      const reader = response.body?.getReader(),
+        chunks: Uint8Array[] = []
+      let size = 0
+      try {
+        if (reader)
+          for (;;) {
+            const next = await reader.read()
+            current()
+            if (next.done) break
+            size += next.value.byteLength
+            if (size > 512 * 1024) {
+              void reader.cancel().catch(() => {})
+              throw new Error('INVALID_RESPONSE')
+            }
+            chunks.push(next.value)
+          }
+      } catch (error) {
+        current()
+        this.#online = false
+        throw new Error(
+          error instanceof Error && error.message === 'INVALID_RESPONSE'
+            ? 'INVALID_RESPONSE'
+            : 'OFFLINE'
+        )
+      }
+      let data: Record<string, unknown>
+      try {
+        data = JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>
+        if (!data || typeof data !== 'object' || Array.isArray(data))
+          throw new Error('INVALID_RESPONSE')
+      } catch {
+        this.#online = false
+        throw new Error('INVALID_RESPONSE')
+      }
+      current()
+      this.#online = true
+      if (!response.ok) {
+        const code = (data.error as { code?: unknown } | undefined)?.code
+        if (response.status === 401 && !publicRequest && this.#session) await this.#clear()
+        current()
+        throw new RequestError(
+          typeof code === 'string' && ERRORS.has(code)
+            ? code
+            : response.status === 429
+              ? 'RATE_LIMITED'
+              : 'SERVICE_UNAVAILABLE',
+          response.status
+        )
+      }
+      return data
+    }
+    const deadline = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => {
+        active = false
+        controller.abort()
+        if (generation === this.#generation) this.#online = false
+        reject(new Error(generation === this.#generation ? 'OFFLINE' : 'AUTH_CHANGED'))
+      }, this.options.timeoutMs ?? 12000)
+    })
     try {
-      response = await (this.options.fetch ?? globalThis.fetch)(this.base + path, {
-        method,
-        redirect: 'error',
-        signal: AbortSignal.timeout(12000),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Qon-App': 'qonlang',
-          ...(this.#session ? { Authorization: `Bearer ${this.#session.token}` } : {})
-        },
-        ...(body ? { body: JSON.stringify(body) } : {})
-      })
-    } catch {
-      this.#online = false
-      throw new Error('OFFLINE')
+      return await Promise.race([work(), deadline])
+    } finally {
+      active = false
+      if (timer) clearTimeout(timer)
     }
-    this.#online = true
-    const text = await response.text()
-    if (text.length > 512000) throw new Error('SERVICE_UNAVAILABLE')
-    let data: Record<string, unknown>
-    try {
-      data = JSON.parse(text) as Record<string, unknown>
-    } catch {
-      throw new Error('SERVICE_UNAVAILABLE')
-    }
-    if (!response.ok) {
-      const code = (data.error as { code?: unknown } | undefined)?.code
-      if (response.status === 401 && this.#session) await this.#clear()
-      throw new Error(
-        typeof code === 'string' && ERRORS.has(code)
-          ? code
-          : response.status === 429
-            ? 'RATE_LIMITED'
-            : 'SERVICE_UNAVAILABLE'
-      )
-    }
-    return data
   }
   handle(operation: unknown, input?: unknown): Promise<AccountResult> {
+    if (operation === 'login' || operation === 'register' || operation === 'logout')
+      this.#generation++
+    const generation = this.#generation
     const run = this.#tail.then(async (): Promise<AccountResult> => {
       try {
         if (
@@ -231,12 +366,13 @@ export class AccountClient {
         )
           throw new Error('INVALID_INPUT')
         await this.#load()
+        if (generation !== this.#generation) throw new Error('AUTH_CHANGED')
         const op = operation as AccountOperation
         const body = credentials(op, input)
         if (op === 'logout') {
           let error: string | undefined
           try {
-            if (this.#session) await this.#request('/auth/logout', 'POST', {})
+            if (this.#session) await this.#request('/auth/logout', 'POST', {}, generation)
           } catch (e) {
             error = (e as Error).message
           }
@@ -249,16 +385,20 @@ export class AccountClient {
             await this.#clear()
             throw new Error('SESSION_EXPIRED')
           }
-          const result = await this.#request('/auth/me', 'GET')
-          this.#session.user = userFrom(result.user)
+          const result = await this.#request('/auth/me', 'GET', undefined, generation)
+          const refreshed = userFrom(result.user)
+          if (refreshed.id !== this.#session.user.id) throw new Error('INVALID_RESPONSE')
+          this.#session.user = refreshed
           await this.#save()
         } else if (op === 'profile') {
           if (!this.#session) throw new Error('UNAUTHORIZED')
-          const result = await this.#request('/auth/me', 'PATCH', body)
-          this.#session.user = userFrom(result.user)
+          const result = await this.#request('/auth/me', 'PATCH', body, generation)
+          const refreshed = userFrom(result.user)
+          if (refreshed.id !== this.#session.user.id) throw new Error('INVALID_RESPONSE')
+          this.#session.user = refreshed
           await this.#save()
         } else {
-          const result = await this.#request(`/auth/${op}`, 'POST', body)
+          const result = await this.#request(`/auth/${op}`, 'POST', body, generation)
           if (
             typeof result.token !== 'string' ||
             result.token.length < 16 ||
@@ -279,11 +419,116 @@ export class AccountClient {
         return {
           ok: false,
           state: this.#state(),
-          error:
-            ERRORS.has(message) ||
-            ['OFFLINE', 'STORAGE_FAILURE', 'SERVICE_UNAVAILABLE'].includes(message)
-              ? message
-              : 'SERVICE_UNAVAILABLE'
+          error: publicError(new Error(message))
+        }
+      }
+    })
+    this.#tail = run.catch(() => {})
+    return run
+  }
+  support(operation: unknown, input?: unknown): Promise<SupportResult> {
+    const generation = this.#generation
+    const run = this.#tail.then(async (): Promise<SupportResult> => {
+      let requestId: string | undefined
+      try {
+        if (
+          typeof operation !== 'string' ||
+          !(SUPPORT_OPERATIONS as readonly string[]).includes(operation)
+        )
+          throw new Error('INVALID_INPUT')
+        const op = operation as SupportOperation,
+          body = supportInput(op, input)
+        await this.#load()
+        if (generation !== this.#generation) throw new Error('AUTH_CHANGED')
+        if (!this.#session) throw new Error('UNAUTHORIZED')
+        if (this.#session.expiresAt <= Date.now()) {
+          await this.#clear()
+          throw new Error('SESSION_EXPIRED')
+        }
+        const owner = this.#session.user.id,
+          prefix = '/qonlang/support'
+        if (op === 'status') {
+          const result = await this.#request(prefix, 'GET', undefined, generation)
+          return { ok: true, state: this.#state(), capability: supportCapability(result) }
+        }
+        if (op === 'orders') {
+          // 只恢复当前账号以前已经确认过的请求；不换号、不按新金额重建。
+          for (const pending of await this.#journal.pending(owner, this.base)) {
+            try {
+              const recovering = await this.#request(
+                prefix +
+                  '/orders' +
+                  (pending.operation === 'create' ? '' : '/' + pending.orderId + '/close'),
+                'POST',
+                pending.operation === 'create'
+                  ? { requestId: pending.requestId, amountFen: pending.amountFen }
+                  : { requestId: pending.requestId },
+                generation
+              )
+              const recovered = supportOrder(recovering.order)
+              if (
+                pending.operation === 'create'
+                  ? recovered.amountFen !== pending.amountFen
+                  : recovered.id !== pending.orderId
+              )
+                throw new Error('INVALID_RESPONSE')
+              await this.#journal.settled(pending.requestId)
+            } catch (error) {
+              if (definitiveRequestFailure(error)) await this.#journal.settled(pending.requestId)
+              else throw error
+            }
+          }
+          const result = await this.#request(prefix + '/orders', 'GET', undefined, generation)
+          if (!Array.isArray(result.orders) || result.orders.length > 100)
+            throw new Error('INVALID_RESPONSE')
+          return { ok: true, state: this.#state(), orders: result.orders.map(supportOrder) }
+        }
+        if (op === 'create' || op === 'close') {
+          const entry = await this.#journal.reserve(owner, this.base, op, body)
+          requestId = entry.requestId
+        }
+        const path = prefix + '/orders' + (op === 'create' ? '' : '/' + body.orderId + '/' + op)
+        const payload =
+          op === 'create'
+            ? { requestId, amountFen: body.amountFen }
+            : op === 'close'
+              ? { requestId }
+              : {}
+        const result = await this.#request(path, 'POST', payload, generation),
+          order = supportOrder(result.order)
+        if (
+          (op !== 'create' && order.id !== body.orderId) ||
+          (op === 'create' && order.amountFen !== body.amountFen)
+        )
+          throw new Error('INVALID_RESPONSE')
+        if (requestId) await this.#journal.settled(requestId)
+        if (generation !== this.#generation || owner !== this.#session?.user.id)
+          throw new Error('AUTH_CHANGED')
+        return { ok: true, state: this.#state(), order }
+      } catch (error) {
+        let failure = error
+        // 明确的业务拒绝可撤销本次请求记录；401、限流与未知结果仍须用原请求号恢复。
+        if (requestId && definitiveRequestFailure(error)) {
+          try {
+            await this.#journal.settled(requestId)
+          } catch {
+            failure = new Error('STORAGE_FAILURE')
+          }
+        }
+        const code = publicError(failure)
+        return {
+          ok: false,
+          state: this.#state(),
+          error: code,
+          retryable: [
+            'OFFLINE',
+            'SERVICE_UNAVAILABLE',
+            'INVALID_RESPONSE',
+            'PAYMENT_CHECK_BUSY',
+            'PAYMENT_PROVIDER_UNAVAILABLE',
+            'STORAGE_FAILURE',
+            'RATE_LIMITED'
+          ].includes(code)
         }
       }
     })

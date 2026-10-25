@@ -52,7 +52,6 @@
   } from '@lucide/svelte'
   import changelogZh from '../../../../CHANGELOG.md?raw'
   import changelogEn from '../../../../CHANGELOG.en.md?raw'
-  import wechatQr from '../assets/img/wechat-qr.png'
   import iconGilatod from '../assets/friends/gilatod.png'
   import iconKikomas from '../assets/friends/kikomas.png'
   import iconCathamos from '../assets/friends/cathamos.png'
@@ -124,7 +123,6 @@
   /** 右侧面板：打开开始页时默认摊开更新日志 */
   let footerPanel = $state<
     | 'examples'
-    | 'coffee'
     | 'changelog'
     | 'dev'
     | 'friends'
@@ -549,11 +547,8 @@
         <button class="btn" onclick={() => open(guideUrl('welcome'))}
           ><BookOpen size={16} />{t('common.guide')}</button
         >
-        <button
-          class="btn"
-          class:active={footerPanel === 'coffee'}
-          onclick={() => (footerPanel = footerPanel === 'coffee' ? null : 'coffee')}
-          ><Coffee size={16} />{t('welcome.coffee')}</button
+        <button class="btn" data-support-welcome onclick={() => (ui.supportOpen = true)}
+          ><Coffee size={16} />{t('account.support.title')}</button
         >
         <button
           class="btn"
@@ -632,11 +627,6 @@
               </div>
             </div>
           {/each}
-        {:else if footerPanel === 'coffee'}
-          <div class="card panel coffee">
-            <img src={wechatQr} alt="WeChat Pay" />
-            <p class="small muted">{t('welcome.scanWechat')}</p>
-          </div>
         {:else if footerPanel === 'changelog'}
           <div class="card panel md">{@html changelogHtml}</div>
         {:else if footerPanel === 'dev'}
@@ -1187,16 +1177,6 @@
   }
   .games-hint {
     margin: -4px 0 8px;
-  }
-  .coffee {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-  }
-  .coffee img {
-    width: 260px;
-    border-radius: var(--radius);
   }
   .md :global(h2) {
     font-size: 15px;

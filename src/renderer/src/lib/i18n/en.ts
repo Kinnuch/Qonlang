@@ -4,6 +4,81 @@ type Dict = typeof zh
 
 const en: Dict = {
   account: {
+    support: {
+      title: 'Support development',
+      back: 'Back to previous page',
+      intro: 'Choose an amount to help Qonlang grow.',
+      desktopOnly: 'Use the desktop app to sign in and support development.',
+      loginHint: 'Sign in to view and verify your support orders.',
+      manageAccount: 'Manage account',
+      amount: 'Amount (CNY)',
+      amountHint: 'Enter {min}–{max} CNY, with up to two decimal places.',
+      invalidAmount: 'Check the amount range and enter a number with up to two decimal places.',
+      purpose:
+        'Contributions support Qonlang development and do not grant Qonsona tickets or virtual assets.',
+      privacy: 'Accounts and orders do not upload or sync local projects or language content.',
+      review: 'Review and continue',
+      confirmTitle: 'Confirm your contribution',
+      confirmDescription:
+        'Confirmation creates a WeChat order for this amount and displays its QR code. Check the amount; no learning tickets are granted.',
+      confirmPay: 'Confirm and show payment code',
+      history: 'Support orders',
+      refreshOrders: 'Refresh orders',
+      noOrders: 'Your contributions will appear here.',
+      view: 'View order',
+      pendingTitle: 'Check your existing order first',
+      pendingHint:
+        'An order is unresolved. Continue checking the same order before creating another to avoid duplicate payments.',
+      resume: 'Continue order',
+      scanTitle: 'Support development with WeChat',
+      orderTotal: 'Order total',
+      orderId: 'Order ID',
+      scan: 'Open WeChat and scan to pay',
+      countdown: 'Payment code display time remaining: {time}',
+      pending: 'Awaiting payment confirmation',
+      creating: 'Checking payment availability',
+      paid: 'Payment confirmed',
+      closed: 'Order closure confirmed',
+      expired: 'Payment code hidden; checking order',
+      refundReview: 'Refund under review',
+      refunded: 'Refund confirmed',
+      thanks: 'Thank you for supporting Qonlang.',
+      hide: 'Hide checkout',
+      hideHint:
+        'Hiding checkout does not cancel the order. Verify payment here or reopen it from your order history.',
+      offlineOrder:
+        'Connection unavailable. Your order is retained; reconnect and verify the same order.',
+      unavailable:
+        'Online payment is unavailable. Do not pay; existing orders can still be checked.',
+      qrUnavailable:
+        'Payment code unconfirmed. Refresh this order later; do not create duplicates or pay another QR code.',
+      expiredHint:
+        'Code display has ended. The server checks payment and closes unpaid orders. Wait for confirmation before creating or paying another order.',
+      refundHint:
+        'Keep the order ID and contact the developer. This status does not confirm a refund.',
+      closeTitle: 'Close this unpaid order?',
+      closeDescription:
+        'The server checks payment first. Create another order only after closure is confirmed; keep checking this order if the result is uncertain.',
+      keep: 'Keep order',
+      confirmClose: 'Confirm close unpaid order',
+      closeOrder: 'Close unpaid order',
+      checking: 'Checking…',
+      checkIn: 'Check again in {seconds}s',
+      refreshPayment: 'Check payment result',
+      errors: {
+        PAYMENTS_DISABLED: 'Online payment is unavailable. Try again later.',
+        PAYMENT_STATUS_UNKNOWN:
+          'Payment is unconfirmed. Check the same order; do not create or pay a duplicate.',
+        PENDING_ORDER: 'Resolve the pending order before creating another.',
+        ORDER_NOT_FOUND: 'Order not found for this account. Refresh your order history.',
+        SERVICE_UNAVAILABLE: 'Support order service is unavailable. Refresh the same order later.',
+        DESKTOP_ONLY: 'Use the desktop app to contribute.',
+        PAYMENT_UNAVAILABLE: 'Checkout is unavailable. Check the same order later.',
+        REQUEST_PENDING: 'Recovering the previous request. Refresh orders shortly.',
+        REQUEST_ID_CONFLICT:
+          'The request record needs verification. Refresh orders before continuing.'
+      }
+    },
     title: 'Shared account',
     optional: 'Signing in is optional. Local projects work offline.',
     help: 'Qonlang and Qonsona share an account, with separate sign-ins. Projects and language content are not uploaded or synced to the cloud.',

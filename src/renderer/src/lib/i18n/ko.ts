@@ -1,5 +1,78 @@
 export default {
   account: {
+    support: {
+      title: '개발 후원',
+      back: '이전 화면으로 돌아가기',
+      intro: '원하는 금액으로 Qonlang의 개발을 후원해 주세요.',
+      desktopOnly: '데스크톱 앱에서 로그인하여 후원해 주세요.',
+      loginHint: '후원 주문을 확인하려면 공용 계정에 로그인해 주세요.',
+      manageAccount: '계정 관리',
+      amount: '후원 금액(CNY)',
+      amountHint: '{min}~{max} CNY를 소수 둘째 자리까지 입력해 주세요.',
+      invalidAmount: '금액 범위를 확인하고 소수 둘째 자리까지 입력해 주세요.',
+      purpose: '후원금은 Qonlang 개발에 사용되며 Qonsona 이용권이나 가상 자산은 지급되지 않습니다.',
+      privacy: '계정과 주문은 로컬 프로젝트나 언어 내용을 업로드하거나 동기화하지 않습니다.',
+      review: '금액 확인 후 계속',
+      confirmTitle: '후원 금액 확인',
+      confirmDescription:
+        '확인하면 이 금액의 WeChat 주문과 QR 코드가 생성됩니다. 학습 이용권은 지급되지 않습니다.',
+      confirmPay: '확인 후 결제 코드 표시',
+      history: '후원 주문',
+      refreshOrders: '주문 새로고침',
+      noOrders: '후원 기록이 여기에 표시됩니다.',
+      view: '주문 보기',
+      pendingTitle: '기존 주문을 먼저 확인해 주세요',
+      pendingHint:
+        '처리 중인 주문이 있습니다. 중복 결제를 피하려면 같은 주문의 결과를 확인한 뒤 새 주문을 만드세요.',
+      resume: '계속 확인',
+      scanTitle: 'WeChat으로 개발 후원',
+      orderTotal: '주문 금액',
+      orderId: '주문 번호',
+      scan: 'WeChat의 스캔 기능으로 결제해 주세요',
+      countdown: '결제 코드 표시 남은 시간: {time}',
+      pending: '결제 확인 대기',
+      creating: '결제 경로 확인 중',
+      paid: '결제 확인 완료',
+      closed: '주문 종료 확인 완료',
+      expired: '결제 코드를 숨기고 주문 확인 중',
+      refundReview: '환불 검토 중',
+      refunded: '환불 확인 완료',
+      thanks: 'Qonlang을 후원해 주셔서 감사합니다.',
+      hide: '결제 화면 접기',
+      hideHint:
+        '화면을 접어도 주문은 취소되지 않습니다. 결제 후 결과를 확인하거나 주문 기록에서 다시 열어 주세요.',
+      offlineOrder:
+        '연결할 수 없습니다. 주문은 유지되므로 다시 연결한 뒤 같은 주문을 확인해 주세요.',
+      unavailable: '온라인 결제를 이용할 수 없습니다. 결제하지 마시고 기존 주문을 확인해 주세요.',
+      qrUnavailable:
+        '결제 코드가 확인되지 않았습니다. 같은 주문을 새로고침하고 중복 주문이나 다른 QR 결제를 피하세요.',
+      expiredHint:
+        '코드 표시 시간이 끝났습니다. 서버가 결제를 확인하고 미결제 주문을 종료할 때까지 다시 주문하거나 결제하지 마세요.',
+      refundHint:
+        '주문 번호를 보관하고 개발자에게 문의해 주세요. 이 상태는 환불 완료를 뜻하지 않습니다.',
+      closeTitle: '이 미결제 주문을 종료할까요?',
+      closeDescription:
+        '서버가 먼저 결제 상태를 확인합니다. 종료가 확인된 뒤 새 주문을 만드세요. 결과가 불확실하면 같은 주문을 확인해 주세요.',
+      keep: '주문 유지',
+      confirmClose: '미결제 주문 종료 확인',
+      closeOrder: '미결제 주문 종료',
+      checking: '확인 중…',
+      checkIn: '{seconds}초 후 다시 확인 가능',
+      refreshPayment: '결제 결과 확인',
+      errors: {
+        PAYMENTS_DISABLED: '온라인 결제를 이용할 수 없습니다. 나중에 다시 시도해 주세요.',
+        PAYMENT_STATUS_UNKNOWN:
+          '결제 결과가 확인되지 않았습니다. 같은 주문을 확인하고 중복 주문이나 결제를 피하세요.',
+        PENDING_ORDER: '기존 미완료 주문을 먼저 확인해 주세요.',
+        ORDER_NOT_FOUND: '이 계정의 주문을 찾을 수 없습니다. 기록을 새로고침해 주세요.',
+        SERVICE_UNAVAILABLE:
+          '후원 주문 서비스를 이용할 수 없습니다. 같은 주문을 나중에 새로고침해 주세요.',
+        DESKTOP_ONLY: '데스크톱 앱에서 후원해 주세요.',
+        PAYMENT_UNAVAILABLE: '결제 경로를 이용할 수 없습니다. 같은 주문을 나중에 확인해 주세요.',
+        REQUEST_PENDING: '이전 요청을 복구하고 있습니다. 잠시 후 주문을 새로고침해 주세요.',
+        REQUEST_ID_CONFLICT: '요청 기록을 확인해야 합니다. 주문을 새로고침한 뒤 계속해 주세요.'
+      }
+    },
     title: '공유 계정',
     optional: '로그인은 선택 사항입니다. 로컬 프로젝트는 오프라인에서도 편집할 수 있습니다.',
     help: 'Qonlang과 Qonsona는 같은 계정을 사용하며 각각 로그인합니다. 프로젝트와 언어 내용은 업로드하거나 클라우드에 동기화하지 않습니다.',

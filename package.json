@@ -1,6 +1,6 @@
 {
   "name": "qonlang",
-  "version": "1.0.0-beta.2",
+  "version": "1.0.0-beta.3",
   "description": "千语集 Qonlang — a workbench for every conlanger: lexicon, sound changes, phonology, paradigms, glossing.",
   "main": "./out/main/index.js",
   "author": {
@@ -45,7 +45,8 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@lucide/svelte": "^1.42.0",
-    "electron-updater": "^6.8.9"
+    "electron-updater": "^6.8.9",
+    "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
@@ -53,7 +54,7 @@
     "@electron-toolkit/tsconfig": "^2.0.0",
     "@sveltejs/vite-plugin-svelte": "^6.2.0",
     "@types/node": "^22.19.1",
-    "electron": "^39.2.6",
+    "electron": "43.8.1",
     "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",
     "eslint": "^9.39.1",
