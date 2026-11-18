@@ -80,16 +80,19 @@ function substitute(
   if (rule.replacement === '2') return match + match
   if (rule.replacement === '') return ''
   let pos = 0
+  const captured = named?.tc ?? ''
+  const alias = rule.targetClass?.alias
   if (rule.targetClass) {
     // 目标里第一个音类是命名组 tc（见 parse.ts 的 expand）
-    const captured = named?.tc ?? ''
-    pos = rule.targetClass.members.indexOf(captured)
+    pos = rule.targetClass.members.indexOf(alias?.alias === captured ? alias.member : captured)
     if (pos < 0) pos = 9999
   }
   let out = ''
   for (const part of rule.replacementParts) {
     if (part.kind === 'text') out += part.text
     else if (part.kind === 'ref') out += named?.['n' + part.name] ?? ''
+    else if (alias?.alias === captured && part.ref.members === rule.targetClass?.members)
+      out += captured
     else out += part.ref.members[pos] ?? ''
   }
   return out

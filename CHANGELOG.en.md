@@ -2,6 +2,8 @@
 
 ## 1.0.0 · 2026-11-18
 
+- **Sound class matching fix**: feature-generated classes, including the consonant class from **Generate C / V**, can match both keyboard `g` and IPA `ɡ`. Spelling is preserved. Projects that explicitly distinguish the two characters keep their own matching rules.
+
 - **Sentence text size**: adjust the text in **Corpus → Sentences** from 50% to 200%, or reset it to 100%. Custom scripts, original text, interlinear glosses and translations scale together, including example sentences under lexicon entries. The preference is stored on this computer.
 - **Support development**: the start page and inspector temporarily show the developer's personal WeChat payment code again. Scan it and enter an amount in WeChat.
 - **Saving and backups**: edits made during a save remain marked as unsaved. Two windows saving the same project check and write it in turn. On macOS, a reopened window still prompts you about unsaved edits. Projects with the same name keep separate backups, and folder exports preserve separate rule sets and documents with matching names.

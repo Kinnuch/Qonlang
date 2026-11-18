@@ -12,9 +12,16 @@
  *   ; 注释   或   # 行首注释
  */
 
+interface ClassAlias {
+  alias: string
+  member: string
+}
+
 export interface ClassRef {
   name: string
   members: string[]
+  /** 可供匹配的另一写法，对应原成员的同一个替换位置。 */
+  alias?: ClassAlias
 }
 
 export interface Context {
@@ -291,6 +298,8 @@ export interface RuleProgram {
 export interface ParseOptions {
   /** 外部提供的音类（如来自语言的音系页） */
   classes?: Record<string, string[]>
+  /** 语言提供的按特征生成的音类的匹配别名。规则文字里的定义优先。 */
+  classAliases?: readonly (readonly [name: string, alias: ClassAlias])[]
   /** 外部提供的多合字母 */
   replacements?: [string, string][]
   /** 可用 @名 引用的语素：名（gloss 或去掉连字符的形式）→ 各异体形 */
@@ -508,7 +517,8 @@ export function revertReplacements(text: string, replacements: [string, string][
 const CLASS_ESCAPE = /[\\\]^-]/g
 const RE_ESCAPE = /[\\^$.*+?()[\]{}|/]/g
 
-function classRegex(members: string[], marks = false): string {
+function classRegex(members: string[], marks = false, alias?: ClassAlias): string {
+  if (alias) members = [...members, alias.alias]
   if (members.length === 0) return '(?:)'
   if (members.every((m) => Array.from(m).length === 1)) {
     return '[' + members.map((m) => m.replace(CLASS_ESCAPE, '\\$&')).join('') + ']'
@@ -545,6 +555,7 @@ interface ExpandOptions {
   features?: FeatureTable
   /** 解析出来的特征成员（示例用）：方括号里的原文 → 成员 */
   featureHits?: Record<string, string[]>
+  classAliases?: ReadonlyMap<string[], ClassAlias>
 }
 
 /**
@@ -569,9 +580,10 @@ function expand(s: string, classes: Map<string, string[]>, opts: ExpandOptions):
     lead = false
   }
   const pushClass = (ref: ClassRef, raw: string | null): void => {
-    const body = raw ?? classRegex(ref.members, opts.marks)
+    const alias = opts.classAliases?.get(ref.members)
+    const body = raw ?? classRegex(ref.members, opts.marks, alias)
     if (opts.captureFirst && !firstClass) {
-      firstClass = ref
+      firstClass = alias ? { ...ref, alias } : ref
       capturing++
       groupIndex = capturing
       // 命名组：替换时按名字取，目标里音类前面有别的字（kV、s[ptk]）或编号音类时也对得上
@@ -671,9 +683,10 @@ function expand(s: string, classes: Map<string, string[]>, opts: ExpandOptions):
         const name = c + chars.slice(i + 1, j).join('')
         const k = seen.get(name) ?? 0
         seen.set(name, k + 1)
+        const members = classes.get(c)!
         unit(
           opts.numbered(name, k) === 'def'
-            ? `(?<n${name}>${classRegex(classes.get(c)!, opts.marks)})`
+            ? `(?<n${name}>${classRegex(members, opts.marks, opts.classAliases?.get(members))})`
             : `\\k<n${name}>`
         )
         i = j - 1
@@ -1086,8 +1099,15 @@ function parseInclude(
 
 export function parseRuleText(text: string, options: ParseOptions = {}): RuleProgram {
   const classes = new Map<string, string[]>()
-  for (const [k, v] of Object.entries(options.classes ?? {}))
-    classes.set(k.length === 1 ? k : `{${k.replace(/^\{|\}$/g, '')}}`, v)
+  const importedAliases = new Map<string, ClassAlias>()
+  const sourceAliases = new Map(options.classAliases)
+  for (const [k, v] of Object.entries(options.classes ?? {})) {
+    const key = k.length === 1 ? k : `{${k.replace(/^\{|\}$/g, '')}}`
+    classes.set(key, v)
+    const alias = sourceAliases.get(k)
+    if (alias) importedAliases.set(key, alias)
+    else importedAliases.delete(key)
+  }
   const replacements: [string, string][] = [...(options.replacements ?? [])]
   // @语素 作为一种音类：成员是它的各异体形
   for (const [name, forms] of Object.entries(options.morphemes ?? {}))
@@ -1138,6 +1158,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     const cm = CLASS_LINE.exec(content)
     if (cm) {
       classes.set(cm[1], classMembers(cm[1], cm[2]))
+      importedAliases.delete(cm[1])
       kinds.push('class')
       return
     }
@@ -1153,11 +1174,22 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
   })
   replacements.sort((a, b) => b[0].length - a[0].length)
   // 音类成员也要过一遍多合字母替换（用户在音类里写 th，等价于写 θ）
-  for (const [k, v] of classes)
-    classes.set(
-      k,
-      v.map((m) => applyReplacements(m, replacements))
+  const classAliases = new Map<string[], ClassAlias>()
+  for (const [k, v] of classes) {
+    const members = v.map((m) => applyReplacements(m, replacements))
+    classes.set(k, members)
+    const alias = importedAliases.get(k)
+    // 明确配置的多合字母或替换可以让两种字符各有不同的用途。
+    if (
+      alias &&
+      !replacements.some(([from, to]) =>
+        [alias.alias, alias.member].some((letter) => letter === from || letter === to)
+      ) &&
+      members.includes(alias.member) &&
+      !members.includes(alias.alias)
     )
+      classAliases.set(members, alias)
+  }
 
   // 切音节的设置：语言给的，加上规则文本里名为 V / C 的音类、多字母的音类成员、多合字母的内部符号
   const base = options.syllables
@@ -1249,7 +1281,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
       try {
         for (const c of draft.clauses) {
           const pattern = (x: string): string => applyReplacements(encodeEscapes(x), replacements)
-          const common = { captureFirst: false, warn, marks: true, features }
+          const common = { captureFirst: false, warn, marks: true, features, classAliases }
           const matcher = (target: string, ctx: Context): ClauseMatcher => {
             const t = target
               ? expand(pattern(target), classes, { ...common, boundary: null, noLeadSkip: true }).re
@@ -1366,7 +1398,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     const quiet = (): void => {}
     // 左环境里定义了几个编号捕获组：目标的捕获组要往后数这么多
     const groupsIn = (re: string): number => (re.match(/\(\?<n[A-Z]\d+>/g) ?? []).length
-    const common = { marks, features, featureHits }
+    const common = { marks, features, featureHits, classAliases }
     /** 左环境：按音节、重音匹配时，环境和目标之间也可以隔着记号 */
     const leftOf = (re: string): string => (marks && re ? `(?:${re})${SKIP}` : re)
     /** 某个目标在各个环境里的匹配（带排除）；环境的警告只报一次 */
@@ -1461,7 +1493,8 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
         captureFirst: true,
         warn,
         numbered: planNumbered('', tgt, '', classes).target,
-        features
+        features,
+        classAliases
       })
     if (branching && !elseTarget) return fail('? 后面（不满足环境时）要改的目标不能为空')
 

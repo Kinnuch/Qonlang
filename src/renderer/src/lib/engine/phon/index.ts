@@ -359,6 +359,21 @@ export function languageParseOptions(
   if (!lang) return {}
   const classes: Record<string, string[]> = {}
   for (const c of lang.classes) if (c.name && c.members.length) classes[c.name] = c.members
+  // IPA 表里的 ɡ 也常用键盘 g 输入。只给按特征生成的音类补匹配写法，
+  // 不改音位、成员顺序、拼写或手写规则；工程若已同时使用两种字符，照其设置分别匹配。
+  const declared = new Set([
+    ...lang.phonemes.map((p) => p.symbol),
+    ...Object.values(classes).flat()
+  ])
+  const classAliases = new Map<string, { alias: string; member: string }>()
+  if (declared.has('g') !== declared.has('ɡ')) {
+    const member = declared.has('ɡ') ? 'ɡ' : 'g'
+    const alias = member === 'ɡ' ? 'g' : 'ɡ'
+    for (const c of lang.classes) {
+      if (classes[c.name] === c.members && c.featureQuery && c.members.includes(member))
+        classAliases.set(c.name, { alias, member })
+    }
+  }
   const morphemes: Record<string, string[]> = {}
   if (project) {
     const stripH = (s: string): string => s.replace(/^[-=]+|[-=]+$/g, '')
@@ -377,6 +392,7 @@ export function languageParseOptions(
     .map((d) => [d.from, d.to] as [string, string])
   return {
     classes,
+    classAliases: [...classAliases],
     replacements,
     morphemes,
     syllables: syllableScheme(lang, replacements),
