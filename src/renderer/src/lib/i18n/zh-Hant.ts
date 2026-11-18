@@ -5,6 +5,10 @@
 export default {
   account: {
     support: {
+      personalIntro: '使用微信掃描個人收款碼，即可自願支持千語集。',
+      personalCode: '個人微信收款碼',
+      personalHint: '無需登入。請在微信中自行填寫金額，感謝支持！',
+      personalAlt: '千語集開發者的個人微信收款二維碼',
       title: '支持開發',
       back: '返回原頁面',
       intro: '由你選擇金額，支持千語集繼續成長。',
@@ -2151,6 +2155,10 @@ export default {
     adjustHint: '微調的具體語法，請參考軟體右上角的規則語法書。'
   },
   corpus: {
+    textSize: '例句文字大小',
+    textSizeHint:
+      '同時調整語料和詞條附例中的文字寫法、原文、語素切分、gloss 與譯文；100% 為原來的字號，不改變匯出結果。',
+    resetTextSize: '恢復 100%',
     pickCandidate: '該詞有 {n} 個候選，無法僅憑意思區分，請選擇一個固定下來',
     pickThis: '選擇此項',
     notFound: '沒有找到「{w}」',

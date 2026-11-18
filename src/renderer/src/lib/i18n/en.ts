@@ -5,6 +5,10 @@ type Dict = typeof zh
 const en: Dict = {
   account: {
     support: {
+      personalIntro: 'Scan the personal WeChat payment code to support Qonlang.',
+      personalCode: 'Personal WeChat payment code',
+      personalHint: 'No sign-in is required. Choose the amount in WeChat. Thank you!',
+      personalAlt: 'Personal WeChat payment QR code for the Qonlang developer',
       title: 'Support development',
       back: 'Back to previous page',
       intro: 'Choose an amount to help Qonlang grow.',
@@ -2254,6 +2258,10 @@ const en: Dict = {
       'One adjustment per line, applied in order: -at strips final at; +u appends u; ^-e strips initial e; ^+a prepends a; lines containing > run as rules (e.g. at > / _#, V > / _C#). The upper box runs after affixation and before sound changes (or on the stem); the lower box on the final form.'
   },
   corpus: {
+    textSize: 'Example text size',
+    textSizeHint:
+      'Scale scripts, original text, morphemes, glosses and translations in corpus and lexicon examples. 100% keeps the original sizes; exports are unchanged.',
+    resetTextSize: 'Reset to 100%',
     pickCandidate: 'This word has {n} candidates that can’t be told apart — pick one to lock it in',
     pickThis: 'This one',
     notFound: 'Nothing found for “{w}”',

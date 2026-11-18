@@ -84,6 +84,13 @@
   import { sortable } from '$lib/ui/sortable.svelte'
   import { moveById } from '$lib/core/move'
   import { fiveRows } from '$lib/ui/fiveRows'
+  import {
+    corpusTextSize,
+    CORPUS_TEXT_SIZE_DEFAULT,
+    CORPUS_TEXT_SIZE_MIN,
+    CORPUS_TEXT_SIZE_MAX,
+    CORPUS_TEXT_SIZE_STEP
+  } from '$lib/ui/corpusTextSize'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -128,6 +135,7 @@
   /** 导入面板一打开先去选 JSON（菜单里点的是「从 JSON 导入」）；每点一次菜单都重开一次面板 */
   let importJson = $state(false)
   let importNonce = $state(0)
+  const textSize = $derived(corpusTextSize(ui.prefs.corpusTextScale))
 
   const list = $derived.by(() => {
     const pq = parseQuery(query, SEARCH_FIELDS.corpus)
@@ -747,7 +755,7 @@
   }
 </script>
 
-<div class="page">
+<div class="page" style:--corpus-text-scale={textSize / 100}>
   <div class="page-head row">
     <h1>{t('corpus.title')}</h1>
     <GuideLink section="corpus" />
@@ -786,6 +794,36 @@
       >
     {/if}
   </div>
+
+  {#if mode === 'entries' && !importOpen && !bench}
+    <div class="text-size row" data-corpus-text-size-controls>
+      <label for="corpus-text-size">{t('corpus.textSize')}</label>
+      <HelpDot tip={t('corpus.textSizeHint')} />
+      <input
+        id="corpus-text-size"
+        data-corpus-text-size
+        type="range"
+        min={CORPUS_TEXT_SIZE_MIN}
+        max={CORPUS_TEXT_SIZE_MAX}
+        step={CORPUS_TEXT_SIZE_STEP}
+        value={textSize}
+        oninput={(event) => {
+          ui.prefs.corpusTextScale = Number(event.currentTarget.value)
+        }}
+        onchange={() => void ui.savePrefs()}
+      />
+      <output for="corpus-text-size">{textSize}%</output>
+      <button
+        class="btn ghost sm"
+        data-corpus-text-size-reset
+        disabled={textSize === CORPUS_TEXT_SIZE_DEFAULT}
+        onclick={() => {
+          ui.prefs.corpusTextScale = CORPUS_TEXT_SIZE_DEFAULT
+          void ui.savePrefs()
+        }}>{t('corpus.resetTextSize')}</button
+      >
+    </div>
+  {/if}
 
   {#if importOpen && language}
     <div class="scroll">
@@ -1349,6 +1387,22 @@
   .page-head {
     gap: 10px;
   }
+  .text-size {
+    flex: none;
+    flex-wrap: wrap;
+    gap: 8px;
+    color: var(--text-2);
+    font-size: 12px;
+  }
+  .text-size input {
+    width: 140px;
+    max-width: 32vw;
+    accent-color: var(--accent);
+  }
+  .text-size output {
+    min-width: 38px;
+    font-variant-numeric: tabular-nums;
+  }
   .scroll {
     flex: 1;
     min-height: 0;
@@ -1393,7 +1447,7 @@
     text-underline-offset: 3px;
   }
   .surface {
-    font-size: 19px;
+    font-size: calc(19px * var(--corpus-text-scale, 1));
     font-weight: 600;
     font-family: var(--font-corpus-text);
   }
@@ -1404,11 +1458,11 @@
   }
   .tok .input {
     padding: 2px 6px;
-    font-size: 13px;
+    font-size: calc(13px * var(--corpus-text-scale, 1));
   }
   .tok .g {
     font-family: var(--font-gloss);
-    font-size: 12px;
+    font-size: calc(12px * var(--corpus-text-scale, 1));
   }
   .ctl {
     gap: 2px;
@@ -1434,14 +1488,14 @@
     font-family: var(--font-corpus-tr);
   }
   .item .tr-line {
-    font-size: 14px;
+    font-size: calc(14px * var(--corpus-text-scale, 1));
     font-weight: 500;
     color: var(--text-2);
   }
   .tr {
     color: var(--text-2);
     font-style: italic;
-    font-size: 15px;
+    font-size: calc(15px * var(--corpus-text-scale, 1));
     font-weight: 500;
   }
   .more-mark {
@@ -1467,12 +1521,14 @@
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .text {
-    font-size: 17px;
+    font-size: calc(17px * var(--corpus-text-scale, 1));
     font-weight: 600;
   }
   .scr {
-    font-size: 22px;
+    font-size: calc(22px * var(--corpus-text-scale, 1));
     line-height: 1.3;
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
   .words {
     display: flex;
@@ -1500,11 +1556,11 @@
     line-height: 1.3;
   }
   .gw .m {
-    font-size: 13px;
+    font-size: calc(13px * var(--corpus-text-scale, 1));
   }
   .gw .g {
     font-family: var(--font-gloss);
-    font-size: 11px;
+    font-size: calc(11px * var(--corpus-text-scale, 1));
     color: var(--text-2);
   }
   .tbl {

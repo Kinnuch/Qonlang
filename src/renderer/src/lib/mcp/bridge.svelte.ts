@@ -32,6 +32,7 @@ function context(): McpContext {
     edit: (fn) => {
       const p = projectState.project
       if (!p) throw new Error(t('mcp.noProject'))
+      if (projectState.readOnly) throw new Error(t('readonly.blocked'))
       fn(p)
       projectState.touch()
     },
@@ -73,6 +74,7 @@ async function handle(req: McpRequest): Promise<void> {
     }
     const tool = allTools().find((x) => x.name === req.name)
     if (!tool) throw new Error(t('mcp.unknownTool', { name: req.name }))
+    if (tool.write && projectState.readOnly) throw new Error(t('readonly.blocked'))
     // 写操作：默认问一下
     if (tool.write && ui.prefs.mcpConfirmWrites !== false) {
       const ok = await ui.confirm(

@@ -16,6 +16,8 @@ import { join, basename, dirname } from 'path'
 import { startMcpServer, type McpServerHandle, type McpTool } from './mcp'
 import { nativeLabel, pickLocale } from './locale'
 import { AccountClient } from './account'
+import { atomicWrite, projectContentHash, writeProjectFile } from './project-files'
+import { SUPPORT_PAYMENT_MODE } from '../shared/support-mode'
 import { pathToFileURL } from 'node:url'
 import {
   guardIpcHandlers,
@@ -194,32 +196,13 @@ async function loadSnapshot(): Promise<string | null> {
 }
 
 /**
- * 每个打开、保存过的项目文件那一刻的样子（修改时间、大小、内容摘要）。保存前对一下：
+ * 每个打开、保存过的项目文件的内容摘要。保存时在跨实例路径锁里核对：
  * 对不上说明在别处被改过（另一个千语集窗口、网盘同步……），先不写，让界面问用户
  */
-const fileStamps = new Map<string, { mtimeMs: number; size: number; hash: string }>()
-const contentHash = (content: string): string => createHash('sha1').update(content).digest('hex')
+const fileStamps = new Map<string, string>()
 
 async function rememberStamp(path: string, content: string): Promise<void> {
-  const st = await fs.stat(path).catch(() => null)
-  if (st) fileStamps.set(path, { mtimeMs: st.mtimeMs, size: st.size, hash: contentHash(content) })
-}
-
-/** 文件在上次打开或保存之后有没有被别处改过：修改时间、大小都没变就算没改；变了再比内容（只是碰了一下不算） */
-async function changedElsewhere(path: string): Promise<boolean> {
-  const known = fileStamps.get(path)
-  if (!known) return false
-  const st = await fs.stat(path).catch(() => null)
-  // 文件不见了（挪走、删掉）：照常写，等于重新存一份
-  if (!st) return false
-  if (st.mtimeMs === known.mtimeMs && st.size === known.size) return false
-  const now = await fs.readFile(path, 'utf8').catch(() => null)
-  if (now === null) return false
-  if (contentHash(now) === known.hash) {
-    fileStamps.set(path, { ...known, mtimeMs: st.mtimeMs, size: st.size })
-    return false
-  }
-  return true
+  fileStamps.set(path, projectContentHash(content))
 }
 const backupsDir = (): string => join(userData(), 'Backups')
 const fontsDir = (): string => join(userData(), 'fonts')
@@ -744,6 +727,7 @@ async function replaceMacApp(zip: string): Promise<void> {
     { ...process.env, PATH: '/usr/bin:/bin:/usr/sbin:/sbin' }
   )
   if (started !== true) throw new Error(started)
+  updateExitPending = true
   forceClose = true
   dirty = false
   app.quit()
@@ -782,6 +766,7 @@ async function installUpdate(
     if (!existsSync(file)) return { ok: false, error: `installer not found: ${file}` }
     const started = await spawnDetached(file, args)
     if (started !== true) return { ok: false, error: started }
+    updateExitPending = true
     forceClose = true
     dirty = false
     app.quit()
@@ -821,36 +806,12 @@ async function getPrefs(): Promise<Prefs> {
   return prefs
 }
 
-/** 原子写入：先写临时文件再改名 */
-async function atomicWrite(file: string, content: string): Promise<void> {
-  const tmp = file + '.tmp'
-  await fs.writeFile(tmp, content, 'utf8')
-  await fs.rename(tmp, file)
-}
-
-async function backup(file: string): Promise<void> {
-  try {
-    await fs.access(file)
-  } catch {
-    return
-  }
-  const prefs = await getPrefs()
-  if (prefs.backupCount <= 0) return
-  await fs.mkdir(backupsDir(), { recursive: true })
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-  const base = basename(file).replace(/\.laim\.json$|\.json$/, '')
-  await fs.copyFile(file, join(backupsDir(), `${base}@${stamp}.laim.json`))
-  // 只保留同名项目的最近 N 份
-  const entries = (await fs.readdir(backupsDir())).filter((f) => f.startsWith(base + '@')).sort()
-  for (const old of entries.slice(0, Math.max(0, entries.length - prefs.backupCount))) {
-    await fs.unlink(join(backupsDir(), old)).catch(() => {})
-  }
-}
-
 let dirty = false
 /** 开着的是不是纯欣赏项目（渲染层告诉的） */
 let readOnlyOpen = false
 let forceClose = false
+/** 更新助手已经接手退出；macOS 的 activate 不应在此时重建窗口。 */
+let updateExitPending = false
 let mainWindow: BrowserWindow | null = null
 let winStateTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -899,6 +860,10 @@ function onSomeDisplay(x: number, y: number, width: number, height: number): boo
 }
 
 function createWindow(): void {
+  // macOS 关闭窗口后进程还在；新窗口不能继承上一次「不保存/保存后关闭」的豁免。
+  forceClose = false
+  dirty = false
+  readOnlyOpen = false
   const saved = readWindowState()
   if (
     saved &&
@@ -1035,6 +1000,7 @@ function createWindow(): void {
 function registerIpc(): void {
   guardIpcHandlers(ipcMain, () => mainWindow?.webContents ?? null, rendererEntry)
   const accounts = new AccountClient({
+    supportMode: SUPPORT_PAYMENT_MODE,
     version: app.getVersion(),
     userData: userData(),
     packaged: app.isPackaged,
@@ -1111,9 +1077,14 @@ function registerIpc(): void {
 
   /** 写项目文件。force 不给时先看文件在别处改过没有，改过就不写、回 conflict，让界面问用户 */
   ipcMain.handle('project:write', async (_e, path: string, content: string, force?: boolean) => {
-    if (!force && (await changedElsewhere(path))) return { conflict: true }
-    await backup(path)
-    await atomicWrite(path, content)
+    const prefs = await getPrefs()
+    const result = await writeProjectFile(path, content, {
+      expectedHash: fileStamps.get(path),
+      force,
+      backupDirectory: backupsDir(),
+      backupCount: prefs.backupCount
+    })
+    if ('conflict' in result) return result
     await rememberStamp(path, content)
     return { ok: true }
   })
@@ -1503,7 +1474,7 @@ app.whenReady().then(() => {
   registerIpc()
   createWindow()
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (!updateExitPending && BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 

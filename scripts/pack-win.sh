@@ -23,7 +23,7 @@ const walk = (n) => {
   const pj = require(path.resolve("node_modules", n, "package.json"))
   for (const d of Object.keys(pj.dependencies || {})) walk(d)
 }
-for (const n of ["@electron-toolkit/utils", "electron-updater"]) walk(n)
+for (const n of ["@electron-toolkit/utils", "electron-updater", "proper-lockfile"]) walk(n)
 for (const n of seen)
   fs.cpSync(path.join("node_modules", n), path.join("dist/app-stage/node_modules", n), { recursive: true })
 console.log("runtime deps: " + [...seen].join(" "))'

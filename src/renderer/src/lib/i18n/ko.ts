@@ -1,6 +1,11 @@
 export default {
   account: {
     support: {
+      personalIntro: '개인 WeChat 결제 코드를 스캔하여 Qonlang 개발을 후원할 수 있습니다.',
+      personalCode: '개인 WeChat 결제 코드',
+      personalHint:
+        '로그인 없이 이용할 수 있습니다. WeChat에서 금액을 입력해 주세요. 후원해 주셔서 감사합니다!',
+      personalAlt: 'Qonlang 개발자의 개인 WeChat 결제 QR 코드',
       title: '개발 후원',
       back: '이전 화면으로 돌아가기',
       intro: '원하는 금액으로 Qonlang의 개발을 후원해 주세요.',
@@ -2220,6 +2225,10 @@ export default {
     adjustHint: '미세 조정의 자세한 문법은 프로그램 오른쪽 위의 규칙 문법서를 보세요.'
   },
   corpus: {
+    textSize: '예문 글자 크기',
+    textSizeHint:
+      '말뭉치와 어휘 예문의 문자 표기, 원문, 형태소, 글로스와 번역문 크기를 함께 조절합니다. 100%가 기존 크기이며 내보내기 결과는 바뀌지 않습니다.',
+    resetTextSize: '100%로 복원',
     pickCandidate:
       '이 단어에는 후보가 {n}개 있는데 뜻으로 가릴 수 없습니다. 하나를 골라 고정하세요',
     pickThis: '이것',

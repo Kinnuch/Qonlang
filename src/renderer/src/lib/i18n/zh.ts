@@ -1,6 +1,10 @@
 export default {
   account: {
     support: {
+      personalIntro: '使用微信扫描个人收款码，即可自愿支持千语集。',
+      personalCode: '个人微信收款码',
+      personalHint: '无需登录。请在微信中自行填写金额，感谢支持！',
+      personalAlt: '千语集开发者的个人微信收款二维码',
       title: '支持开发',
       back: '返回原页面',
       intro: '由你选择金额，支持千语集继续成长。',
@@ -2147,6 +2151,10 @@ export default {
     adjustHint: '微调的具体语法，请参考软件右上角的规则语法书。'
   },
   corpus: {
+    textSize: '例句文字大小',
+    textSizeHint:
+      '同时调整语料和词条附例中的文字写法、原文、语素切分、gloss 与译文；100% 为原来的字号，不改变导出结果。',
+    resetTextSize: '恢复 100%',
     pickCandidate: '该词有 {n} 个候选，无法仅凭意思区分，请选择一个固定下来',
     pickThis: '选择此项',
     notFound: '没有找到「{w}」',

@@ -63,6 +63,27 @@ afterEach(async () => {
   )
 })
 describe('Qonlang support trust and recovery', () => {
+  it('uses the injected personal QR mode without issuing cloud requests or recovering old journals', async () => {
+    const { dir, fetch } = await setup()
+    const journal = join(dir, 'support-pending.json')
+    const retained = 'retained unknown request; must not be read or changed in personal QR mode'
+    await fs.writeFile(journal, retained)
+    const client = new AccountClient({
+      version: '1.0.0',
+      userData: dir,
+      packaged: true,
+      secureStorage: storage,
+      supportMode: 'personal-qr',
+      fetch
+    })
+    for (const operation of ['status', 'orders', 'create', 'refresh', 'close']) {
+      const result = await client.support(operation, { amountFen: 123 })
+      expect(result.ok).toBe(false)
+      expect(result.error).toBe('PAYMENTS_DISABLED')
+    }
+    expect(fetch).not.toHaveBeenCalled()
+    expect(await fs.readFile(journal, 'utf8')).toBe(retained)
+  })
   it('does not overwrite a second instance journal and refuses an actively held file lock', async () => {
     const { dir } = await setup()
     const path = join(dir, 'support-pending.json'),

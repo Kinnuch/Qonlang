@@ -229,14 +229,38 @@ export function projectToFolder(p: Project): Record<string, string> {
     'custom-fields.json': j(p.customFields)
   }
   // 规则文本各自一份，可直接喂给引擎或其他工具
-  for (const r of p.ruleSets)
-    files[`rules/${safeName(r.name || r.id)}.txt`] = r.text.endsWith('\n') ? r.text : r.text + '\n'
-  for (const d of p.docs) files[`docs/${safeName(d.title || d.id)}.md`] = d.markdown
+  const rulePaths = folderPaths(
+    p.ruleSets.map((r) => r.name || r.id),
+    'rules',
+    'txt'
+  )
+  for (const [i, r] of p.ruleSets.entries())
+    files[rulePaths[i]] = r.text.endsWith('\n') ? r.text : r.text + '\n'
+  const docPaths = folderPaths(
+    p.docs.map((d) => d.title || d.id),
+    'docs',
+    'md'
+  )
+  for (const [i, d] of p.docs.entries()) files[docPaths[i]] = d.markdown
   return files
 }
 
 function safeName(s: string): string {
   return s.replace(/[\\/:*?"<>|]/g, '_').trim() || 'untitled'
+}
+
+/** 文件名清理、大小写与 Unicode 规范化都可能使不同标题指向同一个文件。 */
+function folderPaths(names: string[], dir: string, ext: string): string[] {
+  const used = new Set<string>()
+  const key = (name: string): string => name.normalize('NFC').toLowerCase()
+  return names.map((name) => {
+    const clean = safeName(name)
+    let unique = clean
+    let n = 2
+    while (used.has(key(unique))) unique = `${clean} (${n++})`
+    used.add(key(unique))
+    return `${dir}/${unique}.${ext}`
+  })
 }
 
 /** 从文件夹格式读回（用于导入） */
@@ -255,8 +279,14 @@ export function projectFromFolder(files: Record<string, string>): Project {
     meta: undefined as never,
     settings: undefined as never
   })
-  const ruleSets = read<Project['ruleSets']>('rule-sets.json', []).map((r) => {
-    const text = files[`rules/${safeName(r.name || r.id)}.txt`] ?? ''
+  const storedRules = read<Project['ruleSets']>('rule-sets.json', [])
+  const rulePaths = folderPaths(
+    storedRules.map((r) => r.name || r.id),
+    'rules',
+    'txt'
+  )
+  const ruleSets = storedRules.map((r, i) => {
+    const text = files[rulePaths[i]] ?? files[`rules/${safeName(r.name || r.id)}.txt`] ?? ''
     return { ...r, text: text.replace(/\n$/, '') }
   })
   const obj: Partial<Project> & { schemaVersion: number } = {

@@ -1,6 +1,11 @@
 export default {
   account: {
     support: {
+      personalIntro: 'Escanea el código personal de pago de WeChat para apoyar Qonlang.',
+      personalCode: 'Código personal de pago de WeChat',
+      personalHint:
+        'No necesitas iniciar sesión. Elige el importe en WeChat. ¡Gracias por tu apoyo!',
+      personalAlt: 'Código QR personal de pago de WeChat del desarrollador de Qonlang',
       title: 'Apoyar el desarrollo',
       back: 'Volver a la página anterior',
       intro: 'Elige un importe para ayudar a Qonlang a crecer.',
@@ -2281,6 +2286,10 @@ export default {
       'Para la sintaxis exacta de los ajustes, consulte la sintaxis de las reglas, en la esquina superior derecha de la aplicación.'
   },
   corpus: {
+    textSize: 'Tamaño del texto de los ejemplos',
+    textSizeHint:
+      'Ajusta las escrituras, el texto original, los morfemas, las glosas y las traducciones de los ejemplos del corpus y del léxico. El 100 % conserva los tamaños originales; las exportaciones no cambian.',
+    resetTextSize: 'Restablecer al 100 %',
     pickCandidate:
       'Esta palabra tiene {n} candidatos que no se distinguen por el significado: elija uno para fijarlo',
     pickThis: 'Es este',

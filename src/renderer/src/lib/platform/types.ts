@@ -84,6 +84,8 @@ export interface Prefs {
   examplesPerEntry: number
   /** 词条下方的例句也显示文字行与出处（像语料页那样） */
   examplesShowScript: boolean
+  /** 语料例句与词条附例的文字大小（百分比，100 为原来的字号） */
+  corpusTextScale: number
   /** 各类可拖动面板的尺寸记忆：键 → 像素 */
   panelSizes: Record<string, number>
   /** 自动检查新版本（启动后一次，之后按 updateCheckMinutes 的间隔一直查，默认 20 分钟） */
@@ -179,6 +181,7 @@ export const DEFAULT_PREFS: Prefs = {
   showHelpDots: true,
   examplesPerEntry: 3,
   examplesShowScript: false,
+  corpusTextScale: 100,
   panelSizes: {},
   showDerivedMark: true,
   showHistory: true,

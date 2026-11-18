@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0 · 2026-11-18
+
+- **Sentence text size**: adjust the text in **Corpus → Sentences** from 50% to 200%, or reset it to 100%. Custom scripts, original text, interlinear glosses and translations scale together, including example sentences under lexicon entries. The preference is stored on this computer.
+- **Support development**: the start page and inspector temporarily show the developer's personal WeChat payment code again. Scan it and enter an amount in WeChat.
+- **Saving and backups**: edits made during a save remain marked as unsaved. Two windows saving the same project check and write it in turn. On macOS, a reopened window still prompts you about unsaved edits. Projects with the same name keep separate backups, and folder exports preserve separate rule sets and documents with matching names.
+- **1.0 file format commitment**: later versions will be able to open projects saved in 1.0. This stable release includes nine interface languages, public shared accounts, study pack export and the Linux installers introduced in earlier versions.
+
 ## 1.0.0-beta.3 · 2026-10-25
 
 - **Public shared accounts**: improved registration, sign-in, nickname changes and sign-out using the same account as Qonsona. Signing in remains optional; local projects are not uploaded and remain editable and saveable offline.

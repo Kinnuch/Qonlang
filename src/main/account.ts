@@ -6,6 +6,7 @@ import { ACCOUNT_OPERATIONS, type AccountOperation } from '../shared/account'
 import { SUPPORT_OPERATIONS, type SupportOperation, type SupportResult } from '../shared/support'
 import { supportInput, supportCapability, supportOrder } from './support-validation'
 import { SupportJournal } from './support-journal'
+import type { SupportPaymentMode } from '../shared/support-mode'
 
 interface SecureStorage {
   isEncryptionAvailable(): boolean
@@ -21,6 +22,7 @@ interface AccountOptions {
   apiBase?: string
   fetch?: typeof globalThis.fetch
   timeoutMs?: number
+  supportMode?: SupportPaymentMode
 }
 interface Session {
   token: string
@@ -427,6 +429,9 @@ export class AccountClient {
     return run
   }
   support(operation: unknown, input?: unknown): Promise<SupportResult> {
+    // 主进程注入当前支持方式；个人收款码期间不恢复或创建云端付款请求。
+    if (this.options.supportMode === 'personal-qr')
+      return Promise.resolve({ ok: false, state: this.#state(), error: 'PAYMENTS_DISABLED' })
     const generation = this.#generation
     const run = this.#tail.then(async (): Promise<SupportResult> => {
       let requestId: string | undefined

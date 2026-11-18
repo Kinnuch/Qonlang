@@ -23,6 +23,8 @@ class ProjectState {
   dirty = $state(false)
   saving = $state(false)
   lastSavedAt = $state<string | null>(null)
+  private projectSession = 0
+  private editRevision = 0
   /** 开着的是随软件带的示例工程：随便改，但不能保存，只能复制一份成自己的项目 */
   example = $state(false)
   /** 顶栏选中的当前语言；null 表示全部 */
@@ -95,10 +97,8 @@ class ProjectState {
     this.currentLanguageId =
       lang && p.languages.some((l) => l.id === lang) ? lang : (p.languages[0]?.id ?? null)
     this.committed = json
-    if (!this.dirty && !this.example) {
-      this.dirty = true
-      platform.setDirty(true)
-    }
+    this.editRevision++
+    if (!this.example) this.markDirty()
     this.undoTick++
   }
   undo(): void {
@@ -168,12 +168,16 @@ class ProjectState {
       return
     }
     this.project.meta.updatedAt = now()
+    this.editRevision++
     clearScriptCache()
     this.scheduleCommit()
-    if (!this.dirty && !this.example) {
-      this.dirty = true
-      platform.setDirty(true)
-    }
+    if (!this.example) this.markDirty()
+  }
+
+  private markDirty(): void {
+    if (this.dirty) return
+    this.dirty = true
+    platform.setDirty(true)
   }
 
   private markClean(): void {
@@ -194,6 +198,7 @@ class ProjectState {
   }
 
   load(p: Project, target: SaveTarget | null): void {
+    this.projectSession++
     clearScriptCache()
     this.project = p
     this.target = target
@@ -332,18 +337,19 @@ class ProjectState {
       return false
     }
     this.saving = true
+    const session = this.projectSession
+    const revision = this.editRevision
+    const destination = saveAs ? null : this.target
+    const filename = this.fileName
     try {
       // 存的是这一刻的项目：先记进撤销栈，排版、加密交给后台线程
       this.flushCommit()
       const json = this.serializeNow()
       if (json !== this.committed) this.commit()
       const content = await diskTextFromJson(json)
-      const target = await platform.saveProject(
-        saveAs ? null : this.target,
-        content,
-        this.fileName,
-        force
-      )
+      if (session !== this.projectSession) return false
+      const target = await platform.saveProject(destination, content, filename, force)
+      if (session !== this.projectSession) return false
       if (target === 'conflict') return 'conflict'
       if (!target) return false
       this.target = target
@@ -351,10 +357,15 @@ class ProjectState {
       // 示例另存出去的那份就是自己的项目了
       this.example = false
       this.lastSavedAt = now()
-      this.markClean()
-      await platform.saveSnapshot(null)
+      // 磁盘里只有保存开始时的版本，后来编辑的内容仍要保存或写入崩溃快照。
+      if (revision === this.editRevision) {
+        this.markClean()
+        await platform.saveSnapshot(null)
+      } else {
+        this.markDirty()
+      }
       await this.remember()
-      return true
+      return session === this.projectSession && revision === this.editRevision
     } catch (e) {
       ui.error(t('errors.saveFailed', { msg: (e as Error).message }))
       return false
@@ -423,6 +434,7 @@ class ProjectState {
   }
 
   close(): void {
+    this.projectSession++
     this.project = null
     this.target = null
     this.example = false

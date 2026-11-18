@@ -7,6 +7,7 @@
   import { sentenceScriptText, textScript } from '$lib/script/lexiconScript'
   import type { Id, Lexeme, Project, Script, Sentence } from '$lib/core/model'
   import { X, Quote } from '@lucide/svelte'
+  import { corpusTextSize } from './corpusTextSize'
 
   let {
     lexeme,
@@ -15,6 +16,7 @@
   }: { lexeme: Lexeme; project: Project; glossLangs?: string[] } = $props()
 
   const perEntry = $derived(Math.max(0, ui.prefs.examplesPerEntry ?? 3))
+  const textScale = $derived(corpusTextSize(ui.prefs.corpusTextScale) / 100)
   /** 预览时只找 n+1 条，多的那条只用来判断要不要显示「全部」 */
   const preview = $derived(findExamples(project, lexeme, glossLangs, perEntry + 1, pickText))
 
@@ -78,7 +80,7 @@
 </script>
 
 {#snippet row(h: ExampleHit, withWhere: boolean)}
-  <button class="ex" onclick={() => jump(h)}>
+  <button class="ex" style:--corpus-text-scale={textScale} onclick={() => jump(h)}>
     <span class="badge">{t(`lexicon.exampleKinds.${h.kind}`)}</span>
     {#each scripts as sc (sc.id)}
       {@const st = scriptLine(h, sc)}
@@ -167,6 +169,10 @@
   }
   .ex .text {
     font-weight: 600;
+    font-size: calc(1em * var(--corpus-text-scale, 1));
+  }
+  .ex .tr {
+    font-size: calc(12px * var(--corpus-text-scale, 1));
   }
   /* 命中的词：跟别处标匹配一个样子 */
   .ex mark {
@@ -178,7 +184,7 @@
   .ex .scr {
     display: block;
     max-width: 100%;
-    font-size: 18px;
+    font-size: calc(18px * var(--corpus-text-scale, 1));
     line-height: 1.3;
   }
   .overlay {

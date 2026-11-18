@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { createProject, createLanguage, createLexeme, createRuleSet } from '$lib/core/factory'
+import {
+  createProject,
+  createLanguage,
+  createLexeme,
+  createRuleSet,
+  createDoc
+} from '$lib/core/factory'
 import {
   parseProject,
   serializeProject,
@@ -58,6 +64,22 @@ describe('serialize', () => {
     expect(files['rules/Main.txt']).toBe('-* Stage 1\na > e / _i  ; umlaut\n; k > c\n')
     const back = projectFromFolder(files)
     expect({ ...back, docs: p.docs }).toEqual(p)
+  })
+
+  it('keeps rule and document contents when titles resolve to the same filename', () => {
+    const p = sample()
+    p.ruleSets.push(createRuleSet('A/B', 'a > e'), createRuleSet('a_b', 'p > b'))
+    p.docs.push(
+      { ...createDoc(null, 'É'), markdown: 'first' },
+      { ...createDoc(null, 'E\u0301'), markdown: 'second' }
+    )
+    const files = projectToFolder(p)
+    expect(projectFromFolder(files).ruleSets).toEqual(p.ruleSets)
+    expect(
+      Object.entries(files)
+        .filter(([path]) => path.startsWith('docs/'))
+        .map(([, text]) => text)
+    ).toEqual(['first', 'second'])
   })
 })
 

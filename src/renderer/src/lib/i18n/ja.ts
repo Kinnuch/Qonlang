@@ -1,6 +1,11 @@
 export default {
   account: {
     support: {
+      personalIntro: '個人のWeChat決済コードをスキャンして、Qonlangの開発を支援できます。',
+      personalCode: '個人のWeChat決済コード',
+      personalHint:
+        'ログインは不要です。WeChatで金額を入力してください。ご支援ありがとうございます！',
+      personalAlt: 'Qonlang開発者の個人WeChat決済QRコード',
       title: '開発を支援',
       back: '元の画面に戻る',
       intro: '金額を選んで、千語集の開発をご支援ください。',
@@ -2214,6 +2219,10 @@ export default {
     adjustHint: '微調整の詳しい構文は、画面右上の規則構文の手引きをご覧ください。'
   },
   corpus: {
+    textSize: '例文の文字サイズ',
+    textSizeHint:
+      'コーパスと語彙の例文にある文字表記、原文、形態素分割、グロス、訳文をまとめて拡大・縮小します。100% は元のサイズで、書き出し結果は変わりません。',
+    resetTextSize: '100% に戻す',
     pickCandidate: 'この語には候補が {n} 件あり、意味を区別できません。一つ選んで確定してください',
     pickThis: 'これにする',
     notFound: '「{w}」は見つかりませんでした',

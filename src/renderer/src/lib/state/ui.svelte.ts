@@ -4,6 +4,7 @@ import { i18n } from '$lib/i18n/index.svelte'
 import { applySkin } from '$lib/skin/apply'
 import { DEFAULT_SKIN, EMPTY_FONTS } from '$lib/skin/presets'
 import { sizesFromScales } from '$lib/ui/cardBlocks'
+import { corpusTextSize } from '$lib/ui/corpusTextSize'
 
 /** ui.choose 的一个选项：danger 画成红色按钮，primary 画成主按钮 */
 export interface ChoiceOption {
@@ -391,6 +392,7 @@ class UiState {
     this.prefs.showHelpDots ??= true
     this.prefs.examplesPerEntry ??= 3
     this.prefs.examplesShowScript ??= false
+    this.prefs.corpusTextScale = corpusTextSize(this.prefs.corpusTextScale)
     this.prefs.showDerivedMark ??= true
     if (this.prefs.registerDisplay !== 'full') this.prefs.registerDisplay = 'short'
     if (!Array.isArray(this.prefs.cardOrder)) this.prefs.cardOrder = []
