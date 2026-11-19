@@ -3,6 +3,7 @@ import type { Script } from '$lib/core/model'
 import { buildDrawnFont, drawnGlyphs } from './drawnFont'
 import { hasDrawingContent } from './glyphGeometry'
 import { scriptCacheStamp, scriptCacheValid } from './render'
+import { scriptFontScaleVar } from '$lib/skin/fontSizes'
 
 const registered = new Map<string, string>() // scriptId → dataUrl 已注册
 /** 手写字形做成的字体：scriptId → { 画的内容，已注册的 FontFace } */
@@ -95,7 +96,7 @@ export function fontFamilyCss(script: Script): string {
   const fam = scriptFontFamily(script)
   const own = fam ? `"${fam.replace(/"/g, '')}"` : 'var(--font-script)'
   const drawn = hasDrawn(script) ? `"${drawnFontFamily(script)}",` : ''
-  return `font-family:${drawn}var(${scriptFontVar(script.id)}, ${own}),var(--font-script)`
+  return `font-family:${drawn}var(${scriptFontVar(script.id)}, ${own}),var(--font-script);--font-role-scale:var(${scriptFontScaleVar(script.id)},var(--font-scale-script,1))`
 }
 
 /**

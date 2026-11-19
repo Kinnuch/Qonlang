@@ -13,9 +13,9 @@ a posteriori languages alike; nothing language-specific is baked in.
 
 界面有九种语言：简体中文、繁體中文、English、日本語、한국어、Français、Español、Русский、العربية，第一次打开跟着系统语言。
 
-可选共享账号通过 HTTPS 与 Qonsona 共用身份，本地工程保持离线可用。开始页和项目右侧检视器的「支持开发」可打开独立页面，使用微信扫描个人收款码并在微信里填写支持金额。详见[账号与支持开发指南](https://kinnuch.github.io/cerf/qonlang/settings/#support-development)。
+可选共享账号通过 HTTPS 与 Qonsona 共用身份，本地工程保持离线可用。在开始页点击「支持开发」，即可使用微信扫描个人收款码并填写支持金额。详见[账号与支持开发指南](https://kinnuch.github.io/cerf/qonlang/settings/#support-development)。
 
-Optional HTTPS accounts share an identity with Qonsona while local projects remain available offline. Open **Support development** from the start page or inspector to scan the developer's personal payment code and choose an amount in WeChat. See the [English guide](https://kinnuch.github.io/cerf/qonlang/en/settings/#support-development).
+Optional HTTPS accounts share an identity with Qonsona while local projects remain available offline. Open **Support development** on the start page to scan the developer's personal payment code and choose an amount in WeChat. See the [English guide](https://kinnuch.github.io/cerf/qonlang/en/settings/#support-development).
 
 ## 开发
 

@@ -31,8 +31,7 @@
     Copy,
     Sparkles,
     Languages as LanguagesIcon,
-    GraduationCap,
-    Coffee
+    GraduationCap
   } from '@lucide/svelte'
   import { refreshPage } from '$lib/ui/refresh'
   import { chars } from '$lib/state/chars.svelte'
@@ -373,57 +372,59 @@
         />
       {/if}
     </div>
-    <label class="row small muted">
-      {t('topbar.currentLanguage')}
-      <select
-        class="select lang-select"
-        data-tour="topbar-language"
-        bind:value={projectState.currentLanguageId}
-      >
-        <option value={null}>{t('topbar.allLanguages')}</option>
-        {#each projectState.project?.languages ?? [] as l (l.id)}
-          <option value={l.id}>{l.name}</option>
-        {/each}
-      </select>
-    </label>
-    {#if projectState.example}
+    <div class="topbar-actions">
+      <label class="row small muted">
+        {t('topbar.currentLanguage')}
+        <select
+          class="select lang-select"
+          data-tour="topbar-language"
+          bind:value={projectState.currentLanguageId}
+        >
+          <option value={null}>{t('topbar.allLanguages')}</option>
+          {#each projectState.project?.languages ?? [] as l (l.id)}
+            <option value={l.id}>{l.name}</option>
+          {/each}
+        </select>
+      </label>
+      {#if projectState.example}
+        <button
+          class="btn sm"
+          title={t('example.copyHint')}
+          disabled={projectState.saving}
+          onclick={() => projectState.save(true)}
+        >
+          <Copy size={14} />{t('example.copy')}
+        </button>
+      {:else if !projectState.readOnly}
+        <button
+          class="btn icon"
+          title={t('topbar.saveShortcut')}
+          disabled={projectState.saving}
+          onclick={() => projectState.save()}
+        >
+          <Save size={16} />
+        </button>
+      {/if}
       <button
-        class="btn sm"
-        title={t('example.copyHint')}
-        disabled={projectState.saving}
-        onclick={() => projectState.save(true)}
+        class="btn ghost icon"
+        title={t('nav.inspector')}
+        class:active={ui.inspectorOpen}
+        onclick={() => (ui.inspectorOpen = !ui.inspectorOpen)}
       >
-        <Copy size={14} />{t('example.copy')}
+        <PanelRight size={16} />
       </button>
-    {:else if !projectState.readOnly}
       <button
-        class="btn icon"
-        title={t('topbar.saveShortcut')}
-        disabled={projectState.saving}
-        onclick={() => projectState.save()}
+        class="btn ghost icon"
+        title={t('syntax.hint')}
+        class:active={ui.syntaxOpen}
+        onclick={toggleSyntax}
       >
-        <Save size={16} />
+        <BookOpenText size={16} />
       </button>
-    {/if}
-    <button
-      class="btn ghost icon"
-      title={t('nav.inspector')}
-      class:active={ui.inspectorOpen}
-      onclick={() => (ui.inspectorOpen = !ui.inspectorOpen)}
-    >
-      <PanelRight size={16} />
-    </button>
-    <button
-      class="btn ghost icon"
-      title={t('syntax.hint')}
-      class:active={ui.syntaxOpen}
-      onclick={toggleSyntax}
-    >
-      <BookOpenText size={16} />
-    </button>
-    <button class="btn ghost icon" title={t('dialog.closeProject')} onclick={closeProject}
-      ><X size={16} /></button
-    >
+      <button class="btn ghost icon" title={t('dialog.closeProject')} onclick={closeProject}
+        ><X size={16} /></button
+      >
+    </div>
   </header>
 
   <main class="main" use:hwheel>
@@ -518,11 +519,6 @@
         <RuleSyntax anchor={ui.syntaxAnchor} />
       </div>
     {/if}
-    <div class="inspector-support">
-      <button class="btn" data-support-inspector onclick={() => (ui.supportOpen = true)}
-        ><Coffee size={16} />{t('account.support.title')}</button
-      >
-    </div>
   </aside>
 </div>
 <CharPanel />
@@ -570,7 +566,7 @@
     height: 100%;
     display: grid;
     grid-template-columns: var(--nav-w) 1fr var(--inspector-w);
-    grid-template-rows: var(--topbar-h) 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
       'nav top top'
       'nav main insp';
@@ -589,6 +585,8 @@
     align-items: stretch;
     padding: 8px 6px;
     gap: 2px;
+    min-height: 0;
+    overflow-y: auto;
   }
   .nav-logo {
     height: 36px;
@@ -624,6 +622,7 @@
     /* 图标带一点皮肤的颜色，换皮肤时整条导航跟着变 */
     color: var(--nav-icon);
     cursor: pointer;
+    flex-shrink: 0;
   }
   .nav-btn:hover {
     background: var(--bg-hover);
@@ -639,17 +638,36 @@
     text-align: center;
     padding: 0 2px;
     max-width: 100%;
-    overflow-wrap: normal;
-    word-break: keep-all;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .topbar {
     grid-area: top;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 12px;
+    flex-wrap: wrap;
+    min-height: var(--topbar-h);
+    gap: 4px 8px;
+    padding: 4px 12px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-elev);
+  }
+  .topbar > .grow {
+    flex: 1 1 calc(220px + 10em);
+    min-width: 0;
+  }
+  .topbar .badge,
+  .topbar-actions label {
+    white-space: nowrap;
+  }
+  .topbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-inline-start: auto;
+    max-width: 100%;
   }
   .pname {
     overflow: hidden;
@@ -731,14 +749,5 @@
     flex: 1;
     overflow: auto;
     padding: 16px;
-  }
-  .inspector-support {
-    flex: none;
-    padding: 12px 16px;
-    border-block-start: 1px solid var(--border);
-    background: var(--bg-elev);
-  }
-  .inspector-support .btn {
-    width: 100%;
   }
 </style>

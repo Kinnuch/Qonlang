@@ -109,7 +109,8 @@
   /** 各块的顺序：皮肤页里拖着排，没排过就用默认顺序 */
   const blocks = $derived(cardBlocks(ui.prefs.cardOrder))
   /** 每一块的字号（皮肤页里逐块调，px）；块里的字号都按 em 跟着走，比例不变 */
-  const px = (key: string): string => `${blockSize(ui.prefs.cardBlockSize, key)}px`
+  const px = (key: string): string =>
+    `calc(${blockSize(ui.prefs.cardBlockSize, key)}px * var(--font-scale-ui, 1))`
   const features = $derived(
     Object.entries(l.features)
       .map(([cid, vid]) => {
@@ -535,7 +536,7 @@
     gap: 8px;
   }
   .scr {
-    font-size: 1.6em;
+    font-size: calc(1.6em * var(--font-role-scale, 1) / var(--font-scale-ui, 1));
     line-height: 1.3;
     margin: 2px 0 4px;
   }
@@ -545,7 +546,7 @@
     color: var(--warn);
   }
   .lemma {
-    font-size: 2em;
+    font-size: calc(2em * var(--font-scale-data, 1) / var(--font-scale-ui, 1));
     font-weight: 500;
     line-height: 1.2;
   }
@@ -711,6 +712,7 @@
   /* 写成 gloss 缩写的槽位名：跟语料 gloss 行同一种字体 */
   .forms .fk.gl {
     font-family: var(--font-gloss);
+    font-size: calc(1em * var(--font-scale-gloss, 1) / var(--font-scale-ui, 1));
     letter-spacing: 0.02em;
   }
   .forms .fv {

@@ -306,6 +306,12 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
   it('Tsahun loads with tones, two orthographies, packing and reduplication', () => {
     const p = load('Tsahun.laim.json')
     const L = p.languages[0]
+    expect(L.orthographies[0].phonemeRules?.toIpa).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ from: 'ts', to: 't͡s', enabled: true }),
+        expect.objectContaining({ from: 'ng', to: 'ŋ', enabled: true })
+      ])
+    )
     expect(L.prosody.type).toBe('tone')
     expect(L.prosody.tones).toHaveLength(5)
     expect(L.orthographies).toHaveLength(2)
@@ -340,9 +346,8 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
       p.sentences.some((s) => s.tokens.some((t) => t.surface === 'ngo21 tui55' && t.confirmed))
     ).toBe(true)
     expect(p.customFields.find((f) => f.name.zh === '异体字')?.scriptId).toBe(syl.id)
-    const prog = parseRuleText(L.orthographies[0].rulesToIpa)
-    expect(runRules(prog, 'tsa55').output).toBe('t͡sa˥')
-    expect(runRules(prog, 'ngo21').output).toBe('ŋo˨˩')
+    expect(transcribe(L, L.orthographies[0], 'tsa55')).toBe('t͡sa˥')
+    expect(transcribe(L, L.orthographies[0], 'ngo21')).toBe('ŋo˨˩')
     // 连读变调：35 后面还有音节读 33（软件里正字法规则带着这门语言的音类 C、V）
     const sandhi = parseRuleText(L.orthographies[0].rulesToIpa, {
       classes: languageParseOptions(L).classes

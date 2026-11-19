@@ -5,6 +5,12 @@
 import type { Language, Phoneme, Phonotactics, Project, StressPosition } from '$lib/core/model'
 import type { ParseOptions, SyllableScheme } from '../sca/parse'
 import { inferFeatures } from '$lib/ipa/features'
+import {
+  activePhonemeRules,
+  hasPhonemeRules,
+  phonemeRules,
+  spellingVariants
+} from '$lib/core/phonemeSpelling'
 
 /** 音位的特征；没填过的按 IPA 表推断 */
 export function phonemeFeatures(p: Phoneme): Record<string, string> {
@@ -448,14 +454,32 @@ export function spellingUnits(lang: Language): {
   const nuclei = nucleusSet(lang)
   const units = new Set<string>(lang.phonemes.map((p) => p.symbol))
   const vowels = new Set<string>()
+  const managed = ortho && hasPhonemeRules(ortho, 'toIpa')
+  const legacyUnits = new Set(
+    ortho && managed
+      ? phonemeRules(ortho, 'toIpa')
+          .filter((row) => !row.edited && !row.enabled)
+          .map((row) => `${row.phonemeId}\0${row.generatedFrom}`)
+      : []
+  )
   for (const p of lang.phonemes) {
-    const written = ortho ? (p.graphemes[ortho.id] ?? '') : ''
     const vowel = nuclei.has(p.symbol) || phonemeKind(lang, p) === 'vowel'
-    for (const g of written.split(/[\s,，、/]+/).filter(Boolean)) {
+    const written = ortho ? spellingVariants(p.graphemes[ortho.id] ?? '') : []
+    for (const g of written) {
+      if (managed && !legacyUnits.has(`${p.id}\0${g}`)) continue
       units.add(g)
       if (vowel) vowels.add(g)
     }
   }
+  if (ortho && managed)
+    for (const row of activePhonemeRules(ortho, 'toIpa')) {
+      units.add(row.from)
+      if (
+        nuclei.has(row.to) ||
+        lang.phonemes.some((p) => p.symbol === row.to && phonemeKind(lang, p) === 'vowel')
+      )
+        vowels.add(row.from)
+    }
   for (const d of lang.digraphs) {
     if (!d.from) continue
     units.add(d.from)

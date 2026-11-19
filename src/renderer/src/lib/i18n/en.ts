@@ -322,7 +322,7 @@ const en: Dict = {
       aelith:
         'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation.',
       tsahun:
-        'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (syllables and sound counts follow the spelling), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font.'
+        'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font.'
     },
     coffee: 'Buy me a coffee',
     changelog: 'Changelog',
@@ -1913,6 +1913,22 @@ const en: Dict = {
     exported: 'Exported'
   },
   phonology: {
+    spellingRules: 'Phoneme spelling entries',
+    spellingRulesHint:
+      'Apply the longest spellings simultaneously once, then run the advanced rules below. All spellings are accepted toward IPA; the first is the default reverse spelling. Edited or disabled entries stay unchanged when defaults change. Reset an entry to follow its phoneme again.',
+    generateSpellingRules: 'Generate from phoneme spellings',
+    spellingPreview:
+      'Existing spellings are previewed here. Editing or generating adds the base conversion; existing advanced rules remain unchanged.',
+    spellingEnabled: 'Use',
+    spellingWritten: 'Spelling',
+    spellingSuggested: 'Suggested',
+    spellingEdited: 'Edited',
+    spellingAutomatic: 'Auto',
+    spellingReset: 'Reset to automatic',
+    spellingDuplicate:
+      'For enabled entries with the same source, only the first entry in table order is used.',
+    spellingRulesEmpty:
+      'Enter spellings in the phoneme inspector to generate the corresponding entries automatically.',
     search: 'Search phonemes or classes',
     tabs: {
       phonemes: 'Phonemes',
@@ -2372,6 +2388,13 @@ const en: Dict = {
       'Uniform size {w}×{h}; matching images are stored as-is, same-ratio images are scaled, others open the cropper. PNG / GIF stay lossless; JPEG / WebP keep their format at high quality.'
   },
   skin: {
+    fontSizesHint:
+      '100% preserves the original sizes. Empty fields inherit: corpus text and scripts follow language data, translations follow the interface, and glosses follow monospace. Individual scripts can override this. Display only; projects and exports are unchanged.',
+    exampleSizeHint:
+      'Scale all rows in corpus and lexicon examples together, then adjust individual roles below. Your existing example percentage is retained.',
+    fontSizeFor: '{name} size (percent)',
+    fontSizeInherited: 'Empty inherits {size}%',
+    fontSizeReset: 'Restore inherited size for {name}',
     bg: {
       title: 'Background image',
       hint: 'Lay an image over the whole window (translucent, never blocks clicks); switching presets or resetting leaves it alone',
@@ -2430,7 +2453,7 @@ const en: Dict = {
       corpusText: 'Corpus text',
       corpusTr: 'Corpus translation',
       gloss: 'Gloss line',
-      script: 'Custom script (when no embedded font)'
+      script: 'Custom scripts (default)'
     },
     scriptFontsHint: 'Pick a font for each script in this project:',
     scriptFontFor: '{name} ({lang})',

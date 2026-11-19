@@ -16,6 +16,7 @@
     Orthography,
     Phoneme,
     PhonemeClass,
+    OrthographyPhonemeRule,
     StressPosition
   } from '$lib/core/model'
   import {
@@ -39,22 +40,27 @@
     phonotacticsFromInventory,
     type Violation
   } from '$lib/engine/phon'
-  import {
-    parseRuleText,
-    runRules,
-    stripStress,
-    type RuleProgram,
-    type WordStress
-  } from '$lib/engine/sca'
+  import { parseRuleText, stripStress, type RuleProgram, type WordStress } from '$lib/engine/sca'
   import { generateNaturalWords, MIN_LEXICON, type LexiconWord } from '$lib/engine/phon/wordgen'
   import {
     customStressProgram,
     deriveAll,
-    ipaUnits,
+    hasOrthographyRules,
+    orthographyRunner,
     spellToIpa,
     stressWord,
     transcribe
   } from '$lib/core/pronounce'
+  import {
+    syncPhonemeRules,
+    phonemeRules,
+    hasPhonemeRules,
+    suggestedPhonemeRules,
+    editPhonemeRule,
+    resetPhonemeRule,
+    duplicatePhonemeRules,
+    type OrthographyDirection
+  } from '$lib/core/phonemeSpelling'
   import Portal from '$lib/ui/Portal.svelte'
   import RuleList from '$lib/ui/RuleList.svelte'
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
@@ -199,17 +205,41 @@
   }
   function removePhoneme(p: Phoneme): void {
     if (!lang) return
-    const idx = lang.phonemes.indexOf(p)
+    const target = lang
+    const targetProject = projectState.project
+    const idx = target.phonemes.indexOf(p)
     if (idx < 0) return
     const snap = $state.snapshot(p) as Phoneme
-    lang.phonemes.splice(idx, 1)
+    const ruleSnapshots = target.orthographies.map((o) => ({
+      id: o.id,
+      rules: o.phonemeRules ? $state.snapshot(o.phonemeRules) : null
+    }))
+    target.phonemes.splice(idx, 1)
+    for (const o of target.orthographies) syncPhonemeRules(target, o)
     if (selectedPhoneme === p.id) selectedPhoneme = null
     touch()
     ui.toast(t('phonology.removedPhoneme', { s: snap.symbol }), {
       action: {
         label: t('common.undo'),
         run: () => {
-          lang!.phonemes.splice(Math.min(idx, lang!.phonemes.length), 0, snap)
+          if (projectState.project !== targetProject) return
+          target.phonemes.splice(Math.min(idx, target.phonemes.length), 0, snap)
+          for (const o of target.orthographies) {
+            const saved = ruleSnapshots.find((x) => x.id === o.id)?.rules
+            if (!saved || !o.phonemeRules) continue
+            for (const dir of ['toIpa', 'fromIpa'] as const) {
+              const restored = [
+                ...phonemeRules(o, dir),
+                ...saved[dir].filter((row) => row.phonemeId === snap.id)
+              ]
+              const order = new Map(target.phonemes.map((ph, i) => [ph.id, i]))
+              o.phonemeRules[dir] = restored.sort(
+                (a, b) =>
+                  (order.get(a.phonemeId) ?? 0) - (order.get(b.phonemeId) ?? 0) ||
+                  a.variant - b.variant
+              )
+            }
+          }
           touch()
         }
       }
@@ -229,6 +259,18 @@
   const valuesFor = (dim: string): string[] => [
     ...new Set(lang?.phonemes.map((p) => p.features[dim]).filter(Boolean) ?? [])
   ]
+  function setPhonemeSymbol(p: Phoneme, value: string): void {
+    if (!lang || projectState.readOnly) return
+    p.symbol = value
+    for (const o of lang.orthographies) syncPhonemeRules(lang, o)
+    touch()
+  }
+  function setGrapheme(p: Phoneme, ortho: Orthography, value: string): void {
+    if (!lang || projectState.readOnly) return
+    p.graphemes[ortho.id] = value
+    syncPhonemeRules(lang, ortho, { initialize: true, activatePhonemeId: p.id })
+    touch()
+  }
 
   // ───── 音类 ─────
   let queryDim = $state(memo.queryDim ?? '')
@@ -282,6 +324,34 @@
   let orthoView = $state<'list' | 'source'>(memo.orthoView ?? 'list')
   let orthoTest = $state(memo.orthoTest ?? '')
   let orthoProgram = $state<RuleProgram | null>(null)
+  const spellingRows = $derived(lang && ortho ? suggestedPhonemeRules(lang, ortho, orthoDir) : [])
+  const spellingManaged = $derived(ortho ? hasPhonemeRules(ortho, orthoDir) : false)
+  const spellingDuplicates = $derived(
+    ortho ? duplicatePhonemeRules(ortho, orthoDir) : new Set<string>()
+  )
+  function generateSpellingRules(): void {
+    if (!lang || !ortho || projectState.readOnly) return
+    if (syncPhonemeRules(lang, ortho, { initialize: true, activateAll: true })) touch()
+  }
+  function updateSpellingRule(
+    o: Orthography,
+    direction: OrthographyDirection,
+    id: string,
+    patch: Partial<Pick<OrthographyPhonemeRule, 'from' | 'to' | 'enabled'>>
+  ): void {
+    if (!lang || projectState.readOnly) return
+    const fresh = !hasPhonemeRules(o, direction)
+    editPhonemeRule(lang, o, direction, id, {
+      ...patch,
+      ...(fresh && patch.enabled === undefined ? { enabled: true } : {})
+    })
+    touch()
+  }
+  function resetSpellingRule(id: string): void {
+    if (!lang || !ortho || projectState.readOnly) return
+    resetPhonemeRule(lang, ortho, orthoDir, id)
+    touch()
+  }
   $effect(() => {
     if (!lang || !ortho) {
       orthoProgram = null
@@ -296,16 +366,13 @@
   })
   const orthoResults = $derived.by(() => {
     if (!orthoProgram) return []
+    const run = orthographyRunner(lang!, ortho!, orthoDir, {}, orthoProgram)
     return orthoTest
       .split(/[\s,，、]+/)
       .filter(Boolean)
       .map((w) => {
         // 转成音标时 θ 这类内部符号本来就是音标，不换回写法
-        const r = runRules(
-          orthoProgram!,
-          w,
-          orthoDir === 'toIpa' ? { keepUnits: ipaUnits(lang!) } : {}
-        )
+        const r = run(w)
         return { w, out: r.output, stages: r.stages }
       })
   })
@@ -504,6 +571,7 @@
     if (!lang) return
     const primary = lang.orthographies.find((o) => o.isPrimary)
     const fromIpa = primary ? orthoProgramOf(primary, 'fromIpa') : null
+    const runFromIpa = primary ? orthographyRunner(lang, primary, 'fromIpa', {}, fromIpa) : null
     const mine = project.lexemes.filter((l) => l.languageId === lang!.id && l.lemma.trim())
     const existing = new Set(mine.map((l) => l.lemma))
     const lexicon: LexiconWord[] = genLearn
@@ -519,11 +587,12 @@
     generated = words
       .map((w) => ({
         ipa: w.ipa,
-        spelt: fromIpa
-          ? fromIpa.hasStress
-            ? stripStress(runRules(fromIpa, w.ipa).output)
-            : runRules(fromIpa, w.ipa).output
-          : null,
+        spelt:
+          primary && hasOrthographyRules(primary, 'fromIpa')
+            ? fromIpa?.hasStress
+              ? stripStress(runFromIpa!(w.ipa).output)
+              : runFromIpa!(w.ipa).output
+            : null,
         like: w.like
       }))
       .filter((g) => !existing.has(g.spelt ?? g.ipa))
@@ -815,6 +884,111 @@
           </div>
           <HelpDot tip={t('phonology.orthoRulesHint')} />
         </div>
+        <section class="card spelling-rules" data-phoneme-spelling-rules data-direction={orthoDir}>
+          <div class="row wrap">
+            <h3 class="grow">
+              {t('phonology.spellingRules')}<HelpDot tip={t('phonology.spellingRulesHint')} />
+            </h3>
+            <button
+              class="btn sm"
+              data-generate-spelling-rules
+              disabled={projectState.readOnly || !spellingRows.length}
+              onclick={generateSpellingRules}>{t('phonology.generateSpellingRules')}</button
+            >
+          </div>
+          {#if !spellingManaged && spellingRows.length}<p class="small muted">
+              {t('phonology.spellingPreview')}
+            </p>{/if}
+          {#if spellingRows.length}
+            <div class="spelling-table-wrap">
+              <table class="tbl spelling-table">
+                <thead
+                  ><tr
+                    ><th>{t('phonology.spellingEnabled')}</th><th
+                      >{orthoDir === 'toIpa'
+                        ? t('phonology.spellingWritten')
+                        : t('phonology.symbol')}</th
+                    ><th></th><th
+                      >{orthoDir === 'toIpa'
+                        ? t('phonology.symbol')
+                        : t('phonology.spellingWritten')}</th
+                    ><th></th></tr
+                  ></thead
+                >
+                <tbody
+                  >{#each spellingRows as row (row.id)}<tr
+                      data-phoneme-spelling-rule={row.id}
+                      class:duplicate={spellingDuplicates.has(row.id)}
+                    >
+                      <td
+                        ><input
+                          type="checkbox"
+                          checked={row.enabled}
+                          disabled={projectState.readOnly}
+                          aria-label={`${t('phonology.spellingEnabled')} ${row.from} → ${row.to}`}
+                          onchange={(e) =>
+                            updateSpellingRule(ortho!, orthoDir, row.id, {
+                              enabled: e.currentTarget.checked
+                            })}
+                        /></td
+                      >
+                      <td
+                        ><input
+                          class="input data"
+                          data-spelling-from
+                          value={row.from}
+                          disabled={projectState.readOnly}
+                          aria-label={orthoDir === 'toIpa'
+                            ? t('phonology.spellingWritten')
+                            : t('phonology.symbol')}
+                          oninput={(e) =>
+                            updateSpellingRule(ortho!, orthoDir, row.id, {
+                              from: e.currentTarget.value
+                            })}
+                        /></td
+                      >
+                      <td class="arrow">→</td>
+                      <td
+                        ><input
+                          class="input data"
+                          data-spelling-to
+                          value={row.to}
+                          disabled={projectState.readOnly}
+                          aria-label={orthoDir === 'toIpa'
+                            ? t('phonology.symbol')
+                            : t('phonology.spellingWritten')}
+                          oninput={(e) =>
+                            updateSpellingRule(ortho!, orthoDir, row.id, {
+                              to: e.currentTarget.value
+                            })}
+                        /></td
+                      >
+                      <td class="row-state"
+                        ><span class="tiny muted"
+                          >{t(
+                            !spellingManaged
+                              ? 'phonology.spellingSuggested'
+                              : row.edited
+                                ? 'phonology.spellingEdited'
+                                : 'phonology.spellingAutomatic'
+                          )}</span
+                        >{#if row.edited}<button
+                            class="btn ghost icon sm"
+                            title={t('phonology.spellingReset')}
+                            disabled={projectState.readOnly}
+                            onclick={() => resetSpellingRule(row.id)}
+                            ><RefreshCw size={13} /></button
+                          >{/if}</td
+                      >
+                    </tr>{/each}</tbody
+                >
+              </table>
+            </div>
+            {#if spellingDuplicates.size}<p class="small muted">
+                {t('phonology.spellingDuplicate')}
+              </p>{/if}
+          {:else}<p class="small muted">{t('phonology.spellingRulesEmpty')}</p>{/if}
+        </section>
         <div class="editor-area">
           {#if orthoDir === 'toIpa'}
             {#if orthoView === 'list'}
@@ -1182,7 +1356,12 @@
   <Portal>
     <div class="field">
       <label for="ph-sym">{t('phonology.symbol')}</label>
-      <input id="ph-sym" class="input data big" bind:value={p.symbol} oninput={touch} />
+      <input
+        id="ph-sym"
+        class="input data big"
+        value={p.symbol}
+        oninput={(e) => setPhonemeSymbol(p, e.currentTarget.value)}
+      />
       {#if symbolInfo(p.symbol)}<span class="hint"
           >{zh ? symbolInfo(p.symbol)!.zh : symbolInfo(p.symbol)!.en}</span
         >{/if}
@@ -1233,8 +1412,9 @@
         <div class="row kv">
           <span class="dim small">{o.name}</span><input
             class="input data"
-            bind:value={p.graphemes[o.id]}
-            oninput={touch}
+            data-phoneme-grapheme={o.id}
+            value={p.graphemes[o.id] ?? ''}
+            oninput={(e) => setGrapheme(p, o, e.currentTarget.value)}
           />
         </div>
       {/each}
@@ -1322,6 +1502,53 @@
 {/if}
 
 <style>
+  .spelling-rules {
+    padding: 14px;
+    flex: none;
+  }
+  .spelling-rules h3 {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0;
+    font-size: 14px;
+  }
+  .spelling-rules p {
+    margin: 10px 0 0;
+  }
+  .spelling-table-wrap {
+    max-height: 300px;
+    overflow: auto;
+    margin-block-start: 10px;
+  }
+  .spelling-table {
+    width: 100%;
+    table-layout: fixed;
+  }
+  .spelling-table th:first-child,
+  .spelling-table td:first-child {
+    width: 58px;
+    text-align: center;
+  }
+  .spelling-table th:nth-child(3),
+  .spelling-table .arrow {
+    width: 30px;
+    text-align: center;
+  }
+  .spelling-table th:last-child,
+  .spelling-table .row-state {
+    width: 110px;
+  }
+  .spelling-table input:not([type='checkbox']) {
+    width: 100%;
+    min-width: 0;
+  }
+  .spelling-table .row-state {
+    white-space: normal;
+  }
+  .spelling-table .duplicate {
+    background: var(--accent-soft);
+  }
   .page {
     padding: 20px 24px;
     display: flex;

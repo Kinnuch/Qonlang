@@ -42,8 +42,9 @@
   }
   .bar.compact .input {
     max-width: 360px;
-    min-width: 120px;
-    height: 28px;
+    min-width: 0;
+    width: 0;
+    height: max(28px, calc(1.4em + 8px));
     font-size: 13px;
   }
 </style>

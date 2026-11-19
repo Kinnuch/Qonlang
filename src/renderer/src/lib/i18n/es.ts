@@ -325,7 +325,7 @@ export default {
       aelith:
         'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación.',
       tsahun:
-        'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (las sílabas y el recuento de sonidos siguen la forma escrita), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura.'
+        'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura.'
     },
     coffee: 'Invíteme a un café',
     changelog: 'Registro de cambios',
@@ -1937,6 +1937,22 @@ export default {
     exported: 'Exportado'
   },
   phonology: {
+    spellingRules: 'Correspondencias de fonemas',
+    spellingRulesHint:
+      'Convierte una sola vez con la coincidencia más larga y después aplica las reglas avanzadas. Hacia IPA se aceptan todas las grafías; en sentido inverso se usa la primera. Las filas editadas o desactivadas se conservan. Restablece el modo automático para volver a seguir el fonema.',
+    generateSpellingRules: 'Generar desde las grafías',
+    spellingPreview:
+      'Vista previa de las grafías existentes. Al editar o generar se añade la conversión básica; las reglas avanzadas existentes se conservan.',
+    spellingEnabled: 'Usar',
+    spellingWritten: 'Grafía',
+    spellingSuggested: 'Sugerido',
+    spellingEdited: 'Editado',
+    spellingAutomatic: 'Auto',
+    spellingReset: 'Restablecer automático',
+    spellingDuplicate:
+      'Si varias entradas activas tienen el mismo origen, se usa solo la primera de la tabla.',
+    spellingRulesEmpty:
+      'Introduce las grafías en el inspector del fonema para generar automáticamente las correspondencias.',
     search: 'Buscar fonemas o clases de sonidos',
     tabs: {
       phonemes: 'Fonemas',
@@ -2403,6 +2419,13 @@ export default {
     sizeHint: 'Unifica el tamaño de las imágenes del proyecto en {w}×{h}.'
   },
   skin: {
+    fontSizesHint:
+      'El 100 % conserva el tamaño original. Un campo vacío hereda: original y escrituras de datos lingüísticos, traducciones de interfaz y glosas de monoespacio. Cada escritura puede tener su propio valor. Solo cambia la visualización, no el proyecto ni la exportación.',
+    exampleSizeHint:
+      'Ajusta juntas las líneas de los ejemplos del corpus y del léxico y luego cada función. Se conserva el porcentaje existente.',
+    fontSizeFor: 'Tamaño de {name} (%)',
+    fontSizeInherited: 'Vacío: heredar {size} %',
+    fontSizeReset: 'Restaurar el tamaño heredado de {name}',
     bg: {
       title: 'Imagen de fondo',
       hint: 'Elija la imagen de fondo de la aplicación',
@@ -2463,7 +2486,7 @@ export default {
       corpusText: 'Texto original del corpus',
       corpusTr: 'Traducción del corpus',
       gloss: 'Línea de glosa',
-      script: 'Escritura personalizada (si no hay fuente incrustada)'
+      script: 'Escrituras personalizadas (predeterminado)'
     },
     scriptFontsHint: 'Asigne un archivo de fuente propio a cada escritura del proyecto:',
     scriptFontFor: '{name} ({lang})',

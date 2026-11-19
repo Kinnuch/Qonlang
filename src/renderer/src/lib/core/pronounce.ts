@@ -2,10 +2,24 @@
  * 正字法 → IPA 的自动标音。规则文本按正字法解析并缓存；不规则发音不覆盖。
  */
 import type { Language, Lexeme, Orthography, Project } from './model'
-import { parseRuleText, runRulesOnText, type RuleProgram, type WordStress } from '$lib/engine/sca'
+import {
+  parseRuleText,
+  runRules,
+  runRulesOnText,
+  mapRuleWords,
+  type RuleProgram,
+  type WordStress,
+  type RunOptions,
+  type RunResult
+} from '$lib/engine/sca'
 import { languageParseOptions, segment } from '$lib/engine/phon'
 import { inferFeatures } from '$lib/ipa/features'
 import { lexemeStress } from './stressInfo'
+import {
+  preparePhonemeMapping,
+  hasPhonemeRules,
+  type OrthographyDirection
+} from './phonemeSpelling'
 
 const cache = new Map<string, { text: string; classes: string; program: RuleProgram }>()
 export function clearPronounceCache(): void {
@@ -27,6 +41,76 @@ export function orthoProgram(
   const program = parseRuleText(text, opts)
   cache.set(key, { text, classes: classesKey, program })
   return program
+}
+
+export function hasOrthographyRules(
+  ortho: Orthography,
+  direction: OrthographyDirection = 'toIpa'
+): boolean {
+  return (
+    hasPhonemeRules(ortho, direction) ||
+    !!(direction === 'toIpa' ? ortho.rulesToIpa : ortho.rulesFromIpa).trim()
+  )
+}
+/** 构形等调用方的缓存必须同时看基础条目和高级规则。 */
+export function orthographySignature(
+  lang: Language,
+  ortho: Orthography,
+  direction: OrthographyDirection = 'toIpa'
+): string {
+  return JSON.stringify([
+    ortho.id,
+    direction === 'toIpa' ? ortho.rulesToIpa : ortho.rulesFromIpa,
+    ortho.phonemeRules?.[direction] ?? null,
+    languageParseOptions(lang)
+  ])
+}
+
+/** 基础条目一次同时转写，再执行原有高级规则；不会把结果再次送回默认写法回退。 */
+export function runOrthography(
+  lang: Language,
+  ortho: Orthography,
+  direction: OrthographyDirection,
+  word: string,
+  options: RunOptions = {},
+  program?: RuleProgram | null
+): RunResult {
+  return orthographyRunner(lang, ortho, direction, options, program)(word)
+}
+/** 批量或整段转写时只准备一次基础映射和高级程序。 */
+export function orthographyRunner(
+  lang: Language,
+  ortho: Orthography,
+  direction: OrthographyDirection,
+  options: RunOptions = {},
+  program?: RuleProgram | null
+): (word: string) => RunResult {
+  const convert = preparePhonemeMapping(ortho, direction)
+  const advanced = program === undefined ? orthoProgram(lang, ortho, direction) : program
+  const runOptions = { ...(direction === 'toIpa' ? { keepUnits: ipaUnits(lang) } : {}), ...options }
+  return (word) => {
+    const mapped = convert(word)
+    if (!advanced) return { input: word, output: mapped, stages: [], trace: [] }
+    return { ...runRules(advanced, mapped, runOptions), input: word }
+  }
+}
+
+/** 与原正字法规则一样按词处理，空白和词界标点保持原来的规则语义。 */
+export function runOrthographyOnText(
+  lang: Language,
+  ortho: Orthography,
+  direction: OrthographyDirection,
+  text: string,
+  options: RunOptions = {}
+): string {
+  const program = orthoProgram(lang, ortho, direction)
+  if (!hasPhonemeRules(ortho, direction) && program)
+    return runRulesOnText(program, text, {
+      ...(direction === 'toIpa' ? { keepUnits: ipaUnits(lang) } : {}),
+      ...options
+    })
+  const run = orthographyRunner(lang, ortho, direction, { ...options, trace: false }, program)
+  return mapRuleWords(text, (word) => run(word).output)
 }
 
 /**
@@ -52,9 +136,8 @@ export function transcribe(
   text: string,
   word?: WordStress
 ): string | null {
-  const p = orthoProgram(lang, ortho, 'toIpa')
-  if (!p) return null
-  return runRulesOnText(p, text, { keepUnits: ipaUnits(lang), word })
+  if (!hasOrthographyRules(ortho)) return null
+  return runOrthographyOnText(lang, ortho, 'toIpa', text, { word })
 }
 
 /**

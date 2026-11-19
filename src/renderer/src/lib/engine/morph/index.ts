@@ -20,7 +20,7 @@ import type {
 import { parseRuleText, runRules, stripStress, type RuleProgram, type WordStress } from '../sca'
 import { lexemeStress, morphemeStress, posNames } from '$lib/core/stressInfo'
 import { languageParseOptions, segment, spellingUnits } from '../phon'
-import { transcribe } from '$lib/core/pronounce'
+import { transcribe, hasOrthographyRules, orthographySignature } from '$lib/core/pronounce'
 import { posParadigmId } from '$lib/core/pos'
 import { activeValues, conditionVariants, resolveConditions } from './conditions'
 import { activeValueIds, alloValues, valueLabel, valueMatch } from './allomorph'
@@ -579,9 +579,9 @@ export function parseAffixRef(
 function spokenForm(ctx: MorphContext, stem: string): string | null {
   const lang = ctx.language
   const ortho = lang.orthographies.find((o) => o.isPrimary) ?? lang.orthographies[0]
-  if (!ortho?.rulesToIpa.trim()) return null
-  if (ctx.spoken?.rules !== ortho.rulesToIpa)
-    ctx.spoken = { rules: ortho.rulesToIpa, map: new Map() }
+  if (!ortho || !hasOrthographyRules(ortho)) return null
+  const signature = orthographySignature(lang, ortho)
+  if (ctx.spoken?.rules !== signature) ctx.spoken = { rules: signature, map: new Map() }
   const cache = ctx.spoken.map
   if (!cache.has(stem)) {
     const ipa = transcribe(lang, ortho, stem)?.replace(/[ˈˌ.‿|‖]/g, '') ?? null

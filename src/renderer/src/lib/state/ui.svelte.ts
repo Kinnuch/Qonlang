@@ -5,6 +5,7 @@ import { applySkin } from '$lib/skin/apply'
 import { DEFAULT_SKIN, EMPTY_FONTS } from '$lib/skin/presets'
 import { sizesFromScales } from '$lib/ui/cardBlocks'
 import { corpusTextSize } from '$lib/ui/corpusTextSize'
+import { fontSizeMap } from '$lib/skin/fontSizes'
 
 /** ui.choose 的一个选项：danger 画成红色按钮，primary 画成主按钮 */
 export interface ChoiceOption {
@@ -382,6 +383,8 @@ class UiState {
     this.prefs = await platform.getPrefs()
     if (!this.prefs.skin) this.prefs.skin = structuredClone(DEFAULT_SKIN)
     this.prefs.skin.fonts = { ...EMPTY_FONTS, ...(this.prefs.skin.fonts ?? {}) }
+    this.prefs.skin.fontSizes = fontSizeMap(this.prefs.skin.fontSizes, true)
+    this.prefs.skin.scriptFontSizes = fontSizeMap(this.prefs.skin.scriptFontSizes)
     this.prefs.skin.light ??= {}
     this.prefs.skin.dark ??= {}
     this.prefs.skin.mirror ??= ''

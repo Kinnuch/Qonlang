@@ -13,6 +13,7 @@ import {
   type Skin,
   type SkinBackground
 } from './presets'
+import { fontSizeMap } from './fontSizes'
 
 /** 文件里的记号：认出是千语集导出的皮肤 */
 export const SKIN_FILE_MARK = 'qonlangSkin'
@@ -88,6 +89,8 @@ export function exportSkinFile(
       dark: strMap(skin.dark, (k) => VAR_NAMES.has(k)),
       fonts: { ...EMPTY_FONTS, ...strMap(skin.fonts, (k) => SLOTS.includes(k as FontSlot)) },
       scriptFonts: strMap(skin.scriptFonts),
+      fontSizes: fontSizeMap(skin.fontSizes, true),
+      scriptFontSizes: fontSizeMap(skin.scriptFontSizes),
       ...(background ? { background } : {})
     }
   }
@@ -118,6 +121,8 @@ export function parseSkinFile(text: string): SkinParse {
       dark: strMap(src.dark, (k) => VAR_NAMES.has(k)),
       fonts: { ...EMPTY_FONTS, ...strMap(src.fonts, (k) => SLOTS.includes(k as FontSlot)) },
       scriptFonts: strMap(src.scriptFonts),
+      fontSizes: fontSizeMap(src.fontSizes, true),
+      scriptFontSizes: fontSizeMap(src.scriptFontSizes),
       ...(background ? { background } : {})
     }
   }

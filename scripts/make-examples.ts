@@ -24,6 +24,7 @@ import {
   newId
 } from '$lib/core/factory'
 import { serializeProject } from '$lib/core/serialize'
+import { syncPhonemeRules } from '$lib/core/phonemeSpelling'
 import { canonicalizeSlotKeys } from '$lib/core/slotKeys'
 import { inferFeatures } from '$lib/ipa/features'
 import { analyzeSentence } from '$lib/engine/gloss'
@@ -1410,23 +1411,13 @@ function makeTsahun(): void {
     '; 连读变调：35 调后面还接着音节时读 33（叠词前一个音节），否则仍是 35——满足 / 不满足环境两路写成一条',
     '35 > ˧?˧˥ / _C , _V',
     '; 数字调 → 五度标调字母',
-    'ts > t͡s',
-    'ng > ŋ',
     '55 > ˥',
     '35 > ˧˥',
     '21 > ˨˩',
     '51 > ˥˩',
     '33 > ˧'
   ].join('\n')
-  rom.rulesFromIpa = [
-    't͡s > ts',
-    'ŋ > ng',
-    '˧˥ > 35',
-    '˨˩ > 21',
-    '˥˩ > 51',
-    '˥ > 55',
-    '˧ > 33'
-  ].join('\n')
+  rom.rulesFromIpa = ['˧˥ > 35', '˨˩ > 21', '˥˩ > 51', '˥ > 55', '˧ > 33'].join('\n')
   L.orthographies.push({
     id: newId(),
     name: '西里尔正字',
@@ -1480,6 +1471,7 @@ function makeTsahun(): void {
   // 各音位在罗马化里怎么写：音节与韵律的测试按拼写输入时 ts、ng 各算一个音，构形的重叠也按它数
   for (const ph of L.phonemes)
     ph.graphemes[rom.id] = ph.symbol === 't͡s' ? 'ts' : ph.symbol === 'ŋ' ? 'ng' : ph.symbol
+  syncPhonemeRules(L, rom, { initialize: true, activateAll: true })
   L.classes = [
     { id: newId(), name: 'C', members: 'p t k ts m n ng s h l w j'.split(' '), featureQuery: null },
     { id: newId(), name: 'V', members: 'a i u e o'.split(' '), featureQuery: null },
@@ -1858,6 +1850,7 @@ function makeTsahun(): void {
     '',
     '- **声调**：韵律类型选「声调」，五个调各有调符与数字；罗马化转 IPA 的第一条是连读变调 `35 > ˧?˧˥ / _C , _V`（满足 / 不满足环境两路），叠词 lun35lun35 读 lun˧lun˧˥',
     '- **双正字法**：罗马化（数字标调）与西里尔正字，例句可以并列两种写法；音位表里填了每个音位在罗马化里的写法，「音节与韵律」的测试按拼写输入 tsang55 时 ts、ng 各算一个音，形容词强调重叠 tsing55 得 tsitsing55（按字母数会是 tstsing55）',
+    '- 在「音系 → 正字法」选择罗马化，可查看从音位写法生成的 ts → t͡s 和 ng → ŋ，单独微调一行，再用试写框检查结果。',
     '- **文字**：音节文字的**拼合**（辅音+元音自动拼格，尾辅音用消音符）与**竖排显示**',
     '- **构形**：孤立语也有构形——重叠出复数与强调；代词复数后面空一格接 `@tui55`（语素表里没有就引用同名词条），推出带空格的 `ngo21 tui55`',
     '- **语料**：重叠形也能被自动 gloss 认出来（`lun35lun35`），带空格的 `ngo21 tui55` 并成一个词认；`hok33 lo21` 里的同形词故意没确认，悬浮时并排给候选；工作台里点一个动词，附着台列出语料里跟动词用过的小品词：完成体 ta33 放在后面、否定 mo35 放在前面（按语料里惯常挨着的那一边）',

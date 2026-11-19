@@ -1,5 +1,12 @@
 import { FONT_VARS, SKIN_EXTRA_VARS, SKIN_VARS, type Skin } from './presets'
 import { scriptFontVar } from '$lib/script/fonts'
+import {
+  FONT_SCALE_VARS,
+  FONT_SIZE_SLOTS,
+  fontSize,
+  fontSizeMap,
+  scriptFontScaleVar
+} from './fontSizes'
 
 /** 上一次写上去的按文字字体变量，换皮肤时先清掉 */
 let scriptVars: string[] = []
@@ -18,8 +25,15 @@ export function applySkin(skin: Skin, theme: 'light' | 'dark'): void {
     const v = skin.fonts?.[slot]
     if (v && v.trim()) st.setProperty(name, v)
   }
+  for (const slot of FONT_SIZE_SLOTS)
+    st.setProperty(FONT_SCALE_VARS[slot], String(fontSize(skin, slot) / 100))
   for (const name of scriptVars) st.removeProperty(name)
   scriptVars = []
+  for (const [id, value] of Object.entries(fontSizeMap(skin.scriptFontSizes))) {
+    const name = scriptFontScaleVar(id)
+    st.setProperty(name, String(value / 100))
+    scriptVars.push(name)
+  }
   for (const [id, v] of Object.entries(skin.scriptFonts ?? {})) {
     if (!v || !v.trim()) continue
     const name = scriptFontVar(id)

@@ -329,7 +329,7 @@ export default {
       aelith:
         'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées.',
       tsahun:
-        'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation et compte des sons suivant la graphie), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture.'
+        'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation suivant la graphie et correspondances graphème–phonème modifiables), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture.'
     },
     coffee: 'Offrez-moi un café',
     changelog: 'Journal des modifications',
@@ -1939,6 +1939,22 @@ export default {
     exported: 'Exporté'
   },
   phonology: {
+    spellingRules: 'Correspondances des phonèmes',
+    spellingRulesHint:
+      'Convertissez une seule fois par correspondance la plus longue, puis appliquez les règles avancées ci-dessous. Toutes les graphies sont acceptées vers les API ; la première est utilisée en sens inverse. Les lignes modifiées ou désactivées sont conservées. Rétablissez le mode automatique pour suivre le phonème.',
+    generateSpellingRules: 'Générer depuis les graphies',
+    spellingPreview:
+      'Aperçu des graphies existantes. Modifier ou générer ajoute la conversion de base ; les règles avancées existantes restent inchangées.',
+    spellingEnabled: 'Actif',
+    spellingWritten: 'Graphie',
+    spellingSuggested: 'Proposé',
+    spellingEdited: 'Modifié',
+    spellingAutomatic: 'Auto',
+    spellingReset: 'Rétablir le mode automatique',
+    spellingDuplicate:
+      'Si plusieurs lignes actives ont la même source, seule la première du tableau est utilisée.',
+    spellingRulesEmpty:
+      'Saisissez les graphies dans le panneau du phonème pour générer automatiquement les correspondances.',
     search: 'Rechercher un phonème ou une classe de sons',
     tabs: {
       phonemes: 'Phonèmes',
@@ -2410,6 +2426,13 @@ export default {
     sizeHint: 'Uniformise à {w}×{h} la taille des illustrations du projet.'
   },
   skin: {
+    fontSizesHint:
+      '100 % conserve la taille initiale. Vide : le texte du corpus et les écritures suivent les données linguistiques, les traductions l’interface, les gloses le monospace. Chaque écriture peut remplacer ce choix. Seul l’affichage change, pas les projets ni les exports.',
+    exampleSizeHint:
+      'Ajustez ensemble les lignes des exemples du corpus et du lexique, puis chaque rôle ci-dessous. Le pourcentage existant est conservé.',
+    fontSizeFor: 'Taille de {name} (%)',
+    fontSizeInherited: 'Vide : hériter de {size} %',
+    fontSizeReset: 'Rétablir la taille héritée de {name}',
     bg: {
       title: 'Image de fond',
       hint: 'Choisir l’image de fond du logiciel',
@@ -2470,7 +2493,7 @@ export default {
       corpusText: 'Texte du corpus',
       corpusTr: 'Traduction du corpus',
       gloss: 'Ligne de glose',
-      script: 'Écriture personnalisée (sans police intégrée)'
+      script: 'Écritures personnalisées (défaut)'
     },
     scriptFontsHint: 'Attribuer une police à chacune des écritures du projet :',
     scriptFontFor: '{name} ({lang})',

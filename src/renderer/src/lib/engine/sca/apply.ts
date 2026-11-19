@@ -384,6 +384,15 @@ export function runRules(program: RuleProgram, word: string, options: RunOptions
 const EDGE_PUNCT =
   /^([.,;:!?…“”"«»‹›—–「」『』，。！？；：、]*)(.*?)([.,;:!?…“”"«»‹›—–「」『』，。！？；：、]*)$/su
 
+/** 规则和正字法共用词界切分；转换函数不接收空串，空白与标点规则保持一致。 */
+export function mapRuleWords(text: string, convert: (word: string) => string): string {
+  const conv = (word: string): string => (word ? convert(word) : '')
+  return text.replace(/\S+/gu, (word) => {
+    const m = EDGE_PUNCT.exec(word)
+    return !m || (!m[1] && !m[3]) || !m[2] ? conv(word) : conv(m[1]) + conv(m[2]) + conv(m[3])
+  })
+}
+
 /**
  * 一段可能有好几个词的文字：按空白切开，每个词单独跑一遍规则——`#` 是每个词自己的词首、词尾
  * （`A B` 里 A 的末尾也是词尾），空白原样留着；词两头的标点单独跑。只要输出文字时用它。
@@ -395,11 +404,7 @@ export function runRulesOnText(
 ): string {
   const conv = (x: string): string =>
     x ? runRules(program, x, { ...options, trace: false }).output : ''
-  return text.replace(/\S+/gu, (w) => {
-    const m = EDGE_PUNCT.exec(w)
-    if (!m || (!m[1] && !m[3]) || !m[2]) return conv(w)
-    return conv(m[1]) + conv(m[2]) + conv(m[3])
-  })
+  return mapRuleWords(text, conv)
 }
 
 /** 只应用一条规则（预览用）。输入输出都是书写形式（经多合字母替换与还原）。 */

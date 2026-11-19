@@ -328,9 +328,389 @@
           "name": "罗马化",
           "font": "",
           "direction": "ltr",
-          "rulesToIpa": "; 连读变调：35 调后面还接着音节时读 33（叠词前一个音节），否则仍是 35——满足 / 不满足环境两路写成一条\n35 > ˧?˧˥ / _C , _V\n; 数字调 → 五度标调字母\nts > t͡s\nng > ŋ\n55 > ˥\n35 > ˧˥\n21 > ˨˩\n51 > ˥˩\n33 > ˧",
-          "rulesFromIpa": "t͡s > ts\nŋ > ng\n˧˥ > 35\n˨˩ > 21\n˥˩ > 51\n˥ > 55\n˧ > 33",
-          "isPrimary": true
+          "rulesToIpa": "; 连读变调：35 调后面还接着音节时读 33（叠词前一个音节），否则仍是 35——满足 / 不满足环境两路写成一条\n35 > ˧?˧˥ / _C , _V\n; 数字调 → 五度标调字母\n55 > ˥\n35 > ˧˥\n21 > ˨˩\n51 > ˥˩\n33 > ˧",
+          "rulesFromIpa": "˧˥ > 35\n˨˩ > 21\n˥˩ > 51\n˥ > 55\n˧ > 33",
+          "isPrimary": true,
+          "phonemeRules": {
+            "toIpa": [
+              {
+                "phonemeId": "aade0c12-988d-4d5b-811a-68df8b44ac31",
+                "variant": 0,
+                "from": "p",
+                "to": "p",
+                "id": "aade0c12-988d-4d5b-811a-68df8b44ac31:toIpa:70",
+                "generatedFrom": "p",
+                "generatedTo": "p",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "43f862be-39ed-4421-8305-ba543f33dd3f",
+                "variant": 0,
+                "from": "t",
+                "to": "t",
+                "id": "43f862be-39ed-4421-8305-ba543f33dd3f:toIpa:74",
+                "generatedFrom": "t",
+                "generatedTo": "t",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "872abc52-60e0-4c04-9dd7-7aeea19b4091",
+                "variant": 0,
+                "from": "k",
+                "to": "k",
+                "id": "872abc52-60e0-4c04-9dd7-7aeea19b4091:toIpa:6b",
+                "generatedFrom": "k",
+                "generatedTo": "k",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "96ad4fb1-7091-4f78-9e26-f57de7abe51c",
+                "variant": 0,
+                "from": "ts",
+                "to": "t͡s",
+                "id": "96ad4fb1-7091-4f78-9e26-f57de7abe51c:toIpa:74-73",
+                "generatedFrom": "ts",
+                "generatedTo": "t͡s",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "83f0831c-66dc-4979-8056-c6f295b95e79",
+                "variant": 0,
+                "from": "m",
+                "to": "m",
+                "id": "83f0831c-66dc-4979-8056-c6f295b95e79:toIpa:6d",
+                "generatedFrom": "m",
+                "generatedTo": "m",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "3b98a37b-ec6e-484b-804b-0dcfd9396b57",
+                "variant": 0,
+                "from": "n",
+                "to": "n",
+                "id": "3b98a37b-ec6e-484b-804b-0dcfd9396b57:toIpa:6e",
+                "generatedFrom": "n",
+                "generatedTo": "n",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "b3cf8de2-f649-44dc-a1fd-accae06e13e0",
+                "variant": 0,
+                "from": "ng",
+                "to": "ŋ",
+                "id": "b3cf8de2-f649-44dc-a1fd-accae06e13e0:toIpa:6e-67",
+                "generatedFrom": "ng",
+                "generatedTo": "ŋ",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "70309103-25eb-4918-a921-6ac3c4d72f09",
+                "variant": 0,
+                "from": "s",
+                "to": "s",
+                "id": "70309103-25eb-4918-a921-6ac3c4d72f09:toIpa:73",
+                "generatedFrom": "s",
+                "generatedTo": "s",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "0fc7c15b-5306-4295-9358-c2cde13116fb",
+                "variant": 0,
+                "from": "h",
+                "to": "h",
+                "id": "0fc7c15b-5306-4295-9358-c2cde13116fb:toIpa:68",
+                "generatedFrom": "h",
+                "generatedTo": "h",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "424693c0-ca40-439d-b171-7d883bec8533",
+                "variant": 0,
+                "from": "l",
+                "to": "l",
+                "id": "424693c0-ca40-439d-b171-7d883bec8533:toIpa:6c",
+                "generatedFrom": "l",
+                "generatedTo": "l",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "b531ce38-e0a6-4849-a732-30fdb4960e89",
+                "variant": 0,
+                "from": "w",
+                "to": "w",
+                "id": "b531ce38-e0a6-4849-a732-30fdb4960e89:toIpa:77",
+                "generatedFrom": "w",
+                "generatedTo": "w",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "e8daef4d-ea22-4d21-a8b9-e3f69cbb5947",
+                "variant": 0,
+                "from": "j",
+                "to": "j",
+                "id": "e8daef4d-ea22-4d21-a8b9-e3f69cbb5947:toIpa:6a",
+                "generatedFrom": "j",
+                "generatedTo": "j",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "7b103ddf-d93f-4710-8d4e-f56ff7646421",
+                "variant": 0,
+                "from": "a",
+                "to": "a",
+                "id": "7b103ddf-d93f-4710-8d4e-f56ff7646421:toIpa:61",
+                "generatedFrom": "a",
+                "generatedTo": "a",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "64dc9670-9787-4b47-b052-b383425aef66",
+                "variant": 0,
+                "from": "i",
+                "to": "i",
+                "id": "64dc9670-9787-4b47-b052-b383425aef66:toIpa:69",
+                "generatedFrom": "i",
+                "generatedTo": "i",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "1544cee0-e292-4bda-a2e0-272f3d66cb36",
+                "variant": 0,
+                "from": "u",
+                "to": "u",
+                "id": "1544cee0-e292-4bda-a2e0-272f3d66cb36:toIpa:75",
+                "generatedFrom": "u",
+                "generatedTo": "u",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "25cc6e5a-ec3e-4831-b572-2d85e6e527cd",
+                "variant": 0,
+                "from": "e",
+                "to": "e",
+                "id": "25cc6e5a-ec3e-4831-b572-2d85e6e527cd:toIpa:65",
+                "generatedFrom": "e",
+                "generatedTo": "e",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "3c35b22c-f8fe-4a1e-adba-b91af2280c2d",
+                "variant": 0,
+                "from": "o",
+                "to": "o",
+                "id": "3c35b22c-f8fe-4a1e-adba-b91af2280c2d:toIpa:6f",
+                "generatedFrom": "o",
+                "generatedTo": "o",
+                "enabled": true,
+                "edited": false
+              }
+            ],
+            "fromIpa": [
+              {
+                "phonemeId": "aade0c12-988d-4d5b-811a-68df8b44ac31",
+                "variant": 0,
+                "from": "p",
+                "to": "p",
+                "id": "aade0c12-988d-4d5b-811a-68df8b44ac31:fromIpa:70",
+                "generatedFrom": "p",
+                "generatedTo": "p",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "43f862be-39ed-4421-8305-ba543f33dd3f",
+                "variant": 0,
+                "from": "t",
+                "to": "t",
+                "id": "43f862be-39ed-4421-8305-ba543f33dd3f:fromIpa:74",
+                "generatedFrom": "t",
+                "generatedTo": "t",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "872abc52-60e0-4c04-9dd7-7aeea19b4091",
+                "variant": 0,
+                "from": "k",
+                "to": "k",
+                "id": "872abc52-60e0-4c04-9dd7-7aeea19b4091:fromIpa:6b",
+                "generatedFrom": "k",
+                "generatedTo": "k",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "96ad4fb1-7091-4f78-9e26-f57de7abe51c",
+                "variant": 0,
+                "from": "t͡s",
+                "to": "ts",
+                "id": "96ad4fb1-7091-4f78-9e26-f57de7abe51c:fromIpa:74-361-73",
+                "generatedFrom": "t͡s",
+                "generatedTo": "ts",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "83f0831c-66dc-4979-8056-c6f295b95e79",
+                "variant": 0,
+                "from": "m",
+                "to": "m",
+                "id": "83f0831c-66dc-4979-8056-c6f295b95e79:fromIpa:6d",
+                "generatedFrom": "m",
+                "generatedTo": "m",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "3b98a37b-ec6e-484b-804b-0dcfd9396b57",
+                "variant": 0,
+                "from": "n",
+                "to": "n",
+                "id": "3b98a37b-ec6e-484b-804b-0dcfd9396b57:fromIpa:6e",
+                "generatedFrom": "n",
+                "generatedTo": "n",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "b3cf8de2-f649-44dc-a1fd-accae06e13e0",
+                "variant": 0,
+                "from": "ŋ",
+                "to": "ng",
+                "id": "b3cf8de2-f649-44dc-a1fd-accae06e13e0:fromIpa:14b",
+                "generatedFrom": "ŋ",
+                "generatedTo": "ng",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "70309103-25eb-4918-a921-6ac3c4d72f09",
+                "variant": 0,
+                "from": "s",
+                "to": "s",
+                "id": "70309103-25eb-4918-a921-6ac3c4d72f09:fromIpa:73",
+                "generatedFrom": "s",
+                "generatedTo": "s",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "0fc7c15b-5306-4295-9358-c2cde13116fb",
+                "variant": 0,
+                "from": "h",
+                "to": "h",
+                "id": "0fc7c15b-5306-4295-9358-c2cde13116fb:fromIpa:68",
+                "generatedFrom": "h",
+                "generatedTo": "h",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "424693c0-ca40-439d-b171-7d883bec8533",
+                "variant": 0,
+                "from": "l",
+                "to": "l",
+                "id": "424693c0-ca40-439d-b171-7d883bec8533:fromIpa:6c",
+                "generatedFrom": "l",
+                "generatedTo": "l",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "b531ce38-e0a6-4849-a732-30fdb4960e89",
+                "variant": 0,
+                "from": "w",
+                "to": "w",
+                "id": "b531ce38-e0a6-4849-a732-30fdb4960e89:fromIpa:77",
+                "generatedFrom": "w",
+                "generatedTo": "w",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "e8daef4d-ea22-4d21-a8b9-e3f69cbb5947",
+                "variant": 0,
+                "from": "j",
+                "to": "j",
+                "id": "e8daef4d-ea22-4d21-a8b9-e3f69cbb5947:fromIpa:6a",
+                "generatedFrom": "j",
+                "generatedTo": "j",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "7b103ddf-d93f-4710-8d4e-f56ff7646421",
+                "variant": 0,
+                "from": "a",
+                "to": "a",
+                "id": "7b103ddf-d93f-4710-8d4e-f56ff7646421:fromIpa:61",
+                "generatedFrom": "a",
+                "generatedTo": "a",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "64dc9670-9787-4b47-b052-b383425aef66",
+                "variant": 0,
+                "from": "i",
+                "to": "i",
+                "id": "64dc9670-9787-4b47-b052-b383425aef66:fromIpa:69",
+                "generatedFrom": "i",
+                "generatedTo": "i",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "1544cee0-e292-4bda-a2e0-272f3d66cb36",
+                "variant": 0,
+                "from": "u",
+                "to": "u",
+                "id": "1544cee0-e292-4bda-a2e0-272f3d66cb36:fromIpa:75",
+                "generatedFrom": "u",
+                "generatedTo": "u",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "25cc6e5a-ec3e-4831-b572-2d85e6e527cd",
+                "variant": 0,
+                "from": "e",
+                "to": "e",
+                "id": "25cc6e5a-ec3e-4831-b572-2d85e6e527cd:fromIpa:65",
+                "generatedFrom": "e",
+                "generatedTo": "e",
+                "enabled": true,
+                "edited": false
+              },
+              {
+                "phonemeId": "3c35b22c-f8fe-4a1e-adba-b91af2280c2d",
+                "variant": 0,
+                "from": "o",
+                "to": "o",
+                "id": "3c35b22c-f8fe-4a1e-adba-b91af2280c2d:fromIpa:6f",
+                "generatedFrom": "o",
+                "generatedTo": "o",
+                "enabled": true,
+                "edited": false
+              }
+            ]
+          }
         },
         {
           "id": "0995a552-cca8-412d-9177-5c5faab3d7fc",
@@ -4575,7 +4955,7 @@
       "id": "3b93e960-63dd-46a5-80f0-b46cd1e94658",
       "languageId": null,
       "title": "关于这个示例",
-      "markdown": "# 关于这个示例\n\nTsahun 是虚构的孤立声调语，与另一个示例 **Aelith** 互补，专门展示这些功能：\n\n- **声调**：韵律类型选「声调」，五个调各有调符与数字；罗马化转 IPA 的第一条是连读变调 `35 > ˧?˧˥ / _C , _V`（满足 / 不满足环境两路），叠词 lun35lun35 读 lun˧lun˧˥\n- **双正字法**：罗马化（数字标调）与西里尔正字，例句可以并列两种写法；音位表里填了每个音位在罗马化里的写法，「音节与韵律」的测试按拼写输入 tsang55 时 ts、ng 各算一个音，形容词强调重叠 tsing55 得 tsitsing55（按字母数会是 tstsing55）\n- **文字**：音节文字的**拼合**（辅音+元音自动拼格，尾辅音用消音符）与**竖排显示**\n- **构形**：孤立语也有构形——重叠出复数与强调；代词复数后面空一格接 `@tui55`（语素表里没有就引用同名词条），推出带空格的 `ngo21 tui55`\n- **语料**：重叠形也能被自动 gloss 认出来（`lun35lun35`），带空格的 `ngo21 tui55` 并成一个词认；`hok33 lo21` 里的同形词故意没确认，悬浮时并排给候选；工作台里点一个动词，附着台列出语料里跟动词用过的小品词：完成体 ta33 放在后面、否定 mo35 放在前面（按语料里惯常挨着的那一边）\n- **词库**：同音异调的最小对、同形词 hok33（红 / 学）、复合词、整套借入的数词、一个义项几个语域（hu35）\n- **检视器模块**：「异体字」用音节文字的字体显示在释义上方（wa55），「语用说明」放在最下面（lo21、ta33）\n- **文字的括号设置**：音节文字设成「括号连内容都不写」，短语 `ni33 hem55 (lo21)` 的文字行里没有括号那段\n- **按字号写的意音文字**：「Tsahun 刻符」每个字的转写是字号（k01、k02……），不是读音；词条的检视器模块「字号」写这个词用哪几个字（wa55 是 `k04 k03`），文字页的「转写来源」选了这个模块。词库的文字列、语料与短语的文字行都逐词查词库写出来：`ngo21 kwe51 ta33 sip51` 写成 ⼰ ⼝ ta33 ⿂，没有字号的虚词照原文",
+      "markdown": "# 关于这个示例\n\nTsahun 是虚构的孤立声调语，与另一个示例 **Aelith** 互补，专门展示这些功能：\n\n- **声调**：韵律类型选「声调」，五个调各有调符与数字；罗马化转 IPA 的第一条是连读变调 `35 > ˧?˧˥ / _C , _V`（满足 / 不满足环境两路），叠词 lun35lun35 读 lun˧lun˧˥\n- **双正字法**：罗马化（数字标调）与西里尔正字，例句可以并列两种写法；音位表里填了每个音位在罗马化里的写法，「音节与韵律」的测试按拼写输入 tsang55 时 ts、ng 各算一个音，形容词强调重叠 tsing55 得 tsitsing55（按字母数会是 tstsing55）\n- 在「音系 → 正字法」选择罗马化，可查看从音位写法生成的 ts → t͡s 和 ng → ŋ，单独微调一行，再用试写框检查结果。\n- **文字**：音节文字的**拼合**（辅音+元音自动拼格，尾辅音用消音符）与**竖排显示**\n- **构形**：孤立语也有构形——重叠出复数与强调；代词复数后面空一格接 `@tui55`（语素表里没有就引用同名词条），推出带空格的 `ngo21 tui55`\n- **语料**：重叠形也能被自动 gloss 认出来（`lun35lun35`），带空格的 `ngo21 tui55` 并成一个词认；`hok33 lo21` 里的同形词故意没确认，悬浮时并排给候选；工作台里点一个动词，附着台列出语料里跟动词用过的小品词：完成体 ta33 放在后面、否定 mo35 放在前面（按语料里惯常挨着的那一边）\n- **词库**：同音异调的最小对、同形词 hok33（红 / 学）、复合词、整套借入的数词、一个义项几个语域（hu35）\n- **检视器模块**：「异体字」用音节文字的字体显示在释义上方（wa55），「语用说明」放在最下面（lo21、ta33）\n- **文字的括号设置**：音节文字设成「括号连内容都不写」，短语 `ni33 hem55 (lo21)` 的文字行里没有括号那段\n- **按字号写的意音文字**：「Tsahun 刻符」每个字的转写是字号（k01、k02……），不是读音；词条的检视器模块「字号」写这个词用哪几个字（wa55 是 `k04 k03`），文字页的「转写来源」选了这个模块。词库的文字列、语料与短语的文字行都逐词查词库写出来：`ngo21 kwe51 ta33 sip51` 写成 ⼰ ⼝ ta33 ⿂，没有字号的虚词照原文",
       "updatedAt": "2026-09-23T10:38:13.923Z"
     },
     {

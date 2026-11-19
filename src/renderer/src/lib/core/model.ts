@@ -301,8 +301,28 @@ export interface Orthography {
   rulesToIpa: string
   /** IPA → 正字法的规则文本 */
   rulesFromIpa: string
+  /** 音位默认写法生成的基础条目；缺省时沿用旧版规则与回退方式。 */
+  phonemeRules?: {
+    toIpa: OrthographyPhonemeRule[]
+    fromIpa: OrthographyPhonemeRule[]
+  }
   /** 词条输入使用的基准正字法 */
   isPrimary: boolean
+}
+
+export interface OrthographyPhonemeRule {
+  id: string
+  phonemeId: Id
+  variant: number
+  from: string
+  to: string
+  generatedFrom: string
+  generatedTo: string
+  /** 首次微调时的默认来源，避免输入中间态或重排把微调挂到别的变体。 */
+  editedSource?: string
+  enabled: boolean
+  /** 手调或停用过的条目不再随默认写法自动覆盖，可显式恢复自动。 */
+  edited: boolean
 }
 
 export interface SyllableSettings {

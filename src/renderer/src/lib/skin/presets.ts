@@ -10,6 +10,10 @@ export interface Skin {
   light: Record<string, string>
   dark: Record<string, string>
   fonts: Record<FontSlot, string>
+  /** 字号百分比；缺省跟随角色的默认来源，不影响原有字体设置。 */
+  fontSizes?: Partial<Record<FontSlot, number>>
+  /** 单套文字的字号百分比；缺省跟随「自定义文字」。 */
+  scriptFontSizes?: Record<string, number>
   /** 下载字体时加在 URL 前面的镜像前缀（国内加速用），空为直连 */
   mirror: string
   /** 给某套自定义文字单独指定的字体：文字 id → 字体名（覆盖文字自带的字体） */
@@ -132,6 +136,8 @@ export interface UserSkinPreset {
   light: Record<string, string>
   dark: Record<string, string>
   fonts: Record<FontSlot, string>
+  fontSizes?: Partial<Record<FontSlot, number>>
+  scriptFontSizes?: Record<string, number>
 }
 
 export interface SkinPreset {

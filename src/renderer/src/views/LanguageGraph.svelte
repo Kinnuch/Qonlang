@@ -6,6 +6,8 @@
   import type { Id } from '$lib/core/model'
   import { stageShort, type TreeItem } from '$lib/core/languageTree'
   import { t } from '$lib/i18n/index.svelte'
+  import { ui } from '$lib/state/ui.svelte'
+  import { fontSize } from '$lib/skin/fontSizes'
   import { sectionCollapsed, toggleSection } from '$lib/ui/section.svelte'
   import { ZoomIn, ZoomOut, Maximize2 } from '@lucide/svelte'
 
@@ -33,10 +35,11 @@
     onselect: (id: Id, kind: 'group' | 'language', addToCompare: boolean) => void
   } = $props()
 
-  const NW = 136
-  const NH = 40
+  const fontScale = $derived(Math.max(1, fontSize(ui.prefs.skin, 'ui') / 100))
+  const NW = $derived(136 * fontScale)
+  const NH = $derived(40 * fontScale)
   const HGAP = 20
-  const VGAP = 66
+  const VGAP = $derived(66 * fontScale)
   const PAD = 30
 
   interface GNode {
@@ -58,14 +61,8 @@
 
   const nodeKey = (kind: 'group' | 'language', id: Id): string =>
     (kind === 'group' ? 'g:' : 'l:') + id
-  const short = (s: string, n: number): string => (s.length > n ? s.slice(0, n - 1) + '…' : s)
   const itemId = (x: TreeItem): Id => (x.kind === 'group' ? x.group.id : x.language.id)
-  /** 阶段挂在节点下方、居中一行：这行大概多宽（9.5px 的字按 5.4px 一个字符估） */
   const stagesText = (stages: string[]): string => stages.join(' › ')
-  const stagesWidth = (stages: string[]): number =>
-    stages.length ? Math.round(stagesText(stages).length * 5.4) : 0
-  /** 比节点宽出来的那一半，左右各留一点，免得压到兄弟 */
-  const stagesOverhang = (stages: string[]): number => Math.max(0, (stagesWidth(stages) - NW) / 2)
 
   /**
    * 分类节点（语系 / 语族 / 语支）只是用来结构化的，不是真的语言：
@@ -87,7 +84,6 @@
     const nodes: GNode[] = []
     const edges: { key: string; from: string; to: string }[] = []
     const nextX: number[] = []
-    const rightHalf = (n: GNode): number => NW / 2 + stagesOverhang(n.stages)
     const walk = (item: TreeItem, depth: number): { node: GNode; all: GNode[] } => {
       const shown = item.children.filter((c) => !visible || visible.has(itemId(c)))
       const key0 = nodeKey(item.kind, itemId(item))
@@ -150,7 +146,7 @@
       }
       node.x = x
       all.push(node)
-      for (const n of all) nextX[n.depth] = Math.max(nextX[n.depth] ?? 0, n.x + rightHalf(n) + HGAP)
+      for (const n of all) nextX[n.depth] = Math.max(nextX[n.depth] ?? 0, n.x + NW / 2 + HGAP)
       nodes.push(node)
       for (const k of kidNodes)
         edges.push({ key: node.key + '>' + k.key, from: node.key, to: k.key })
@@ -163,9 +159,14 @@
       ? {
           x: Math.min(...xs) - NW / 2 - PAD,
           y: -NH / 2 - PAD,
-          w: Math.max(...nodes.map((n) => n.x + rightHalf(n))) - Math.min(...xs) + NW / 2 + PAD * 2,
+          w: Math.max(...xs) - Math.min(...xs) + NW + PAD * 2,
           // 最下面一排如果挂着阶段那一行，底下多留一点
-          h: Math.max(...nodes.map((n) => n.y + (n.stages.length ? 18 : 0))) + NH + PAD * 2
+          h:
+            Math.max(
+              ...nodes.map((n) => n.y + (n.stages.length ? (n.hidden ? 34 : 18) * fontScale : 0))
+            ) +
+            NH +
+            PAD * 2
         }
       : { x: 0, y: 0, w: 1, h: 1 }
     return { nodes, edges, byKey, box }
@@ -180,7 +181,7 @@
   /** 换了项目或者第一次画：自动缩到看得全 */
   let fitted = ''
   $effect(() => {
-    const sig = layout.nodes.map((n) => n.key).join(',')
+    const sig = fontScale + ':' + layout.nodes.map((n) => n.key).join(',')
     if (!bw || !bh || !layout.nodes.length || fitted === sig) return
     fitted = sig
     fit()
@@ -250,6 +251,14 @@
             {/if}
           {/each}
           {#each layout.nodes as n (n.key)}
+            {@const inset = n.kind === 'language' ? 24 : 12}
+            {@const subtitle =
+              n.kind === 'group'
+                ? n.level + (n.abbr ? ' · ' + n.abbr : '')
+                : n.abbr || (defaultId === n.id ? t('languages.isDefault') : '')}
+            {@const fullLabel = [n.label, subtitle, stagesText(n.stages)]
+              .filter(Boolean)
+              .join(' · ')}
             <g
               class="gnode {n.kind}"
               class:sel={selectedId === n.id}
@@ -258,6 +267,7 @@
               data-key={n.key}
               transform={`translate(${n.x} ${n.y})`}
               role="button"
+              aria-label={fullLabel}
               tabindex="0"
               onclick={(e) => onselect(n.id, n.kind, e.ctrlKey || e.metaKey)}
               onkeydown={(e) => e.key === 'Enter' && onselect(n.id, n.kind, false)}
@@ -266,29 +276,39 @@
                 toggleSection(`langNode:${n.key}`)
               }}
             >
+              <title>{fullLabel}</title>
               <rect class="box" x={-NW / 2} y={-NH / 2} width={NW} height={NH} rx="9" />
               {#if n.kind === 'language'}
                 <circle class="dot" cx={-NW / 2 + 12} cy="0" r="4.5" style:fill={n.color} />
               {/if}
-              <text class="label" x={-NW / 2 + (n.kind === 'language' ? 24 : 12)} y="-1"
-                >{short(n.label, 13)}</text
-              >
-              <text class="sub" x={-NW / 2 + (n.kind === 'language' ? 24 : 12)} y="13"
-                >{n.kind === 'group'
-                  ? n.level + (n.abbr ? ' · ' + n.abbr : '')
-                  : n.abbr || (defaultId === n.id ? t('languages.isDefault') : '')}</text
-              >
+              <foreignObject x={-NW / 2 + inset} y={-NH / 2} width={NW - inset - 10} height={NH}>
+                <div class="node-lines">
+                  <div class="label" dir="auto">{n.label}</div>
+                  <div class="sub" dir="auto">{subtitle}</div>
+                </div>
+              </foreignObject>
               {#if n.hidden}
                 <g class="more" aria-hidden="true">
-                  <rect x={-14} y={NH / 2 - 2} width="28" height="16" rx="8" />
-                  <text class="mtext" x="0" y={NH / 2 + 10}>+{n.hidden}</text>
+                  <rect
+                    x={-14 * fontScale}
+                    y={NH / 2 - 2}
+                    width={28 * fontScale}
+                    height={16 * fontScale}
+                    rx="8"
+                  />
+                  <text class="mtext" x="0" y={NH / 2 + 10 * fontScale}>+{n.hidden}</text>
                 </g>
               {/if}
               {#if n.stages.length}
                 <!-- 历时阶段挂在节点下方居中的一行：原来挂在右边，把左右的兄弟顶开太多 -->
-                <text class="stages" x="0" y={NH / 2 + (n.hidden ? 30 : 14)}
-                  >{short(stagesText(n.stages), 30)}<title>{stagesText(n.stages)}</title></text
+                <foreignObject
+                  x={-NW / 2}
+                  y={NH / 2 + (n.hidden ? 17 : 2) * fontScale}
+                  width={NW}
+                  height={15 * fontScale}
                 >
+                  <div class="stages" dir="auto">{stagesText(n.stages)}</div>
+                </foreignObject>
               {/if}
             </g>
           {/each}
@@ -309,9 +329,11 @@
           ><Maximize2 size={15} /></button
         >
       </div>
-      <span class="small muted ghint">{t('languages.graph.hint')}</span>
     {/if}
   </div>
+  {#if layout.nodes.length}
+    <p class="small muted ghint">{t('languages.graph.hint')}</p>
+  {/if}
 </div>
 
 <style>
@@ -364,10 +386,8 @@
     text-anchor: middle;
   }
   .ghint {
-    position: absolute;
-    left: 10px;
-    bottom: 8px;
-    pointer-events: none;
+    margin: 6px 0 0;
+    overflow-wrap: anywhere;
   }
   .edge {
     fill: none;
@@ -423,22 +443,43 @@
     }
   }
   /* 图里的字跟界面别处一套字体 */
-  .ltree text {
+  .ltree text,
+  .ltree foreignObject {
     font-family: var(--font-ui);
   }
+  .ltree foreignObject {
+    overflow: hidden;
+  }
+  .node-lines {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .label,
+  .sub,
+  .stages {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .label {
-    fill: var(--text);
+    color: var(--text);
     font-size: 12.5px;
+    line-height: 1.28;
     font-weight: 500;
   }
   .sub {
-    fill: var(--text-3);
+    color: var(--text-3);
     font-size: 10.5px;
+    line-height: 1.33;
+    min-height: 1.33em;
   }
   .stages {
-    fill: var(--text-3);
+    color: var(--text-3);
     font-size: 9.5px;
-    text-anchor: middle;
+    line-height: 1.5;
+    text-align: center;
   }
   @media (prefers-reduced-motion: reduce) {
     .edge.hl,

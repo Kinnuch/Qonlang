@@ -303,7 +303,7 @@ export default {
       aelith:
         '黏着先验语：语系节点与分组统计、语言内部的历时阶段与词条的历史形式链、祖语→现代语的语系与姊妹语（关系图里对比同源词的音变与意思）、满足 / 不满足环境两路的音变规则、特征与重音规则、音节边界 σ、自定义重音、元音和谐、流水线构形的九种步骤（含构形套构形）、变体与继承、槽位继承与影响发音的槽位、按维度取值挑异体形、一个词类几个构形、一个词条几个构形、按阴阳换字母、连读浊化反推、连写复合词自动切分、复合词类、检视器模块、词源链、从构形生成的词条、已 gloss 的语料、卢恩刻文与手写字形、收藏与记号、「微调」里现写的音类、两个音并成一个的音变、带标点的例句。',
       tsahun:
-        '孤立声调语：五个声调与连读变调、罗马化与西里尔双正字法（按写法切音节、数音）、音节文字的拼合与竖排、按字号逐词写的意音文字、重叠构形、带空格的屈折形、同形词候选、用文字字体显示的异体字模块。'
+        '孤立声调语：五个声调与连读变调、罗马化与西里尔双正字法（按写法切音节、数音，可逐条调整音位对应）、音节文字的拼合与竖排、按字号逐词写的意音文字、重叠构形、带空格的屈折形、同形词候选、用文字字体显示的异体字模块。'
     },
     coffee: '请我喝咖啡',
     changelog: '更新日志',
@@ -1829,6 +1829,19 @@ export default {
     exported: '已导出'
   },
   phonology: {
+    spellingRules: '音位写法条目',
+    spellingRulesHint:
+      '先按最长写法一次同时转写，再运行下方高级规则。正向接收所有写法，反向默认使用第一种。微调或停用的行不会被后续默认写法覆盖；恢复自动后重新跟随音位。',
+    generateSpellingRules: '从音位写法生成',
+    spellingPreview: '这里预览已有写法；编辑或生成后加入基础转写，现有高级规则不变。',
+    spellingEnabled: '启用',
+    spellingWritten: '写法',
+    spellingSuggested: '待生成',
+    spellingEdited: '已微调',
+    spellingAutomatic: '自动',
+    spellingReset: '恢复自动',
+    spellingDuplicate: '相同来源的启用条目按表中顺序只使用第一条。',
+    spellingRulesEmpty: '请在音位检视器填写各正字法写法，即可自动生成对应条目。',
     search: '搜索音位或音类',
     tabs: {
       phonemes: '音位',
@@ -2259,6 +2272,13 @@ export default {
     sizeHint: '统一项目中配图的尺寸为 {w}×{h}。'
   },
   skin: {
+    fontSizesHint:
+      '字号以原来的大小为 100%。留空时，语料原文与自定义文字跟随语言数据，译文跟随界面，gloss 跟随等宽；每套文字可单独覆盖。仅改变显示，不改变项目内容或导出。',
+    exampleSizeHint:
+      '整体调整语料与词条附例的各行，再按下面的角色分别调整；原来的例句比例会继续保留。',
+    fontSizeFor: '{name}字号（百分比）',
+    fontSizeInherited: '留空时继承：{size}%',
+    fontSizeReset: '恢复「{name}」的继承字号',
     bg: {
       title: '背景图',
       hint: '选择软件背景图',
@@ -2317,7 +2337,7 @@ export default {
       corpusText: '语料原文',
       corpusTr: '语料译文',
       gloss: 'gloss 行',
-      script: '自定义文字（无内嵌字体时）'
+      script: '自定义文字（默认）'
     },
     scriptFontsHint: '为项目中的文字单独指派字体文件：',
     scriptFontFor: '{name}（{lang}）',

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1 · 2026-11-19
+
+- **Orthography mappings**: enter a spelling in the phoneme inspector to generate a spelling–IPA entry in that orthography. Individual entries can be adjusted on the orthography page.
+- **Theme → Fonts**: sentence text size is now in the font settings and keeps its previous value. Font slots and individual project scripts also have size controls.
+- **Language tree**: long names, abbreviations and historical stage labels use an ellipsis when space runs out. Hover over a node to see the full text.
+- The start page retains the Support development button. It has been removed from the project inspector.
+
 ## 1.0.0 · 2026-11-18
 
 - **Sound class matching fix**: feature-generated classes, including the consonant class from **Generate C / V**, can match both keyboard `g` and IPA `ɡ`. Spelling is preserved. Projects that explicitly distinguish the two characters keep their own matching rules.

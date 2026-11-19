@@ -35,6 +35,19 @@
     type SkinBackground
   } from '$lib/skin/presets'
   import { exportSkinFile, parseSkinFile } from '$lib/skin/transfer'
+  import {
+    FONT_SIZE_MIN,
+    FONT_SIZE_MAX,
+    FONT_SIZE_STEP,
+    fontSize,
+    validFontSize
+  } from '$lib/skin/fontSizes'
+  import {
+    corpusTextSize,
+    CORPUS_TEXT_SIZE_MIN,
+    CORPUS_TEXT_SIZE_MAX,
+    CORPUS_TEXT_SIZE_STEP
+  } from '$lib/ui/corpusTextSize'
   import { platform } from '$lib/platform'
   import { inkTransition } from '$lib/skin/ink'
   import Portal from '$lib/ui/Portal.svelte'
@@ -71,6 +84,7 @@
   const theme = $derived(ui.resolvedTheme)
   const zh = $derived(i18n.locale.startsWith('zh'))
   const SLOTS: FontSlot[] = ['ui', 'data', 'mono', 'corpusText', 'corpusTr', 'gloss', 'script']
+  const exampleSize = $derived(corpusTextSize(ui.prefs.corpusTextScale))
   /** 顶栏搜索：字体按名称、说明、标签筛 */
   const fontQuery = $derived(parseQuery(ui.search, SEARCH_FIELDS.skin))
   const catalogShown = $derived(
@@ -170,6 +184,7 @@
       skin.light = { ...p.light }
       skin.dark = { ...p.dark }
       skin.fonts = { ...EMPTY_FONTS, ...p.fonts }
+      skin.fontSizes = {}
       presetFlash++
       save()
     })
@@ -183,6 +198,8 @@
       skin.light = { ...p.light }
       skin.dark = { ...p.dark }
       skin.fonts = { ...EMPTY_FONTS, ...p.fonts }
+      skin.fontSizes = { ...p.fontSizes }
+      skin.scriptFontSizes = { ...p.scriptFontSizes }
       presetFlash++
       save()
     })
@@ -195,7 +212,9 @@
       name,
       light: { ...skin.light },
       dark: { ...skin.dark },
-      fonts: { ...skin.fonts }
+      fonts: { ...skin.fonts },
+      fontSizes: { ...skin.fontSizes },
+      scriptFontSizes: { ...skin.scriptFontSizes }
     }
     if (existing) Object.assign(existing, data)
     else ui.prefs.skinPresets.push({ id: newId(), ...data })
@@ -306,6 +325,7 @@
     // 背景图单独留着：挑图、调好不容易，要去掉在背景图那里点移除
     const background = $state.snapshot(skin.background)
     ui.prefs.skin = { ...structuredClone(DEFAULT_SKIN), background }
+    ui.prefs.corpusTextScale = 100
     save()
     ui.toast(t('skin.resetDone'))
   }
@@ -371,6 +391,17 @@
   function setFont(slot: FontSlot, v: string): void {
     skin.fonts[slot] = v
     bump('font:' + slot)
+    save()
+  }
+  function setFontSize(key: string, raw: string, script = false): void {
+    const next = { ...(script ? skin.scriptFontSizes : skin.fontSizes) }
+    const size = raw.trim() ? validFontSize(Number(raw)) : undefined
+    if (size === undefined) delete next[key]
+    else next[key] = size
+    if (script) skin.scriptFontSizes = next
+    else skin.fontSizes = next
+    skin.preset = 'custom'
+    bump('font:' + (script ? 'script' : key))
     save()
   }
   async function download(entry: FontEntry): Promise<void> {
@@ -782,38 +813,102 @@
     </section>
 
     <section>
-      <h3>{t('skin.fonts')}</h3>
+      <h3>{t('skin.fonts')}<HelpDot tip={t('skin.fontSizesHint')} /></h3>
+      <div class="text-size row" data-corpus-text-size-controls>
+        <label for="corpus-text-size">{t('corpus.textSize')}</label><HelpDot
+          tip={t('skin.exampleSizeHint')}
+        />
+        <input
+          id="corpus-text-size"
+          data-corpus-text-size
+          type="range"
+          min={CORPUS_TEXT_SIZE_MIN}
+          max={CORPUS_TEXT_SIZE_MAX}
+          step={CORPUS_TEXT_SIZE_STEP}
+          value={exampleSize}
+          oninput={(event) => {
+            ui.prefs.corpusTextScale = Number(event.currentTarget.value)
+          }}
+          onchange={save}
+        />
+        <output for="corpus-text-size">{exampleSize}%</output>
+        <button
+          class="btn ghost sm"
+          data-corpus-text-size-reset
+          disabled={exampleSize === 100}
+          onclick={() => {
+            ui.prefs.corpusTextScale = 100
+            save()
+          }}>{t('corpus.resetTextSize')}</button
+        >
+      </div>
+      {#snippet sizeControl(key: string, name: string, script = false)}
+        {@const explicit = script ? skin.scriptFontSizes?.[key] : skin.fontSizes?.[key as FontSlot]}
+        {@const inherited = script
+          ? fontSize(skin, 'script')
+          : fontSize({ fontSizes: { ...skin.fontSizes, [key]: undefined } }, key as FontSlot)}
+        <div class="font-size-control">
+          <input
+            class="input"
+            type="number"
+            min={FONT_SIZE_MIN}
+            max={FONT_SIZE_MAX}
+            step={FONT_SIZE_STEP}
+            data-font-size={script ? `script:${key}` : key}
+            value={explicit ?? ''}
+            placeholder={String(inherited)}
+            aria-label={t('skin.fontSizeFor', { name })}
+            title={t('skin.fontSizeInherited', { size: inherited })}
+            onchange={(event) => setFontSize(key, event.currentTarget.value, script)}
+          />
+          <span>%</span>
+          <button
+            class="btn ghost icon sm"
+            data-font-size-reset={script ? `script:${key}` : key}
+            disabled={explicit === undefined}
+            aria-label={t('skin.fontSizeReset', { name })}
+            title={t('skin.fontSizeReset', { name })}
+            onclick={() => setFontSize(key, '', script)}><RotateCcw size={13} /></button
+          >
+        </div>
+      {/snippet}
       <datalist id="font-options"
         >{#each fontOptions as f (f)}<option value={f}></option>{/each}</datalist
       >
       <div class="fonts">
         {#each SLOTS as slot (slot)}
-          <label
+          <div
             class="font-row"
+            data-font-slot={slot}
+            role="group"
+            aria-label={t(`skin.fontSlots.${slot}`)}
             onmouseenter={() => (hoverKey = 'font:' + slot)}
             onmouseleave={() => (hoverKey = '')}
           >
             <span class="fl">{t(`skin.fontSlots.${slot}`)}</span>
             <input
               class="input"
+              aria-label={t(`skin.fontSlots.${slot}`)}
               list="font-options"
               value={skin.fonts[slot]}
               placeholder={t('skin.fontPlaceholder')}
               onchange={(e) => setFont(slot, (e.currentTarget as HTMLInputElement).value)}
             />
-          </label>
+            {@render sizeControl(slot, t(`skin.fontSlots.${slot}`))}
+          </div>
         {/each}
       </div>
       {#if projectScripts.length}
         <p class="small muted">{t('skin.scriptFontsHint')}</p>
         <div class="fonts">
           {#each projectScripts as ps (ps.script.id)}
-            <label class="font-row">
+            <div class="font-row" data-script-font={ps.script.id}>
               <span class="fl"
                 >{t('skin.scriptFontFor', { name: ps.script.name, lang: ps.lang })}</span
               >
               <input
                 class="input"
+                aria-label={t('skin.scriptFontFor', { name: ps.script.name, lang: ps.lang })}
                 list="font-options"
                 value={skin.scriptFonts?.[ps.script.id] ?? ''}
                 placeholder={ps.script.font.fileName ||
@@ -822,7 +917,12 @@
                 onchange={(e) =>
                   setScriptFont(ps.script.id, (e.currentTarget as HTMLInputElement).value)}
               />
-            </label>
+              {@render sizeControl(
+                ps.script.id,
+                t('skin.scriptFontFor', { name: ps.script.name, lang: ps.lang }),
+                true
+              )}
+            </div>
           {/each}
         </div>
       {/if}
@@ -1324,19 +1424,42 @@ a > e / _i</span
   }
   .fonts {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
     gap: 6px 16px;
   }
   .font-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 8px;
     font-size: 13px;
   }
   .fl {
-    width: 200px;
-    flex: none;
+    grid-column: 1 / -1;
     color: var(--text-2);
+  }
+  .font-size-control {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .font-size-control input {
+    width: calc(70px * var(--font-scale-ui, 1));
+    padding-inline: 6px;
+  }
+  .text-size {
+    flex-wrap: wrap;
+    margin-block: 10px 16px;
+    font-size: 12px;
+  }
+  .text-size input {
+    width: 140px;
+    max-width: 32vw;
+    accent-color: var(--accent);
+  }
+  .text-size output {
+    min-width: 38px;
+    font-variant-numeric: tabular-nums;
   }
   .mirror {
     gap: 8px;
@@ -1437,6 +1560,7 @@ a > e / _i</span
   }
   .pv-tr {
     font-family: var(--font-corpus-tr);
+    font-size: 14px;
     font-style: italic;
     color: var(--text-2);
   }

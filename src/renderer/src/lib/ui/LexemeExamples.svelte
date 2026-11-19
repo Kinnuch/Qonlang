@@ -169,9 +169,11 @@
   }
   .ex .text {
     font-weight: 600;
-    font-size: calc(1em * var(--corpus-text-scale, 1));
+    font-family: var(--font-corpus-text);
+    font-size: calc(14px * var(--corpus-text-scale, 1));
   }
   .ex .tr {
+    font-family: var(--font-corpus-tr);
     font-size: calc(12px * var(--corpus-text-scale, 1));
   }
   /* 命中的词：跟别处标匹配一个样子 */

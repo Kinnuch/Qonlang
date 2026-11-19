@@ -84,13 +84,7 @@
   import { sortable } from '$lib/ui/sortable.svelte'
   import { moveById } from '$lib/core/move'
   import { fiveRows } from '$lib/ui/fiveRows'
-  import {
-    corpusTextSize,
-    CORPUS_TEXT_SIZE_DEFAULT,
-    CORPUS_TEXT_SIZE_MIN,
-    CORPUS_TEXT_SIZE_MAX,
-    CORPUS_TEXT_SIZE_STEP
-  } from '$lib/ui/corpusTextSize'
+  import { corpusTextSize } from '$lib/ui/corpusTextSize'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -795,36 +789,6 @@
     {/if}
   </div>
 
-  {#if mode === 'entries' && !importOpen && !bench}
-    <div class="text-size row" data-corpus-text-size-controls>
-      <label for="corpus-text-size">{t('corpus.textSize')}</label>
-      <HelpDot tip={t('corpus.textSizeHint')} />
-      <input
-        id="corpus-text-size"
-        data-corpus-text-size
-        type="range"
-        min={CORPUS_TEXT_SIZE_MIN}
-        max={CORPUS_TEXT_SIZE_MAX}
-        step={CORPUS_TEXT_SIZE_STEP}
-        value={textSize}
-        oninput={(event) => {
-          ui.prefs.corpusTextScale = Number(event.currentTarget.value)
-        }}
-        onchange={() => void ui.savePrefs()}
-      />
-      <output for="corpus-text-size">{textSize}%</output>
-      <button
-        class="btn ghost sm"
-        data-corpus-text-size-reset
-        disabled={textSize === CORPUS_TEXT_SIZE_DEFAULT}
-        onclick={() => {
-          ui.prefs.corpusTextScale = CORPUS_TEXT_SIZE_DEFAULT
-          void ui.savePrefs()
-        }}>{t('corpus.resetTextSize')}</button
-      >
-    </div>
-  {/if}
-
   {#if importOpen && language}
     <div class="scroll">
       {#key importNonce}
@@ -1387,22 +1351,6 @@
   .page-head {
     gap: 10px;
   }
-  .text-size {
-    flex: none;
-    flex-wrap: wrap;
-    gap: 8px;
-    color: var(--text-2);
-    font-size: 12px;
-  }
-  .text-size input {
-    width: 140px;
-    max-width: 32vw;
-    accent-color: var(--accent);
-  }
-  .text-size output {
-    min-width: 38px;
-    font-variant-numeric: tabular-nums;
-  }
   .scroll {
     flex: 1;
     min-height: 0;
@@ -1521,6 +1469,7 @@
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .text {
+    font-family: var(--font-corpus-text);
     font-size: calc(17px * var(--corpus-text-scale, 1));
     font-weight: 600;
   }
