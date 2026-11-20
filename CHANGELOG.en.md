@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.2 · unreleased
+## 1.0.2 · 2026-11-20
 
 - Syllabification recognises vowels with IPA length marks and keeps the marks in the correct syllable.
 - The phoneme class editor has explicit Done, Cancel and Delete actions, so edits can be discarded before they are applied.
