@@ -55,6 +55,8 @@ export interface ParsedRule {
   compiled: CompiledContext[]
   /** 替换文本中的音类引用已按 pos 展开时用到 */
   replacementParts: ReplacementPart[]
+  /** 成对的「音类_特征」分段分别捕获、分别按成员位置替换。 */
+  segments?: RuleSegment[]
   /**
    * 满足 / 不满足环境两路（`x1?x2 > a?b / 环境`）：满足环境的 x1 改成 a，其余位置的 x2 改成 b。
    * 目标、替换两边只写一边带 `?` 时，另一边两路共用。没有 `?` 的普通规则没有这一项。
@@ -68,6 +70,8 @@ export interface ParsedRule {
   explicitStress: boolean
   /** 规则里引用到的特征成员（给示例用）：方括号里的原文 → 成员 */
   featureMembers?: Record<string, string[]>
+  /** 只定义了特征另一面时，本行补集匹配排除的成员（供示例使用）。 */
+  featureExclusions?: Record<string, string[]>
   /** 目标编出来是一串固定的字（没有音类、没有可选、不隔记号）：词里没有这串字，这条规则就不用跑正则 */
   literal?: string
 }
@@ -79,8 +83,16 @@ export interface RuleBranch {
   targetClass: ClassRef | null
   targetGroup: number
   replacementParts: ReplacementPart[]
+  segments?: RuleSegment[]
   /** then：目标在环境里的匹配；otherwise：目标满足环境的位置（这些位置不改） */
   compiled: CompiledContext[]
+}
+
+export interface RuleSegment {
+  capture: string
+  replacement: string
+  targetClass: ClassRef
+  replacementParts: ReplacementPart[]
 }
 
 export type ReplacementPart =
@@ -474,6 +486,14 @@ function splitMembers(value: string): string[] {
   return Array.from(v)
 }
 
+/** 明确分隔的临时音类按成员读；传统字符组、范围和否定组仍交给正则。 */
+export function temporaryClassMembers(value: string): string[] | null {
+  const text = value.trim()
+  if (!/[\s.]/u.test(text) || /^[\^]/u.test(text) || /[\\[\]-]/u.test(text)) return null
+  const members = text.split(/[\s.]+/u).filter(Boolean)
+  return members.length > 1 ? members.map(literalEscapes) : null
+}
+
 function dedupe(items: string[]): string[] {
   return [...new Set(items)]
 }
@@ -488,12 +508,19 @@ const PROTECTED = /\{[^}]*\}|@[^\s>/,_#()[\]{}]+/g
 export function applyReplacements(
   text: string,
   replacements: [string, string][],
-  keepDots = false
+  keepDots = false,
+  classLists = false
 ): string {
   const one = (s: string): string => {
     let t = s
     for (const [from, to] of replacements) t = t.split(from).join(to)
-    return keepDots ? t : t.split('.').join('')
+    if (!classLists) return keepDots ? t : t.split('.').join('')
+    return keepDots
+      ? t
+      : t.replace(/\[[^\]]*\]|\./gu, (part) => {
+          if (part === '.') return ''
+          return temporaryClassMembers(part.slice(1, -1)) ? part : part.split('.').join('')
+        })
   }
   let out = ''
   let last = 0
@@ -555,6 +582,7 @@ interface ExpandOptions {
   features?: FeatureTable
   /** 解析出来的特征成员（示例用）：方括号里的原文 → 成员 */
   featureHits?: Record<string, string[]>
+  featureExclusions?: Record<string, string[]>
   classAliases?: ReadonlyMap<string[], ClassAlias>
 }
 
@@ -651,6 +679,7 @@ function expand(s: string, classes: Map<string, string[]>, opts: ExpandOptions):
           if (opts.featureHits) opts.featureHits[shown] = f.members
           pushClass({ name: '[' + shown + ']', members: f.members }, null)
         } else if (f.except) {
+          if (opts.featureExclusions) opts.featureExclusions[shown] = f.except
           // 「其余的音」：不是这些成员开头，也不是多字母成员（ph）中间的那个字母（h）
           const join = (xs: string[]): string => xs.join(opts.marks ? SKIP : '')
           const inside = f.except
@@ -665,6 +694,12 @@ function expand(s: string, classes: Map<string, string[]>, opts: ExpandOptions):
           unit(`(?!${not})${inside}[^\\s${BOUNDARY}ˈˌ]${COMBINING}`)
         } else unit('(?!)')
       } else {
+        const members = temporaryClassMembers(inner)
+        if (members) {
+          pushClass({ name: '[' + shown + ']', members }, null)
+          i = j + 1
+          continue
+        }
         // 方括号里照旧是正则字符组（[^aeiou]、[a-z] 都能写）；转义过的字符按字面放进去
         let raw = mapPlaceholders(inner, (x) => x.replace(CLASS_ESCAPE, '\\$&'))
         // 按音节、重音匹配时「不是这些」也不能匹配到记号上
@@ -702,6 +737,15 @@ function expand(s: string, classes: Map<string, string[]>, opts: ExpandOptions):
     i++
   }
   return { re: out, firstClass, groupIndex }
+}
+
+function expandSegmentTarget(segments: RuleSegment[], marks = false): string {
+  return segments
+    .map((segment, i) => {
+      const body = classRegex(segment.targetClass.members, marks, segment.targetClass.alias)
+      return (marks && i ? SKIP : '') + `(?<${segment.capture}>${body})`
+    })
+    .join('')
 }
 
 function parseReplacement(
@@ -750,7 +794,10 @@ function parseReplacement(
       } else
         parts.push({
           kind: 'class',
-          ref: { name: '[' + shown + ']', members: Array.from(literalEscapes(inner)) }
+          ref: {
+            name: '[' + shown + ']',
+            members: temporaryClassMembers(inner) ?? Array.from(literalEscapes(inner))
+          }
         })
       i = j
     } else if (c >= 'A' && c <= 'Z' && classes.has(c)) {
@@ -1280,7 +1327,8 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
       const clauses: StressClause[] = []
       try {
         for (const c of draft.clauses) {
-          const pattern = (x: string): string => applyReplacements(encodeEscapes(x), replacements)
+          const pattern = (x: string): string =>
+            applyReplacements(encodeEscapes(x), replacements, false, true)
           const common = { captureFirst: false, warn, marks: true, features, classAliases }
           const matcher = (target: string, ctx: Context): ClauseMatcher => {
             const t = target
@@ -1361,17 +1409,18 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     // 编译用换过多合字母的（th → θ）；留给界面显示、再写回规则的是原来的写法
     const writtenTarget = rulePart.slice(0, gt).trim()
     const writtenReplacement = rulePart.slice(gt + 1).trim()
-    const target = applyReplacements(writtenTarget, replacements)
-    const replacement = applyReplacements(writtenReplacement, replacements)
+    const target = applyReplacements(writtenTarget, replacements, false, true)
+    const replacement = applyReplacements(writtenReplacement, replacements, false, true)
     const sigma = content.includes('σ')
     const marks = stressScope || sigma
     const featureHits: Record<string, string[]> = {}
+    const featureExclusions: Record<string, string[]> = {}
 
     const contexts: Context[] = []
     const writtenContexts: Context[] = []
     if (contextPart.trim()) {
       for (const piece of splitTopLevel(contextPart, ',')) {
-        const ctx = splitContext(applyReplacements(piece.trim(), replacements))
+        const ctx = splitContext(applyReplacements(piece.trim(), replacements, false, true))
         if (!ctx) return fail(`环境「${decodeEscapes(piece.trim())}」缺少 _`)
         contexts.push(ctx)
         writtenContexts.push(splitContext(piece.trim())!)
@@ -1386,7 +1435,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     if (exceptionPart) {
       for (const piece of splitTopLevel(exceptionPart, ',')) {
         if (!piece.trim()) continue
-        const ex = splitContext(applyReplacements(piece.trim(), replacements))
+        const ex = splitContext(applyReplacements(piece.trim(), replacements, false, true))
         if (!ex) return fail(`排除环境「${decodeEscapes(piece.trim())}」缺少 _`)
         if (ex.left || ex.right) {
           exceptions.push(ex)
@@ -1398,11 +1447,15 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     const quiet = (): void => {}
     // 左环境里定义了几个编号捕获组：目标的捕获组要往后数这么多
     const groupsIn = (re: string): number => (re.match(/\(\?<n[A-Z]\d+>/g) ?? []).length
-    const common = { marks, features, featureHits, classAliases }
+    const common = { marks, features, featureHits, featureExclusions, classAliases }
     /** 左环境：按音节、重音匹配时，环境和目标之间也可以隔着记号 */
     const leftOf = (re: string): string => (marks && re ? `(?:${re})${SKIP}` : re)
     /** 某个目标在各个环境里的匹配（带排除）；环境的警告只报一次 */
-    const compileFor = (tgt: string, envWarn: (m: string) => void): CompiledContext[] => {
+    const compileFor = (
+      tgt: string,
+      envWarn: (m: string) => void,
+      segments?: RuleSegment[]
+    ): CompiledContext[] => {
       const out: CompiledContext[] = []
       for (const ctx of contexts) {
         const plan = planNumbered(ctx.left, tgt, ctx.right, classes)
@@ -1413,14 +1466,16 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
           warn: envWarn,
           numbered: plan.left
         }).re
-        const tt = expand(tgt, classes, {
-          ...common,
-          boundary: null,
-          captureFirst: true,
-          warn: quiet,
-          numbered: plan.target,
-          noLeadSkip: marks
-        }).re
+        const tt = segments
+          ? expandSegmentTarget(segments, marks)
+          : expand(tgt, classes, {
+              ...common,
+              boundary: null,
+              captureFirst: true,
+              warn: quiet,
+              numbered: plan.target,
+              noLeadSkip: marks
+            }).re
         const r = expand(ctx.right, classes, {
           ...common,
           boundary: '$',
@@ -1439,14 +1494,16 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
             warn: envWarn,
             numbered: ep.left
           }).re
-          const et = expand(tgt, classes, {
-            ...common,
-            boundary: null,
-            captureFirst: true,
-            warn: quiet,
-            numbered: ep.target,
-            noLeadSkip: marks
-          }).re
+          const et = segments
+            ? expandSegmentTarget(segments, marks)
+            : expand(tgt, classes, {
+                ...common,
+                boundary: null,
+                captureFirst: true,
+                warn: quiet,
+                numbered: ep.target,
+                noLeadSkip: marks
+              }).re
           const er = expand(exception.right, classes, {
             ...common,
             boundary: '$',
@@ -1494,8 +1551,59 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
         warn,
         numbered: planNumbered('', tgt, '', classes).target,
         features,
+        featureHits,
+        featureExclusions,
         classAliases
       })
+    /** 只对成对的纯音类/已定义特征段启用；普通文字下划线、转义和正则原样保留。 */
+    const segmentsOf = (tgt: string, rep: string): RuleSegment[] | undefined => {
+      const targets = splitTopLevel(tgt, '_').map((part) => part.trim())
+      const replacements = splitTopLevel(rep, '_').map((part) => part.trim())
+      if (
+        targets.length < 2 ||
+        targets.length !== replacements.length ||
+        !targets.some(
+          (part) => part.startsWith('[') && FEATURE_REF.test(decodeEscapes(part.slice(1, -1)))
+        )
+      )
+        return undefined
+      const segments: RuleSegment[] = []
+      for (let i = 0; i < targets.length; i++) {
+        const part = targets[i]
+        const bracket = part.startsWith('[') && part.endsWith(']')
+        const inner = bracket ? part.slice(1, -1) : ''
+        if (!(
+          /^[A-Z]$/.test(part) ||
+          /^\{[^{}]+\}$/.test(part) ||
+          (bracket &&
+            (FEATURE_REF.test(decodeEscapes(inner)) ||
+              temporaryClassMembers(inner) ||
+              !/[\\^[\]-]/u.test(inner)))
+        ))
+          return undefined
+        const ref = firstClassOf(part).firstClass
+        const parts = parseReplacement(replacements[i], classes, features, warn)
+        if (
+          !ref?.members.length ||
+          !parts.some((p) => p.kind === 'class') ||
+          parts.some(
+            (p) =>
+              p.kind === 'ref' ||
+              (p.kind === 'class' && p.ref.members.length !== ref.members.length)
+          )
+        )
+          return undefined
+        segments.push({
+          capture: `segment${i}`,
+          targetClass: ref,
+          replacement: replacements[i],
+          replacementParts: parts
+        })
+      }
+      return segments
+    }
+    const thenSegments = segmentsOf(thenTarget, thenReplacement)
+    const elseSegments = branching ? segmentsOf(elseTarget, elseReplacement) : undefined
     if (branching && !elseTarget) return fail('? 后面（不满足环境时）要改的目标不能为空')
 
     const t = firstClassOf(thenTarget)
@@ -1514,20 +1622,22 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     let compiled: CompiledContext[] = []
     let branches: ParsedRule['branches']
     try {
-      compiled = compileFor(thenTarget, warn)
+      compiled = compileFor(thenTarget, warn, thenSegments)
       if (branching) {
         const e = firstClassOf(elseTarget)
         const anywherePlan = planNumbered('', elseTarget, '', classes)
         const anywhere = compile(
           '',
-          expand(elseTarget, classes, {
-            ...common,
-            boundary: null,
-            captureFirst: true,
-            warn: quiet,
-            numbered: anywherePlan.target,
-            noLeadSkip: marks
-          }).re,
+          elseSegments
+            ? expandSegmentTarget(elseSegments, marks)
+            : expand(elseTarget, classes, {
+                ...common,
+                boundary: null,
+                captureFirst: true,
+                warn: quiet,
+                numbered: anywherePlan.target,
+                noLeadSkip: marks
+              }).re,
           ''
         )
         const [wThenTarget, wElseTarget] = pair(writtenTargetSplit, writtenTarget)
@@ -1536,19 +1646,27 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
           rep: string,
           shown: [string, string],
           x: ExpandResult,
-          c: CompiledContext[]
+          c: CompiledContext[],
+          segments?: RuleSegment[]
         ): RuleBranch => ({
           target: decodeEscapes(shown[0]),
           replacement: decodeEscapes(shown[1]),
           targetClass: x.firstClass,
           targetGroup: x.groupIndex,
           replacementParts: parseReplacement(rep, classes, features, warn),
+          ...(segments ? { segments } : {}),
           compiled: c
         })
         branches = {
-          then: branch(thenReplacement, [wThenTarget, wThenRep], t, compiled),
+          then: branch(thenReplacement, [wThenTarget, wThenRep], t, compiled, thenSegments),
           otherwise: {
-            ...branch(elseReplacement, [wElseTarget, wElseRep], e, compileFor(elseTarget, quiet)),
+            ...branch(
+              elseReplacement,
+              [wElseTarget, wElseRep],
+              e,
+              compileFor(elseTarget, quiet, elseSegments),
+              elseSegments
+            ),
             anywhere
           }
         }
@@ -1577,12 +1695,14 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
       targetGroup: t.groupIndex,
       compiled,
       replacementParts: parseReplacement(thenReplacement, classes, features, warn),
+      ...(thenSegments ? { segments: thenSegments } : {}),
       marks,
       sigma,
       explicitStress: /[ˈˌ]/.test(target),
       ...(literal ? { literal } : {}),
       ...(branches ? { branches } : {}),
-      ...(Object.keys(featureHits).length ? { featureMembers: featureHits } : {})
+      ...(Object.keys(featureHits).length ? { featureMembers: featureHits } : {}),
+      ...(Object.keys(featureExclusions).length ? { featureExclusions } : {})
     }
     lines.push(rule)
     steps.push(rule)

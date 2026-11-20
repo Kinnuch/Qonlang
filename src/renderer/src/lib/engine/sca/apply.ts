@@ -69,13 +69,23 @@ function reverseText(s: string): string {
 }
 
 /** 替换要用到的：替换文本（`\` 换位、`2` 双写）、目标里第一个音类、拆好的替换 */
-type Substitution = Pick<ParsedRule, 'replacement' | 'targetClass' | 'replacementParts'>
+type Substitution = Pick<
+  ParsedRule,
+  'replacement' | 'targetClass' | 'replacementParts' | 'segments'
+>
 
 function substitute(
   rule: Substitution,
   match: string,
   named: Record<string, string> | undefined
 ): string {
+  if (rule.segments)
+    return rule.segments
+      .map((segment) => {
+        const captured = named?.[segment.capture] ?? ''
+        return substitute(segment, captured, { ...named, tc: captured })
+      })
+      .join('')
   if (rule.replacement === '\\') return reverseText(match)
   if (rule.replacement === '2') return match + match
   if (rule.replacement === '') return ''
@@ -408,9 +418,34 @@ export function runRulesOnText(
 }
 
 /** 只应用一条规则（预览用）。输入输出都是书写形式（经多合字母替换与还原）。 */
-export function runSingleRule(program: RuleProgram, rule: ParsedRule, word: string): string {
-  const inner = applyReplacements(word, program.replacements)
-  return revertReplacements(applyRule(rule, inner, program), program.replacements)
+export function runSingleRule(
+  program: RuleProgram,
+  rule: ParsedRule,
+  word: string,
+  options: RunOptions = {}
+): string {
+  const inner = applyReplacements(word, program.replacements, options.keepDots)
+  const replacements = options.keepUnits?.length
+    ? program.replacements.filter(([, to]) => !options.keepUnits!.includes(to))
+    : program.replacements
+  return revertReplacements(applyRule(rule, inner, program), replacements)
+}
+
+/** 只有本条规则确实改动、且外显结果不同才算命中；预处理变化不冒充规则效果。 */
+export function changedRuleResult(
+  program: RuleProgram,
+  rule: ParsedRule,
+  word: string,
+  options: RunOptions = {}
+): string | null {
+  const inner = applyReplacements(word, program.replacements, options.keepDots)
+  const after = applyRule(rule, inner, program)
+  if (after === inner) return null
+  const replacements = options.keepUnits?.length
+    ? program.replacements.filter(([, to]) => !options.keepUnits!.includes(to))
+    : program.replacements
+  const result = revertReplacements(after, replacements)
+  return result === word ? null : result
 }
 
 /** 规则序号（第 1 条起，不计标记与注释）：文本行号 → 序号 */

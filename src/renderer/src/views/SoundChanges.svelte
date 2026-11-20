@@ -438,6 +438,7 @@
             bind:selectedLine
             onchange={() => touch(rs)}
             foldKey={rs.id}
+            sampleLanguageId={baseLanguage?.id}
             onopenref={openRef}
           />
         </div>

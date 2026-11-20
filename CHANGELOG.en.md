@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2 · unreleased
+
+- Syllabification recognises vowels with IPA length marks and keeps the marks in the correct syllable.
+- The phoneme class editor has explicit Done, Cancel and Delete actions, so edits can be discarded before they are applied.
+- Sound-change cards prefer an actual headword or recorded pronunciation from the current language that changes under the selected rule. When there is no match, the app generates and verifies a sample from the rule's classes, features and environment. Searches run in batches and stop when you switch rules.
+
 ## 1.0.1 · 2026-11-19
 
 - **Orthography mappings**: enter a spelling in the phoneme inspector to generate a spelling–IPA entry in that orthography. Individual entries can be adjusted on the orthography page.

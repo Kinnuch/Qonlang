@@ -42,7 +42,8 @@
     base64ToBuffer,
     fontFamilyCss
   } from '$lib/script/fonts'
-  import { autoMappingRows, expandRules, lexemeScript } from '$lib/script/render'
+  import { autoMappingRows, expandRules, lexemeScript, scriptSourceText } from '$lib/script/render'
+  const scriptSampleOptions = { keepDots: true }
   import { sentenceScriptText } from '$lib/script/lexiconScript'
   import { parseRuleText, runRules, type RuleProgram } from '$lib/engine/sca'
   import { parseGlyphLines } from '$lib/importers/glyphLines'
@@ -826,7 +827,15 @@
       {/if}
       <div class="editor-area" data-tour="script-rules">
         {#if rulesView === 'list'}
-          <RuleList bind:text={script.rules} program={userProgram} onchange={touch} />
+          <RuleList
+            bind:text={script.rules}
+            program={userProgram}
+            onchange={touch}
+            sampleLanguageId={lang?.id}
+            sampleSource={(entry) => scriptSourceText(script!, entry)}
+            sampleSourceKey={script.from ?? 'lemma'}
+            sampleRunOptions={scriptSampleOptions}
+          />
         {:else}
           <div class="src">
             <RuleEditor

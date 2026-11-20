@@ -40,12 +40,19 @@
     phonotacticsFromInventory,
     type Violation
   } from '$lib/engine/phon'
-  import { parseRuleText, stripStress, type RuleProgram, type WordStress } from '$lib/engine/sca'
+  import {
+    parseRuleText,
+    stripStress,
+    mapRuleWords,
+    type RuleProgram,
+    type WordStress
+  } from '$lib/engine/sca'
   import { generateNaturalWords, MIN_LEXICON, type LexiconWord } from '$lib/engine/phon/wordgen'
   import {
     customStressProgram,
     deriveAll,
     hasOrthographyRules,
+    ipaUnits,
     orthographyRunner,
     spellToIpa,
     stressWord,
@@ -59,6 +66,7 @@
     editPhonemeRule,
     resetPhonemeRule,
     duplicatePhonemeRules,
+    preparePhonemeMapping,
     type OrthographyDirection
   } from '$lib/core/phonemeSpelling'
   import Portal from '$lib/ui/Portal.svelte'
@@ -68,7 +76,18 @@
   import StressText from '$lib/ui/StressText.svelte'
   import { lexemeStress } from '$lib/core/stressInfo'
   import Hint from '$lib/ui/Hint.svelte'
-  import { Plus, Trash2, X, Wand2, RefreshCw, Copy, List, Code, Check } from '@lucide/svelte'
+  import {
+    Plus,
+    Trash2,
+    X,
+    Wand2,
+    RefreshCw,
+    Copy,
+    List,
+    Code,
+    Check,
+    Pencil
+  } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { sortable } from '$lib/ui/sortable.svelte'
@@ -275,16 +294,49 @@
   // ───── 音类 ─────
   let queryDim = $state(memo.queryDim ?? '')
   let queryVal = $state(memo.queryVal ?? '')
+  /** 表单只改副本；完成后才写入工程，取消和切换语言均不留下半成品。 */
+  let classEditor = $state<{
+    value: PhonemeClass
+    members: string
+    isNew: boolean
+    language: Id
+  } | null>(null)
+  let classEditorProject: typeof projectState.project = null
+  $effect(() => {
+    if (
+      classEditor &&
+      (projectState.project !== classEditorProject ||
+        lang?.id !== classEditor.language ||
+        projectState.readOnly ||
+        tab !== 'classes')
+    )
+      classEditor = null
+  })
   function classMembersText(c: PhonemeClass): string {
     return c.members.some((m) => Array.from(m).length > 1)
       ? c.members.join(' ')
       : c.members.join('')
   }
-  function setClassMembers(c: PhonemeClass, text: string): void {
+  function classEditorFocus(node: HTMLFormElement): { destroy(): void } {
+    const keydown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      classEditor = null
+    }
+    node.addEventListener('keydown', keydown)
+    queueMicrotask(() => {
+      node.querySelector<HTMLInputElement>('[data-class-name]')?.focus({ preventScroll: true })
+      node.scrollIntoView({ block: 'nearest' })
+    })
+    return { destroy: () => node.removeEventListener('keydown', keydown) }
+  }
+  function setClassMembers(text: string): void {
+    if (!classEditor) return
     const v = text.trim()
-    c.members = /[\s,]/.test(v) ? v.split(/[\s,]+/).filter(Boolean) : Array.from(v)
-    c.featureQuery = null
-    touch()
+    classEditor.members = text
+    classEditor.value.members = /[\s,]/.test(v) ? v.split(/[\s,]+/).filter(Boolean) : Array.from(v)
+    classEditor.value.featureQuery = null
   }
   function membersFromQuery(q: Record<string, string>): string[] {
     return (lang?.phonemes ?? [])
@@ -296,23 +348,83 @@
     members: string[] = [],
     featureQuery: Record<string, string> | null = null
   ): void {
-    if (!lang) return
+    if (!lang || projectState.readOnly) return
     lang.classes.push({ id: newId(), name, members, featureQuery })
     touch()
+  }
+  function editClass(c?: PhonemeClass): void {
+    if (!lang || projectState.readOnly || classEditor) return
+    const value: PhonemeClass = c
+      ? $state.snapshot(c)
+      : { id: newId(), name: '', members: [], featureQuery: null }
+    classEditorProject = projectState.project
+    classEditor = { value, members: classMembersText(value), isNew: !c, language: lang.id }
+  }
+  function saveClass(): void {
+    const editor = classEditor
+    if (
+      !editor ||
+      !lang ||
+      projectState.readOnly ||
+      classEditorProject !== projectState.project ||
+      editor.language !== lang.id ||
+      !editor.value.name.trim()
+    )
+      return
+    const value = $state.snapshot(editor.value)
+    value.name = value.name.trim()
+    if (editor.isNew) lang.classes.push(value)
+    else {
+      const index = lang.classes.findIndex((c) => c.id === value.id)
+      if (index < 0) {
+        classEditor = null
+        return
+      }
+      lang.classes[index] = value
+    }
+    classEditor = null
+    touch()
+  }
+  function removeClass(c: PhonemeClass): void {
+    if (!lang || projectState.readOnly) return
+    const target = lang,
+      targetProject = projectState.project,
+      index = target.classes.findIndex((item) => item.id === c.id)
+    if (index < 0) return
+    const saved = $state.snapshot(c)
+    target.classes.splice(index, 1)
+    classEditor = null
+    touch()
+    ui.toast(t('phonology.removedClass', { name: saved.name || '∅' }), {
+      action: {
+        label: t('common.undo'),
+        run: () => {
+          if (
+            projectState.project !== targetProject ||
+            projectState.readOnly ||
+            !targetProject?.languages.includes(target) ||
+            target.classes.some((item) => item.id === saved.id)
+          )
+            return
+          target.classes.splice(Math.min(index, target.classes.length), 0, saved)
+          touch()
+        }
+      }
+    })
   }
   function addQueryToClass(c: PhonemeClass): void {
     if (!queryDim || !queryVal) return
     c.featureQuery = { ...(c.featureQuery ?? {}), [queryDim]: queryVal }
     c.members = membersFromQuery(c.featureQuery)
-    touch()
+    if (classEditor) classEditor.members = classMembersText(c)
   }
   function refreshClass(c: PhonemeClass): void {
     if (!c.featureQuery) return
     c.members = membersFromQuery(c.featureQuery)
-    touch()
+    if (classEditor) classEditor.members = classMembersText(c)
   }
   function quickClasses(): void {
-    if (!lang) return
+    if (!lang || projectState.readOnly || classEditor) return
     if (!lang.classes.some((c) => c.name === 'C'))
       addClass('C', membersFromQuery({ type: 'consonant' }), { type: 'consonant' })
     if (!lang.classes.some((c) => c.name === 'V'))
@@ -328,6 +440,22 @@
   const spellingManaged = $derived(ortho ? hasPhonemeRules(ortho, orthoDir) : false)
   const spellingDuplicates = $derived(
     ortho ? duplicatePhonemeRules(ortho, orthoDir) : new Set<string>()
+  )
+  const orthographySampleSource = $derived.by(() => {
+    if (!ortho) return undefined
+    const id = ortho.id,
+      direction = orthoDir
+    const convert = preparePhonemeMapping(ortho, direction)
+    return (entry: Lexeme): string => {
+      const raw = direction === 'toIpa' ? entry.lemma : (entry.pronunciations?.[id]?.ipa ?? '')
+      return mapRuleWords(raw, convert)
+    }
+  })
+  const orthographySampleKey = $derived(
+    ortho ? `${ortho.id}:${orthoDir}:${JSON.stringify(ortho.phonemeRules?.[orthoDir] ?? null)}` : ''
+  )
+  const orthographySampleOptions = $derived(
+    orthoDir === 'toIpa' && lang ? { keepUnits: ipaUnits(lang) } : {}
   )
   function generateSpellingRules(): void {
     if (!lang || !ortho || projectState.readOnly) return
@@ -635,6 +763,94 @@
   {/if}
 {/snippet}
 
+{#snippet classForm()}
+  {#if classEditor}
+    {@const c = classEditor.value}
+    <form
+      class="card cls class-editor"
+      data-phonology-class-editor={c.id}
+      use:classEditorFocus
+      onsubmit={(event) => {
+        event.preventDefault()
+        saveClass()
+      }}
+    >
+      <div class="class-fields">
+        <label
+          ><span>{t('soundChanges.className')}</span><input
+            class="input cname mono"
+            data-class-name
+            required
+            bind:value={c.name}
+          /></label
+        >
+        <label class="grow"
+          ><span>{t('soundChanges.classMembers')}</span><input
+            class="input data"
+            data-class-members
+            value={classEditor.members}
+            oninput={(event) => setClassMembers(event.currentTarget.value)}
+          /><span class="hint">{t('soundChanges.membersHint')}</span></label
+        >
+      </div>
+      <div class="row small query">
+        <span class="muted">{t('phonology.byFeature')}</span>
+        {#if c.featureQuery}
+          {#each Object.entries(c.featureQuery) as [k, v] (k)}
+            <span class="chip"
+              >{k}={v}<button
+                type="button"
+                class="x"
+                aria-label={`${t('common.delete')} ${k}=${v}`}
+                onclick={() => {
+                  delete c.featureQuery![k]
+                  if (!Object.keys(c.featureQuery!).length) c.featureQuery = null
+                  else refreshClass(c)
+                }}><X size={10} /></button
+              ></span
+            >
+          {/each}
+          <button type="button" class="btn ghost sm" onclick={() => refreshClass(c)}
+            ><RefreshCw size={13} />{t('phonology.refresh')}</button
+          >
+        {/if}
+        <select class="select tiny" aria-label={t('phonology.dimension')} bind:value={queryDim}
+          ><option value="">{t('phonology.dimension')}</option>{#each dimensions as d (d)}<option
+              value={d}>{d}</option
+            >{/each}</select
+        >
+        <select class="select tiny" aria-label={t('phonology.value')} bind:value={queryVal}
+          ><option value="">{t('phonology.value')}</option
+          >{#each valuesFor(queryDim) as v (v)}<option value={v}>{v}</option>{/each}</select
+        >
+        <button
+          type="button"
+          class="btn ghost sm"
+          disabled={!queryDim || !queryVal}
+          onclick={() => addQueryToClass(c)}><Plus size={13} />{t('phonology.addCondition')}</button
+        >
+      </div>
+      <div class="class-actions">
+        <button class="btn primary sm" data-class-done disabled={!c.name.trim()}
+          ><Check size={14} />{t('soundChanges.done')}</button
+        >
+        <button type="button" class="btn sm" data-class-cancel onclick={() => (classEditor = null)}
+          >{t('common.cancel')}</button
+        >
+        {#if !classEditor.isNew}<button
+            type="button"
+            class="btn ghost sm danger"
+            data-class-delete
+            onclick={() => {
+              const current = lang?.classes.find((item) => item.id === c.id)
+              if (current) removeClass(current)
+            }}><Trash2 size={14} />{t('common.delete')}</button
+          >{/if}
+      </div>
+    </form>
+  {/if}
+{/snippet}
+
 <div class="page">
   <div class="page-head row">
     <h1>{t('nav.phonology')}</h1>
@@ -768,77 +984,75 @@
       <div class="row">
         <span class="grow"></span>
         <HelpDot tip={t('phonology.classesHint')} />
-        <button class="btn sm" onclick={quickClasses}
-          ><Wand2 size={14} />{t('phonology.quickClasses')}</button
+        <button
+          class="btn sm"
+          disabled={projectState.readOnly || !!classEditor}
+          onclick={quickClasses}><Wand2 size={14} />{t('phonology.quickClasses')}</button
         >
-        <button class="btn primary sm" onclick={() => addClass()}
-          ><Plus size={14} />{t('phonology.addClass')}</button
+        <button
+          class="btn primary sm"
+          data-add-phonology-class
+          disabled={projectState.readOnly || !!classEditor}
+          onclick={() => editClass()}><Plus size={14} />{t('phonology.addClass')}</button
         >
       </div>
-      {#each lang.classes.filter(classHit) as c (c.id)}
-        <div class="card cls">
-          <div class="row">
-            <input
-              class="input cname mono"
-              placeholder={t('soundChanges.className')}
-              bind:value={c.name}
-              oninput={touch}
-            />
-            <span class="muted">=</span>
-            <input
-              class="input data grow"
-              value={classMembersText(c)}
-              placeholder={t('soundChanges.classMembers')}
-              onchange={(e) => setClassMembers(c, (e.currentTarget as HTMLInputElement).value)}
-            />
-            <button
-              class="btn ghost icon sm danger"
-              onclick={() => {
-                lang!.classes.splice(lang!.classes.indexOf(c), 1)
-                touch()
-              }}><Trash2 size={14} /></button
-            >
-          </div>
-          <div class="row small query">
-            <span class="muted">{t('phonology.byFeature')}</span>
-            {#if c.featureQuery}
-              {#each Object.entries(c.featureQuery) as [k, v] (k)}
-                <span class="chip"
-                  >{k}={v}<button
-                    class="x"
-                    onclick={() => {
-                      delete c.featureQuery![k]
-                      if (!Object.keys(c.featureQuery!).length) c.featureQuery = null
-                      else refreshClass(c)
-                      touch()
-                    }}><X size={10} /></button
-                  ></span
-                >
-              {/each}
-              <button
-                class="btn ghost icon sm"
-                title={t('phonology.refresh')}
-                onclick={() => refreshClass(c)}><RefreshCw size={13} /></button
+      {#if classEditor?.isNew}{@render classForm()}{/if}
+      {#each lang.classes.filter((c) => classHit(c) || classEditor?.value.id === c.id) as c (c.id)}
+        {#if classEditor?.value.id === c.id}
+          {@render classForm()}
+        {:else}
+          <div
+            class="card cls class-summary"
+            data-phonology-class={c.id}
+            role="button"
+            tabindex={projectState.readOnly || classEditor ? -1 : 0}
+            aria-disabled={projectState.readOnly || !!classEditor}
+            onclick={() => editClass(c)}
+            onkeydown={(event) => {
+              if (event.target !== event.currentTarget) return
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                editClass(c)
+              }
+            }}
+          >
+            <div class="row class-summary-main">
+              <strong class="mono">{c.name || '∅'}</strong><span class="muted">=</span><span
+                class="data grow">{classMembersText(c) || '∅'}</span
               >
-            {/if}
-            <select class="select tiny" bind:value={queryDim}
-              ><option value="">{t('phonology.dimension')}</option
-              >{#each dimensions as d (d)}<option value={d}>{d}</option>{/each}</select
-            >
-            <select class="select tiny" bind:value={queryVal}
-              ><option value="">{t('phonology.value')}</option
-              >{#each valuesFor(queryDim) as v (v)}<option value={v}>{v}</option>{/each}</select
-            >
-            <button
-              class="btn ghost sm"
-              disabled={!queryDim || !queryVal}
-              onclick={() => addQueryToClass(c)}
-              ><Plus size={13} />{t('phonology.addCondition')}</button
-            >
+              <span class="class-actions">
+                <button
+                  class="btn sm"
+                  data-class-edit
+                  disabled={projectState.readOnly || !!classEditor}
+                  onclick={(event) => {
+                    event.stopPropagation()
+                    editClass(c)
+                  }}><Pencil size={13} />{t('common.edit')}</button
+                >
+                <button
+                  class="btn ghost sm danger"
+                  data-class-delete
+                  disabled={projectState.readOnly || !!classEditor}
+                  onclick={(event) => {
+                    event.stopPropagation()
+                    removeClass(c)
+                  }}><Trash2 size={13} />{t('common.delete')}</button
+                >
+              </span>
+            </div>
+            {#if c.featureQuery}<div class="row small query">
+                <span class="muted">{t('phonology.byFeature')}</span
+                >{#each Object.entries(c.featureQuery) as [k, v] (k)}<span class="chip"
+                    >{k}={v}</span
+                  >{/each}
+              </div>{/if}
           </div>
-        </div>
+        {/if}
       {/each}
-      {#if lang.classes.length === 0}<p class="muted">{t('phonology.noClasses')}</p>{/if}
+      {#if lang.classes.length === 0 && !classEditor}<p class="muted">
+          {t('phonology.noClasses')}
+        </p>{/if}
     </div>
   {:else if tab === 'orthography'}
     <div class="scroll ortho" data-tour="phonology-ortho">
@@ -997,6 +1211,11 @@
                 program={orthoProgram}
                 onchange={touch}
                 foldKey={`ortho:${ortho.id}:toIpa`}
+                sampleLanguageId={lang?.id}
+                sampleInput="spelling"
+                sampleSource={orthographySampleSource}
+                sampleSourceKey={orthographySampleKey}
+                sampleRunOptions={orthographySampleOptions}
               />
             {:else}
               <div class="src">
@@ -1013,6 +1232,12 @@
               program={orthoProgram}
               onchange={touch}
               foldKey={`ortho:${ortho.id}:fromIpa`}
+              sampleLanguageId={lang?.id}
+              sampleInput="ipa"
+              sampleOrthoId={ortho.id}
+              sampleSource={orthographySampleSource}
+              sampleSourceKey={orthographySampleKey}
+              sampleRunOptions={orthographySampleOptions}
             />
           {:else}
             <div class="src">
@@ -1502,6 +1727,53 @@
 {/if}
 
 <style>
+  .class-editor {
+    border-color: var(--accent);
+  }
+  .class-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .class-fields label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 160px;
+  }
+  .class-fields label.grow {
+    flex: 1 1 260px;
+  }
+  .class-fields label > span:first-child {
+    color: var(--text-2);
+    font-size: 12px;
+  }
+  .class-fields .input {
+    width: 100%;
+    min-width: 0;
+  }
+  .class-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .class-summary {
+    cursor: pointer;
+  }
+  .class-summary[aria-disabled='true'] {
+    cursor: default;
+  }
+  .class-summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .class-summary-main {
+    flex-wrap: wrap;
+  }
+  .class-summary-main > .data {
+    overflow-wrap: anywhere;
+  }
   .spelling-rules {
     padding: 14px;
     flex: none;

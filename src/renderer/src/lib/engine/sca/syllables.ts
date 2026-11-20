@@ -4,7 +4,7 @@
  * 再看确定是辅音的音，都没有的按 IPA 表推断——拼写里的 a、é 这类也认得出元音，th 这类多合字母换成内部符号后是一个音。
  */
 import { inferFeatures } from '$lib/ipa/features'
-import { stripMarks, syllableSpans, tokenizeWord } from '../phon'
+import { stripMarks, syllableNucleusMatch, syllableSpans, tokenizeWord } from '../phon'
 import {
   BOUNDARY,
   type ClauseMatcher,
@@ -34,12 +34,11 @@ function syllabifierOf(program: RuleProgram): Syllabifier {
   const isNucleus = (s: string): boolean => {
     let v = known.get(s)
     if (v === undefined) {
-      const bare = stripMarks(s)
-      if (nuclei.has(s) || nuclei.has(bare)) v = true
-      else if (consonants.has(s) || consonants.has(bare)) v = false
+      const declared = syllableNucleusMatch(s, nuclei, consonants)
+      if (declared !== undefined) v = declared
       else {
         // 表里没有的多字母单位（aa、ai）逐个字母看，全是元音才算
-        const letters = Array.from(bare).filter((ch) => !/\p{Lm}/u.test(ch))
+        const letters = Array.from(stripMarks(s)).filter((ch) => !/\p{Lm}/u.test(ch))
         v =
           letters.length > 0 &&
           letters.every((ch) => {

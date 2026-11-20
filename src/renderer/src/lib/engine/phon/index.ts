@@ -115,6 +115,8 @@ export function tokenizeWord(text: string, units: ReadonlySet<string>): WordToke
 export interface SyllableOptions {
   /** 可作音节核的音段（元音音类成员，或带 syllabic 特征的音位） */
   nuclei: Set<string>
+  /** 明确声明的非核单位优先，不把其附标变体擅自折回另一个元音。 */
+  consonants?: ReadonlySet<string>
   /** 允许的起首 / 尾音（空集合表示不限制） */
   onsets?: Set<string>
   codas?: Set<string>
@@ -201,7 +203,7 @@ export function syllableSpans(
 }
 
 export function syllabify(segments: string[], opts: SyllableOptions): Syllable[] {
-  const isN = (s: string): boolean => opts.nuclei.has(s) || opts.nuclei.has(stripMarks(s))
+  const isN = (s: string): boolean => syllableNucleusMatch(s, opts.nuclei, opts.consonants) === true
   const segs = segments.filter((s) => !opts.ignore?.has(s))
   return syllableSpans(segs, isN, opts).map((sp) => ({
     onset: segs.slice(sp.start, sp.nucleusStart),
@@ -212,6 +214,30 @@ export function syllabify(segments: string[], opts: SyllableOptions): Syllable[]
 
 export function stripMarks(s: string): string {
   return s.normalize('NFD').replace(/\p{M}/gu, '')
+}
+
+/** 只供音节核分类比较，原音段不改；仅忽略尾部 IPA 长度符，不折叠任意修饰字母。 */
+export function syllableNucleusMatch(
+  segment: string,
+  nuclei: ReadonlySet<string>,
+  consonants?: ReadonlySet<string>
+): boolean | undefined {
+  const suffix = /[ːˑ\p{M}]+$/u.exec(segment)
+  const withoutLength =
+    suffix && /[ːˑ]/u.test(suffix[0])
+      ? segment.slice(0, suffix.index) + suffix[0].replace(/[ːˑ]/gu, '')
+      : segment
+  for (const form of new Set([
+    segment,
+    withoutLength,
+    stripMarks(segment),
+    stripMarks(withoutLength)
+  ])) {
+    if (!form) continue
+    if (nuclei.has(form)) return true
+    if (consonants?.has(form)) return false
+  }
+  return undefined
 }
 
 export function syllableText(s: Syllable): string {
@@ -419,10 +445,7 @@ export function languageParseOptions(
 /** 规则里切音节（σ、重音规则）用的设置：音位表、音节核、确定是辅音的音、起首表与模板 */
 function syllableScheme(lang: Language, replacements: [string, string][]): SyllableScheme {
   const nuclei = nucleusSet(lang)
-  const consonants = new Set<string>()
-  for (const p of lang.phonemes) if (phonemeKind(lang, p) === 'consonant') consonants.add(p.symbol)
-  for (const c of lang.classes)
-    if (CONSONANT_CLASS.test(c.name)) for (const m of c.members) consonants.add(m)
+  const consonants = consonantSet(lang)
   const units = new Set<string>(lang.phonemes.map((p) => p.symbol))
   for (const [, to] of replacements) units.add(to)
   for (const c of lang.classes)
@@ -506,6 +529,16 @@ export function nucleusSet(lang: Language): Set<string> {
   return s
 }
 
+/** 音系页和 SCA 对明确的辅音声明采用同一优先级；未分类的自定义符号不擅自当成辅音。 */
+export function consonantSet(lang: Language): Set<string> {
+  const nuclei = nucleusSet(lang)
+  const result = new Set<string>()
+  for (const p of lang.phonemes) if (phonemeKind(lang, p) === 'consonant') result.add(p.symbol)
+  for (const c of lang.classes)
+    if (CONSONANT_CLASS.test(c.name)) for (const member of c.members) result.add(member)
+  return new Set([...result].filter((symbol) => !nuclei.has(symbol)))
+}
+
 const kindOf = (f: Record<string, string>): 'vowel' | 'consonant' | null =>
   f.syllabic === 'yes' || f.type === 'vowel' ? 'vowel' : f.type === 'consonant' ? 'consonant' : null
 
@@ -559,7 +592,8 @@ export function analyzeWord(
 ): { segments: string[]; syllables: Syllable[]; stress: number; text: string } {
   const inventory = new Set(lang.phonemes.map((p) => p.symbol))
   const nuclei = nucleusSet(lang)
-  const isN = (s: string): boolean => nuclei.has(s) || nuclei.has(stripMarks(s))
+  const consonants = consonantSet(lang)
+  const isN = (s: string): boolean => syllableNucleusMatch(s, nuclei, consonants) === true
   const tpl =
     lang.syllable.strategy === 'template' && lang.syllable.template
       ? parseTemplate(lang.syllable.template)

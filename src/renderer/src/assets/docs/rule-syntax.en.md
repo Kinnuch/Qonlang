@@ -62,6 +62,19 @@ Numbers only count within one rule: `C1C2` is two consonants (same or different)
 | `2` | write the target twice | `p > 2 / V_V` |
 | empty | delete | `h > / V_V` |
 
+**Complete members in ad-hoc classes**: spaces or unescaped dots can separate multi-character members. With `V=aeiou`, for example, `[ī ū ȳ] > [ij.uw.yj] / _Vː` changes `īaː` to `ijaː`. `[ptk]` still reads characters individually; `[a-z]` and `[^aeiou]` remain range and negated character groups. Escape a literal dot in a member as `\.`.
+
+**Adjacent class segments**: matching numbers of top-level `_` separators can divide the target and replacement into segments. Every target segment must be a class, each replacement segment must contain a corresponding class with the same number of members, and at least one segment must be a feature with explicitly listed members. The segments match next to each other and are replaced independently by member position; these separator underscores are not characters in the word. For example:
+
+```
+V=aeiou
+[+asp]=pʰ tʰ kʰ
+[-asp]=p t k
+V_[+asp] > Vː_[-asp] / _s
+```
+
+This changes `apʰs` to `aːps`, preserving the vowel actually matched. List the corresponding members on both sides of the feature. Targets and replacements that do not meet these conditions keep the previous literal-underscore behaviour; a literal underscore can also be written `\_`. An underscore in an environment still marks the target position.
+
 ## Inside / outside the environment {#ifelse}
 
 One `?` in the target or the replacement splits a rule in two: before the `?` is what happens **inside** the environment, after it what happens **outside**.
@@ -79,6 +92,8 @@ One `?` in the target or the replacement splits a rule in two: before the `?` is
 - Without an environment every position counts as inside, so the half after `?` never applies (you get a warning).
 
 ## Syllable boundaries σ {#syllables}
+
+IPA length marks `ː` (long) and `ˑ` (half-long) stay with the preceding segment. If the base vowel is a syllable nucleus, its long and half-long forms can also be nuclei: for example, `aːhalur` can be divided as `aː.ha.lur`. An explicit consonant classification for the complete unit takes precedence. This comparison does not rewrite phonemes or characters in a word.
 
 `σ` in a rule means "a syllable boundary is here". The word is split into syllables before matching, and σ matches between two syllables; the start and end of the word and both sides of separators such as `·` `-` `‿` `=` count too. Parts of the rule without σ match as usual, regardless of syllables.
 

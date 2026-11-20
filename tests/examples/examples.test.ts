@@ -8,6 +8,7 @@ import { join } from 'path'
 import { parseProject } from '$lib/core/serialize'
 import { compareContext, compareGroups, soundPathOfWord, wordPath } from '$lib/core/compare'
 import { parseRuleText, runRules } from '$lib/engine/sca'
+import { ExampleWordIndex, firstChangedExample } from '$lib/engine/sca/lexiconSample'
 import { analyzeWord, languageParseOptions } from '$lib/engine/phon'
 import { stressWord, transcribe } from '$lib/core/pronounce'
 import { lexiconIssues } from '$lib/core/lexiconIssues'
@@ -168,7 +169,7 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     expect(run('sepe').output).toBe('ˈsepə')
     expect(run('sörmek').stages.map((x) => x.form)).toEqual(['ˈsörmek', 'ˈsörmək'])
     expect(run('kamsa').output).toBe('ˈkãmsa')
-    // 两个音并成一个：{闪音}=r r 的两个 r 按位置对上 t、d
+    // 临时音类按位置对应：[r.r] 的两个 r 分别对上 t、d。
     expect(run('kasoda').output).toBe('ˈkasora')
     expect(run('kata').output).toBe('ˈkara')
     expect(transcribe(L, L.orthographies[0], 'sörmek')).toBe('ˈsørmek')
@@ -200,6 +201,64 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
     // vesa 故意没写释义：词库底栏的问题统计里有它
     const vesa = p.lexemes.find((l) => l.lemma === 'vesa')!
     expect(lexiconIssues(p.lexemes).some((x) => x.lexemeId === vesa.id)).toBe(true)
+  })
+
+  it('示例里的临时音类保留原映射，并能从现有词库找到实际变化的示例', () => {
+    const aelith = load('Aelith.laim.json')
+    const ae = aelith.languages.find((l) => l.name === 'Aelith')!
+    const spoken = aelith.ruleSets.find((r) => r.name === '书面语 → 口语')!
+    const options = languageParseOptions(ae, aelith)
+    const current = parseRuleText(spoken.text, options)
+    const previous = parseRuleText(
+      spoken.text.replace('[t d] > [r.r] / V_V', '{齿塞} > {闪音} / V_V'),
+      options
+    )
+    const flap = current.steps.find((r) => r.kind === 'rule' && r.target === '[t d]')!
+    expect(flap.kind === 'rule' && flap.targetClass?.members).toEqual(['t', 'd'])
+    for (const word of spoken.testWords.split(/\s+/).filter(Boolean)) {
+      expect(runRules(current, word).output, word).toBe(runRules(previous, word).output)
+    }
+
+    const tsahun = load('Tsahun.laim.json')
+    const ts = tsahun.languages[0]
+    const rom = ts.orthographies[0]
+    const program = parseRuleText(rom.rulesToIpa, languageParseOptions(ts, tsahun))
+    const tones = program.steps.find((r) => r.kind === 'rule' && r.target === '[51 33]')!
+    expect(tones.kind === 'rule' && tones.targetClass?.members).toEqual(['51', '33'])
+    const oldRom = {
+      ...rom,
+      rulesToIpa: rom.rulesToIpa.replace('[51 33] > [˥˩.˧]', '51 > ˥˩\n33 > ˧')
+    }
+    // 包括非规范数字串，合并末尾两条不应改变先前规则的优先级。
+    const boundaries = ['355', '5551', '5133', '3351', '5331', '55133', '3533', '2151']
+    const storedWords = tsahun.lexemes.flatMap((l) => [
+      l.lemma,
+      ...Object.values(l.forms).map((f) => f.surface)
+    ])
+    for (const word of [...storedWords, ...boundaries]) {
+      expect(transcribe(ts, rom, word), word).toBe(transcribe(ts, oldRom, word))
+    }
+    expect(transcribe(ts, rom, 'kwe51')).toBe('kwe˥˩')
+    expect(transcribe(ts, rom, 'mek33')).toBe('mek˧')
+    expect(transcribe(ts, rom, 'lun35lun35')).toBe('lun˧lun˧˥')
+
+    const index = new ExampleWordIndex(tsahun.lexemes, ts.id, 'spelling')
+    let offset = 0
+    for (;;) {
+      const batch = index.batch(offset)
+      const hit = firstChangedExample(
+        program,
+        tones as Extract<typeof tones, { kind: 'rule' }>,
+        batch.words
+      )
+      if (hit) {
+        expect(tsahun.lexemes.some((l) => l.lemma === hit.lemma)).toBe(true)
+        expect(hit.after).not.toBe(hit.sample)
+        break
+      }
+      expect(batch.done).toBe(false)
+      offset += batch.words.length
+    }
   })
 
   it('Aelith 的姊妹语 Merun：同一个词根的同源词能在关系图里对比', () => {

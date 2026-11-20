@@ -32,7 +32,7 @@ export function defaultFeatures(symbol: string): Record<string, string> {
   const base = symbol
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
-    .replace(/[ʰʲʷˠˤː]/g, '')
+    .replace(/[ʰʲʷˠˤːˑ]/g, '')
     .replace(/g/g, 'ɡ')
   for (let mi = 0; mi < PULMONIC.length; mi++) {
     for (let pi = 0; pi < PULMONIC[mi].length; pi++) {

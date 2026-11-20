@@ -323,9 +323,9 @@ export default {
     galleryNext: 'Siguiente',
     exampleDesc: {
       aelith:
-        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación.',
+        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente.',
       tsahun:
-        'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura.'
+        'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura. Las clases temporales relacionan los números de tono de varias cifras con secuencias completas de letras tonales.'
     },
     coffee: 'Invíteme a un café',
     changelog: 'Registro de cambios',
@@ -564,7 +564,7 @@ export default {
     upTo: 'Hasta la regla {n}',
     sample: 'Ejemplo',
     replay: 'Repetir',
-    noPreview: 'El ejemplo generado automáticamente no cambia con esta regla',
+    noPreview: 'No se encontró ningún ejemplo que cambie con esta regla.',
     editRule: 'Editar',
     input: 'Entrada',
     chainHint:
@@ -1980,6 +1980,7 @@ export default {
     quickClasses: 'Generar C / V',
     addClass: 'Añadir clase',
     noClasses: 'Todavía no hay clases de sonidos.',
+    removedClass: 'Se ha eliminado la clase de sonidos «{name}»',
     byFeature: 'Por rasgo:',
     dimension: 'Dimensión',
     value: 'Valor',

@@ -7,6 +7,14 @@
    * 单击选中（联动测试台预览），双击或铅笔进入编辑。
    */
   import { t } from '$lib/i18n/index.svelte'
+  import { projectState } from '$lib/state/project.svelte'
+  import {
+    ExampleWordIndex,
+    type ExampleInput,
+    type RuleExample,
+    type ExampleWordSource
+  } from '$lib/engine/sca/lexiconSample'
+  import { findRuleExample } from './ruleExample.svelte'
   import HelpDot from './HelpDot.svelte'
   import StressRuleEditor from './StressRuleEditor.svelte'
   import { describeClause, describeSplit } from './stressSummary'
@@ -23,14 +31,13 @@
     parseReplacementLine,
     parseStressText,
     ruleOrdinals,
-    runSingleRule,
-    sampleForRule,
     diffSpan,
     type FeatureLine,
     type ParsedLine,
     type ParsedRule,
     type RuleDraft,
     type RuleProgram,
+    type RunOptions,
     type StressLine
   } from '$lib/engine/sca'
   import {
@@ -59,7 +66,13 @@
     selectedLine = $bindable<number | null>(null),
     onchange,
     foldKey = '',
-    onopenref
+    onopenref,
+    sampleLanguageId = null,
+    sampleInput = 'both',
+    sampleOrthoId,
+    sampleSource,
+    sampleSourceKey = '',
+    sampleRunOptions = {}
   }: {
     text?: string
     program: RuleProgram | null
@@ -72,6 +85,12 @@
     foldKey?: string
     /** 点「打开」跳到被引用的那套音变（`-@` 引用行上才有） */
     onopenref?: (name: string) => void
+    sampleLanguageId?: string | null
+    sampleInput?: ExampleInput
+    sampleOrthoId?: string
+    sampleSource?: ExampleWordSource
+    sampleSourceKey?: string
+    sampleRunOptions?: RunOptions
   } = $props()
 
   const ordinals = $derived(program ? ruleOrdinals(program) : new Map<number, number>())
@@ -356,16 +375,44 @@
     return ctx.map((c) => `${c.left}_${c.right}`).join(' , ')
   }
 
-  /** 选中规则的示例与变化 */
-  const preview = $derived.by(() => {
+  const selectedRule = $derived.by(() => {
     if (!program || selectedLine == null) return null
-    const r = program.steps.find((s) => s.kind === 'rule' && s.line === selectedLine) as
-      ParsedRule | undefined
-    if (!r) return null
-    const sample = sampleForRule(program, r)
-    if (!sample) return { sample, after: sample, diff: null }
-    const after = runSingleRule(program, r, sample)
-    return { sample, after, diff: after === sample ? null : diffSpan(sample, after) }
+    return (
+      program.steps.find((s): s is ParsedRule => s.kind === 'rule' && s.line === selectedLine) ??
+      null
+    )
+  })
+  const wordIndex = $derived.by(() => {
+    const project = projectState.project
+    // 打开、撤销或修改工程后丢弃旧结果；只在选中规则时按需读取词条。
+    void project?.meta.updatedAt
+    void project?.lexemes.length
+    void sampleSourceKey
+    void sampleRunOptions
+    return new ExampleWordIndex(
+      sampleLanguageId && project ? project.lexemes : [],
+      sampleLanguageId ?? '',
+      sampleInput,
+      sampleOrthoId,
+      sampleSource
+    )
+  })
+  let preview = $state.raw<RuleExample | null>(null)
+  const diff = $derived(preview?.sample ? diffSpan(preview.sample, preview.after) : null)
+  $effect(() => {
+    preview = null
+    if (program && selectedRule && editingLine === null) {
+      return findRuleExample(
+        wordIndex,
+        program,
+        selectedRule,
+        (result) => {
+          preview = result
+        },
+        sampleRunOptions
+      )
+    }
+    return undefined
   })
 
   // 音类
@@ -978,23 +1025,37 @@
                   >
                 </span>
               </div>
-              {#if selectedLine === r.line && preview}
-                <div class="preview row">
+              {#if selectedLine === r.line && selectedRule}
+                <div
+                  class="preview row"
+                  data-rule-example
+                  data-source={preview?.lemma !== undefined
+                    ? 'lexicon'
+                    : preview
+                      ? 'generated'
+                      : 'loading'}
+                >
                   <span class="small muted">{t('soundChanges.sample')}</span>
-                  {#if !preview.sample}
-                    <span class="small muted">{t('soundChanges.noPreview')}</span>
-                  {:else if !preview.diff}
-                    <span class="data">{preview.sample}</span>
+                  {#if !preview}
+                    <span class="small muted">{t('common.loading')}</span>
+                  {:else if !diff}
                     <span class="small muted">{t('soundChanges.noPreview')}</span>
                   {:else}
+                    {#if preview.lemma !== undefined}
+                      <span class="small muted" title={preview.lemma}
+                        >{t('nav.lexicon')}{preview.lemma && preview.lemma !== preview.sample
+                          ? ' · ' + preview.lemma
+                          : ''}</span
+                      >
+                    {/if}
                     {#key replayKey}
-                      <span class="morph data">
-                        <span>{preview.diff.prefix}</span>
+                      <span class="morph data" data-example-input={preview.sample}>
+                        <span>{diff.prefix}</span>
                         <span class="diff-seg">
-                          <span class="old">{preview.diff.beforeMid || '∅'}</span>
-                          <span class="new">{preview.diff.afterMid || '∅'}</span>
+                          <span class="old">{diff.beforeMid || '∅'}</span>
+                          <span class="new">{diff.afterMid || '∅'}</span>
                         </span>
-                        <span>{preview.diff.suffix}</span>
+                        <span>{diff.suffix}</span>
                       </span>
                     {/key}
                     <span class="muted">→</span>
