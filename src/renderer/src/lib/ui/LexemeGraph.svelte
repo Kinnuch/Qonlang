@@ -10,7 +10,7 @@
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { projectState } from '$lib/state/project.svelte'
-  import { deletable } from './deletable'
+  import { deletable, deleteKeyAllowed, editingDeleteTarget } from './deletable'
   import {
     splitSourceForm,
     resolveFormInLanguage,
@@ -538,15 +538,19 @@
     const close = (ev: Event): void => {
       if (
         ev instanceof KeyboardEvent &&
-        ev.key === 'Delete' &&
         menuNode?.lexemeId &&
         ondelete &&
-        !projectState.readOnly &&
-        !ev.repeat &&
-        !ev.ctrlKey &&
-        !ev.metaKey &&
-        !ev.altKey &&
-        !ev.shiftKey
+        deleteKeyAllowed(ev, {
+          editable: editingDeleteTarget(ev.target),
+          textSelection: !!window.getSelection()?.toString(),
+          readOnly: projectState.readOnly,
+          modal:
+            !!(ui.confirmReq || ui.chooseReq || ui.promptReq || ui.paletteOpen) ||
+            [...document.querySelectorAll('dialog[open], [aria-modal="true"]')].some(
+              (node) => node.getClientRects().length > 0
+            ),
+          selected: true
+        })
       ) {
         ev.preventDefault()
         void deleteWord(menuNode.lexemeId)

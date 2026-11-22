@@ -5,7 +5,7 @@
    * 分组存在项目设置里；用户没动过时按默认分法显示（音变：共时 / 历时，构形：按词类），一改就把整套写进项目。
    */
   import type { Id, TabGroupSet } from '$lib/core/model'
-  import { deletable } from './deletable'
+  import { deletable, deleteKeyAllowed, editingDeleteTarget } from './deletable'
   import { newId } from '$lib/core/factory'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { projectState } from '$lib/state/project.svelte'
@@ -81,15 +81,19 @@
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') menu = null
       if (
-        e.key === 'Delete' &&
         menu?.tab &&
         ondelete &&
-        !projectState.readOnly &&
-        !e.repeat &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !e.altKey &&
-        !e.shiftKey
+        deleteKeyAllowed(e, {
+          editable: editingDeleteTarget(e.target),
+          textSelection: !!window.getSelection()?.toString(),
+          readOnly: projectState.readOnly,
+          modal:
+            !!(ui.confirmReq || ui.chooseReq || ui.promptReq || ui.paletteOpen) ||
+            [...document.querySelectorAll('dialog[open], [aria-modal="true"]')].some(
+              (node) => node.getClientRects().length > 0
+            ),
+          selected: true
+        })
       ) {
         e.preventDefault()
         void deleteTab(menu.tab)
