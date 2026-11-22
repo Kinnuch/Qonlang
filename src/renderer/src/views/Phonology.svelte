@@ -505,6 +505,10 @@
       ...languageParseOptions(lang, project),
       caseInsensitive: orthoDir === 'toIpa' && orthographyIgnoresCase(ortho)
     }
+    if (tab === 'orthography' && orthoView === 'list') {
+      orthoProgram = parseRuleText(text, opts)
+      return
+    }
     const id = setTimeout(() => {
       orthoProgram = parseRuleText(text, opts)
     }, 120)
@@ -1274,17 +1278,19 @@
         <div class="editor-area">
           {#if orthoDir === 'toIpa'}
             {#if orthoView === 'list'}
-              <RuleList
-                bind:text={ortho.rulesToIpa}
-                program={orthoProgram}
-                onchange={touch}
-                foldKey={`ortho:${ortho.id}:toIpa`}
-                sampleLanguageId={lang?.id}
-                sampleInput="spelling"
-                sampleSource={orthographySampleSource}
-                sampleSourceKey={orthographySampleKey}
-                sampleRunOptions={orthographySampleOptions}
-              />
+              {#key ortho}
+                <RuleList
+                  bind:text={ortho.rulesToIpa}
+                  program={orthoProgram}
+                  onchange={touch}
+                  foldKey={`ortho:${ortho.id}:toIpa`}
+                  sampleLanguageId={lang?.id}
+                  sampleInput="spelling"
+                  sampleSource={orthographySampleSource}
+                  sampleSourceKey={orthographySampleKey}
+                  sampleRunOptions={orthographySampleOptions}
+                />
+              {/key}
             {:else}
               <div class="src">
                 <RuleEditor
@@ -1295,18 +1301,20 @@
               </div>
             {/if}
           {:else if orthoView === 'list'}
-            <RuleList
-              bind:text={ortho.rulesFromIpa}
-              program={orthoProgram}
-              onchange={touch}
-              foldKey={`ortho:${ortho.id}:fromIpa`}
-              sampleLanguageId={lang?.id}
-              sampleInput="ipa"
-              sampleOrthoId={ortho.id}
-              sampleSource={orthographySampleSource}
-              sampleSourceKey={orthographySampleKey}
-              sampleRunOptions={orthographySampleOptions}
-            />
+            {#key ortho}
+              <RuleList
+                bind:text={ortho.rulesFromIpa}
+                program={orthoProgram}
+                onchange={touch}
+                foldKey={`ortho:${ortho.id}:fromIpa`}
+                sampleLanguageId={lang?.id}
+                sampleInput="ipa"
+                sampleOrthoId={ortho.id}
+                sampleSource={orthographySampleSource}
+                sampleSourceKey={orthographySampleKey}
+                sampleRunOptions={orthographySampleOptions}
+              />
+            {/key}
           {:else}
             <div class="src">
               <RuleEditor
@@ -1695,15 +1703,17 @@
               />
             </div>
           {/each}
-          <RuleList
-            bind:text={legacyOrtho.rulesFromIpa}
-            program={legacyProgram}
-            onchange={touch}
-            foldKey={`legacy-ortho:${legacyOrtho.id}`}
-            sampleLanguageId={lang.id}
-            sampleInput="ipa"
-            sampleOrthoId={legacyOrtho.id}
-          />
+          {#key legacyOrtho}
+            <RuleList
+              bind:text={legacyOrtho.rulesFromIpa}
+              program={legacyProgram}
+              onchange={touch}
+              foldKey={`legacy-ortho:${legacyOrtho.id}`}
+              sampleLanguageId={lang.id}
+              sampleInput="ipa"
+              sampleOrthoId={legacyOrtho.id}
+            />
+          {/key}
           <label class="field"
             ><span>{t('phonology.test')}</span><textarea
               class="textarea data"

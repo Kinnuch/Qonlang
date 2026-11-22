@@ -111,9 +111,9 @@
     inspectorTitle = rulePending ? t('importPreview.title') : t('soundChanges.testBench')
   })
 
-  // 解析（去抖）。规则集第一个绑定了语言的阶段所属语言的音类和多合字母作为基础。
+  // 可编辑的列表立即解析，确保行号属于当前规则集。连续输入源码时再延迟解析。
   let program = $state<RuleProgram | null>(null)
-  let parseTimer: ReturnType<typeof setTimeout> | null = null
+  let view = $state<'list' | 'chain' | 'source'>(memo.view ?? 'list')
   const baseLanguage = $derived.by(() => {
     if (!active) return null
     const boundId = Object.values(active.stageLanguages).find((id) => !!id)
@@ -122,13 +122,12 @@
   $effect(() => {
     const text = active?.text ?? ''
     const opts = languageParseOptions(baseLanguage, project)
-    if (parseTimer) clearTimeout(parseTimer)
-    parseTimer = setTimeout(() => {
+    if (view === 'list') {
       program = parseRuleText(text, opts)
-    }, 120)
-    return () => {
-      if (parseTimer) clearTimeout(parseTimer)
+      return
     }
+    const timer = setTimeout(() => (program = parseRuleText(text, opts)), 120)
+    return () => clearTimeout(timer)
   })
 
   // 测试台（测试词随规则集保存）
@@ -166,7 +165,6 @@
   )
 
   let editor = $state<RuleEditor | null>(null)
-  let view = $state<'list' | 'chain' | 'source'>(memo.view ?? 'list')
   let selectedLine = $state<number | null>(memo.selectedLine ?? null)
   $effect(() => {
     Object.assign(memo, { activeId, view, selectedLine, selectedWord })
@@ -436,17 +434,19 @@
         </div>
       {:else}
         <div class="list-wrap" data-tour="sc-list" use:navScroll={'soundChanges'}>
-          <RuleList
-            bind:text={rs.text}
-            {program}
-            {hits}
-            query={ui.search}
-            bind:selectedLine
-            onchange={() => touch(rs)}
-            foldKey={rs.id}
-            sampleLanguageId={baseLanguage?.id}
-            onopenref={openRef}
-          />
+          {#key rs}
+            <RuleList
+              bind:text={rs.text}
+              {program}
+              {hits}
+              query={ui.search}
+              bind:selectedLine
+              onchange={() => touch(rs)}
+              foldKey={rs.id}
+              sampleLanguageId={baseLanguage?.id}
+              onopenref={openRef}
+            />
+          {/key}
         </div>
       {/if}
       <div class="status row">
