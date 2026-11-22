@@ -11,6 +11,8 @@ import {
   type SlotDef
 } from '$lib/engine/morph'
 import { activeValues } from '$lib/engine/morph/conditions'
+import { valueMatch } from '$lib/engine/morph/allomorph'
+import { parseProject, serializeProject } from '$lib/core/serialize'
 import type { Allomorph, GrammaticalCategory, MorphStep, Paradigm } from '$lib/core/model'
 
 const step = (s: Omit<MorphStep, 'id'>): MorphStep => ({ id: newId(), ...s }) as MorphStep
@@ -94,6 +96,66 @@ function setup() {
 const valuesOf = (slot: SlotDef): ReadonlyMap<string, string> => activeValues(slot.values, null)
 
 describe('异体形按维度取值挑', () => {
+  it('旧条件缺省全满足；任一满足支持同一维度的备选取值', () => {
+    const { para, suf, kaso, slotOf, suffixEverywhere, ctx } = setup()
+    const row: Allomorph = { form: '-x', environment: '', values: ['acc', 'dat'] }
+    suf.allomorphs = [row]
+    suffixEverywhere()
+    expect(generateForm(ctx, kaso, para, slotOf('宾格.单数'))?.surface).toBe('kasoa')
+    row.valueMatch = 'any'
+    expect(generateForm(ctx, kaso, para, slotOf('宾格.单数'))?.surface).toBe('kasox')
+    expect(generateForm(ctx, kaso, para, slotOf('与格.复数'))?.surface).toBe('kasox')
+    expect(generateForm(ctx, kaso, para, slotOf('主格.单数'))?.surface).toBe('kasoa')
+  })
+
+  it('任一取值也必须同时满足出现环境，轨迹仅列出实际对上的取值', () => {
+    const { para, suf, kaso, kator, slotOf, suffixEverywhere, ctx } = setup()
+    suf.allomorphs = [{ form: '-x', environment: 'V_', values: ['acc', 'dat'], valueMatch: 'any' }]
+    suffixEverywhere()
+    const result = generateForm(ctx, kaso, para, slotOf('宾格.单数'))
+    expect(result?.surface).toBe('kasox')
+    expect(result?.trace.some((line) => line.includes('(宾格 · V_)'))).toBe(true)
+    expect(result?.trace.join('\n')).not.toContain('与格')
+    expect(generateForm(ctx, kator, para, slotOf('宾格.单数'))?.surface).toBe('katora')
+  })
+
+  it('任一条件按实际对上的个数排序，未命中的备选项不增加优先级', () => {
+    const { suf, slotOf, ctx } = setup()
+    suf.allomorphs = [
+      { form: '-any', environment: '', values: ['acc', 'dat', 'nom'], valueMatch: 'any' },
+      { form: '-both', environment: '', values: ['acc', 'pl'] }
+    ]
+    expect(selectAllomorph(ctx, suf, 'kaso', 'suffix', valuesOf(slotOf('宾格.复数'))).form).toBe(
+      '-both'
+    )
+    expect(
+      valueMatch(
+        { form: '', environment: '', values: ['acc', 'acc', '', 'pl'], valueMatch: 'any' },
+        new Set(['acc'])
+      )
+    ).toBe(1)
+  })
+
+  it('任一条件留空不限，没有槽位信息时仍不选择带取值的行', () => {
+    expect(valueMatch({ form: '', environment: '', valueMatch: 'any', values: [] }, null)).toBe(0)
+    expect(
+      valueMatch({ form: '', environment: '', valueMatch: 'any', values: ['acc'] }, null)
+    ).toBeNull()
+    expect(
+      valueMatch({ form: '', environment: '', valueMatch: 'any', values: ['acc'] }, new Set())
+    ).toBeNull()
+  })
+
+  it('任一条件存盘重开保留，旧异体形不补写匹配方式', () => {
+    const { p, suf } = setup()
+    suf.allomorphs = [
+      { form: '-x', environment: 'V_', values: ['acc', 'dat'], valueMatch: 'any' },
+      { form: '-old', environment: '', values: ['pl'] }
+    ]
+    expect(parseProject(serializeProject(p)).morphemes[0].allomorphs).toEqual(suf.allomorphs)
+    expect(suf.allomorphs[1]).not.toHaveProperty('valueMatch')
+  })
+
   it('同一个构形的两格各推各的形', () => {
     const { p, para, suf, kaso, slotOf, suffixEverywhere, ctx } = setup()
     suf.allomorphs = [

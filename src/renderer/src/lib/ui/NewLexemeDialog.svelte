@@ -4,6 +4,7 @@
    * 词源（派生 ← 原来的词条）、关系（派生 → 原来的词条）已经按构形填好，词头、词类、构形、释义、标签可以现填；
    * 也能不填这些，直接只生成形式、词源和关系（词库里会标红提醒缺释义）。
    */
+  import { gEquivalent } from '$lib/ipa/equivalence'
   import { newLexeme } from '$lib/state/newLexeme.svelte'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
@@ -35,7 +36,9 @@
   })
   const existing = $derived(
     project && req
-      ? project.lexemes.find((l) => l.languageId === req.languageId && l.lemma === lemma.trim())
+      ? project.lexemes.find(
+          (l) => l.languageId === req.languageId && gEquivalent(l.lemma, lemma.trim())
+        )
       : undefined
   )
 

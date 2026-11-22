@@ -6,6 +6,7 @@ import type { Analysis, Id, Project, Token } from '$lib/core/model'
 import { analyzeToken, glossIndexFor, lexemeGloss, senseGloss, wordCharsFor } from './index'
 import type { TokenizeOptions } from './tokens'
 import { matchCase, replaceWordAt, wordAt, wordRangeOfToken } from './rewrite'
+import { gEquivalent } from '$lib/ipa/equivalence'
 
 /** 挑中的词条、语素或一种切法（悬浮卡的 HoverChoice，这里只用得到这几项） */
 export interface AssignChoice {
@@ -145,7 +146,9 @@ export function rewriteWordInText(project: Project, s: AnalyzedText, at: number)
     a.lexemeId === cur.lexemeId &&
     a.slot === cur.slot &&
     a.morphs.length === cur.morphs.length &&
-    a.morphs.every((m, i) => m.form === cur.morphs[i].form && m.gloss === cur.morphs[i].gloss)
+    a.morphs.every(
+      (m, i) => gEquivalent(m.form, cur.morphs[i].form) && m.gloss === cur.morphs[i].gloss
+    )
   tk.analyses = cur ? [cur, ...fresh.filter((a) => !same(a))] : fresh
   tk.chosen = 0
   return true

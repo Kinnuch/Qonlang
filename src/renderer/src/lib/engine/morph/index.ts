@@ -25,6 +25,7 @@ import { posParadigmId } from '$lib/core/pos'
 import { activeValues, conditionVariants, resolveConditions } from './conditions'
 import { activeValueIds, alloValues, valueLabel, valueMatch } from './allomorph'
 import type { LayoutDim } from './layout'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 export interface SlotDef {
   key: string
@@ -639,7 +640,9 @@ export function selectAllomorph(
   if (!best) return { form: m.form, note: `${m.form} → ${m.form}` }
   const langs = ctx.project.settings.glossLanguages
   const why = [
-    ...alloValues(best.a).map((v) => valueLabel(ctx.project.categories, v, langs)),
+    ...alloValues(best.a)
+      .filter((v) => activeIds?.has(v))
+      .map((v) => valueLabel(ctx.project.categories, v, langs)),
     best.env
   ].filter(Boolean)
   const form = best.a.form
@@ -766,12 +769,12 @@ export function applyAdjust(
       s = runRules(prog, s, { trace: false }).output
     } else if (line.startsWith('^-')) {
       const x = line.slice(2)
-      if (x && s.startsWith(x)) s = s.slice(x.length)
+      if (x && canonicalG(s).startsWith(canonicalG(x))) s = s.slice(x.length)
     } else if (line.startsWith('^+')) {
       s = line.slice(2) + s
     } else if (line.startsWith('-')) {
       const x = line.slice(1)
-      if (x && s.endsWith(x)) s = s.slice(0, s.length - x.length)
+      if (x && canonicalG(s).endsWith(canonicalG(x))) s = s.slice(0, s.length - x.length)
     } else if (line.startsWith('+')) {
       s = s + line.slice(1)
     } else {

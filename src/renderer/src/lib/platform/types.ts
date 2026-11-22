@@ -56,6 +56,8 @@ export interface OpenResult {
 export interface Prefs {
   locale: string
   theme: 'system' | 'light' | 'dark'
+  /** 仅文档页新建页面的默认格式，不转换已有文档或导入内容。 */
+  defaultDocFormat?: 'markdown' | 'html'
   autosaveSeconds: number
   backupCount: number
   /** 上次打开的项目，启动时自动恢复 */
@@ -169,6 +171,7 @@ export interface CsvPreset {
 export const DEFAULT_PREFS: Prefs = {
   locale: 'zh',
   theme: 'system',
+  defaultDocFormat: 'markdown',
   autosaveSeconds: 30,
   backupCount: 20,
   reopenLast: true,

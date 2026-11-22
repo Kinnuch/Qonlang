@@ -53,14 +53,15 @@
   let fileName = $state('')
   let rawText = $state('')
   let delimiter = $state<Delimiter | 'auto'>('auto')
-  let rows = $state<string[][]>([])
+  // 解析后整批替换，列映射独立编辑；原始表格无需为每一行创建响应式代理。
+  let rows = $state.raw<string[][]>([])
   let mapping = $state<CsvMapping | null>(null)
   let report = $state<ImportReport | null>(null)
   let presetName = $state('')
   let chosenPreset = $state('')
 
   const header = $derived(rows[0] ?? [])
-  const colCount = $derived(Math.max(0, ...rows.map((r) => r.length)))
+  const colCount = $derived(rows.reduce((count, row) => Math.max(count, row.length), 0))
   const sampleRow = $derived(mapping?.hasHeader ? (rows[1] ?? []) : (rows[0] ?? []))
   const presets = $derived(
     ui.prefs.csvPresets.filter((p) => !mapping || p.target === mapping.target)
@@ -82,8 +83,7 @@
       project.settings.defaultLanguageId ??
       project.languages[0]?.id ??
       ''
-    const cols = Math.max(0, ...rows.map((r) => r.length))
-    const base = defaultMapping(lid, cols)
+    const base = defaultMapping(lid, colCount)
     base.target = initialTarget
     mapping = guessMapping(rows[0] ?? [], base, project.customFields)
     report = null
@@ -229,11 +229,8 @@
     const m = $state.snapshot(mapping) as CsvMapping
     m.senseMarkers = effectiveMarkers()
     m.posMarkers = effectivePosMarkers()
-    const data = m.hasHeader ? rows.slice(1) : rows
-    const sample = $state.snapshot([
-      ...(m.hasHeader ? rows.slice(0, 1) : []),
-      ...data.slice(0, PREVIEW_LIMIT)
-    ]) as string[][]
+    const headerRows = m.hasHeader ? 1 : 0
+    const sample = rows.slice(0, PREVIEW_LIMIT + headerRows)
     const scratch = scratchProject(project)
     // 词源来源、关系要能链到项目里已有的单词和语素：拿真项目的列表当底子，样例只列新加的
     scratch.lexemes = [...project.lexemes]
@@ -248,7 +245,7 @@
     )
     return {
       project: scratch,
-      total: data.length,
+      total: rows.length - headerRows,
       existing,
       report: result,
       updatedIds: new Set(changed.filter((item) => originals.has(item.id)).map((item) => item.id)),
@@ -286,7 +283,7 @@
     const m = $state.snapshot(mapping) as CsvMapping
     m.senseMarkers = effectiveMarkers()
     m.posMarkers = effectivePosMarkers()
-    report = applyCsvImport(project, $state.snapshot(rows) as string[][], m)
+    report = applyCsvImport(project, rows, m)
     projectState.touch()
   }
 

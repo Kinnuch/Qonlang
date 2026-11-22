@@ -509,10 +509,12 @@ export interface Allomorph {
   /** 出现环境，规则语言写法 */
   environment: string
   /**
-   * 只在这些维度取值下用（取值 id）：要全都在正在生成的那一格的取值里这一条才算数。
+   * 只在这些维度取值下用（取值 id），匹配方式由 valueMatch 决定。
    * 没写（或者是空的）就是任何取值都行；跟 environment 都写了时两边都要对上。
    */
   values?: Id[]
+  /** 缺省保持旧工程的「全部满足」；any 表示至少一个取值对上。 */
+  valueMatch?: 'all' | 'any'
 }
 
 // ───────────────────────── 词位 ─────────────────────────
@@ -870,6 +872,8 @@ export interface DocPage {
   id: Id
   languageId: Id | null
   title: string
+  /** 缺失时仍按 Markdown 读取；正文沿用 markdown 字段，避免改旧工程结构。 */
+  format?: 'markdown' | 'html'
   markdown: string
   updatedAt: string
 }

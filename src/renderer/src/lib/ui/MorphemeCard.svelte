@@ -5,6 +5,7 @@
   import type { Id, Morpheme, Project } from '$lib/core/model'
   import { etymologyTypeLabel } from '$lib/ui/labels'
   import { fiveRows } from '$lib/ui/fiveRows'
+  import { valueLabel } from '$lib/engine/morph/allomorph'
 
   let {
     morpheme,
@@ -59,7 +60,15 @@
       <table class="pairs">
         <tbody>
           {#each morpheme.allomorphs as a, i (i)}
-            <tr><th class="data">{a.form}</th><td class="mono small">{a.environment}</td></tr>
+            <tr>
+              <th class="data">{a.form}</th><td class="mono small">{a.environment}</td>
+              {#if a.values?.length}
+                <td class="small">
+                  {t(a.valueMatch === 'any' ? 'morphemes.alloAny' : 'morphemes.alloAll')}:
+                  {a.values.map((id) => valueLabel(project.categories, id, glossLangs)).join(' · ')}
+                </td>
+              {/if}
+            </tr>
           {/each}
         </tbody>
       </table>

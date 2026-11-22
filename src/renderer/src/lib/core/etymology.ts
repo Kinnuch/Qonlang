@@ -3,6 +3,7 @@
  * 链条读作「来源 > 中间态… > 词条本身」。
  */
 import type { Etymology, EtymologySource, Morpheme, Project } from './model'
+import { canonicalG, gEquivalent } from '$lib/ipa/equivalence'
 
 /** 语素的显示形式：环缀写成「前半…后半」，别的就是形式本身 */
 export function morphemeLabel(m: Morpheme | undefined | null): string {
@@ -85,10 +86,10 @@ const plainDigits = (s: string): string =>
  * 再去掉这门语言设置里要忽略的字符。
  */
 export function looseKey(s: string, ignore = ''): string {
-  let x = plainDigits(s).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+  let x = canonicalG(plainDigits(s).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase())
   if (ignore) {
     const drop = new Set(
-      Array.from(plainDigits(ignore).normalize('NFD').toLowerCase()).filter(
+      Array.from(canonicalG(plainDigits(ignore).normalize('NFD').toLowerCase())).filter(
         (c) => !/\s/.test(c) && !/\p{M}/u.test(c)
       )
     )
@@ -100,7 +101,7 @@ export function looseKey(s: string, ignore = ''): string {
 }
 
 function fold(s: string): string {
-  return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim()
+  return canonicalG(s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim())
 }
 
 /** 按语言名或缩写找项目里的语言；找不到返回 null */
@@ -155,8 +156,8 @@ export function resolveFormInLanguage(
     return k
   }
   return (
-    tryMatch((a, b) => a === b) ??
-    tryMatch((a, b) => a.toLowerCase() === b.toLowerCase()) ??
+    tryMatch(gEquivalent) ??
+    tryMatch((a, b) => gEquivalent(a.toLowerCase(), b.toLowerCase())) ??
     tryMatch((a, b) => fold(a) === fold(b)) ??
     // 最宽松：按语言设置去掉 H1 / H2 的数字、词根里的点这类符号再比
     tryMatch((a, _b, languageId) => {

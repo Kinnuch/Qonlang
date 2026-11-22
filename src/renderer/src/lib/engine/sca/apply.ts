@@ -10,6 +10,7 @@ import {
   type RuleProgram
 } from './parse'
 import { annotate, assignStress, plainAnnotated, type Annotated } from './syllables'
+import { canonicalG, gMemberIndex } from '$lib/ipa/equivalence'
 
 export interface TraceEntry {
   line: number
@@ -23,6 +24,8 @@ export interface TraceEntry {
   kind?: 'rule' | 'stress'
   /** 这一步来自引用的那套音变（`-@`）：line 指的是那边的行号 */
   ref?: string
+  /** 同组每一行的 before 都是同一个原输入，after 是整组共同输出。 */
+  simultaneous?: { line: number; name: string }
 }
 
 /** 去掉重音记号（有重音规则的规则集，输出要当拼写用时） */
@@ -102,10 +105,12 @@ function substitute(
     (alias.alias === captured || (caseInsensitive && sameCaseInsensitive(alias.alias, captured)))
   if (rule.targetClass) {
     // 目标里第一个音类是命名组 tc（见 parse.ts 的 expand）
-    pos = rule.targetClass.members.indexOf(captured)
+    pos = gMemberIndex(rule.targetClass.members, captured)
     if (pos < 0 && alias?.alias === captured) pos = rule.targetClass.members.indexOf(alias.member)
     if (pos < 0 && caseInsensitive)
-      pos = rule.targetClass.members.findIndex((member) => sameCaseInsensitive(member, captured))
+      pos = rule.targetClass.members.findIndex((member) =>
+        sameCaseInsensitive(canonicalG(member), canonicalG(captured))
+      )
     if (pos < 0 && aliasMatches) pos = rule.targetClass.members.indexOf(alias!.member)
     if (pos < 0) pos = 9999
   }
@@ -113,11 +118,39 @@ function substitute(
   for (const part of rule.replacementParts) {
     if (part.kind === 'text') out += part.text
     else if (part.kind === 'ref') out += named?.['n' + part.name] ?? ''
-    else if ((caseInsensitive || aliasMatches) && part.ref.members === rule.targetClass?.members)
-      out += captured
+    else if (part.ref.members === rule.targetClass?.members) out += captured
     else out += (part.ref.outputMembers ?? part.ref.members)[pos] ?? ''
   }
   return out
+}
+
+const comparisonRegex = new WeakMap<RegExp, RegExp>()
+/** 匹配在等价视图中进行，UTF-16位置不变；命中和编号捕获仍从原文取回字形。 */
+function matchesOf(re: RegExp, input: string, caseInsensitive = false): RegExpExecArray[] {
+  const original = matchingRegex(re, caseInsensitive)
+  if (!input.includes('ɡ')) return [...input.matchAll(original)]
+  let compiled = comparisonRegex.get(original)
+  if (!compiled) {
+    compiled = new RegExp(
+      original.source,
+      original.flags.includes('d') ? original.flags : original.flags + 'd'
+    )
+    comparisonRegex.set(original, compiled)
+  }
+  const view = canonicalG(input)
+  return [...view.matchAll(compiled)].map((match) => {
+    for (let i = 0; i < match.length; i++) {
+      const span = match.indices?.[i]
+      if (span) match[i] = input.slice(span[0], span[1])
+    }
+    if (match.groups)
+      for (const key of Object.keys(match.groups)) {
+        const span = match.indices?.groups?.[key]
+        if (span) match.groups[key] = input.slice(span[0], span[1])
+      }
+    match.input = input
+    return match
+  })
 }
 
 /** 各个排除环境命中的范围 */
@@ -127,7 +160,7 @@ function exclusionRanges(
   caseInsensitive = false
 ): [number, number][] {
   return excludes.flatMap((re) =>
-    [...input.matchAll(matchingRegex(re, caseInsensitive))].map((m): [number, number] => [
+    matchesOf(re, input, caseInsensitive).map((m): [number, number] => [
       m.index,
       m.index + m[0].length
     ])
@@ -164,7 +197,7 @@ function applyBranches(
   }
   const inContext = (c: CompiledContext): RegExpMatchArray[] => {
     const ranges = exclusionRanges(c.excludes, input, caseInsensitive)
-    return [...input.matchAll(matchingRegex(c.main, caseInsensitive))].filter(
+    return matchesOf(c.main, input, caseInsensitive).filter(
       (m) => !excluded(ranges, m.index ?? 0, (m.index ?? 0) + m[0].length)
     )
   }
@@ -173,7 +206,7 @@ function applyBranches(
   const inside = new Set<number>()
   for (const c of branches.otherwise.compiled)
     for (const m of inContext(c)) inside.add(m.index ?? 0)
-  for (const m of input.matchAll(matchingRegex(branches.otherwise.anywhere, caseInsensitive)))
+  for (const m of matchesOf(branches.otherwise.anywhere, input, caseInsensitive))
     if (m[0].length && !inside.has(m.index ?? 0)) take(branches.otherwise, m)
   if (!spans.length) return input
   spans.sort((a, b) => a.start - b.start || a.end - b.end)
@@ -201,7 +234,7 @@ const MARKS_RE = new RegExp(`[${BOUNDARY}ˈˌ]`, 'g')
 function hitsOf(re: RegExp, ann: Annotated, word: string, caseInsensitive = false): Hit[] {
   const out: Hit[] = []
   let lastEmpty = -1
-  for (const m of ann.text.matchAll(matchingRegex(re, caseInsensitive))) {
+  for (const m of matchesOf(re, ann.text, caseInsensitive)) {
     const a = m.index ?? 0
     const start = ann.source(a)
     const end = ann.source(a + m[0].length)
@@ -319,30 +352,127 @@ function applyRule(
   program: RuleProgram,
   caseInsensitive = false
 ): string {
-  if (!caseInsensitive && rule.literal && !input.includes(rule.literal)) return input
+  if (!caseInsensitive && rule.literal && !canonicalG(input).includes(canonicalG(rule.literal)))
+    return input
   if (rule.marks) return applyMarked(rule, input, program, caseInsensitive)
   if (rule.branches) return applyBranches(rule.branches, input, caseInsensitive)
   let current = input
   for (const { main, excludes } of rule.compiled) {
     const ranges = exclusionRanges(excludes, current, caseInsensitive)
-    current = current.replace(matchingRegex(main, caseInsensitive), (...args: unknown[]) => {
-      const match = args[0] as string
-      // 最后两个（或三个，若有命名组）参数是 offset 与整串
-      let offsetIdx = args.length - 2
-      if (typeof args[args.length - 1] === 'object') offsetIdx = args.length - 3
-      const offset = args[offsetIdx] as number
-      const named =
-        typeof args[args.length - 1] === 'object'
-          ? (args[args.length - 1] as Record<string, string>)
-          : undefined
+    let out = '',
+      cursor = 0
+    for (const m of matchesOf(main, current, caseInsensitive)) {
+      const match = m[0],
+        offset = m.index!
       if (ranges.length) {
         const end = offset + match.length
-        for (const [s, e] of ranges) if (offset >= s && end <= e) return match
+        if (ranges.some(([s, e]) => offset >= s && end <= e)) continue
       }
-      return substitute(rule, match, named, caseInsensitive)
-    })
+      out += current.slice(cursor, offset) + substitute(rule, match, m.groups, caseInsensitive)
+      cursor = offset + match.length
+    }
+    current = out + current.slice(cursor)
   }
   return current
+}
+
+interface SimultaneousEdit {
+  start: number
+  end: number
+  out: string
+  rule: ParsedRule
+  order: number
+}
+const editOverlap = (a: SimultaneousEdit, b: SimultaneousEdit): boolean =>
+  a.start === b.start || (a.start < b.end && b.start < a.end)
+
+/** 每条规则只收集原输入上的区间，不在中间结果上再次匹配，也不借用文字占位。 */
+function simultaneousEdits(
+  rule: ParsedRule,
+  input: string,
+  program: RuleProgram,
+  order: number,
+  caseInsensitive = false
+): SimultaneousEdit[] {
+  const ann = rule.marks
+    ? rule.sigma
+      ? annotate(input, program, caseInsensitive)
+      : plainAnnotated(input)
+    : null
+  const hits = (re: RegExp): Hit[] =>
+    ann
+      ? hitsOf(re, ann, input, caseInsensitive)
+      : matchesOf(re, input, caseInsensitive).map((m) => ({
+          start: m.index!,
+          end: m.index! + m[0].length,
+          text: m[0],
+          groups: m.groups,
+          marks: []
+        }))
+  const within = (context: CompiledContext): Hit[] => {
+    const ranges = context.excludes.flatMap((re) =>
+      hits(re).map((h): [number, number] => [h.start, h.end])
+    )
+    return hits(context.main).filter((h) => !excluded(ranges, h.start, h.end))
+  }
+  const edits: SimultaneousEdit[] = []
+  const take = (branch: Substitution, hit: Hit): void => {
+    const edit = {
+      start: hit.start,
+      end: hit.end,
+      out: keepMarks(
+        substitute(branch, hit.text, hit.groups, caseInsensitive),
+        hit,
+        rule.explicitStress
+      ),
+      rule,
+      order
+    }
+    edits.push(edit)
+  }
+  if (rule.branches) {
+    for (const context of rule.branches.then.compiled)
+      for (const hit of within(context)) take(rule.branches.then, hit)
+    const inside = new Set(rule.branches.otherwise.compiled.flatMap(within).map((hit) => hit.start))
+    for (const hit of hits(rule.branches.otherwise.anywhere))
+      if (hit.end > hit.start && !inside.has(hit.start)) take(rule.branches.otherwise, hit)
+  } else for (const context of rule.compiled) for (const hit of within(context)) take(rule, hit)
+  return edits
+}
+
+function applySimultaneous(
+  rules: ParsedRule[],
+  input: string,
+  program: RuleProgram,
+  options: RunOptions
+): { output: string; changed: ParsedRule[] } {
+  const candidates = rules
+    .flatMap((rule, order) =>
+      simultaneousEdits(rule, input, program, order, options.caseInsensitive)
+    )
+    .sort((a, b) => a.start - b.start || a.order - b.order)
+  const chosen: SimultaneousEdit[] = []
+  for (const candidate of candidates) {
+    const last = chosen[chosen.length - 1]
+    if (!last || !editOverlap(last, candidate)) chosen.push(candidate)
+  }
+  let output = '',
+    cursor = 0
+  for (const edit of chosen) {
+    output += input.slice(cursor, edit.start) + edit.out
+    cursor = edit.end
+  }
+  output += input.slice(cursor)
+  return {
+    output,
+    changed: [
+      ...new Set(
+        chosen
+          .filter((edit) => edit.out !== input.slice(edit.start, edit.end))
+          .map((edit) => edit.rule)
+      )
+    ]
+  }
 }
 
 /** 对一个词运行整套规则 */
@@ -362,6 +492,7 @@ export function runRules(program: RuleProgram, word: string, options: RunOptions
   const trace: TraceEntry[] = []
   let stage = ''
   let active = !options.startAt
+  const visitedGroups = new Set<number>()
 
   for (const step of program.steps) {
     if (options.stopAtLine != null && step.line > options.stopAtLine) break
@@ -408,6 +539,29 @@ export function runRules(program: RuleProgram, word: string, options: RunOptions
       continue
     }
     if (!active) continue
+    if (step.kind === 'rule' && step.simultaneous) {
+      const group = step.simultaneous
+      if (visitedGroups.has(group.line)) continue
+      visitedGroups.add(group.line)
+      if (!group.valid) continue
+      const members = program.steps.filter(
+        (item): item is ParsedRule => item.kind === 'rule' && item.simultaneous?.line === group.line
+      )
+      const result = applySimultaneous(members, current, program, options)
+      if (options.trace !== false)
+        for (const member of result.changed)
+          trace.push({
+            line: member.line,
+            stage,
+            before: current,
+            after: result.output,
+            target: member.target,
+            replacement: member.replacement,
+            simultaneous: { line: group.line, name: group.name }
+          })
+      current = result.output
+      continue
+    }
     const next =
       step.kind === 'stress'
         ? assignStress(step, current, program, options.word, options.caseInsensitive)
@@ -485,7 +639,20 @@ export function runSingleRule(
   const replacements = options.keepUnits?.length
     ? program.replacements.filter(([, to]) => !options.keepUnits!.includes(to))
     : program.replacements
-  return revertReplacements(applyRule(rule, inner, program, options.caseInsensitive), replacements)
+  const after = rule.simultaneous
+    ? rule.simultaneous.valid
+      ? applySimultaneous(
+          program.steps.filter(
+            (step): step is ParsedRule =>
+              step.kind === 'rule' && step.simultaneous?.line === rule.simultaneous!.line
+          ),
+          inner,
+          program,
+          options
+        ).output
+      : inner
+    : applyRule(rule, inner, program, options.caseInsensitive)
+  return revertReplacements(after, replacements)
 }
 
 /** 只有本条规则确实改动、且外显结果不同才算命中；预处理变化不冒充规则效果。 */
@@ -502,7 +669,23 @@ export function changedRuleResult(
     false,
     options.caseInsensitive
   )
-  const after = applyRule(rule, inner, program, options.caseInsensitive)
+  const groupResult = rule.simultaneous?.valid
+    ? applySimultaneous(
+        program.steps.filter(
+          (step): step is ParsedRule =>
+            step.kind === 'rule' && step.simultaneous?.line === rule.simultaneous!.line
+        ),
+        inner,
+        program,
+        options
+      )
+    : null
+  if (
+    rule.simultaneous &&
+    (!groupResult || !groupResult.changed.some((member) => member.line === rule.line))
+  )
+    return null
+  const after = groupResult?.output ?? applyRule(rule, inner, program, options.caseInsensitive)
   if (after === inner) return null
   const replacements = options.keepUnits?.length
     ? program.replacements.filter(([, to]) => !options.keepUnits!.includes(to))

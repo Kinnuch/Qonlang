@@ -11,6 +11,7 @@ import {
 } from './pronounce'
 import { stripStress } from '$lib/engine/sca'
 import { lexemeStress } from './stressInfo'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 export type GenerationNotation = 'spelling' | 'ipa'
 export const generationNotation = (lang: Language): GenerationNotation =>
@@ -116,7 +117,7 @@ export function generateCandidates(
   const spelling = generationNotation(lang) === 'spelling'
   const mine = project.lexemes.filter((l) => l.languageId === lang.id && l.lemma.trim())
   const written = (text: string): string => (primary ? orthographyInput(primary, text) : text)
-  const existing = new Set(mine.map((l) => (spelling ? written(l.lemma) : l.lemma)))
+  const existing = new Set(mine.map((l) => canonicalG(spelling ? written(l.lemma) : l.lemma)))
   const lexicon = options.learn
     ? mine.map((l) => ({
         label: l.lemma,
@@ -138,7 +139,7 @@ export function generateCandidates(
         like: word.like
       }
     })
-    .filter((word) => !existing.has(word.spelt ?? word.ipa))
+    .filter((word) => !existing.has(canonicalG(word.spelt ?? word.ipa)))
 }
 
 /** 自动生成的逆向表保留存盘；只有实际启用或手调数据才需要兼容编辑入口。 */

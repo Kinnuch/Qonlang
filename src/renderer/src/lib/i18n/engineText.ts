@@ -16,6 +16,10 @@ export interface EnginePattern {
 
 /** 规则（音变、正字法、文字映射、重音、构形微调）的报错与提示 */
 export const RULE_PATTERNS: EnginePattern[] = [
+  { key: 'simultaneousNested', re: /^同时组不能嵌套$/ },
+  { key: 'simultaneousEndWithoutStart', re: /^同时组结束行缺少对应的开始行$/ },
+  { key: 'simultaneousMissingEnd', re: /^同时组缺少结束行 -\)$/ },
+  { key: 'simultaneousForbidden', re: /^同时组内不能包含阶段、重音或引用，请移到组外$/ },
   {
     key: 'includeInner',
     re: /^「(?<ref>.*?)」里第 (?<line>\d+) 行：(?<msg>.*)$/s,

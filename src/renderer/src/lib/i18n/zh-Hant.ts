@@ -305,7 +305,7 @@ export default {
     galleryNext: '下一張',
     exampleDesc: {
       aelith:
-        '黏著先驗語：語系節點與分組統計、語言內部的歷時階段與詞條的歷史形式鏈、祖語→現代語的語系與姊妹語（關係圖裡對比同源詞的音變與意思）、滿足 / 不滿足環境兩路的音變規則、特徵與重音規則、音節邊界 σ、自定義重音、母音和諧、流水線構形的九種步驟（含構形套構形）、變體與繼承、槽位繼承與影響發音的槽位、按維度取值挑異體形、一個詞類幾個構形、一個詞條几個構形、按陰陽換字母、連讀濁化反推、連寫複合詞自動切分、複合詞類、檢視器模組、詞源鏈、從構形生成的詞條、已 gloss 的語料、盧恩刻文與手寫字形、收藏與記號、「微調」裡現寫的音類、兩個音併成一個的音變、帶標點的例句。臨時音類按位置對應，並從詞庫尋找實際變化的規則示例。可以直接在規則之間加入說明。',
+        '黏著先驗語：語系節點與分組統計、語言內部的歷時階段與詞條的歷史形式鏈、祖語→現代語的語系與姊妹語（關係圖裡對比同源詞的音變與意思）、滿足 / 不滿足環境兩路的音變規則、特徵與重音規則、音節邊界 σ、自定義重音、母音和諧、流水線構形的九種步驟（含構形套構形）、變體與繼承、槽位繼承與影響發音的槽位、按維度取值挑異體形、一個詞類幾個構形、一個詞條几個構形、按陰陽換字母、連讀濁化反推、連寫複合詞自動切分、複合詞類、檢視器模組、詞源鏈、從構形生成的詞條、已 gloss 的語料、盧恩刻文與手寫字形、收藏與記號、「微調」裡現寫的音類、兩個音併成一個的音變、帶標點的例句。臨時音類按位置對應，並從詞庫尋找實際變化的規則示例。可以直接在規則之間加入說明。 例句可以跳回引用它的 HTML 文件。',
       tsahun:
         '孤立聲調語：五個聲調與連讀變調、羅馬化與西里爾雙正字法（按寫法切音節、數音，可逐條調整音位對應）、音節文字的拼合與豎排、按字號逐詞寫的意音文字、重疊構形、帶空格的屈折形、同形詞候選、用文字字型顯示的異體字模組。臨時音類把多字元數字調對應到完整調符串。'
     },
@@ -429,6 +429,17 @@ export default {
     }
   },
   soundChanges: {
+    simultaneousShort: '同時',
+    simultaneousUnnamed: '同時音變組',
+    simultaneousAdd: '新增同時組',
+    simultaneousName: '同時組名稱',
+    simultaneousHint:
+      '同組規則都讀取組開始時的原輸入和環境，不互相連鎖。重疊從左到右選擇，同起點按規則順序取第一條；測試到組內任一規則時執行整組。',
+    simultaneousUngroup: '解除分組',
+    simultaneousDelete: '刪除同時組及其中規則',
+    simultaneousEnd: '同時組結束',
+    simultaneousTrace: '同時組：{name}',
+    simultaneousWithNext: '與下一條組成同時組',
     addLineComment: '新增行間註釋',
     lineComment: '行間註釋',
     symbolsHint:
@@ -678,7 +689,12 @@ export default {
     environment: '出現環境，如 V_、_CC',
     alloValues: '僅在以下維度取值時使用',
     alloValuesHint:
-      '判斷依據是當前正在推導的那一格所取的維度值，再加上詞條自身的語法特徵：如果選了「賓格」，那麼所有屬於賓格的格都用這一形式。留空表示不限；如果這裡和出現環境都填寫了，則兩邊都必須匹配。多個取值並列表示「都要滿足」，這樣的條件也更具體，會優先匹配。',
+      '按目前槽位取值與詞條自身特徵判斷。預設「全部滿足」，也可選擇「任一滿足」；留空不限。填寫出現環境時，環境仍須同時符合。多條符合時，實際符合取值較多的優先，再看環境和行順序。',
+    alloMatch: '取值比對方式',
+    alloAll: '全部滿足',
+    alloAny: '任一滿足',
+    bulkDeleted: '已刪除 {n} 個語素',
+    selectionHint: 'Ctrl／⌘ 逐條選擇，Shift 連選；多選後可批次刪除。',
     alloValuesAdd: '新增取值',
     alloValueRemove: '移除該取值',
     gloss: 'gloss 縮寫',
@@ -1610,6 +1626,8 @@ export default {
     pasted: '（貼上的內容）'
   },
   script: {
+    glyphsCopied: '已複製 {n} 個字形',
+    glyphsPasted: '已貼上 {n} 個字形，略過已有字元 {skipped} 個',
     search: '搜尋字形：字元、名稱、轉寫值',
     packing: {
       title: '音節拼合（CV / VC 音節文字）',
@@ -1765,6 +1783,21 @@ export default {
     variantNote: '變體說明（語域、場合）等'
   },
   docs: {
+    format: '正文格式',
+    formatHint:
+      '只改變這篇文件的解析方式，不改寫正文。HTML 只顯示安全的文字排版，不保留指令碼、CSS、媒體或自動載入的資源。',
+    defaultFormat: '新建文件的預設格式',
+    defaultFormatHint:
+      '只影響本裝置在「文件」頁新建的頁面，不轉換既有、匯入或範例文件；每篇文件可單獨設定。',
+    htmlPlaceholder: '<h2>標題</h2><p>正文與 [[例句:原文]] 連結。</p>',
+    htmlSyntax:
+      '支援 HTML 標題、段落、清單、表格、行內文字及 [[專案連結]]；指令碼、CSS、媒體和自動網路載入會移除。',
+    references: '提到這條例句的文件',
+    linkReference: '專案連結',
+    textReference: '完整原句',
+    referencesHint:
+      '專案連結按文件語言解析；正文比對只認獨立段落、成對引號或 HTML q 中的完整原句（至少八個字元）。短詞、程式碼和 HTML 屬性不參與；同層有多條同文例句時不猜目標。',
+
     search: '搜尋文件：標題或正文',
     title: '文件',
     page: '文件頁',
@@ -2918,6 +2951,10 @@ export default {
     issueSteps: '怎樣能重現'
   },
   ruleMsg: {
+    simultaneousNested: '同時組不能巢狀',
+    simultaneousEndWithoutStart: '同時組結束行缺少對應的開始行',
+    simultaneousMissingEnd: '同時組缺少結束行 -)',
+    simultaneousForbidden: '同時組內不能包含階段、重音或引用，請移到組外',
     includeInner: '「{ref}」裡第 {line} 行：{msg}',
     includeNoStage: '「{ref}」裡沒有叫「{stage}」的階段',
     includeCycle: '「{ref}」轉著圈引用了自己',

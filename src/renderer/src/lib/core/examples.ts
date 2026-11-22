@@ -6,6 +6,8 @@
  * 命中的同时把它在原文里的位置也算出来（界面标出来用）；位置定不下来时宁可不给，也不瞎标。
  */
 import type { Analysis, Id, LocalizedText, Lexeme, Project, Sentence } from './model'
+import { documentTextLines } from './documentFormat'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 /** 默认按释义语言的顺序挑译文；界面里传 i18n 的 pickText（界面语言优先） */
 const pickFirst = (text: LocalizedText | undefined, langs: string[]): string => {
@@ -36,7 +38,7 @@ export interface ExampleHit {
 const PUNCT =
   /^[\s.,;:!?…“”"'()[\]«»‹›—–「」『』，。！？；：、*_`#>-]+|[\s.,;:!?…“”"'()[\]«»‹›—–「」『』，。！？；：、*_`#>-]+$/gu
 
-const norm = (s: string): string => s.replace(PUNCT, '').normalize('NFC').toLowerCase()
+const norm = (s: string): string => canonicalG(s.replace(PUNCT, '').normalize('NFC').toLowerCase())
 
 /** 词条能在原文里整词认出来的形式：词头（黏着形式除外）、屈折形（一格里写了几个的拆开） */
 export function lexemeForms(l: Lexeme): Set<string> {
@@ -57,7 +59,7 @@ export function lexemeForms(l: Lexeme): Set<string> {
  * 有一段找不着就返回 null，交给上面整词标出来——总比标错地方强。
  */
 function morphSpans(surface: string, morphs: Analysis['morphs'], id: Id): ExampleSpan[] | null {
-  const low = surface.toLowerCase()
+  const low = canonicalG(surface.toLowerCase())
   // 大小写换算后长度变了（İ 这类）：下标对不上，不标
   if (low.length !== surface.length) return null
   const out: ExampleSpan[] = []
@@ -65,7 +67,7 @@ function morphSpans(surface: string, morphs: Analysis['morphs'], id: Id): Exampl
   for (const m of morphs) {
     const mine = m.lexemeId === id
     const form = m.form.replace(/^[-=]+|[-=]+$/gu, '')
-    const lowForm = form.toLowerCase()
+    const lowForm = canonicalG(form.toLowerCase())
     if (!form || lowForm.length !== form.length) {
       if (mine) return null
       continue
@@ -200,7 +202,7 @@ export function findExamples(
   }
   for (const d of project.docs) {
     if (d.languageId && d.languageId !== lexeme.languageId) continue
-    for (const raw of d.markdown.split(/\n+/)) {
+    for (const raw of documentTextLines(d)) {
       const line = raw.trim()
       const spans = textSpans(line, forms)
       if (!spans) continue

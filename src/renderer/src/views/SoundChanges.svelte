@@ -591,6 +591,11 @@
               <span class="data"><StressText text={e.before} /></span>
               <span class="muted">→</span>
               <span class="data"><StressText text={e.after} /></span>
+              {#if e.simultaneous}<span class="badge accent"
+                  >{t('soundChanges.simultaneousTrace', {
+                    name: e.simultaneous.name || t('soundChanges.simultaneousUnnamed')
+                  })}</span
+                >{/if}
               <span class="small muted rule"
                 >{e.kind === 'stress'
                   ? `${e.target} = ${e.replacement}`

@@ -5,6 +5,7 @@
  *   - 相似度 ≥ 阈值但不完全一样 → 交给用户决定
  */
 import type { Id, Project, Sentence } from './model'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 export interface DupPair {
   /** 留下的那条（较早录入 / 确认更多的） */
@@ -18,11 +19,13 @@ export interface DupPair {
 }
 
 export function normalizeSentence(text: string): string {
-  return text
-    .normalize('NFC')
-    .toLowerCase()
-    .replace(/[\s\u3000]+/g, ' ')
-    .trim()
+  return canonicalG(
+    text
+      .normalize('NFC')
+      .toLowerCase()
+      .replace(/[\s\u3000]+/g, ' ')
+      .trim()
+  )
 }
 
 function bigrams(s: string): Map<string, number> {

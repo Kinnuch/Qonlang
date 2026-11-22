@@ -40,6 +40,23 @@
         </select>
       </div>
       <div class="field">
+        <label for="s-doc-format"
+          >{t('docs.defaultFormat')}<HelpDot tip={t('docs.defaultFormatHint')} /></label
+        >
+        <select
+          id="s-doc-format"
+          class="select"
+          data-default-document-format
+          value={ui.prefs.defaultDocFormat ?? 'markdown'}
+          onchange={(e) => {
+            ui.prefs.defaultDocFormat = e.currentTarget.value === 'html' ? 'html' : 'markdown'
+            void ui.savePrefs()
+          }}
+        >
+          <option value="markdown">Markdown</option><option value="html">HTML</option>
+        </select>
+      </div>
+      <div class="field">
         <label for="s-gallery-long"
           >{t('settings.galleryLong')}<HelpDot tip={t('settings.galleryLongHint')} /></label
         >

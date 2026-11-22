@@ -9,6 +9,7 @@
  */
 import type { Id, LocalizedText, Project } from './model'
 import { paradigmSlots } from '$lib/engine/morph'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 /** 能链过去的东西 */
 export type DocLinkKind =
@@ -161,11 +162,12 @@ const allNames = (v: LocalizedText | undefined): string[] =>
 
 /** 先原样对，再忽略大小写对 */
 function byName<T>(items: readonly T[], names: (x: T) => string[], want: string): T | null {
-  const w = want.trim()
+  const w = canonicalG(want.trim())
   if (!w) return null
-  for (const it of items) if (names(it).some((n) => n.trim() === w)) return it
+  for (const it of items) if (names(it).some((n) => canonicalG(n.trim()) === w)) return it
   const lw = w.toLowerCase()
-  for (const it of items) if (names(it).some((n) => n.trim().toLowerCase() === lw)) return it
+  for (const it of items)
+    if (names(it).some((n) => canonicalG(n.trim().toLowerCase()) === lw)) return it
   return null
 }
 
@@ -225,7 +227,12 @@ function findSlot(
 }
 
 /** 按某一类在项目里找；找不到返回 null */
-function findOne(project: Project, kind: DocLinkKind, name: string): DocLinkHit | null {
+function findOne(
+  project: Project,
+  kind: DocLinkKind,
+  name: string,
+  languageId?: Id | null
+): DocLinkHit | null {
   const langs = project.settings.glossLanguages
   const base = (id: Id, label: string, languageId: Id | null): DocLinkHit => ({
     kind,
@@ -265,9 +272,44 @@ function findOne(project: Project, kind: DocLinkKind, name: string): DocLinkHit 
       return null
     }
     case 'sentence': {
+      // 文档指定语言时先找该语言；同层有多个同文例句就不猜。未给上下文的旧调用保持原顺序。
+      if (languageId !== undefined) {
+        const groups = languageId
+          ? [project.sentences.filter((s) => s.languageId === languageId), project.sentences]
+          : [project.sentences]
+        for (const group of groups) {
+          const exact = group.filter((s) =>
+            [s.text, ...allNames(s.translation)].some(
+              (n) => canonicalG(n.trim()) === canonicalG(name.trim())
+            )
+          )
+          const insensitive = exact.length
+            ? exact
+            : group.filter((s) =>
+                [s.text, ...allNames(s.translation)].some(
+                  (n) =>
+                    canonicalG(n.trim().toLowerCase()) === canonicalG(name.trim().toLowerCase())
+                )
+              )
+          if (insensitive.length)
+            return insensitive.length === 1
+              ? base(insensitive[0].id, insensitive[0].text, insensitive[0].languageId)
+              : null
+        }
+        const prefix = project.sentences.filter(
+          (s) =>
+            canonicalG(s.text).startsWith(canonicalG(name.trim())) &&
+            (!languageId || s.languageId === languageId)
+        )
+        return prefix.length === 1 ? base(prefix[0].id, prefix[0].text, prefix[0].languageId) : null
+      }
       const x =
-        byName(project.sentences, (s) => [s.text, ...allNames(s.translation)], name) ??
-        project.sentences.find((s) => s.text.startsWith(name.trim())) ??
+        byName(
+          project.sentences,
+          (s) => [s.text, ...allNames(s.translation)].map(canonicalG),
+          canonicalG(name)
+        ) ??
+        project.sentences.find((s) => canonicalG(s.text).startsWith(canonicalG(name.trim()))) ??
         null
       return x ? base(x.id, x.text, x.languageId) : null
     }
@@ -286,12 +328,16 @@ function findOne(project: Project, kind: DocLinkKind, name: string): DocLinkHit 
  * 在项目里找链接的目标。带前缀就只找那一类；没带前缀先找词条，再按 DOC_LINK_KINDS 往下试
  * （文档里写惯的 `[[词头]]` 照旧最先当词条）。
  */
-export function resolveDocLink(project: Project, ref: DocLinkRef): DocLinkHit | null {
+export function resolveDocLink(
+  project: Project,
+  ref: DocLinkRef,
+  languageId?: Id | null
+): DocLinkHit | null {
   if (!ref.name) return null
   const kinds = ref.explicit ? [ref.kind] : DOC_LINK_KINDS
   let found: DocLinkHit | null = null
   for (const k of kinds) {
-    found = findOne(project, k, ref.name)
+    found = findOne(project, k, ref.name, languageId)
     if (found) break
   }
   const hit = found
@@ -310,10 +356,11 @@ export function resolveDocLink(project: Project, ref: DocLinkRef): DocLinkHit | 
 /** 解析一截并在项目里找：文档页画链接时一步到位 */
 export function docLink(
   project: Project,
-  inner: string
+  inner: string,
+  languageId?: Id | null
 ): { ref: DocLinkRef; hit: DocLinkHit | null } {
   const ref = parseDocLink(inner)
-  return { ref, hit: resolveDocLink(project, ref) }
+  return { ref, hit: resolveDocLink(project, ref, languageId) }
 }
 
 /** 插入链接时列出来的一条 */

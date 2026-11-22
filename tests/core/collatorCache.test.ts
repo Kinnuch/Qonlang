@@ -4,6 +4,18 @@
 import { describe, it, expect } from 'vitest'
 import { makeCollator } from '$lib/core/collate'
 
+it('treats g glyphs as one sort key without rewriting the original words or alphabet', () => {
+  for (const alphabet of [[], ['ɡ', 'g', 'a'], ['ng', 'nɡ', 'a']]) {
+    const before = JSON.stringify(alphabet),
+      compare = makeCollator(alphabet)
+    expect(compare('ga', 'ɡa')).toBe(0)
+    expect(compare('nga', 'nɡa')).toBe(0)
+    expect(JSON.stringify(alphabet)).toBe(before)
+    const words = ['ɡa', 'ga']
+    expect(words.toSorted(compare)).toEqual(words)
+  }
+})
+
 describe('排序器', () => {
   it('没有字母表：跟 localeCompare（先不分大小写和附加符）一样', () => {
     const words = ['Éa', 'ea', 'eb', 'Eb', 'a', 'á', 'b', 'aa', 'Ab']

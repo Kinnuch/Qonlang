@@ -20,8 +20,18 @@
   let textarea = $state<HTMLTextAreaElement | null>(null)
   let scrollTop = $state(0)
   let scrollLeft = $state(0)
+  let viewportHeight = $state(240)
+  const lineHeight = 20
 
   const lines = $derived(value.split('\n'))
+  // 原文由 textarea 完整保管。高亮与行号只绘制视口附近的行。
+  const firstLine = $derived(
+    Math.max(0, Math.min(lines.length - 1, Math.floor(scrollTop / lineHeight) - 3))
+  )
+  const visibleLines = $derived(
+    lines.slice(firstLine, firstLine + Math.ceil(viewportHeight / lineHeight) + 8)
+  )
+  const offsetY = $derived(firstLine * lineHeight - scrollTop)
   const diagByLine = $derived.by(() => {
     const m = new Map<number, Diagnostic>()
     for (const d of diagnostics) if (!m.has(d.line) || d.severity === 'error') m.set(d.line, d)
@@ -61,6 +71,8 @@
     if (!trimmed) return `<span class="c">${esc(comment)}</span>`
     if (trimmed.startsWith('#')) return `<span class="c">${esc(raw)}</span>`
     if (trimmed.startsWith('-*'))
+      return `<span class="m">${esc(code)}</span><span class="c">${esc(comment)}</span>`
+    if (trimmed.startsWith('-(') || trimmed === '-)')
       return `<span class="m">${esc(code)}</span><span class="c">${esc(comment)}</span>`
     // 重音规则 ˈ = …、特征 [+送气] = …
     const head = /^(\s*)([ˈˌ']\s*=|\[\s*[+-][^\]]*\]\s*=)(.*)$/su.exec(code)
@@ -130,18 +142,18 @@
   }
 </script>
 
-<div class="editor">
+<div class="editor" style:--rule-line-height={`${lineHeight}px`}>
   <div class="gutter">
-    <div class="gutter-lines" style:transform={`translateY(${-scrollTop}px)`}>
-      {#each lines as _l, i (i)}
-        {@const d = diagByLine.get(i + 1)}
+    <div class="gutter-lines" style:transform={`translateY(${offsetY}px)`}>
+      {#each visibleLines as _l, i (firstLine + i)}
+        {@const d = diagByLine.get(firstLine + i + 1)}
         <div
           class="ln"
           class:err={d?.severity === 'error'}
           class:warn={d?.severity === 'warning'}
           title={d ? ruleMsg(d.message) : undefined}
         >
-          {i + 1}
+          {firstLine + i + 1}
         </div>
       {/each}
     </div>
@@ -150,12 +162,13 @@
     <pre
       class="hl"
       aria-hidden="true"
-      style:transform={`translate(${-scrollLeft}px, ${-scrollTop}px)`}>{#each lines as l, i (i)}{@const d =
-          diagByLine.get(i + 1)}<div
+      style:transform={`translate(${-scrollLeft}px, ${offsetY}px)`}>{#each visibleLines as l, i (firstLine + i)}{@const d =
+          diagByLine.get(firstLine + i + 1)}<div
           class="line"
           class:err={d?.severity === 'error'}>{@html highlight(l) || '&nbsp;'}</div>{/each}</pre>
     <textarea
       bind:this={textarea}
+      bind:clientHeight={viewportHeight}
       bind:value
       {placeholder}
       spellcheck="false"
@@ -182,7 +195,7 @@
     overflow: hidden;
     font-family: var(--font-mono);
     font-size: 13px;
-    line-height: 20px;
+    line-height: var(--rule-line-height);
   }
   .gutter {
     position: absolute;
@@ -203,7 +216,7 @@
   }
   .ln {
     padding-inline-end: 8px;
-    height: 20px;
+    height: var(--rule-line-height);
   }
   .ln.err {
     color: var(--danger);
@@ -237,7 +250,7 @@
     overflow: visible;
   }
   .line {
-    height: 20px;
+    height: var(--rule-line-height);
   }
   .line.err {
     text-decoration: underline wavy var(--danger);

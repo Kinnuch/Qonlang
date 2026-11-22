@@ -323,7 +323,7 @@ export default {
     galleryNext: 'Siguiente',
     exampleDesc: {
       aelith:
-        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas.',
+        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan.',
       tsahun:
         'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura. Las clases temporales relacionan los números de tono de varias cifras con secuencias completas de letras tonales.'
     },
@@ -460,6 +460,17 @@ export default {
     }
   },
   soundChanges: {
+    simultaneousShort: 'Simultáneo',
+    simultaneousUnnamed: 'Grupo simultáneo',
+    simultaneousAdd: 'Añadir grupo simultáneo',
+    simultaneousName: 'Nombre del grupo simultáneo',
+    simultaneousHint:
+      'Las reglas leen la entrada y los entornos originales del grupo. Se elige de izquierda a derecha; si coinciden los inicios, gana la primera regla. La prueba parcial aplica el grupo completo.',
+    simultaneousUngroup: 'Desagrupar',
+    simultaneousDelete: 'Eliminar el grupo y sus reglas',
+    simultaneousEnd: 'Fin del grupo simultáneo',
+    simultaneousTrace: 'Simultáneo: {name}',
+    simultaneousWithNext: 'Agrupar con la siguiente regla',
     addLineComment: 'Añadir línea de comentario',
     lineComment: 'Línea de comentario',
     symbolsHint:
@@ -719,7 +730,13 @@ export default {
     environment: 'Entorno de aparición, p. ej. V_ o _CC',
     alloValues: 'Usar solo con estos valores de categoría',
     alloValuesHint:
-      'La decisión se basa en los valores de categoría de la casilla que se está derivando, más los rasgos gramaticales de la propia entrada: si elige «acusativo», todos los casos acusativos usarán esta forma. Dejarlo vacío significa sin restricción; si también rellena el entorno de aparición, tienen que cumplirse las dos condiciones. Varios valores juntos significan «todos a la vez», lo que además hace la condición más específica y se comprueba antes.',
+      'Comprueba los valores de la casilla y los rasgos de la entrada. Todos los valores es la opción predeterminada; Cualquier valor exige al menos uno. Vacío significa sin restricción. El entorno indicado también debe coincidir. Se priorizan las filas con más valores realmente coincidentes, después el entorno y el orden de las filas.',
+    alloMatch: 'Coincidencia de valores',
+    alloAll: 'Todos los valores',
+    alloAny: 'Cualquier valor',
+    bulkDeleted: 'Se eliminaron {n} morfemas',
+    selectionHint:
+      'Ctrl/⌘-clic para seleccionar uno a uno, Mayús-clic para un intervalo; elimine juntos los seleccionados.',
     alloValuesAdd: 'Añadir valor',
     alloValueRemove: 'Quitar este valor',
     gloss: 'Abreviatura de glosa',
@@ -1696,6 +1713,8 @@ export default {
     pasted: '(contenido pegado)'
   },
   script: {
+    glyphsCopied: 'Se han copiado {n} glifos',
+    glyphsPasted: 'Se han pegado {n} glifos. Se han omitido {skipped} caracteres existentes.',
     search: 'Buscar glifos: carácter, nombre, valor de transliteración',
     packing: {
       title: 'Composición silábica (escrituras silábicas CV / VC)',
@@ -1868,6 +1887,21 @@ export default {
     variantNote: 'Nota de la variante (registro, situación)'
   },
   docs: {
+    format: 'Formato del contenido',
+    formatHint:
+      'Cambia la interpretación de esta página sin reescribir su fuente. HTML conserva el formato seguro del texto y elimina scripts, CSS, medios y recursos de carga automática.',
+    defaultFormat: 'Formato predeterminado de documentos nuevos',
+    defaultFormatHint:
+      'Solo afecta a páginas creadas en Documentos en este dispositivo. No convierte documentos existentes, importados ni ejemplos; cada página puede configurarse por separado.',
+    htmlPlaceholder: '<h2>Título</h2><p>Texto y enlace [[sentence:texto original]].</p>',
+    htmlSyntax:
+      'Admite títulos, párrafos, listas, tablas, texto en línea HTML y [[enlaces del proyecto]]. Elimina scripts, CSS, medios y cargas de red automáticas.',
+    references: 'Documentos que mencionan esta oración',
+    linkReference: 'Enlace del proyecto',
+    textReference: 'Oración completa',
+    referencesHint:
+      'Los enlaces usan el idioma del documento. El texto simple debe ser una oración completa en su propio párrafo, entre comillas emparejadas o en un elemento HTML q (al menos ocho caracteres). Se excluyen palabras cortas, código y atributos HTML; no se adivinan oraciones idénticas ambiguas.',
+
     search: 'Buscar documentos: título o cuerpo',
     title: 'Documentos',
     page: 'Página',
@@ -3104,6 +3138,11 @@ export default {
     issueSteps: 'Cómo reproducirlo'
   },
   ruleMsg: {
+    simultaneousNested: 'Los grupos simultáneos no pueden anidarse',
+    simultaneousEndWithoutStart: 'El fin del grupo simultáneo no tiene un inicio correspondiente',
+    simultaneousMissingEnd: 'Falta el cierre -) del grupo simultáneo',
+    simultaneousForbidden:
+      'Mueva las etapas, el acento y las referencias fuera del grupo simultáneo',
     includeInner: 'Línea {line} de «{ref}»: {msg}',
     includeNoStage: '«{ref}» no tiene ninguna etapa llamada «{stage}»',
     includeCycle: '«{ref}» se cita a sí mismo',

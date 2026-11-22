@@ -5,6 +5,7 @@ import type { Language, Lexeme, ParenMode, Script, Sentence } from '$lib/core/mo
 import { escapeRuleText, parseRuleText, runRulesOnText, type RuleProgram } from '$lib/engine/sca'
 import { packTables, packWord, type PackTables } from './pack'
 import { languageParseOptions } from '$lib/engine/phon'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 /**
  * 编好的转写，按文字对象记：展开的映射、解析好的规则、音节拼合用的表，外加同一段文字转过的结果。
@@ -117,12 +118,16 @@ export function autoMappingRows(
     if (!g.char) continue
     for (const v of glyphValues(g)) rows.push({ value: v, char: g.char })
   }
-  rows.sort((a, b) => b.value.length - a.value.length || a.value.localeCompare(b.value))
+  rows.sort(
+    (a, b) =>
+      b.value.length - a.value.length || canonicalG(a.value).localeCompare(canonicalG(b.value))
+  )
   const seen = new Set<string>()
   const out: { from: string; to: string }[] = []
   for (const r of rows) {
-    if (seen.has(r.value)) continue
-    seen.add(r.value)
+    const key = canonicalG(r.value)
+    if (seen.has(key)) continue
+    seen.add(key)
     const to = escapeRuleText(r.char, letters)
     // 替换侧单独一个 2 表示「重叠」，字形本身是 2 时也得写成字面
     out.push({ from: escapeRuleText(r.value, letters), to: to === '2' ? '\\2' : to })
@@ -229,7 +234,7 @@ export function packText(lang: Language, script: Script, text: string): string {
     for (const g of script.glyphs) {
       if (!g.char) continue
       for (const v of glyphValues(g)) {
-        const k = v.toLowerCase()
+        const k = canonicalG(v.toLowerCase())
         if (!c.readings.has(k)) c.readings.set(k, g.char)
       }
     }
@@ -246,7 +251,8 @@ export function packText(lang: Language, script: Script, text: string): string {
         if (!seg) continue
         if (seg === '·' || seg === '-') continue
         const isHead = parts[i + 1] === '·'
-        for (const r of packWord(lang, script, seg, isHead, tables)) out += byReading.get(r) ?? r
+        for (const r of packWord(lang, script, seg, isHead, tables))
+          out += byReading.get(canonicalG(r)) ?? r
       }
       return out
     })

@@ -4,16 +4,19 @@
  * 让每一段都挂上同一个词条（gloss 一样），文字那边也能一段一段写。纯函数。
  */
 import type { Id, Lexeme, Project, Token } from '$lib/core/model'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 /** 段与段之间最多隔多少个词 */
 const MAX_GAP = 12
 
 const norm = (s: string): string =>
-  s
-    .normalize('NFC')
-    .toLowerCase()
-    .replace(/^[-=·]+|[-=·]+$/gu, '')
-    .trim()
+  canonicalG(
+    s
+      .normalize('NFC')
+      .toLowerCase()
+      .replace(/^[-=·]+|[-=·]+$/gu, '')
+      .trim()
+  )
 
 /** 词头按 `…` / `...` 拆成几段；不足两段的（`hi…` 这种只标了位置的）不算 */
 export function splitParts(lemma: string): string[] {

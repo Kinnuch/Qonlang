@@ -4,6 +4,7 @@
  * 所以拿标注里的意思再核一遍。
  */
 import type { Lexeme } from './model'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 const CJK = /[一-鿿぀-ヿ가-힯]/
 
@@ -19,8 +20,8 @@ export function glossPieces(text: string): string[] {
 
 /** 两段文字有没有共同的意思片段（任一方包含另一方即可） */
 export function textsOverlap(a: string, b: string): boolean {
-  const pa = glossPieces(a)
-  const pb = glossPieces(b)
+  const pa = glossPieces(a).map(canonicalG)
+  const pb = glossPieces(b).map(canonicalG)
   if (!pa.length || !pb.length) return false
   for (const x of pa) for (const y of pb) if (x.includes(y) || y.includes(x)) return true
   return false

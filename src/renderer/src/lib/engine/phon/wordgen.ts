@@ -8,6 +8,7 @@
  * 词库里这门语言的词少于 MIN_LEXICON 个时，只按配列设置和权重造，另外避开生硬的重复和太长的辅音丛。
  */
 import type { Language } from '$lib/core/model'
+import { canonicalG, gEquivalent } from '$lib/ipa/equivalence'
 import {
   SUPRASEGMENTAL_IGNORE,
   checkWord,
@@ -106,9 +107,11 @@ function priorOf(items: string[], weights: Record<string, number>, empty: number
 /** 词库里数出来的次数和先验混在一起（先验占 alpha 个词的分量）；配列不允许的成分不要 */
 function blend(counts: Map<string, number>, prior: Probs, alpha: number): Probs {
   let total = 0
-  for (const [k, c] of counts) if (prior.has(k)) total += c
+  const allowed = new Set([...prior.keys()].map(canonicalG))
+  for (const [k, c] of counts) if (allowed.has(k)) total += c
   const out: Probs = new Map()
-  for (const [k, p] of prior) out.set(k, ((counts.get(k) ?? 0) + alpha * p) / (total + alpha))
+  for (const [k, p] of prior)
+    out.set(k, ((counts.get(canonicalG(k)) ?? 0) + alpha * p) / (total + alpha))
   return out
 }
 
@@ -120,7 +123,11 @@ function distance(a: string[], b: string[]): number {
   for (let i = 1; i <= a.length; i++) {
     const cur = [i]
     for (let j = 1; j <= b.length; j++)
-      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (gEquivalent(a[i - 1], b[j - 1]) ? 0 : 1)
+      )
     prev = cur
   }
   return prev[b.length]
@@ -133,7 +140,7 @@ function withinOne(a: string[], b: string[]): boolean {
   let j = 0
   let edits = 0
   while (i < a.length && j < b.length) {
-    if (a[i] === b[j]) {
+    if (gEquivalent(a[i], b[j])) {
       i++
       j++
       continue
@@ -164,7 +171,7 @@ class Trigram {
   }
 
   add(segs: string[]): void {
-    const s = ['^', '^', ...segs, '$']
+    const s = ['^', '^', ...segs.map(canonicalG), '$']
     for (let i = 2; i < s.length; i++) {
       inc(this.c3, `${s[i - 2]} ${s[i - 1]} ${s[i]}`)
       inc(this.h2, `${s[i - 2]} ${s[i - 1]}`)
@@ -177,7 +184,7 @@ class Trigram {
 
   /** 整个词（连词尾）的对数概率，以 2 为底；没见过的搭配往短的退，最后退到均匀分布 */
   logp(segs: string[]): number {
-    const s = ['^', '^', ...segs, '$']
+    const s = ['^', '^', ...segs.map(canonicalG), '$']
     let sum = 0
     for (let i = 2; i < s.length; i++) {
       const h2 = this.h2.get(`${s[i - 2]} ${s[i - 1]}`) ?? 0
@@ -248,15 +255,21 @@ export function generateNaturalWords(lang: Language, opts: WordGenOptions): Gene
       if (on) seen.onset.add(on)
       if (nu) seen.nucleus.add(nu)
       if (co) seen.coda.add(co)
-      inc(i === 0 ? counts.first : counts.rest, on)
-      inc(counts.nucleus, nu)
-      inc(i === n - 1 ? counts.last : counts.inner, co)
+      inc(i === 0 ? counts.first : counts.rest, canonicalG(on))
+      inc(counts.nucleus, canonicalG(nu))
+      inc(i === n - 1 ? counts.last : counts.inner, canonicalG(co))
     })
-    if (p.sylls.some((s, i) => i > 0 && sylText(s) === sylText(p.sylls[i - 1]))) redup++
+    if (p.sylls.some((s, i) => i > 0 && gEquivalent(sylText(s), sylText(p.sylls[i - 1])))) redup++
   }
   const items = (list: string[], learned: Set<string>): string[] => {
     const own = list.filter(Boolean)
-    return own.length ? own : learn ? [...learned] : []
+    const seen = new Set<string>()
+    return (own.length ? own : learn ? [...learned] : []).filter((value) => {
+      const key = canonicalG(value)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
   }
   const onsetItems = items(pt.onsets, seen.onset)
   const nucleusItems = items(pt.nuclei, seen.nucleus)
@@ -294,9 +307,9 @@ export function generateNaturalWords(lang: Language, opts: WordGenOptions): Gene
   }
   const redupRate = parsed.length ? redup / parsed.length : 0
 
-  const taken = new Set<string>(opts.exclude ?? [])
-  for (const w of opts.lexicon) taken.add(w.ipa)
-  for (const { p } of parsed) taken.add(p.segs.join(''))
+  const taken = new Set<string>([...(opts.exclude ?? [])].map(canonicalG))
+  for (const w of opts.lexicon) taken.add(canonicalG(w.ipa))
+  for (const { p } of parsed) taken.add(canonicalG(p.segs.join('')))
 
   const scoreOf = (segs: string[], sylls: Syllable[]): number => {
     const lenP = Math.log2(lenD.get(String(sylls.length)) ?? 1e-6)
@@ -317,7 +330,10 @@ export function generateNaturalWords(lang: Language, opts: WordGenOptions): Gene
         s -= Math.max(0, sy.onset.length - 1) * 0.4 + Math.max(0, sy.coda.length - 1) * 0.5
     }
     // 两个一样的音节挨着（tata）：词库里本来就常见才不嫌弃
-    if (redupRate < 0.05 && sylls.some((sy, i) => i > 0 && sylText(sy) === sylText(sylls[i - 1])))
+    if (
+      redupRate < 0.05 &&
+      sylls.some((sy, i) => i > 0 && gEquivalent(sylText(sy), sylText(sylls[i - 1])))
+    )
       s -= 1
     return s
   }
@@ -336,17 +352,19 @@ export function generateNaturalWords(lang: Language, opts: WordGenOptions): Gene
       })
     const segs = sylls.flatMap((s) => [...s.onset, ...s.nucleus, ...s.coda])
     const ipa = segs.join('')
-    if (!ipa || taken.has(ipa) || cands.has(ipa)) continue
+    const key = canonicalG(ipa)
+    if (!ipa || taken.has(key) || cands.has(key)) continue
     if (!sylls.every((s) => s.nucleus.length)) continue
-    if (pt.illegal.some((ill) => ill && ipa.includes(ill))) continue
+    if (pt.illegal.some((ill) => ill && key.includes(canonicalG(ill)))) continue
     // 同一个音段连着三次
-    if (segs.some((s, i) => i >= 2 && s === segs[i - 1] && s === segs[i - 2])) continue
+    if (segs.some((s, i) => i >= 2 && gEquivalent(s, segs[i - 1]) && gEquivalent(s, segs[i - 2])))
+      continue
     // 拼起来重新划音节再查一遍配列（ka + a 会并成 kaa，核就不合规了）——跟「配列检查」同一套标准
     const again = syllabify(segs, { nuclei, onsets: onsetSet, ignore: SUPRASEGMENTAL_IGNORE })
     if (checkWord(segs, again, pt).length) continue
     const score = scoreOf(segs, sylls)
     // 一点点随机：每次点「造词」不至于总是同一批
-    cands.set(ipa, {
+    cands.set(key, {
       ipa,
       segs,
       sylls,

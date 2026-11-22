@@ -3,6 +3,7 @@
  * 先看本句译文，再看别处确认过的与别的例句译文。纯函数，界面只负责喂数据。
  */
 import type { Id, Sentence, Token } from '$lib/core/model'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 // 汉字、假名、谚文按字串比（与 glossMatch 一致）
 const CJK = /[一-鿿぀-ヿ가-힯]/
@@ -12,7 +13,7 @@ export function meaningPieces(text: string): string[] {
   return text
     .replace(/【[^】]*】|〔[^〕]*〕/g, ' ')
     .split(/[-=<>·.．,，、;；:：()（）[\]\s“”"'…/|!?！？。]+/)
-    .map((p) => p.trim().toLowerCase())
+    .map((p) => canonicalG(p.trim().toLowerCase()))
     .filter((p) => p.length >= (CJK.test(p) ? 1 : 3))
 }
 
@@ -37,7 +38,7 @@ export function piecesOverlap(def: string[], hint: string[]): boolean {
 
 /** 词形的比较键：NFC、小写 */
 export function surfaceKey(surface: string): string {
-  return surface.normalize('NFC').toLowerCase()
+  return canonicalG(surface.normalize('NFC').toLowerCase())
 }
 
 export interface SurfaceEvidence {

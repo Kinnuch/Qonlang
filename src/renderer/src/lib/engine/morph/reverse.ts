@@ -5,6 +5,7 @@
 import type { Id, Project } from '$lib/core/model'
 import { paradigmSlots, parseAffixRef } from './index'
 import { conditionVariants } from './conditions'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 export interface ParadigmAffix {
   form: string
@@ -87,12 +88,14 @@ export function reverseDerive(
 ): ReverseHit | null {
   const n = surface.normalize('NFC').toLowerCase()
   for (const a of affixes.suffixes) {
-    if (!a.form || !n.endsWith(a.form) || n.length <= a.form.length) continue
+    if (!a.form || !canonicalG(n).endsWith(canonicalG(a.form)) || n.length <= a.form.length)
+      continue
     const id = lookup(n.slice(0, n.length - a.form.length))
     if (id) return { lexemeId: id, affix: a.form, slot: a.slot }
   }
   for (const a of affixes.prefixes) {
-    if (!a.form || !n.startsWith(a.form) || n.length <= a.form.length) continue
+    if (!a.form || !canonicalG(n).startsWith(canonicalG(a.form)) || n.length <= a.form.length)
+      continue
     const id = lookup(n.slice(a.form.length))
     if (id) return { lexemeId: id, affix: a.form, slot: a.slot }
   }

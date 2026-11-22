@@ -7,6 +7,7 @@
  * - 多个条件用空格隔开，要全部满足；内容里有空格就加引号："a b"、tr="你 好"
  * 不认识的字段名不当字段，整段按普通文字找（造语里 = 常作附着边界）。
  */
+import { canonicalG, gSearchRegex } from '$lib/ipa/equivalence'
 
 /** 全是 ASCII 字符 */
 function isAscii(s: string): boolean {
@@ -48,13 +49,13 @@ export const foldMarks = (s: string): string =>
     .normalize('NFC')
 
 function textTest(needle: string, exact: boolean): (value: string) => boolean {
-  const n = needle.normalize('NFC').toLowerCase()
+  const n = canonicalG(needle.normalize('NFC').toLowerCase())
   // 搜的词里没写附加符：被搜的文字也去掉附加符再比（kam 能搜到 kâm）
   const loose = foldMarks(n) === n
   return (value) => {
     // 纯 ASCII 的文字没有附加符可去，省掉规范化（每敲一个字要比几万次）
     const ascii = isAscii(value)
-    const v = ascii ? value.toLowerCase() : value.normalize('NFC').toLowerCase()
+    const v = ascii ? value.toLowerCase() : canonicalG(value.normalize('NFC').toLowerCase())
     if (exact) return v === n || (loose && !ascii && foldMarks(v) === n)
     return v.includes(n) || (loose && !ascii && foldMarks(v).includes(n))
   }
@@ -126,7 +127,7 @@ export function parseQuery(input: string, fields: SearchField[] = []): ParsedQue
       let rx: RegExp | null = null
       for (const f of tries) {
         try {
-          rx = new RegExp(re.source, f)
+          rx = gSearchRegex(new RegExp(re.source, f))
           break
         } catch {
           rx = null
@@ -134,7 +135,7 @@ export function parseQuery(input: string, fields: SearchField[] = []): ParsedQue
       }
       if (rx) {
         const r = rx
-        terms.push({ field, raw, test: (v) => r.test(v), regex: r })
+        terms.push({ field, raw, test: (v) => r.test(canonicalG(v)), regex: r })
       } else {
         errors.push(raw)
         terms.push({ field, raw, test: textTest(re.source, exact), needle: re.source, exact })

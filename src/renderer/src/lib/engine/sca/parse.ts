@@ -12,6 +12,8 @@
  *   ; 注释   或   # 行首注释
  */
 
+import { gLiteralPattern, gEquivalent } from '$lib/ipa/equivalence'
+
 interface ClassAlias {
   alias: string
   member: string
@@ -43,6 +45,8 @@ export interface ParsedRule {
   kind: 'rule'
   line: number
   raw: string
+  /** 显式同时组；同组规则共同读取组开始时的输入，不能连锁喂给下一条。 */
+  simultaneous?: SimultaneousGroup
   /** 行尾 ; 之后的注释 */
   comment: string
   target: string
@@ -76,6 +80,29 @@ export interface ParsedRule {
   featureExclusions?: Record<string, string[]>
   /** 目标编出来是一串固定的字（没有音类、没有可选、不隔记号）：词里没有这串字，这条规则就不用跑正则 */
   literal?: string
+}
+
+export interface SimultaneousGroup {
+  line: number
+  endLine: number
+  name: string
+  valid: boolean
+}
+export interface SimultaneousLine {
+  kind: 'simultaneous-start' | 'simultaneous-end'
+  line: number
+  raw: string
+  comment: string
+  group: SimultaneousGroup
+}
+export function formatSimultaneousStart(name: string): string {
+  return (
+    '-( ' +
+    name
+      .trim()
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/[\\;>]/g, '\\$&')
+  )
 }
 
 /** if-else 规则的一路：要改的目标、改成什么，以及编好的匹配 */
@@ -287,7 +314,7 @@ function classMembers(key: string, value: string): string[] {
 }
 
 export type ParsedLine =
-  ParsedRule | MarkerLine | OtherLine | FeatureLine | StressLine | IncludeLine
+  ParsedRule | MarkerLine | OtherLine | FeatureLine | StressLine | IncludeLine | SimultaneousLine
 
 export interface Diagnostic {
   line: number
@@ -467,11 +494,17 @@ function resolveFeatures(
     const def = table?.get(name)
     const own = sign === '+' ? def?.plus : def?.minus
     const other = sign === '+' ? def?.minus : def?.plus
-    if (own) members = members ? members.filter((m) => own.includes(m)) : [...own]
+    if (own)
+      members = members ? members.filter((m) => own.some((x) => gEquivalent(m, x))) : [...own]
     else if (other) for (const m of other) except.add(m)
     else missing.push(`[${sign}${name}]`)
   }
-  if (members) return { members: members.filter((m) => !except.has(m)), except: null, missing }
+  if (members)
+    return {
+      members: members.filter((m) => ![...except].some((x) => gEquivalent(m, x))),
+      except: null,
+      missing
+    }
   return { members: null, except: except.size ? [...except] : null, missing }
 }
 
@@ -523,11 +556,11 @@ export function applyReplacements(
       for (const [from, to] of replacements)
         result = caseInsensitive
           ? result.replace(insensitiveLiteral(from, true, classLists), () => to)
-          : result.split(from).join(to)
+          : result.replace(new RegExp(gLiteralPattern(from), 'gu'), () => to)
       return result
     }
     let t = ''
-    if (classLists && caseInsensitive) {
+    if (classLists) {
       // C、C1 和 [+特征名] 是语法引用，不能因 c|k 把引用本身误改成 k。
       let cursor = 0
       for (const match of s.matchAll(/\[[^\]]*\]|[A-Z]\d*/gu)) {
@@ -592,7 +625,7 @@ function insensitiveLiteral(text: string, replacement = false, encodedSource = f
     if (insensitiveLiterals.size >= 2048) insensitiveLiterals.clear()
     const literal = Array.from(text)
       .map((character) => {
-        const normal = character.replace(RE_ESCAPE, '\\$&')
+        const normal = gLiteralPattern(character)
         if (!encodedSource) return normal
         const capital = [character.toUpperCase(), character.toLowerCase().toUpperCase()].find(
           (value) => /^[A-Z]$/u.test(value)
@@ -619,15 +652,12 @@ function classRegex(members: string[], marks = false, alias?: ClassAlias): strin
   if (alias) members = [...members, alias.alias]
   if (members.length === 0) return '(?:)'
   if (members.every((m) => Array.from(m).length === 1)) {
-    return '[' + members.map((m) => m.replace(CLASS_ESCAPE, '\\$&')).join('') + ']'
+    const all = members.some((m) => m === 'g' || m === 'ɡ') ? [...members, 'g', 'ɡ'] : members
+    return '[' + all.map((m) => m.replace(CLASS_ESCAPE, '\\$&')).join('') + ']'
   }
   const sorted = [...members].sort((a, b) => b.length - a.length)
   const one = (m: string): string =>
-    marks
-      ? Array.from(m)
-          .map((ch) => ch.replace(RE_ESCAPE, '\\$&'))
-          .join(SKIP)
-      : m.replace(RE_ESCAPE, '\\$&')
+    marks ? Array.from(m).map(gLiteralPattern).join(SKIP) : gLiteralPattern(m)
   return '(?:' + sorted.map(one).join('|') + ')'
 }
 
@@ -680,7 +710,18 @@ function expand(s: string, classes: Map<string, string[]>, opts: ExpandOptions):
   }
   const pushClass = (ref: ClassRef, raw: string | null): void => {
     const alias = opts.classAliases?.get(ref.members)
-    const body = raw ?? classRegex(ref.members, opts.marks, alias)
+    let body = raw ?? classRegex(ref.members, opts.marks, alias)
+    if (raw) {
+      // 保留用户字符组/范围本身，只补另一种g字形；不改范围端点或正则语法。
+      try {
+        const negated = raw.startsWith('[^')
+        const positive = new RegExp(negated ? '[' + raw.slice(2) : raw, 'u')
+        if (positive.test('g') || positive.test('ɡ'))
+          body = negated ? `(?:(?![gɡ])${raw})` : `(?:${raw}|[gɡ])`
+      } catch {
+        /* 原编译路径仍会给出该字符组的诊断。 */
+      }
+    }
     if (opts.captureFirst && !firstClass) {
       firstClass = alias ? { ...ref, alias } : ref
       capturing++
@@ -693,7 +734,7 @@ function expand(s: string, classes: Map<string, string[]>, opts: ExpandOptions):
     const c = chars[i]
     const lit = escapedChar(c)
     if (lit !== null) {
-      unit(lit.replace(RE_ESCAPE, '\\$&'))
+      unit(gLiteralPattern(lit))
     } else if (c === '#' && opts.boundary) {
       out += opts.boundary
       lead = false
@@ -754,7 +795,7 @@ function expand(s: string, classes: Map<string, string[]>, opts: ExpandOptions):
           // 「其余的音」：不是这些成员开头，也不是多字母成员（ph）中间的那个字母（h）
           const join = (xs: string[]): string => xs.join(opts.marks ? SKIP : '')
           const inside = f.except
-            .map((m) => Array.from(m).map((ch) => ch.replace(RE_ESCAPE, '\\$&')))
+            .map((m) => Array.from(m).map(gLiteralPattern))
             .flatMap((cs) =>
               cs
                 .slice(1)
@@ -803,7 +844,7 @@ function expand(s: string, classes: Map<string, string[]>, opts: ExpandOptions):
       if (c === '|') lead = !!opts.noLeadSkip
     } else {
       if (c >= 'A' && c <= 'Z') opts.warn(`未定义的音类 ${c}，按字面字符处理`)
-      unit(c)
+      unit(c === 'g' || c === 'ɡ' ? '[gɡ]' : c)
     }
     i++
   }
@@ -1252,6 +1293,8 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     | 'stress'
     | 'feature'
     | 'include'
+    | 'simultaneous-start'
+    | 'simultaneous-end'
   )[] = []
   const contents: string[] = []
   rawLines.forEach((raw) => {
@@ -1263,6 +1306,14 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     }
     if (content.startsWith('#')) {
       kinds.push('comment')
+      return
+    }
+    if (content.startsWith('-(') && !content.includes('>')) {
+      kinds.push('simultaneous-start')
+      return
+    }
+    if (content === '-)') {
+      kinds.push('simultaneous-end')
       return
     }
     if (content.startsWith('-*')) {
@@ -1352,6 +1403,40 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     maxCoda: base?.maxCoda ?? null
   }
 
+  const groupAt = new Map<number, SimultaneousGroup>()
+  const groupBoundaries = new Map<number, SimultaneousGroup>()
+  let openGroup: SimultaneousGroup | null = null
+  kinds.forEach((kind, index) => {
+    const line = index + 1
+    if (kind === 'simultaneous-start') {
+      if (openGroup) {
+        openGroup.valid = false
+        diagnostics.push({ line, severity: 'error', message: '同时组不能嵌套' })
+        groupBoundaries.set(line, openGroup)
+      } else {
+        openGroup = {
+          line,
+          endLine: rawLines.length,
+          name: literalEscapes(contents[index].slice(2).trim()),
+          valid: true
+        }
+        groupBoundaries.set(line, openGroup)
+      }
+    } else if (kind === 'simultaneous-end') {
+      if (!openGroup)
+        diagnostics.push({ line, severity: 'error', message: '同时组结束行缺少对应的开始行' })
+      else {
+        openGroup.endLine = line
+        groupBoundaries.set(line, openGroup)
+        openGroup = null
+      }
+    } else if (openGroup) groupAt.set(line, openGroup)
+  })
+  if (openGroup) {
+    const missing = openGroup as SimultaneousGroup
+    missing.valid = false
+    diagnostics.push({ line: missing.line, severity: 'error', message: '同时组缺少结束行 -)' })
+  }
   const lines: ParsedLine[] = []
   const steps: (ParsedRule | MarkerLine | StressLine | IncludeLine)[] = []
   const markers: string[] = []
@@ -1365,6 +1450,19 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     const kind = kinds[idx]
     const content = contents[idx]
     const comment = commentOf(raw)
+    if (kind === 'simultaneous-start' || kind === 'simultaneous-end') {
+      const group = groupBoundaries.get(line)
+      if (group) lines.push({ kind, line, raw, comment, group })
+      else
+        lines.push({ kind: 'error', line, raw, comment, message: '同时组结束行缺少对应的开始行' })
+      return
+    }
+    if (groupAt.has(line) && (kind === 'stress' || kind === 'marker' || kind === 'include')) {
+      const message = '同时组内不能包含阶段、重音或引用，请移到组外'
+      diagnostics.push({ line, severity: 'error', message })
+      lines.push({ kind: 'error', line, raw, comment, message })
+      return
+    }
     if (kind === 'blank' || kind === 'comment' || kind === 'class' || kind === 'replacement') {
       lines.push({ kind, line, raw, comment })
       return
@@ -1843,6 +1941,19 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     steps.push(rule)
   })
 
+  for (const step of steps)
+    if (step.kind === 'rule') {
+      const group = groupAt.get(step.line)
+      if (group) step.simultaneous = group
+    }
+  for (const group of new Set(groupBoundaries.values())) {
+    if (
+      diagnostics.some(
+        (d) => d.severity === 'error' && d.line >= group.line && d.line <= group.endLine
+      )
+    )
+      group.valid = false
+  }
   return {
     classes,
     replacements,

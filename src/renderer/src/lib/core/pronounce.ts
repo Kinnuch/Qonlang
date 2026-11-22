@@ -14,6 +14,7 @@ import {
 } from '$lib/engine/sca'
 import { languageParseOptions } from '$lib/engine/phon'
 import { inferFeatures } from '$lib/ipa/features'
+import { canonicalG } from '$lib/ipa/equivalence'
 import { lexemeStress } from './stressInfo'
 import {
   preparePhonemeMapping,
@@ -125,12 +126,12 @@ export function runOrthographyOnText(
  * 只是占位用的（ʦ 这类表里没有、IPA 表也不认的）照旧换回去。
  */
 export function ipaUnits(lang: Language): string[] {
-  const inventory = new Set(lang.phonemes.map((p) => p.symbol))
+  const inventory = new Set(lang.phonemes.map((p) => canonicalG(p.symbol)))
   return lang.digraphs
     .map((d) => d.to)
     .filter((to) => {
       if (!to) return false
-      if (inventory.has(to)) return true
+      if (inventory.has(canonicalG(to))) return true
       const f = inferFeatures(to)
       return f.type === 'vowel' || f.type === 'consonant'
     })

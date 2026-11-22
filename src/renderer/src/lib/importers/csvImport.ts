@@ -32,6 +32,7 @@ import { customFieldTitle, findCustomField } from '$lib/core/customFields'
 import { splitRegisters } from '$lib/core/register'
 import { ensureCompoundPos, posName, posParadigmId, sensePos } from '$lib/core/pos'
 import { automaticImportedIpa, mergeImportedLexeme, mergeImportedSources } from './lexemeImport'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 export type FieldSpec =
   | { kind: 'ignore' }
@@ -1131,14 +1132,14 @@ export function applyCsvImport(
   }
   const existingLemmas = new Set(
     mapping.target === 'lexemes'
-      ? project.lexemes.map((l) => `${l.languageId}\0${l.lemma.trim()}`)
-      : project.morphemes.map((m) => `${m.languageId}\0${m.form.trim()}`)
+      ? project.lexemes.map((l) => `${l.languageId}\0${canonicalG(l.lemma.trim())}`)
+      : project.morphemes.map((m) => `${m.languageId}\0${canonicalG(m.form.trim())}`)
   )
   const matchingLexemes = new Map<string, Lexeme[]>(),
     positions = new Map<Id, number>()
   if (mapping.overwriteExisting && mapping.target === 'lexemes')
     project.lexemes.forEach((entry, index) => {
-      const key = `${entry.languageId}\0${entry.lemma.trim()}`
+      const key = `${entry.languageId}\0${canonicalG(entry.lemma.trim())}`
       const bucket = matchingLexemes.get(key) ?? []
       bucket.push(entry)
       matchingLexemes.set(key, bucket)
@@ -1212,7 +1213,7 @@ export function applyCsvImport(
     }
     const rowLanguage = langOf(row),
       rowLanguageId = rowLanguage?.id ?? mapping.languageId
-    const scopedKey = `${rowLanguageId}\0${key}`
+    const scopedKey = `${rowLanguageId}\0${canonicalG(key)}`
     if (existingLemmas.has(scopedKey)) report.duplicates.push(key)
     existingLemmas.add(scopedKey)
 

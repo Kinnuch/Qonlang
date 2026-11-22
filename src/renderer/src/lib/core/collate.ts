@@ -2,17 +2,25 @@
  * 按用户自定义字母表排序。字母表是有序的字素列表，可含多字符（如 th、ng）。
  * 不在表里的字符排在最后，按 Unicode 顺序。
  */
+import { canonicalG } from '$lib/ipa/equivalence'
+
 /** 排序器建一次反复用：localeCompare 带参数时每比一次都要新建一个，几千个词排一次要上百毫秒 */
 const baseOrder = new Intl.Collator(undefined, { sensitivity: 'base' })
 const fullOrder = new Intl.Collator()
 const TOKEN_MEMO_MAX = 50000
 
 export function makeCollator(alphabet: string[]): (a: string, b: string) => number {
-  if (!alphabet.length) return (a, b) => baseOrder.compare(a, b) || fullOrder.compare(a, b)
+  if (!alphabet.length)
+    return (a, b) => {
+      const left = canonicalG(a),
+        right = canonicalG(b)
+      return baseOrder.compare(left, right) || fullOrder.compare(left, right)
+    }
   const order = new Map<string, number>()
   alphabet.forEach((g, i) => {
-    if (!order.has(g)) order.set(g, i)
-    const lower = g.toLowerCase()
+    const glyph = canonicalG(g)
+    if (!order.has(glyph)) order.set(glyph, i)
+    const lower = canonicalG(g.toLowerCase())
     if (!order.has(lower)) order.set(lower, i)
   })
   const maxLen = Math.max(...alphabet.map((g) => Array.from(g).length))
@@ -53,6 +61,8 @@ export function makeCollator(alphabet: string[]): (a: string, b: string) => numb
     return k
   }
   return (a, b) => {
+    a = canonicalG(a)
+    b = canonicalG(b)
     const ta = keyOf(a)
     const tb = keyOf(b)
     const n = Math.min(ta.length, tb.length)

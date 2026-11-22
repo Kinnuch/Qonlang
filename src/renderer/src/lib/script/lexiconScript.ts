@@ -16,6 +16,7 @@ import type {
 } from '$lib/core/model'
 import { lexemeMatchesGloss } from '$lib/core/glossMatch'
 import { tokenSpans } from '$lib/engine/gloss/tokens'
+import { canonicalG } from '$lib/ipa/equivalence'
 import {
   lexemeScript,
   readsInspectorField,
@@ -52,7 +53,7 @@ const LETTERLIKE = new Set(Array.from("'’‘ʼʻʽ`´ʔʕ"))
 
 /** 词头的几种写法：原样、(le)kùti 去掉括号里的与留下括号里的（附加符照旧） */
 function wordForms(lemma: string): string[] {
-  const base = trimMarks(lemma.normalize('NFC').toLowerCase().trim())
+  const base = canonicalG(trimMarks(lemma.normalize('NFC').toLowerCase().trim()))
   if (!base) return []
   const out = new Set<string>([base])
   if (/[（(]/u.test(base)) {

@@ -5,6 +5,7 @@
    * 右键节点：展开以它为中心的一圈（它自己的来源、派生、同源……），或者收起；已经在图上的词不重复画，只连线。
    * 跟中心词同一个词根来源的词有两个以上时，右上角出现「对比」，换成对比视图（LexemeCompare）。
    */
+  import { gEquivalent } from '$lib/ipa/equivalence'
   import { untrack } from 'svelte'
   import type { Id, Lexeme, Morpheme, Project } from '$lib/core/model'
   import { t, pickText } from '$lib/i18n/index.svelte'
@@ -180,7 +181,9 @@
             (s) =>
               s.kind === 'external' &&
               !!s.form &&
-              c.etymology.sources.some((cs) => cs.kind === 'external' && cs.form === s.form)
+              c.etymology.sources.some(
+                (cs) => cs.kind === 'external' && gEquivalent(cs.form, s.form)
+              )
           )
       )
       .slice(0, 24)

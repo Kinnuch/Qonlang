@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.4 · unreleased
+
+- Simultaneous sound changes match every rule against the same input, allowing direct swaps. Matching, transcription, search and word-list comparisons recognise g and ɡ as equivalent while preserving the original spelling.
+- Open a document from a corpus sentence it cites. Documents can use HTML, and settings let you choose the default format for new documents. Existing Markdown documents remain readable.
+- Allomorphs can require all or any of the selected values. Morphemes support multi-select, batch deletion and undo. Copy selected glyphs between scripts in different languages.
+- Long rule lists render only visible lines of highlighting, and pasted word tables avoid per-row reactivity and redundant preview copies.
+
 ## 1.0.3 · 2026-11-22
 
 - Spelling-to-IPA transcription treats uppercase and lowercase alike by default, with a separate setting for each orthography. Word generation supports spelling and IPA modes and retains access to older reverse mappings.

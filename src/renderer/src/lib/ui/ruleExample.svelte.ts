@@ -4,6 +4,7 @@ import type { RunOptions } from '$lib/engine/sca/apply'
 import {
   ExampleWordIndex,
   syntheticExample,
+  sampleProgramForRule,
   type RuleExample,
   type SampleReply,
   type SampleMessage
@@ -80,16 +81,7 @@ export function findRuleExample(
           kind: 'start',
           rule,
           options,
-          program: {
-            classes: program.classes,
-            replacements: program.replacements,
-            syllables: program.syllables,
-            hasStress: program.hasStress,
-            lines: [],
-            steps: [],
-            markers: [],
-            diagnostics: []
-          }
+          program: sampleProgramForRule(program, rule)
         } satisfies SampleMessage)
       )
     } catch {

@@ -10,7 +10,7 @@ export interface CsvTable {
 }
 
 export function detectDelimiter(text: string): Delimiter {
-  const sample = text.split(/\r?\n/).slice(0, 20)
+  const sample = text.split(/\r?\n/, 20)
   const candidates: Delimiter[] = [',', '\t', ';', '|']
   let best: Delimiter = ','
   let bestScore = -1

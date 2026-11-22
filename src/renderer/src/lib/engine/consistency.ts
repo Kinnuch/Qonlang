@@ -5,6 +5,7 @@
 import type { Id, Project } from '$lib/core/model'
 import { paradigmSlots, resolveGenerator } from './morph'
 import { ownParadigmIds, posParadigmId } from '$lib/core/pos'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 export type IssueSeverity = 'error' | 'warn' | 'info'
 export type IssueTarget =
@@ -93,12 +94,12 @@ export function checkConsistency(project: Project, languageId: Id | null): Issue
       if (!cat || !cat.values.some((v) => v.id === vid))
         add('lexeme.brokenFeature', 'error', head, 'lexeme', l.id)
     }
-    const k = `${l.lemma.trim().toLowerCase()}|${l.posId ?? ''}`
+    const k = `${canonicalG(l.lemma.trim().toLowerCase())}|${l.posId ?? ''}`
     if (l.lemma.trim()) lemmaKey.set(k, [...(lemmaKey.get(k) ?? []), l.id])
   }
   for (const [k, ids] of lemmaKey)
     if (ids.length > 1) {
-      const lemma = k.split('|')[0]
+      const lemma = lexById.get(ids[0])?.lemma ?? k.split('|')[0]
       add('lexeme.duplicate', 'warn', lemma, 'lexeme', ids[0], String(ids.length))
     }
 
@@ -115,12 +116,19 @@ export function checkConsistency(project: Project, languageId: Id | null): Issue
       if (s.kind === 'lexeme' && !lexById.has(s.id))
         add('morpheme.brokenSource', 'error', head, 'morpheme', m.id)
     }
-    const k = `${m.type}|${m.form.trim().toLowerCase()}`
+    const k = `${m.type}|${canonicalG(m.form.trim().toLowerCase())}`
     if (m.form.trim()) formKey.set(k, [...(formKey.get(k) ?? []), m.id])
   }
   for (const [k, ids] of formKey)
     if (ids.length > 1)
-      add('morpheme.duplicate', 'warn', k.split('|')[1], 'morpheme', ids[0], String(ids.length))
+      add(
+        'morpheme.duplicate',
+        'warn',
+        morphById.get(ids[0])?.form ?? k.split('|')[1],
+        'morpheme',
+        ids[0],
+        String(ids.length)
+      )
 
   // ── 语料 ──
   const abbrs = new Set(project.abbreviations.map((a) => a.abbr))
@@ -208,9 +216,10 @@ export function checkConsistency(project: Project, languageId: Id | null): Issue
     }
     // 字母表之外的字符（有字母表才查；忽略大小写与常见分隔符；带变音符的字母折掉变音符后在表里也算在表里）
     if (lang.alphabet.length && (!languageId || lang.id === languageId)) {
-      const fold = (x: string): string => x.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+      const fold = (x: string): string =>
+        canonicalG(x.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase())
       const alpha = lang.alphabet
-        .map((a) => a.toLowerCase())
+        .map((a) => canonicalG(a.toLowerCase()))
         .filter(Boolean)
         .sort((a, b) => b.length - a.length)
       const alphaFolded = alpha.map(fold)
@@ -219,7 +228,7 @@ export function checkConsistency(project: Project, languageId: Id | null): Issue
         let w = l.lemma.toLowerCase().replace(/[-=*·'\s()]/g, '')
         const bad = new Set<string>()
         while (w.length) {
-          const hit = alpha.find((a) => w.startsWith(a))
+          const hit = alpha.find((a) => canonicalG(w).startsWith(a))
           if (hit) {
             w = w.slice(hit.length)
             continue

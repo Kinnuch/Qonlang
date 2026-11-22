@@ -4,6 +4,7 @@
  * 样式在 app.css 的 ::highlight(q-hit)。
  */
 import { parseQuery, foldMarks, type QueryTerm } from '$lib/core/query'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 const NAME = 'q-hit'
 /** 命中太多就不再标了：一屏也看不过来，白费时间 */
@@ -34,7 +35,7 @@ function needlesOf(terms: QueryTerm[]): { needles: Needle[]; regexes: RegExp[] }
       continue
     }
     if (t.exact || !t.needle) continue
-    const text = t.needle.normalize('NFC').toLowerCase()
+    const text = canonicalG(t.needle.normalize('NFC').toLowerCase())
     if (text.length < MIN_LEN && !CJK.test(text)) continue
     needles.push({ text, loose: foldMarks(text) === text })
   }
@@ -57,7 +58,7 @@ function foldedWithMap(s: string): { folded: string; map: number[] } {
 
 function hitsIn(text: string, needles: Needle[], regexes: RegExp[]): [number, number][] {
   const out: [number, number][] = []
-  const lower = text.toLowerCase()
+  const lower = canonicalG(text.toLowerCase())
   let folded: { folded: string; map: number[] } | null = null
   for (const n of needles) {
     let at = lower.indexOf(n.text)
@@ -76,12 +77,13 @@ function hitsIn(text: string, needles: Needle[], regexes: RegExp[]): [number, nu
   }
   for (const re of regexes) {
     re.lastIndex = 0
-    let m = re.exec(text)
+    const view = canonicalG(text)
+    let m = re.exec(view)
     let guard = 0
     while (m && guard++ < 200) {
       if (m[0]) out.push([m.index, m.index + m[0].length])
       else re.lastIndex++
-      m = re.exec(text)
+      m = re.exec(view)
     }
   }
   return out

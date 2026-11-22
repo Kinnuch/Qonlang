@@ -4,6 +4,7 @@
  * 只有规则集里从来源那一段到这个词那一段的每个阶段标记都绑了语言（或语言的某个阶段）时才给链；
  * 规则集怎么解析跟音变页一样（第一个绑了语言的阶段所属语言的音类、多合字母）。纯函数，不碰界面。
  */
+import { gEquivalent } from '$lib/ipa/equivalence'
 import type { Id, Language, LanguageStage, Lexeme, Project, RuleSet } from './model'
 import { findLanguageByName, splitSourceForm } from './etymology'
 import { findStageByName, stageShort } from './languageTree'
@@ -161,7 +162,7 @@ export function historyChain(project: Project, lexeme: Lexeme): HistoryChain | n
         const prev = steps[steps.length - 1]
         if (prev && prev.label === label) {
           // 同一阶段绑了两个标记：形式也一样就并掉，不一样的后一个用标记名区分（比如最后一步转写法）
-          if (prev.form === form) return
+          if (gEquivalent(prev.form, form)) return
           label = m
         }
         steps.push({ label, title, form, marker: m, edited: edits.has(m) })

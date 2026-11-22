@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { gEquivalent } from '$lib/ipa/equivalence'
   import { deletable } from '$lib/ui/deletable'
   import { traceLine } from '$lib/ui/engineText'
   import { tick } from 'svelte'
@@ -362,7 +363,7 @@
   let testLexemeId = $state<Id | null>(memo.testLexemeId ?? null)
   const testLexeme = $derived(
     project.lexemes.find((l) => l.id === testLexemeId) ??
-      boundLexemes.find((l) => l.lemma === testLemma) ??
+      boundLexemes.find((l) => gEquivalent(l.lemma, testLemma)) ??
       boundLexemes[0] ??
       null
   )
@@ -1934,8 +1935,9 @@
         {#if freeRows.length}
           {@const lid = language?.id ?? ''}
           {@const base =
-            project.lexemes.find((x) => x.languageId === lid && x.lemma === freeInput.trim()) ??
-            null}
+            project.lexemes.find(
+              (x) => x.languageId === lid && gEquivalent(x.lemma, freeInput.trim())
+            ) ?? null}
           <table class="tbl small test">
             <tbody>
               {#each freeRows as r (r.slot.key)}

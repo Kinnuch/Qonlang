@@ -71,6 +71,7 @@ export interface GlossIndex {
 
 import { clearDiscontinuousCache, discontinuousEntries, matchDiscontinuous } from './discontinuous'
 import { tokenize } from './tokens'
+import { canonicalG } from '$lib/ipa/equivalence'
 export { tokenize, type TokenizeOptions } from './tokens'
 
 const strip = (s: string): string => s.replace(/^[-=]+|[-=]+$/g, '')
@@ -81,7 +82,8 @@ export const foldDiacritics = (s: string): string =>
     .replace(/\p{M}+/gu, '')
     .normalize('NFC')
 /** 索引键：去首尾边界符、NFC、小写 */
-const norm = (s: string): string => strip(s).normalize('NFC').toLowerCase()
+const surfaceNorm = (s: string): string => strip(s).normalize('NFC').toLowerCase()
+const norm = (s: string): string => canonicalG(surfaceNorm(s))
 
 /** 释义截成简短 gloss 的切点：分号、逗号、句号、冒号、括号（省略号里的点不算） */
 const GLOSS_CUT = /[;；,，。:：(（]|(?<!\.)\.(?!\.)/
@@ -454,6 +456,7 @@ function segmentSource(idx: GlossIndex, ctxOf: () => MorphContext | null): Segme
   }
   const withEnv = new Set<Id>()
   const exact = (sub: string, whole: boolean): Piece[] => {
+    const lookup = canonicalG(sub)
     const out: Piece[] = []
     const seen = new Set<string>()
     const add = (p: Piece): void => {
@@ -473,14 +476,14 @@ function segmentSource(idx: GlossIndex, ctxOf: () => MorphContext | null): Segme
         cost,
         lexeme: l
       })
-    for (const l of idx.lemma.get(sub) ?? []) stem(l, 1)
+    for (const l of idx.lemma.get(lookup) ?? []) stem(l, 1)
     const stored = new Set<string>()
-    for (const f of idx.forms.get(sub) ?? []) {
+    for (const f of idx.forms.get(lookup) ?? []) {
       stored.add(`${f.lexeme.id}/${f.slot}`)
       stem(f.lexeme, 1, f.slot, f.abbr)
     }
-    for (const l of idx.stems.get(sub) ?? []) stem(l, 1.05)
-    for (const m of idx.morphemes.get(sub) ?? []) {
+    for (const l of idx.stems.get(lookup) ?? []) stem(l, 1.05)
+    for (const m of idx.morphemes.get(lookup) ?? []) {
       const gloss = morphemeGloss(m, idx.glossLangs)
       const base = { form: sub, gloss, morphemeId: m.id, lexemeId: null, slot: null, morpheme: m }
       if (m.type === 'prefix' || m.type === 'clitic')
@@ -491,7 +494,7 @@ function segmentSource(idx: GlossIndex, ctxOf: () => MorphContext | null): Segme
       else if (whole) add({ ...base, role: 'whole', cost: 1.05 })
     }
     // 学来的整块：确认得越多越便宜
-    for (const c of idx.learn.chunks.get(sub) ?? []) {
+    for (const c of idx.learn.chunks.get(lookup) ?? []) {
       const { role, stems } = chunkRole(c.morphs)
       out.push({
         form: sub,
@@ -507,7 +510,7 @@ function segmentSource(idx: GlossIndex, ctxOf: () => MorphContext | null): Segme
     }
     // 构形现推出来的形式：词条里存了同一格的就不要
     if (sub.length > 1)
-      for (const f of idx.virtual.get(sub) ?? [])
+      for (const f of idx.virtual.get(lookup) ?? [])
         if (!stored.has(`${f.lexeme.id}/${f.slot}`)) stem(f.lexeme, 1.2, f.slot, f.abbr)
     return out
   }
@@ -561,7 +564,7 @@ function segmentSource(idx: GlossIndex, ctxOf: () => MorphContext | null): Segme
         fit = 0
         if (ctx) {
           try {
-            fit = norm(selectAllomorph(ctx, m, neighbor, side).form) === p.form ? 1 : -1
+            fit = norm(selectAllomorph(ctx, m, neighbor, side).form) === canonicalG(p.form) ? 1 : -1
           } catch {
             fit = 0
           }
@@ -612,13 +615,14 @@ const key = (a: Analysis): string =>
 /** 一个完整词（不含内部边界）的候选：词头 / 屈折形 / 词干 / 语素 */
 function wholeWord(idx: GlossIndex, w: string): Analysis[] {
   const out: Analysis[] = []
-  for (const l of idx.lemma.get(w) ?? [])
+  const lookup = canonicalG(w)
+  for (const l of idx.lemma.get(lookup) ?? [])
     out.push({
       lexemeId: l.id,
       slot: null,
       morphs: [{ form: w, gloss: lexemeGloss(l, idx.glossLangs), morphemeId: null }]
     })
-  for (const f of idx.forms.get(w) ?? [])
+  for (const f of idx.forms.get(lookup) ?? [])
     out.push({
       lexemeId: f.lexeme.id,
       slot: f.slot,
@@ -626,13 +630,13 @@ function wholeWord(idx: GlossIndex, w: string): Analysis[] {
         { form: w, gloss: `${lexemeGloss(f.lexeme, idx.glossLangs)}.${f.abbr}`, morphemeId: null }
       ]
     })
-  for (const l of idx.stems.get(w) ?? [])
+  for (const l of idx.stems.get(lookup) ?? [])
     out.push({
       lexemeId: l.id,
       slot: null,
       morphs: [{ form: w, gloss: lexemeGloss(l, idx.glossLangs), morphemeId: null }]
     })
-  for (const m of idx.morphemes.get(w) ?? [])
+  for (const m of idx.morphemes.get(lookup) ?? [])
     out.push({
       lexemeId: null,
       slot: null,
@@ -736,7 +740,7 @@ function splitAt(idx: GlossIndex, surface: string, seps: string[], hint?: string
   for (let i = 0; i < pieces.length; i += 2) {
     const piece = pieces[i]
     if (!piece) continue
-    const w = norm(piece)
+    const w = surfaceNorm(piece)
     const elision = [
       ...(ELISION.has(pieces[i + 1] ?? '') ? elided(idx, w, 'final') : []),
       ...(ELISION.has(pieces[i - 1] ?? '') ? elided(idx, w, 'initial') : [])
@@ -816,7 +820,7 @@ export function analyzeToken(
   // 用户已在词里写了边界：按边界切，每段各自找，不猜整词
   if (bset.some((b) => surface.includes(b)))
     for (const a of splitAt(idx, surface, bset, hint)) add(a)
-  const plain = norm(surface)
+  const plain = surfaceNorm(surface)
   for (const seg of segmentWord(idx.source, plain, { requireStem: true, hint }))
     add(toAnalysis(seg))
   // 一个词条几个义项：整词对上它时每个义项各给一条候选，语料里挑得出是哪个意思。

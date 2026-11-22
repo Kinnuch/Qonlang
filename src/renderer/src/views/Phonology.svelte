@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { canonicalG, gEquivalent } from '$lib/ipa/equivalence'
   import { deletable } from '$lib/ui/deletable'
   import { ruleMsg } from '$lib/ui/engineText'
   import { navScroll } from '$lib/ui/navScroll'
@@ -164,7 +165,7 @@
       lang?.orthographies[0] ??
       null
   )
-  const inventory = $derived(new Set(lang?.phonemes.map((p) => p.symbol) ?? []))
+  const inventory = $derived(new Set(lang?.phonemes.map((p) => canonicalG(p.symbol)) ?? []))
   /** 顶栏搜索：音位按符号 / 特征 / 备注，音类按名称与成员 */
   const pq = $derived(parseQuery(ui.search, SEARCH_FIELDS.phonology))
   const phonemeHit = (p: (typeof lang.phonemes)[number]): boolean =>
@@ -212,7 +213,12 @@
   function addPhoneme(symbol: string): Phoneme | null {
     if (!lang || !symbol.trim()) return null
     const s = symbol.trim()
-    if (inventory.has(s)) return lang.phonemes.find((p) => p.symbol === s) ?? null
+    if (inventory.has(canonicalG(s)))
+      return (
+        lang.phonemes.find((p) => p.symbol === s) ??
+        lang.phonemes.find((p) => gEquivalent(p.symbol, s)) ??
+        null
+      )
     const p: Phoneme = {
       id: newId(),
       symbol: s,
@@ -226,7 +232,9 @@
   }
   function togglePhoneme(symbol: string): void {
     if (!lang) return
-    const existing = lang.phonemes.find((p) => p.symbol === symbol)
+    const existing =
+      lang.phonemes.find((p) => p.symbol === symbol) ??
+      lang.phonemes.find((p) => gEquivalent(p.symbol, symbol))
     if (existing) removePhoneme(existing)
     else selectedPhoneme = addPhoneme(symbol)?.id ?? null
   }
@@ -753,7 +761,7 @@
       g.spelt ?? (await ui.prompt(t('phonology.generatedLemmaPrompt', { ipa: g.ipa }), ''))?.trim()
     if (!lemma || projectState.project !== session || lang !== target || projectState.readOnly)
       return
-    if (project.lexemes.some((l) => l.languageId === target.id && l.lemma === lemma)) {
+    if (project.lexemes.some((l) => l.languageId === target.id && gEquivalent(l.lemma, lemma))) {
       ui.toast(t('phonology.generatedDuplicate'))
       return
     }
@@ -804,7 +812,7 @@
   {#if sym}
     <button
       class="sym"
-      class:in={inventory.has(sym)}
+      class:in={inventory.has(canonicalG(sym))}
       title={symbolInfo(sym) ? (zh ? symbolInfo(sym)!.zh : symbolInfo(sym)!.en) : sym}
       onclick={() => togglePhoneme(sym)}>{sym}</button
     >

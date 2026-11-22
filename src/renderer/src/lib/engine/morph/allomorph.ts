@@ -1,7 +1,7 @@
 /**
  * 语素异体形的语法条件：「在这些维度取值下用这一形」（宾格用 -en、与格用 -im 这类）。
  *
- * `Allomorph.values` 写的是维度取值的 id，要全都在「正在生成的那一格」的取值里这一条才算数；
+ * `Allomorph.values` 写的是维度取值的 id，缺省全都要对上；valueMatch=any 时至少对上一个；
  * 那一格的取值 = 槽位的维度取值 + 词条自己的语法特征，跟 `{阴:g|k}` 看的是同一份（conditions.ts 的 activeValues）。
  * 拿不到这份取值的地方（语素页自己的预览、语料分词）按老样子只看环境，写了取值的异体形挑不到。
  */
@@ -19,13 +19,14 @@ export function alloValues(a: Allomorph): Id[] {
 
 /**
  * 语法条件对不对得上：没写取值是 0（不挑剔，也不算更具体）；
- * 写了且全都在这一格的取值里，就是对上了几个；有一个对不上、或者根本没有这一格的取值时是 null（这条不能用）。
+ * 对上时返回实际匹配的取值数；不满足全部／任一条件、或者没有这一格的取值时是 null。
  */
 export function valueMatch(a: Allomorph, activeIds: ReadonlySet<Id> | null): number | null {
   const want = alloValues(a)
   if (!want.length) return 0
   if (!activeIds) return null
-  return want.every((v) => activeIds.has(v)) ? want.length : null
+  const matched = want.filter((v) => activeIds.has(v)).length
+  return (a.valueMatch === 'any' ? matched > 0 : matched === want.length) ? matched : null
 }
 
 /** 取值 id 是哪个维度的哪个取值 */

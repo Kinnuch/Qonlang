@@ -20,11 +20,29 @@ import { historyChain } from '$lib/core/history'
 import { docLink } from '$lib/core/docLinks'
 import { applyAdjust, makeContext } from '$lib/engine/morph'
 import { localizeExampleDocs, type ExampleDocsEn } from '$lib/core/exampleDocs'
+import { buildSentenceDocReferences } from '$lib/core/docReferences'
 
 const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
 
 describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', () => {
+  it('opens Aelith’s HTML reference from its corpus sentence and groups Tsahun’s tone changes', () => {
+    const ae = load('Aelith.laim.json')
+    const sentence = ae.sentences.find((s) => s.text === 'ilenler kasoda jatdu.')!
+    const doc = ae.docs.find((d) => d.title === '位格例句')!
+    expect(doc.format).toBe('html')
+    expect(buildSentenceDocReferences(ae).get(sentence.id)).toContainEqual(
+      expect.objectContaining({ docId: doc.id, kind: 'link' })
+    )
+    const ts = load('Tsahun.laim.json')
+    const source = ts.languages[0].orthographies[0].rulesToIpa
+    expect(source).toContain('-( 数字调\n21 > ˨˩\n[51 33] > [˥˩.˧]\n-)')
+    const options = languageParseOptions(ts.languages[0], ts)
+    const current = parseRuleText(source, options)
+    const prior = parseRuleText(source.replace('-( 数字调\n', '').replace('\n-)', ''), options)
+    for (const l of ts.lexemes)
+      expect(runRules(current, l.lemma).output).toBe(runRules(prior, l.lemma).output)
+  })
   it('keeps harmony notes outside the derivation and reads capitalized Tsahun spellings', () => {
     const aelith = load('Aelith.laim.json')
     const text = aelith.ruleSets.find((set) => set.name === '元音和谐')!.text

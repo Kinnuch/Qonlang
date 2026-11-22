@@ -1292,6 +1292,8 @@ function makeAelith(): void {
   about.markdown = [
     '# 关于这个示例',
     '',
+    'HTML 文档「位格例句」引用了语料中的原句。打开例句后，可以从引用它的文档列表返回。',
+    '',
     'Aelith 是虚构的黏着语，用来把千语集每个模块的功能摆一遍（数据都是编的，不对应任何真实语言）：',
     '',
     '在「元音和谐」里，大写 A 是等待替换的符号。选中一条规则，点击「新增行间注释」可在规则后记录说明。',
@@ -1345,7 +1347,11 @@ function makeAelith(): void {
   const protoDoc = createDoc(P.id, '祖语拟构说明')
   protoDoc.markdown =
     '# 祖语拟构说明\n\n词根表在「语素」页；「音变 → Proto → Aelith」给出到现代语的规则，用「整库演化」可以整表推导：词尾 u 降为 o（*kasu → kaso，k、g 后面不降），词尾闭音节的 o 前化为 ö（*nol → nöl、*sor → sör-），θ 在词首变 t、在别处变 s（*θura → tura）。'
-  p.docs.push(about, grammar, protoDoc)
+  const locative = createDoc(L.id, '位格例句')
+  locative.format = 'html'
+  locative.markdown =
+    '<h1>位格例句</h1>\n<p>[[例句:ilenler kasoda jatdu.]]</p>\n<p>孩子们在房子里睡了。点击这条例句可打开语料，从语料的文档引用列表也能回到这里。</p>'
+  p.docs.push(about, grammar, protoDoc, locative)
 
   // ── 缩写表、导出模板、默认列 ──
   abbrs(p, [
@@ -1418,8 +1424,10 @@ function makeTsahun(): void {
     '; 数字调 → 五度标调字母',
     '55 > ˥',
     '35 > ˧˥',
+    '-( 数字调',
     '21 > ˨˩',
-    '[51 33] > [˥˩.˧]'
+    '[51 33] > [˥˩.˧]',
+    '-)'
   ].join('\n')
   rom.rulesFromIpa = ['˧˥ > 35', '˨˩ > 21', '˥˩ > 51', '˥ > 55', '˧ > 33'].join('\n')
   L.orthographies.push({
@@ -1849,6 +1857,8 @@ function makeTsahun(): void {
   const about = createDoc(null, '关于这个示例')
   about.markdown = [
     '# 关于这个示例',
+    '',
+    '罗马化把部分数字调放在同一个同时音变组，组内各行都匹配进入该组时的词形。',
     '',
     'Tsahun 是虚构的孤立声调语，与另一个示例 **Aelith** 互补，专门展示这些功能：',
     '',

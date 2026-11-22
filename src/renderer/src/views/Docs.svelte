@@ -3,13 +3,22 @@
   import type { PageView } from '$lib/state/ui.svelte'
   import { matchQuery, parseQuery } from '$lib/core/query'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
-  /** 文档页：项目内 Markdown 页面，编辑 / 分栏 / 预览，[[…]] 链到项目里的各种东西。 */
+  /** 文档页：项目内 Markdown / HTML 页面，编辑 / 分栏 / 预览，[[…]] 链到项目里的各种东西。 */
   import { projectState } from '$lib/state/project.svelte'
   import { ui, type Section } from '$lib/state/ui.svelte'
   import { platform } from '$lib/platform'
   import { t } from '$lib/i18n/index.svelte'
   import { createDoc, now } from '$lib/core/factory'
-  import { mdToHtml, type MdLink } from '$lib/core/markdown'
+  import type { MdLink } from '$lib/core/markdown'
+  import {
+    documentFormat,
+    renderDocument,
+    documentHtmlPage,
+    documentMarkdown
+  } from '$lib/core/documentFormat'
+  import { tick } from 'svelte'
+  import { flashOn } from '$lib/ui/flash'
+  import { hasSentenceTextMention } from '$lib/core/docReferences'
   import { docLink, DOC_LINK_TARGET, type DocLinkKind } from '$lib/core/docLinks'
   import type { DocPage, Id } from '$lib/core/model'
   import Portal from '$lib/ui/Portal.svelte'
@@ -50,7 +59,7 @@
   const DATA_KINDS = new Set<DocLinkKind>(['lexeme', 'morpheme', 'sentence', 'phrase'])
   /** `[[…]]`：找得到就画成能点的链接，找不到画成「没找到」的样子，悬浮说清楚缺的是哪一类 */
   function resolveLink(inner: string): MdLink {
-    const { ref, hit } = docLink(project, inner)
+    const { ref, hit } = docLink(project, inner, selected?.languageId ?? null)
     const shown = ref.name + (ref.sub ? ` › ${ref.sub}` : '')
     if (!hit)
       return {
@@ -67,14 +76,50 @@
         : `${t(`docs.kinds.${hit.kind}`)} · ${hit.name}${hit.subLabel ? ` › ${hit.subLabel}` : ''}`
     }
   }
-  const html = $derived(selected ? mdToHtml(selected.markdown, { resolve: resolveLink }) : '')
+  const html = $derived(selected ? renderDocument(selected, { resolve: resolveLink }) : '')
+  let reference = $state<string | null>(null)
 
   $effect(() => {
     inspectorTitle = selected ? t('docs.page') : t('docs.title')
   })
   $effect(() => {
     const id = ui.takePending('doc')
-    if (id) selectedId = id
+    if (id) {
+      selectedId = id
+      reference = ui.takePendingSub()
+      if (reference) view = 'preview'
+    }
+  })
+  $effect(() => {
+    const ref = reference
+    if (!ref || !selected || view === 'edit') return
+    const id = ref.slice(ref.indexOf(':') + 1)
+    const text = project.sentences
+      .find((s) => s.id === id)
+      ?.text.trim()
+      .replace(/\s+/g, ' ')
+    void html
+    void tick().then(() => {
+      const preview = document.querySelector('[data-tour="docs-preview"]')
+      const plain = (node: Node): string =>
+        node.nodeType === Node.TEXT_NODE
+          ? (node.textContent ?? '')
+          : node instanceof Element && ['PRE', 'CODE'].includes(node.tagName)
+            ? '\0'
+            : [...node.childNodes].map(plain).join('')
+      const target = ref.startsWith('text:')
+        ? [...(preview?.querySelectorAll('q,p,li,blockquote,div') ?? [])].find((e) =>
+            hasSentenceTextMention(plain(e), text ?? '')
+          )
+        : [...(preview?.querySelectorAll('a[data-kind="sentence"]') ?? [])].find(
+            (e) => (e as HTMLElement).dataset.id === id
+          )
+      if (target) {
+        target.scrollIntoView({ block: 'center' })
+        flashOn(target as HTMLElement, false).update(true)
+      }
+      reference = null
+    })
   })
   // 「返回」用：报上当前位置，返回时原样恢复
   $effect(() => {
@@ -102,6 +147,7 @@
   }
   function add(): void {
     const d = createDoc(langId, t('docs.untitled'))
+    if (ui.prefs.defaultDocFormat === 'html') d.format = 'html'
     project.docs.unshift(d)
     selectedId = d.id
     view = 'edit'
@@ -127,12 +173,17 @@
     })
   }
   async function exportMd(d: DocPage): Promise<void> {
-    await platform.saveTextFile(`${d.title || 'doc'}.md`, `# ${d.title}\n\n${d.markdown}`)
+    await platform.saveTextFile(`${d.title || 'doc'}.md`, `# ${d.title}\n\n${documentMarkdown(d)}`)
+  }
+  async function exportHtml(d: DocPage): Promise<void> {
+    await platform.saveTextFile(
+      `${d.title || 'doc'}.html`,
+      documentHtmlPage(d, { resolve: resolveLink })
+    )
   }
   async function exportPdf(d: DocPage): Promise<void> {
     // 链接照样解析：导出的纸面上不该留着 `语素:` 这样的前缀
-    const body = mdToHtml(d.markdown, { resolve: resolveLink })
-    const page = `<!doctype html><html><head><meta charset="utf-8"><title>${d.title}</title><style>@page{size:A4;margin:20mm}body{font-family:'Gentium Plus','Noto Serif SC',serif;font-size:11pt;line-height:1.6;padding:24px}table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px}code{font-family:Consolas,monospace;background:#f2f2f2;padding:0 3px}pre{background:#f4f4f4;padding:8px}blockquote{border-inline-start:3px solid #bbb;margin:0;padding-inline-start:10px;color:#555}.wl{color:inherit;text-decoration:none;border-bottom:1px solid #bbb}</style></head><body><h1>${d.title}</h1>${body}</body></html>`
+    const page = documentHtmlPage(d, { resolve: resolveLink })
     await platform.exportPdf(page, `${d.title || 'doc'}.pdf`)
   }
   /** 点链接：跳到对应模块并定位、高亮那一条（各页面自己认 pendingSelect） */
@@ -226,7 +277,7 @@
         {#if view !== 'preview'}
           <div class="pane">
             <div class="row toolbar" data-tour="docs-toolbar">
-              {#each [['**', '**', 'B'], ['*', '*', 'I'], ['## ', '', 'H'], ['- ', '', '•'], ['| a | b |\n| --- | --- |\n| 1 | 2 |', '', '⊞'], ['```\n', '\n```', '</>']] as [a, b, label] (label)}
+              {#each documentFormat(d) === 'html' ? [['<strong>', '</strong>', 'B'], ['<em>', '</em>', 'I'], ['<h2>', '</h2>', 'H'], ['<ul><li>', '</li></ul>', '•'], ['<table><tr><th>a</th><th>b</th></tr><tr><td>1</td><td>2</td></tr></table>', '', '⊞'], ['<pre><code>', '</code></pre>', '</>']] : [['**', '**', 'B'], ['*', '*', 'I'], ['## ', '', 'H'], ['- ', '', '•'], ['| a | b |\n| --- | --- |\n| 1 | 2 |', '', '⊞'], ['```\n', '\n```', '</>']] as [a, b, label] (label)}
                 <button
                   class="btn ghost sm mono"
                   title={label}
@@ -245,7 +296,10 @@
               class="textarea md"
               bind:value={d.markdown}
               oninput={() => touch(d)}
-              placeholder={t('docs.placeholder')}
+              data-document-source={documentFormat(d)}
+              placeholder={t(
+                documentFormat(d) === 'html' ? 'docs.htmlPlaceholder' : 'docs.placeholder'
+              )}
             ></textarea>
           </div>
         {/if}
@@ -290,11 +344,30 @@
       </select>
     </div>
     <p class="small muted">{t('docs.updated')}: {d.updatedAt.slice(0, 16).replace('T', ' ')}</p>
+    <div class="field">
+      <label for="doc-format">{t('docs.format')}<HelpDot tip={t('docs.formatHint')} /></label>
+      <select
+        id="doc-format"
+        class="select"
+        data-document-format
+        value={documentFormat(d)}
+        disabled={projectState.readOnly}
+        onchange={(e) => {
+          d.format = e.currentTarget.value === 'html' ? 'html' : 'markdown'
+          touch(d)
+        }}
+      >
+        <option value="markdown">Markdown</option><option value="html">HTML</option>
+      </select>
+    </div>
     <div class="row wrap">
       <button class="btn sm" onclick={() => exportMd(d)}><Upload size={14} />Markdown</button>
+      <button class="btn sm" data-document-export-html onclick={() => exportHtml(d)}
+        ><Upload size={14} />HTML</button
+      >
       <button class="btn sm" onclick={() => exportPdf(d)}><Upload size={14} />PDF</button>
     </div>
-    <p class="small muted">{t('docs.syntax')}</p>
+    <p class="small muted">{t(documentFormat(d) === 'html' ? 'docs.htmlSyntax' : 'docs.syntax')}</p>
     <button class="btn sm danger" onclick={() => remove(d)}
       ><Trash2 size={14} />{t('common.delete')}</button
     >

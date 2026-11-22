@@ -4,6 +4,7 @@
  * 再看确定是辅音的音，都没有的按 IPA 表推断——拼写里的 a、é 这类也认得出元音，th 这类多合字母换成内部符号后是一个音。
  */
 import { inferFeatures } from '$lib/ipa/features'
+import { canonicalG } from '$lib/ipa/equivalence'
 import { stripMarks, syllableNucleusMatch, syllableSpans, tokenizeWord } from '../phon'
 import {
   BOUNDARY,
@@ -26,13 +27,16 @@ interface Syllabifier {
 
 const cache = new WeakMap<RuleProgram, Map<boolean, Syllabifier>>()
 
-/** 仅本次分类器的集合忽略大小写；原程序保持可序列化且不会被改写。 */
+/** 仅本次分类器的比较键折叠 g 字形及可选的大小写；原程序不改，仍可序列化。 */
 function matchingSet(values: Iterable<string>, caseInsensitive: boolean): Set<string> {
   const set = new Set(values)
-  if (!caseInsensitive) return set
+  const folded = new Set([...set].map(canonicalG))
   const exact = set.has.bind(set)
   set.has = (value: string): boolean =>
-    exact(value) || [...set].some((member) => sameCaseInsensitive(member, value))
+    exact(value) ||
+    folded.has(canonicalG(value)) ||
+    (caseInsensitive &&
+      [...folded].some((member) => sameCaseInsensitive(member, canonicalG(value))))
   return set
 }
 
@@ -40,8 +44,8 @@ function syllabifierOf(program: RuleProgram, caseInsensitive = false): Syllabifi
   const hit = cache.get(program)?.get(caseInsensitive)
   if (hit) return hit
   const sc = program.syllables
-  const nuclei = new Set(sc.nuclei)
-  const consonants = new Set(sc.consonants)
+  const nuclei = matchingSet(sc.nuclei, false)
+  const consonants = matchingSet(sc.consonants, false)
   const foldedNuclei = matchingSet(sc.nuclei, caseInsensitive)
   const foldedConsonants = matchingSet(sc.consonants, caseInsensitive)
   const known = new Map<string, boolean>()
@@ -192,13 +196,15 @@ function clauseHolds(
   const sticky = (re: RegExp, at: number): boolean => {
     const compiled = matchingRegex(re, caseInsensitive)
     compiled.lastIndex = at
-    return compiled.test(text)
+    return compiled.test(canonicalG(text))
   }
   const holds = (m: ClauseMatcher, withTarget: boolean): boolean => {
     if (
       withTarget &&
       m.target &&
-      !matchingRegex(m.target, caseInsensitive).test(text.slice(s.nucleusStart, s.nucleusEnd))
+      !matchingRegex(m.target, caseInsensitive).test(
+        canonicalG(text.slice(s.nucleusStart, s.nucleusEnd))
+      )
     )
       return false
     if (m.left && !sticky(m.left, s.nucleusStart)) return false

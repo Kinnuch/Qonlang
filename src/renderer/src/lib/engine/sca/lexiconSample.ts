@@ -16,6 +16,24 @@ export interface RuleExample {
 export type ExampleInput = 'both' | 'spelling' | 'ipa'
 export type ExampleWordSource = (entry: Lexeme) => string
 
+/** worker只需要所选组的编译成员；不复制整套规则或语言/工程数据。 */
+export function sampleProgramForRule(program: RuleProgram, rule: ParsedRule): RuleProgram {
+  return {
+    classes: program.classes,
+    replacements: program.replacements,
+    syllables: program.syllables,
+    hasStress: program.hasStress,
+    lines: [],
+    steps: rule.simultaneous
+      ? program.steps.filter(
+          (step) => step.kind === 'rule' && step.simultaneous?.line === rule.simultaneous!.line
+        )
+      : [],
+    markers: [],
+    diagnostics: []
+  }
+}
+
 /** 按需索引当前语言的词头和已存读音。每次只取一批，命中后不再读后面的词条。 */
 export class ExampleWordIndex {
   private entriesRead = 0

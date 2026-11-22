@@ -327,7 +327,7 @@ export default {
     galleryNext: 'Suivante',
     exampleDesc: {
       aelith:
-        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles.',
+        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent.',
       tsahun:
         'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation suivant la graphie et correspondances graphème–phonème modifiables), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture. Les classes temporaires associent les numéros de ton à plusieurs chiffres à des séquences complètes de lettres de ton.'
     },
@@ -463,6 +463,17 @@ export default {
     }
   },
   soundChanges: {
+    simultaneousShort: 'Simultané',
+    simultaneousUnnamed: 'Groupe simultané',
+    simultaneousAdd: 'Ajouter un groupe simultané',
+    simultaneousName: 'Nom du groupe simultané',
+    simultaneousHint:
+      'Les règles lisent l’entrée et les contextes d’origine du groupe. Les correspondances sont choisies de gauche à droite ; au même départ, la première règle gagne. Un test partiel applique le groupe entier.',
+    simultaneousUngroup: 'Dégrouper',
+    simultaneousDelete: 'Supprimer le groupe et ses règles',
+    simultaneousEnd: 'Fin du groupe simultané',
+    simultaneousTrace: 'Simultané : {name}',
+    simultaneousWithNext: 'Grouper avec la règle suivante',
     addLineComment: 'Ajouter une ligne de commentaire',
     lineComment: 'Ligne de commentaire',
     symbolsHint:
@@ -723,7 +734,13 @@ export default {
     environment: 'Environnement d’apparition, par exemple V_ ou _CC',
     alloValues: 'Utilisé seulement avec ces valeurs de catégories',
     alloValuesHint:
-      'Le choix se fait d’après les valeurs de catégories de la case en cours de dérivation, plus les traits grammaticaux propres à l’entrée : si vous choisissez « accusatif », cette forme sert dans toutes les cases à l’accusatif. Laissé vide, ce champ n’impose aucune restriction ; si un environnement est également indiqué, les deux doivent correspondre. Plusieurs valeurs côte à côte signifient qu’elles doivent toutes être satisfaites, ce qui rend la ligne plus précise et lui donne la priorité.',
+      'Vérifie les valeurs de la case et les traits de l’entrée. Toutes les valeurs est le choix par défaut ; Au moins une valeur suffit dans l’autre mode. Vide signifie sans restriction. Un environnement indiqué doit aussi correspondre. La priorité va au plus grand nombre de valeurs réellement trouvées, puis à l’environnement et à l’ordre des lignes.',
+    alloMatch: 'Correspondance des valeurs',
+    alloAll: 'Toutes les valeurs',
+    alloAny: 'Au moins une valeur',
+    bulkDeleted: '{n} morphèmes supprimés',
+    selectionHint:
+      'Ctrl/⌘-clic pour sélectionner un élément, Maj-clic pour une plage ; supprimez la sélection en une fois.',
     alloValuesAdd: 'Ajouter une valeur',
     alloValueRemove: 'Retirer cette valeur',
     gloss: 'Abréviation de glose',
@@ -1700,6 +1717,8 @@ export default {
     pasted: '(contenu collé)'
   },
   script: {
+    glyphsCopied: '{n} glyphes copiés',
+    glyphsPasted: '{n} glyphes collés. {skipped} caractères déjà présents ont été ignorés.',
     search: 'Rechercher un glyphe : caractère, nom, valeur de translittération',
     packing: {
       title: 'Assemblage syllabique (syllabaires CV / VC)',
@@ -1870,6 +1889,21 @@ export default {
     variantNote: 'Note sur la variante (registre, situation)'
   },
   docs: {
+    format: 'Format du contenu',
+    formatHint:
+      'Modifie l’interprétation de cette page sans réécrire sa source. Le HTML conserve la mise en forme sûre du texte et retire les scripts, le CSS, les médias et les ressources chargées automatiquement.',
+    defaultFormat: 'Format par défaut des nouveaux documents',
+    defaultFormatHint:
+      'S’applique uniquement aux pages créées dans Documents sur cet appareil. Les documents existants, importés et les exemples ne sont pas convertis ; chaque page reste réglable séparément.',
+    htmlPlaceholder: '<h2>Titre</h2><p>Texte et lien [[sentence:texte original]].</p>',
+    htmlSyntax:
+      'Titres, paragraphes, listes, tableaux, texte en ligne HTML et [[liens du projet]] sont pris en charge. Scripts, CSS, médias et chargements réseau automatiques sont retirés.',
+    references: 'Documents mentionnant cette phrase',
+    linkReference: 'Lien du projet',
+    textReference: 'Phrase complète',
+    referencesHint:
+      'Les liens utilisent la langue du document. Le texte simple doit être une phrase complète dans un paragraphe indépendant, entre guillemets appariés ou dans un élément HTML q (au moins huit caractères). Mots courts, code et attributs HTML sont exclus ; les phrases identiques ambiguës ne sont pas devinées.',
+
     search: 'Rechercher dans les documents : titre ou corps',
     title: 'Documents',
     page: 'Page',
@@ -3114,6 +3148,10 @@ export default {
     issueSteps: 'Comment le reproduire'
   },
   ruleMsg: {
+    simultaneousNested: 'Les groupes simultanés ne peuvent pas être imbriqués',
+    simultaneousEndWithoutStart: 'Cette fin de groupe simultané n’a pas de début correspondant',
+    simultaneousMissingEnd: 'Il manque la fin -) du groupe simultané',
+    simultaneousForbidden: 'Placez les étapes, accents et références hors du groupe simultané',
     includeInner: 'Ligne {line} de « {ref} » : {msg}',
     includeNoStage: '« {ref} » n’a pas de stade appelé « {stage} »',
     includeCycle: '« {ref} » renvoie à lui-même',

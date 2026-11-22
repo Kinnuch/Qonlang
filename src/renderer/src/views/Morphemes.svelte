@@ -15,6 +15,7 @@
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { createMorpheme, MORPHEME_TYPES } from '$lib/core/factory'
+  import { removeMorphemes, restoreMorphemes } from '$lib/core/morphemeDeletion'
   import type { Allomorph, Id, Morpheme, MorphemeType } from '$lib/core/model'
   import { findValue, valueLabel } from '$lib/engine/morph/allomorph'
   import Portal from '$lib/ui/Portal.svelte'
@@ -62,6 +63,8 @@
   }>('morphemes')
   const sameLang = memo.lang === projectState.currentLanguageId
   let selectedId = $state<Id | null>(sameLang ? (memo.selectedId ?? null) : null)
+  let multiIds = $state<Id[]>([])
+  let anchorId = $state<Id | null>(null)
   let mode = $state<'entries' | 'stats' | 'csv'>(memo.mode ?? 'entries')
   const mStats = $derived(mode === 'stats' ? morphemeStats(project, langId) : null)
   const pctOf = (n: number, total: number): string =>
@@ -70,6 +73,7 @@
   function editRow(e: MouseEvent, id: Id): void {
     if ((e.target as Element | null)?.closest('button, input, select, textarea, a')) return
     window.getSelection()?.removeAllRanges()
+    multiIds = []
     selectedId = id
     editMode = true
     ui.inspectorOpen = true
@@ -195,6 +199,31 @@
     }
     return arr
   })
+  // 筛选、换语言后只保留当前列表里的选择，避免删除已经看不见的旧选中项。
+  $effect(() => {
+    const visible = new Set(list.map((m) => m.id))
+    const kept = multiIds.filter((id) => visible.has(id))
+    if (kept.length !== multiIds.length) multiIds = kept
+    if (anchorId && !visible.has(anchorId)) anchorId = null
+  })
+  function rowClick(e: MouseEvent, m: Morpheme, index: number): void {
+    // 修饰键点选是在选条目，清掉浏览器随 Shift 点选拉出的原生文字范围。
+    if (e.shiftKey || e.ctrlKey || e.metaKey) window.getSelection()?.removeAllRanges()
+    const anchor = list.findIndex((item) => item.id === anchorId)
+    if (e.shiftKey && anchor >= 0) {
+      multiIds = list.slice(Math.min(anchor, index), Math.max(anchor, index) + 1).map((x) => x.id)
+      selectedId = m.id
+    } else if (e.ctrlKey || e.metaKey) {
+      const ids = multiIds.length ? multiIds : selectedId ? [selectedId] : []
+      multiIds = ids.includes(m.id) ? ids.filter((id) => id !== m.id) : [...ids, m.id]
+      selectedId = multiIds.includes(m.id) ? m.id : (multiIds.at(-1) ?? null)
+      anchorId = m.id
+    } else {
+      multiIds = []
+      selectedId = m.id
+      anchorId = m.id
+    }
+  }
   function move(m: Morpheme, dir: -1 | 1): void {
     const i = list.indexOf(m)
     const j = i + dir
@@ -296,6 +325,7 @@
     if (langId && m.languageId !== langId) projectState.currentLanguageId = m.languageId
     ui.search = ''
     typeFilter = ''
+    multiIds = []
     selectedId = id
     void scrollToItem('morphemes', `tr[data-id="${id}"]`, () => {
       const i = list.findIndex((x) => x.id === id)
@@ -328,24 +358,35 @@
     if (!lid) return
     const m = createMorpheme(lid, typeFilter || 'root')
     project.morphemes.push(m)
+    multiIds = []
     selectedId = m.id
     projectState.touch()
     queueMicrotask(() => document.getElementById('m-form')?.focus())
   }
 
   function remove(m: Morpheme): void {
-    const idx = project.morphemes.indexOf(m)
-    if (idx < 0) return
-    const snap = $state.snapshot(m) as Morpheme
-    project.morphemes.splice(idx, 1)
-    if (selectedId === m.id) selectedId = null
+    removeItems(new Set([m.id]), t('morphemes.deleted', { form: m.form }))
+  }
+  function removeSelected(): void {
+    removeItems(new Set(multiIds))
+  }
+  function removeItems(ids: ReadonlySet<Id>, message?: string): void {
+    if (projectState.readOnly) return
+    const owner = project,
+      selectionLanguage = langId
+    const removed = removeMorphemes(owner, ids)
+    if (!removed.length) return
+    if (selectedId && ids.has(selectedId)) selectedId = null
+    multiIds = []
     projectState.touch()
-    ui.toast(t('morphemes.deleted', { form: snap.form }), {
+    ui.toast(message ?? t('morphemes.bulkDeleted', { n: removed.length }), {
       action: {
         label: t('common.undo'),
         run: () => {
-          project.morphemes.splice(Math.min(idx, project.morphemes.length), 0, snap)
-          selectedId = snap.id
+          if (projectState.project !== owner || projectState.readOnly) return
+          const restored = restoreMorphemes(owner, removed)
+          if (!restored.length) return
+          if (langId === selectionLanguage) selectedId = restored[0]
           projectState.touch()
         }
       }
@@ -478,6 +519,24 @@
   {:else if !project.morphemes.some((m) => !langId || m.languageId === langId)}
     <p class="muted">{t('morphemes.empty')}</p>
   {:else}
+    <span class="small muted">{t('morphemes.selectionHint')}</span>
+    {#if multiIds.length > 1}
+      <div class="row bulk" data-morpheme-selection>
+        <span class="small">{t('lexicon.selectedN', { n: multiIds.length })}</span>
+        <button
+          class="btn ghost sm danger"
+          disabled={projectState.readOnly}
+          onclick={removeSelected}><Trash2 size={14} />{t('common.delete')}</button
+        >
+        <button
+          class="btn ghost sm"
+          onclick={() => {
+            multiIds = []
+            selectedId = null
+          }}>{t('lexicon.clearSel')}</button
+        >
+      </div>
+    {/if}
     <div class="table-wrap" use:navScroll={'morphemes'}>
       <table class="tbl">
         <thead>
@@ -527,19 +586,23 @@
           </tr>
         </thead>
         <tbody>
-          {#each list.slice(0, lz.shown) as m (m.id)}
+          {#each list.slice(0, lz.shown) as m, index (m.id)}
             <tr
               data-id={m.id}
               use:deletable={{
-                selected: selectedId === m.id,
+                selected: multiIds.length ? multiIds.includes(m.id) : selectedId === m.id,
                 select: () => {
+                  if (!multiIds.includes(m.id)) multiIds = []
                   selectedId = m.id
                 },
-                remove: () => remove(m)
+                remove: () => {
+                  if (multiIds.includes(m.id) && multiIds.length > 1) removeSelected()
+                  else remove(m)
+                }
               }}
-              class:sel={selectedId === m.id}
+              class:sel={multiIds.length ? multiIds.includes(m.id) : selectedId === m.id}
               class:flash={flashId === m.id}
-              onclick={() => (selectedId = m.id)}
+              onclick={(e) => rowClick(e, m, index)}
               ondblclick={(e) => editRow(e, m.id)}
             >
               <td class="mv">
@@ -697,6 +760,20 @@
                 tip={t('morphemes.alloValuesHint')}
               />
             {/if}
+            <select
+              class="select vpick"
+              data-allo-match
+              aria-label={t('morphemes.alloMatch')}
+              value={a.valueMatch ?? 'all'}
+              onchange={(e) => {
+                if (e.currentTarget.value === 'any') a.valueMatch = 'any'
+                else delete a.valueMatch
+                projectState.touch()
+              }}
+            >
+              <option value="all">{t('morphemes.alloAll')}</option>
+              <option value="any">{t('morphemes.alloAny')}</option>
+            </select>
             {#each a.values ?? [] as vid (vid)}
               <span class="badge val" title={valueTitle(vid)}
                 >{valueName(vid)}<button

@@ -27,6 +27,7 @@
   import { ui } from '$lib/state/ui.svelte'
   import { i18n, t, pickText } from '$lib/i18n/index.svelte'
   import { createSentence, createLexeme, newId } from '$lib/core/factory'
+  import { buildSentenceDocReferences } from '$lib/core/docReferences'
   import type { Analysis, Id, Sentence, Token } from '$lib/core/model'
   import { collectEvidence, type SurfaceEvidence } from '$lib/engine/gloss/candidates'
   import { WordResolver } from '$lib/engine/gloss/resolve'
@@ -168,6 +169,7 @@
     }
   }
   const selected = $derived(project.sentences.find((s) => s.id === selectedId) ?? null)
+  const documentReferences = $derived(buildSentenceDocReferences(project))
   const allTags = $derived([...new Set(project.sentences.flatMap((s) => s.tags))].sort())
   const abbrMap = $derived(
     new Map(project.abbreviations.map((a) => [a.abbr, pickText(a.name, glossLangs)]))
@@ -203,6 +205,7 @@
       lang: projectState.currentLanguageId,
       id: selectedId,
       mode,
+      bench: bench ? '1' : '',
       collapsed: collapsedId && collapsedId === selectedId ? '1' : ''
     })
   })
@@ -213,6 +216,10 @@
     selectedId = v.id ?? null
     collapsedId = v.collapsed === '1' ? selectedId : null
     mode = v.mode === 'stats' || v.mode === 'abbr' ? v.mode : 'entries'
+    bench =
+      v.bench === '1' && memo.bench
+        ? { targetId: memo.bench.targetId, initial: memo.bench.initial }
+        : null
     ui.restoreScroll('corpus', r.scroll)
   })
   $effect(() => {
@@ -233,6 +240,9 @@
     if (!s) return
     if (langId && s.languageId !== langId) projectState.currentLanguageId = s.languageId
     ui.search = ''
+    // 定位例句时暂收工作台和导入页；工作台草稿仍留在memo，返回原位置时可继续。
+    bench = null
+    importOpen = false
     mode = 'entries'
     collapsedId = null
     selectedId = id
@@ -290,8 +300,11 @@
   /** 工作台里的译文按界面语言写（跟释义输入框默认给的那种一致） */
   const benchGloss = $derived(uiGlossCode(i18n.locale, i18n.custom?.base))
   function openBench(s: Sentence): void {
-    bench = { targetId: s.id, initial: s.translation[benchGloss] ?? '' }
-    memo.bench = { ...bench }
+    if (memo.bench?.targetId === s.id) bench = { targetId: s.id, initial: memo.bench.initial }
+    else {
+      bench = { targetId: s.id, initial: s.translation[benchGloss] ?? '' }
+      memo.bench = { ...bench }
+    }
     mode = 'entries'
   }
   function benchDone(r: BenchResult): void {
@@ -1171,6 +1184,31 @@
 {#if selected && mode === 'entries' && !importOpen}
   {@const s = selected}
   <Portal>
+    {@const references = documentReferences.get(s.id) ?? []}
+    {#if references.length}
+      <div class="field" data-sentence-document-references>
+        <span class="small muted"
+          >{t('docs.references')}<HelpDot tip={t('docs.referencesHint')} /></span
+        >
+        {#each references as ref (ref.docId)}
+          <button
+            class="btn sm"
+            data-sentence-document-reference={ref.docId}
+            onclick={() =>
+              ui.jump('docs', 'doc', ref.docId, ref.languageId ?? undefined, `${ref.kind}:${s.id}`)}
+          >
+            <span class="grow">{ref.title || t('docs.untitled')}</span>
+            <span class="small muted"
+              >{ref.languageId
+                ? project.languages.find((l) => l.id === ref.languageId)?.abbr
+                : t('docs.projectWide')} · {t(
+                ref.kind === 'link' ? 'docs.linkReference' : 'docs.textReference'
+              )}</span
+            >
+          </button>
+        {/each}
+      </div>
+    {/if}
     <div class="field">
       <label for="st-text">{t('corpus.text')}</label>
       <textarea

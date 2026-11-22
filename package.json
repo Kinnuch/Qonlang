@@ -1,6 +1,6 @@
 {
   "name": "qonlang",
-  "version": "1.0.3",
+  "version": "1.0.4-local",
   "description": "千语集 Qonlang — a workbench for every conlanger: lexicon, sound changes, phonology, paradigms, glossing.",
   "main": "./out/main/index.js",
   "author": {
@@ -46,6 +46,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@lucide/svelte": "^1.42.0",
     "electron-updater": "^6.8.9",
+    "parse5": "8.1.1",
     "proper-lockfile": "4.1.2",
     "qrcode-generator": "^2.0.4"
   },

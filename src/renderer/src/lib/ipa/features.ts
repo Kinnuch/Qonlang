@@ -12,6 +12,7 @@ import {
   NON_PULMONIC,
   OTHER_VOWELS
 } from './data'
+import { canonicalG } from './equivalence'
 
 export const DEFAULT_DIMENSIONS = [
   'type',
@@ -25,15 +26,17 @@ export const DEFAULT_DIMENSIONS = [
 ] as const
 
 /** 比较用的写法：去掉连音弧这类组合符，t͡s 与 ts 算同一个 */
-const bare = (s: string | null): string => (s ?? '').normalize('NFD').replace(/\p{M}/gu, '')
+const bare = (s: string | null): string =>
+  canonicalG((s ?? '').normalize('NFD').replace(/\p{M}/gu, ''))
 
 export function defaultFeatures(symbol: string): Record<string, string> {
   // 普通键盘的 g 与 IPA 字形 ɡ 算同一个（IPA 两种字形都认）
-  const base = symbol
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .replace(/[ʰʲʷˠˤːˑ]/g, '')
-    .replace(/g/g, 'ɡ')
+  const base = canonicalG(
+    symbol
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .replace(/[ʰʲʷˠˤːˑ]/g, '')
+  )
   for (let mi = 0; mi < PULMONIC.length; mi++) {
     for (let pi = 0; pi < PULMONIC[mi].length; pi++) {
       const cell = PULMONIC[mi][pi]
@@ -77,9 +80,9 @@ export function defaultFeatures(symbol: string): Record<string, string> {
     }
   }
   if (OTHER_VOWELS.some((v) => v.s === base)) return { type: 'vowel', syllabic: 'yes' }
-  if (OTHER_PULMONIC.some((v) => v.s === base)) return { type: 'consonant', syllabic: 'no' }
+  if (OTHER_PULMONIC.some((v) => bare(v.s) === base)) return { type: 'consonant', syllabic: 'no' }
   for (const g of NON_PULMONIC)
-    if (g.items.some((v) => v.s === base))
+    if (g.items.some((v) => bare(v.s) === base))
       return { type: 'consonant', manner: g.en.toLowerCase(), syllabic: 'no' }
   // 常见附加特征
   const extra: Record<string, string> = {}

@@ -91,7 +91,7 @@ describe('学习包', () => {
     expect(first.map((l) => l.docId)).toEqual(docs.map((d) => d.id))
     expect(first.map((l) => l.title)).toEqual(docs.map((d) => d.title))
     sa.lessons = first.slice(0, 1)
-    sa.hidden.docIds = [docs[1].id]
+    sa.hidden.docIds = docs.slice(1).map((d) => d.id)
     expect(lessonsFromDocs(p, sa)).toEqual([])
   })
 

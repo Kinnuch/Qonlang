@@ -90,7 +90,7 @@ export class WordResolver {
         if (hit) return { lexemeId: hit }
       }
       // 词条里找不到就查语素：限定词、小品词这类都在语素表里
-      const key = tk.surface.normalize('NFC').toLowerCase()
+      const key = surfaceKey(tk.surface)
       const mo = idx.morphemes.get(key)?.[0]
       if (mo) return { morphemeId: mo.id }
     }
@@ -101,7 +101,7 @@ export class WordResolver {
   private stripMorphemeAffix(surface: string, gloss: string): Id | null {
     const idx = this.index()
     if (!idx) return null
-    const w = surface.normalize('NFC').toLowerCase()
+    const w = surfaceKey(surface)
     for (const { form } of idx.prefixes)
       if (form && w.startsWith(form) && w.length - form.length > 1) {
         const hit = this.lookupByForm(w.slice(form.length), gloss)
@@ -122,7 +122,7 @@ export class WordResolver {
   private lookupByForm(form: string, gloss: string): Id | null {
     const idx = this.index()
     if (!idx) return null
-    const key = form.normalize('NFC').toLowerCase()
+    const key = surfaceKey(form)
     const folded = foldDiacritics(key)
     const pool = (k: string): Lexeme[] => [
       ...(idx.lemma.get(k) ?? []),
@@ -141,8 +141,7 @@ export class WordResolver {
    */
   private lookupByGlossAndForm(form: string, gloss: string): Id | null {
     if (!this.languageId || !glossHasMeaning(gloss)) return null
-    const foldForm = (x: string): string =>
-      foldDiacritics(x.normalize('NFC').toLowerCase()).replace(/[.·='’-]/g, '')
+    const foldForm = (x: string): string => foldDiacritics(surfaceKey(x)).replace(/[.·='’-]/g, '')
     const lid = this.languageId
     this.formList ??= this.project.lexemes
       .filter((l) => l.languageId === lid)
@@ -184,10 +183,7 @@ export class WordResolver {
     return a.morphs.map((m) => {
       if (m.morphemeId) return { label: m.form, gloss: m.gloss, morphemeId: m.morphemeId }
       if (m.lexemeId) return { label: m.form, gloss: m.gloss, lexemeId: m.lexemeId }
-      const key = m.form
-        .normalize('NFC')
-        .toLowerCase()
-        .replace(/^[-=·']+|[-=·']+$/g, '')
+      const key = surfaceKey(m.form).replace(/^[-=·']+|[-=·']+$/g, '')
       const mo = idx?.morphemes.get(key)?.[0]
       if (mo) return { label: m.form, gloss: m.gloss, morphemeId: mo.id }
       // 词条：先按形式找；再看整个词分析出来的词条是不是就是这一段（意思对得上）；再按意思 + 形式包含宽一点找

@@ -1,3 +1,4 @@
+import { gEquivalent } from '$lib/ipa/equivalence'
 import type { Language, Lexeme, Project, EtymologySource, EtymologyStage } from '$lib/core/model'
 import type { FieldSpec } from './csvImport'
 import { now } from '$lib/core/factory'
@@ -54,7 +55,8 @@ function mergeImportedStages(
     }
     if (!match) {
       const exact = result.filter(
-        (item) => !used.has(item.id) && item.form === stage.form && item.notes === stage.notes
+        (item) =>
+          !used.has(item.id) && gEquivalent(item.form, stage.form) && item.notes === stage.notes
       )
       if (exact.length === 1) match = exact[0]
     }

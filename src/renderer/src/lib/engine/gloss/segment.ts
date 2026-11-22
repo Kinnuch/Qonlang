@@ -7,6 +7,7 @@
  */
 import type { Analysis, Id, Lexeme, Morpheme } from '$lib/core/model'
 import { piecesOverlap } from './candidates'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 /** 一块的词典来源 */
 export interface Piece {
@@ -146,7 +147,7 @@ export function segmentWord(
   const learn = src.learn
   const learnedBonus = (p: Piece, keys: string[]): number => {
     let best = 0
-    const byForm = learn.formKey.get(p.form)
+    const byForm = learn.formKey.get(canonicalG(p.form))
     for (const k of keys) {
       const c = byForm?.get(k) ?? 0
       if (c >= 3) best = Math.min(best, COST.learnedFormOften)
@@ -157,7 +158,9 @@ export function segmentWord(
   }
   const trusted = (p: Piece, keys: string[]): boolean =>
     !!p.chunk ||
-    keys.some((k) => (learn.formKey.get(p.form)?.get(k) ?? 0) > 0 || learn.keyCount.has(k))
+    keys.some(
+      (k) => (learn.formKey.get(canonicalG(p.form))?.get(k) ?? 0) > 0 || learn.keyCount.has(k)
+    )
   const addsStems = (p: Piece): number =>
     p.chunk ? (p.chunkStems ?? 0) : p.role === 'stem' ? 1 : 0
 

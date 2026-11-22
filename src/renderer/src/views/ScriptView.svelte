@@ -47,7 +47,14 @@
   const scriptSampleOptions = { keepDots: true }
   import { sentenceScriptText } from '$lib/script/lexiconScript'
   import { parseRuleText, runRules, type RuleProgram } from '$lib/engine/sca'
+  import { canonicalG } from '$lib/ipa/equivalence'
   import { parseGlyphLines } from '$lib/importers/glyphLines'
+  import {
+    decodeGlyphs,
+    encodeGlyphs,
+    GLYPH_CLIPBOARD_TYPE,
+    pasteGlyphs
+  } from '$lib/script/glyphClipboard'
   import type { PreviewData } from '$lib/importers/preview'
   import { languageParseOptions } from '$lib/engine/phon'
   import Portal from '$lib/ui/Portal.svelte'
@@ -143,7 +150,7 @@
   })
   /** Ctrl / Shift 多选出来的字形 */
   let multiGlyphs = $state<string[]>([])
-  let lastGlyphIndex = $state(-1)
+  let anchorGlyph = $state<string | null>(null)
   let catFilter = $state<string>(sameLang ? (memo.catFilter ?? '') : '')
   let rulesView = $state<'list' | 'source'>(memo.rulesView ?? 'list')
   let pasteOpen = $state(false)
@@ -177,6 +184,12 @@
   const script = $derived(
     lang?.scripts.find((s) => s.id === selectedScript) ?? lang?.scripts[0] ?? null
   )
+  $effect(() => {
+    // 范围选择的起点属于当前文字，切换后从新字形表重新选择。
+    void script
+    anchorGlyph = null
+    multiGlyphs = []
+  })
   const glyph = $derived(script?.glyphs.find((g) => g.id === selectedGlyph) ?? null)
   const categories = $derived.by(() => {
     const set = new Set<string>()
@@ -433,6 +446,10 @@
     })
   }
   function pickGlyph(e: MouseEvent, g: Glyph, i: number): void {
+    if (e.shiftKey || e.ctrlKey || e.metaKey) window.getSelection()?.removeAllRanges()
+    const lastGlyphIndex = e.shiftKey
+      ? shownGlyphs.findIndex((item) => item.id === anchorGlyph)
+      : -1
     if (e.shiftKey && lastGlyphIndex >= 0) {
       const [a, b] = [Math.min(lastGlyphIndex, i), Math.max(lastGlyphIndex, i)]
       multiGlyphs = shownGlyphs.slice(a, b + 1).map((x) => x.id)
@@ -440,12 +457,67 @@
       multiGlyphs = multiGlyphs.includes(g.id)
         ? multiGlyphs.filter((x) => x !== g.id)
         : [...multiGlyphs, g.id]
-      lastGlyphIndex = i
+      anchorGlyph = g.id
     } else {
       multiGlyphs = []
-      lastGlyphIndex = i
+      anchorGlyph = g.id
     }
     selectedGlyph = g.id
+  }
+  function clipboardAvailable(e: ClipboardEvent): boolean {
+    const field = e.target instanceof Element ? e.target : document.activeElement
+    return (
+      tab === 'glyphs' &&
+      !e.defaultPrevented &&
+      !!e.clipboardData &&
+      !field?.closest(
+        'input, textarea, [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="dialog"], [role="menu"]'
+      ) &&
+      !ui.promptReq &&
+      !ui.chooseReq &&
+      !ui.confirmReq &&
+      !ui.paletteOpen &&
+      !padGlyphId &&
+      !window.getSelection()?.toString()
+    )
+  }
+  function copyGlyphSelection(e: ClipboardEvent): void {
+    if (
+      !script ||
+      !clipboardAvailable(e) ||
+      (!(e.target instanceof Element && e.target.closest('.gcard, .bulk')) &&
+        !document.activeElement?.closest('.gcard, .bulk'))
+    )
+      return
+    const ids = new Set(multiGlyphs.length ? multiGlyphs : selectedGlyph ? [selectedGlyph] : [])
+    const glyphs = script.glyphs.filter((g) => ids.has(g.id))
+    if (!glyphs.length) return
+    e.preventDefault()
+    if (projectState.readOnly) return void ui.toast(t('readonly.exportBlocked'))
+    e.clipboardData!.setData(
+      'text/plain',
+      glyphs.map((g) => [g.char, g.value, g.name].join('\t')).join('\n')
+    )
+    e.clipboardData!.setData(GLYPH_CLIPBOARD_TYPE, encodeGlyphs(glyphs))
+    ui.toast(t('script.glyphsCopied', { n: glyphs.length }))
+  }
+  function pasteGlyphSelection(e: ClipboardEvent): void {
+    if (!script || !clipboardAvailable(e) || !e.clipboardData!.types.includes(GLYPH_CLIPBOARD_TYPE))
+      return
+    e.preventDefault()
+    if (projectState.readOnly) return void ui.toast(t('readonly.blocked'))
+    const rows = decodeGlyphs(e.clipboardData!.getData(GLYPH_CLIPBOARD_TYPE))
+    if (!rows) return
+    const added = pasteGlyphs(script.glyphs, rows)
+    if (added.length) {
+      script.glyphs = script.glyphs.concat(added)
+      multiGlyphs = added.map((g) => g.id)
+      selectedGlyph = anchorGlyph = added[0].id
+      catFilter = ''
+      importedFlash++
+      touch()
+    }
+    ui.toast(t('script.glyphsPasted', { n: added.length, skipped: rows.length - added.length }))
   }
   function removeSelectedGlyphs(): void {
     if (!script || !lang || projectState.readOnly || multiGlyphs.length < 2) return
@@ -540,12 +612,12 @@
     items: { char: string; value?: string; name?: string; category?: string }[]
   ): number {
     if (!script) return 0
-    const have = new Set(script.glyphs.map((g) => g.char))
+    const have = new Set(script.glyphs.map((g) => canonicalG(g.char)))
     const categorize = glyphCategorizer(lang, script)
     let n = 0
     for (const it of items) {
-      if (!it.char || have.has(it.char)) continue
-      have.add(it.char)
+      if (!it.char || have.has(canonicalG(it.char))) continue
+      have.add(canonicalG(it.char))
       script.glyphs.push({
         id: newId(),
         char: it.char,
@@ -627,11 +699,11 @@
     if (!script || tab !== 'glyphs') return null
     const items = fontPending ? fontPending.glyphs : pasteOpen ? pasteItems : null
     if (!items) return null
-    const have = new Set(script.glyphs.map((g) => g.char))
+    const have = new Set(script.glyphs.map((g) => canonicalG(g.char)))
     return {
       total: items.length,
-      skip: items.filter((g) => have.has(g.char)).length,
-      glyphs: items.slice(0, 60).map((g) => ({ ...g, skip: have.has(g.char) }))
+      skip: items.filter((g) => have.has(canonicalG(g.char))).length,
+      glyphs: items.slice(0, 60).map((g) => ({ ...g, skip: have.has(canonicalG(g.char)) }))
     }
   })
   /** 测试台：敲的几行按同一套拆法认，已经有的照样标出来 */
@@ -639,8 +711,8 @@
     if (!script) return null
     const items = parseGlyphLines(text)
     if (!items.length) return null
-    const have = new Set(script.glyphs.map((g) => g.char))
-    return { glyphs: items.slice(0, 60).map((g) => ({ ...g, skip: have.has(g.char) })) }
+    const have = new Set(script.glyphs.map((g) => canonicalG(g.char)))
+    return { glyphs: items.slice(0, 60).map((g) => ({ ...g, skip: have.has(canonicalG(g.char)) })) }
   }
   function importPaste(): void {
     mergeGlyphs(pasteItems)
@@ -661,6 +733,8 @@
     touch()
   }
 </script>
+
+<svelte:document oncopy={copyGlyphSelection} onpaste={pasteGlyphSelection} />
 
 <div class="page">
   <div class="page-head row tabbed">
@@ -1336,6 +1410,7 @@
     border-radius: var(--radius-sm);
   }
   .gcard {
+    user-select: none;
     display: flex;
     flex-direction: column;
     align-items: center;

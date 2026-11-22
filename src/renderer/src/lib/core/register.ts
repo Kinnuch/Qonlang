@@ -3,9 +3,12 @@
  * 汉字、假名、谚文取第一个字（文学 → 文）；拉丁这类字母文字取到第一个元音后面跟着的辅音为止再加点
  * （archaic → arch.、literary → lit.），本身就短（不超过 4 个字母）或截不短的原样。
  */
+import { canonicalG } from '$lib/ipa/equivalence'
+
 const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u
 
-const base = (ch: string): string => ch.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+const base = (ch: string): string =>
+  canonicalG(ch.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase())
 const isVowel = (ch: string): boolean => /^[aeiouyæøœ]$/.test(base(ch))
 
 export function registerShort(text: string): string {

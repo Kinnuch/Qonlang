@@ -153,7 +153,7 @@
     return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
   }
   function edgeTitle(e: Edge): string {
-    return `${t('soundChanges.ruleN', { n: e.ordinal })}  ${e.rule.raw.trim()}`
+    return `${t('soundChanges.ruleN', { n: e.ordinal })}  ${e.rule.raw.trim()}${e.rule.simultaneous ? ' · ' + t('soundChanges.simultaneousTrace', { name: e.rule.simultaneous.name || t('soundChanges.simultaneousUnnamed') }) : ''}`
   }
   function connected(id: string): boolean {
     if (selectedLine == null || !graph) return false

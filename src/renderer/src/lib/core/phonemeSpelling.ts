@@ -1,4 +1,5 @@
 import type { Id, Language, Orthography, OrthographyPhonemeRule } from './model'
+import { canonicalG, gLiteralPattern } from '$lib/ipa/equivalence'
 
 export type OrthographyDirection = 'toIpa' | 'fromIpa'
 export const orthographyIgnoresCase = (ortho: Orthography): boolean =>
@@ -176,10 +177,10 @@ export function activePhonemeRules(
       typeof row.from !== 'string' ||
       !row.from ||
       typeof row.to !== 'string' ||
-      seen.has(row.from)
+      seen.has(canonicalG(row.from))
     )
       return false
-    seen.add(row.from)
+    seen.add(canonicalG(row.from))
     return true
   })
 }
@@ -191,7 +192,7 @@ export function duplicatePhonemeRules(
     duplicates = new Set<string>()
   for (const row of phonemeRules(ortho, direction)) {
     if (!row.enabled || !row.from) continue
-    const source = direction === 'toIpa' ? orthographyInput(ortho, row.from) : row.from
+    const source = canonicalG(direction === 'toIpa' ? orthographyInput(ortho, row.from) : row.from)
     if (seen.has(source)) duplicates.add(row.id)
     else seen.add(source)
   }
@@ -220,13 +221,13 @@ export function prepareLiteralMapping(
   if (!cached) {
     const replacements = new Map<string, string>()
     for (const row of rows) {
-      const source = ignoreCase ? row.from.toLowerCase() : row.from
+      const source = canonicalG(ignoreCase ? row.from.toLowerCase() : row.from)
       if (!replacements.has(source)) replacements.set(source, row.to)
     }
     const pattern = new RegExp(
       [...replacements.keys()]
         .sort((a, b) => b.length - a.length)
-        .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .map(gLiteralPattern)
         .join('|'),
       ignoreCase ? 'giu' : 'gu'
     )
@@ -236,13 +237,12 @@ export function prepareLiteralMapping(
   }
   return (text) =>
     text.replace(cached!.pattern, (match) => {
-      const key = ignoreCase ? match.toLowerCase() : match
+      const key = canonicalG(ignoreCase ? match.toLowerCase() : match)
       const exact = cached!.replacements.get(key)
       if (exact !== undefined) return exact
       // Unicode简单大小写折叠（如长s）可能与toLowerCase不同，仍按来源顺序取首条。
       for (const [source, value] of cached!.replacements)
-        if (new RegExp(`^${source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'iu').test(match))
-          return value
+        if (new RegExp(`^${gLiteralPattern(source)}$`, 'iu').test(match)) return value
       return match
     })
 }

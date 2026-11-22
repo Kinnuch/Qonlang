@@ -320,7 +320,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules.',
+        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font. Temporary classes map multi-character tone numbers to complete tone-letter sequences.'
     },
@@ -453,6 +453,17 @@ const en: Dict = {
     }
   },
   soundChanges: {
+    simultaneousShort: 'Simultaneous',
+    simultaneousUnnamed: 'Simultaneous group',
+    simultaneousAdd: 'Add simultaneous group',
+    simultaneousName: 'Simultaneous group name',
+    simultaneousHint:
+      'All rules read the group’s original input and environments. Matches are selected left to right; at the same start, the first rule wins. Testing up to any member applies the whole group.',
+    simultaneousUngroup: 'Ungroup',
+    simultaneousDelete: 'Delete group and its rules',
+    simultaneousEnd: 'End of simultaneous group',
+    simultaneousTrace: 'Simultaneous: {name}',
+    simultaneousWithNext: 'Group with the next rule',
     addLineComment: 'Add comment line',
     lineComment: 'Comment line',
     symbolsHint:
@@ -708,7 +719,13 @@ const en: Dict = {
     environment: 'Environment, e.g. V_ or _CC',
     alloValues: 'Only with these values',
     alloValuesHint:
-      'These are the values of the slot being generated, plus the lexeme’s own features: pick “accusative” and this form is used in every accusative slot. Empty means any; when an environment is set too, both must match. Several values together mean all of them, which also makes the row more specific and picked first.',
+      'Checks the current slot values and the lexeme’s own features. Match all is the default; Match any requires at least one value. Empty means unrestricted. A specified environment must still match. Rows with more actually matched values take priority, then environment and row order.',
+    alloMatch: 'Value matching',
+    alloAll: 'Match all',
+    alloAny: 'Match any',
+    bulkDeleted: 'Deleted {n} morphemes',
+    selectionHint:
+      'Ctrl/⌘-click to select individually, Shift-click for a range; delete multiple selections together.',
     alloValuesAdd: 'Add value',
     alloValueRemove: 'Remove this value',
     gloss: 'Gloss abbreviation',
@@ -1679,6 +1696,8 @@ const en: Dict = {
     pasted: '(pasted content)'
   },
   script: {
+    glyphsCopied: 'Copied {n} glyphs',
+    glyphsPasted: 'Pasted {n} glyphs. Skipped {skipped} existing characters.',
     search: 'Search glyphs: character, name, value',
     packing: {
       title: 'Syllable packing (CV / VC syllabaries)',
@@ -1844,6 +1863,21 @@ const en: Dict = {
     variantNote: 'Note (register, situation)'
   },
   docs: {
+    format: 'Body format',
+    formatHint:
+      'Changes how this page is interpreted without rewriting its source. HTML keeps safe text formatting and removes scripts, CSS, media and automatically loaded resources.',
+    defaultFormat: 'Default format for new documents',
+    defaultFormatHint:
+      'Applies only to pages created in Documents on this device. Existing, imported and example documents keep their format; each page can be set separately.',
+    htmlPlaceholder: '<h2>Heading</h2><p>Text and a [[sentence:original text]] link.</p>',
+    htmlSyntax:
+      'Supports HTML headings, paragraphs, lists, tables, inline text and [[project links]]. Scripts, CSS, media and automatic network loads are removed.',
+    references: 'Documents mentioning this sentence',
+    linkReference: 'Project link',
+    textReference: 'Complete sentence',
+    referencesHint:
+      'Project links use the document language. Plain-text matches require a complete sentence in its own paragraph, paired quotation marks or an HTML q element (at least eight characters). Short words, code and HTML attributes are excluded; ambiguous identical sentences are not guessed.',
+
     search: 'Search docs: title or body',
     title: 'Documents',
     page: 'Page',
@@ -3057,6 +3091,11 @@ const en: Dict = {
     issueSteps: 'How to reproduce it'
   },
   ruleMsg: {
+    simultaneousNested: 'Simultaneous groups cannot be nested',
+    simultaneousEndWithoutStart: 'The simultaneous group end has no matching start',
+    simultaneousMissingEnd: 'The simultaneous group needs an ending -)',
+    simultaneousForbidden:
+      'Move stages, stress rules and references outside the simultaneous group',
     includeInner: 'Line {line} of “{ref}”: {msg}',
     includeNoStage: '“{ref}” has no stage called “{stage}”',
     includeCycle: '“{ref}” refers back to itself',

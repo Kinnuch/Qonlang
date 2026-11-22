@@ -29,6 +29,7 @@
     formatReplacementLine,
     formatFeatureLine,
     formatStressLine,
+    formatSimultaneousStart,
     parseClassLine,
     parseReplacementLine,
     parseStressText,
@@ -40,7 +41,8 @@
     type RuleDraft,
     type RuleProgram,
     type RunOptions,
-    type StressLine
+    type StressLine,
+    type SimultaneousGroup
   } from '$lib/engine/sca'
   import {
     Plus,
@@ -321,6 +323,66 @@
     const l = insertAfter(line, formatMarker(t('soundChanges.unnamedStage')))
     editingMarker = l
     markerDraft = t('soundChanges.unnamedStage')
+  }
+  function addSimultaneousAfter(line: number): void {
+    if (projectState.readOnly) return
+    const ls = lines()
+    ls.splice(line, 0, formatSimultaneousStart(t('soundChanges.simultaneousUnnamed')), '-)')
+    remapOpenLines((n) => (n > line ? n + 2 : n))
+    commit(ls)
+  }
+  async function renameSimultaneous(group: SimultaneousGroup): Promise<void> {
+    if (projectState.readOnly) return
+    const original = text,
+      owner = projectState.project,
+      key = foldKey
+    const name = await ui.prompt(t('soundChanges.simultaneousName'), group.name)
+    if (
+      name === null ||
+      text !== original ||
+      projectState.project !== owner ||
+      foldKey !== key ||
+      projectState.readOnly
+    )
+      return
+    replaceLine(group.line, formatSimultaneousStart(name))
+  }
+  function removeSimultaneous(group: SimultaneousGroup, contents: boolean): void {
+    if (projectState.readOnly) return
+    const ls = lines()
+    const from = group.line,
+      to = group.endLine
+    if (contents) {
+      ls.splice(from - 1, to - from + 1)
+      remapOpenLines((n) => (n < from ? n : n <= to ? null : n - (to - from + 1)))
+    } else {
+      ls.splice(to - 1, 1)
+      ls.splice(from - 1, 1)
+      remapOpenLines((n) => (n === from || n === to ? null : n > to ? n - 2 : n > from ? n - 1 : n))
+    }
+    commit(ls.length ? ls : [''])
+  }
+  const groupableNext = $derived.by(() => {
+    const result = new Map<number, ParsedRule>()
+    let previous: ParsedRule | null = null
+    for (const line of program?.lines ?? []) {
+      if (line.kind === 'blank' || line.kind === 'comment') continue
+      if (line.kind === 'rule' && !line.simultaneous) {
+        if (previous) result.set(previous.line, line)
+        previous = line
+      } else previous = null
+    }
+    return result
+  })
+  function groupWithNext(rule: ParsedRule): void {
+    if (projectState.readOnly || rule.simultaneous || !program) return
+    const next = groupableNext.get(rule.line)
+    if (!next) return
+    const ls = lines()
+    ls.splice(next.line, 0, '-)')
+    ls.splice(rule.line - 1, 0, formatSimultaneousStart(t('soundChanges.simultaneousUnnamed')))
+    remapOpenLines((n) => (n < rule.line ? n : n <= next.line ? n + 1 : n + 2))
+    commit(ls)
   }
   function openStress(st: StressLine): void {
     editingStress = st.line
@@ -987,6 +1049,7 @@
           {:else}
             <div
               class="rule card"
+              class:simultaneous-member={!!r.simultaneous}
               data-line={r.line}
               use:deletable={{
                 identity: r,
@@ -1016,6 +1079,10 @@
             >
               <div class="rule-main row">
                 <span class="num">{ordinals.get(r.line) ?? ''}</span>
+                {#if r.simultaneous}<span
+                    class="badge simultaneous-badge"
+                    title={r.simultaneous.name}>{t('soundChanges.simultaneousShort')}</span
+                  >{/if}
                 <span class="rule-body data">
                   {#if !r.target && !r.replacement}
                     <span class="muted">{t('soundChanges.emptyRule')}</span>
@@ -1041,6 +1108,15 @@
                     >{t('soundChanges.hits', { n: hits.get(r.line)! })}</span
                   >{/if}
                 <span class="actions">
+                  <button
+                    class="btn ghost icon sm"
+                    title={t('soundChanges.simultaneousWithNext')}
+                    disabled={projectState.readOnly || !groupableNext.has(r.line)}
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      groupWithNext(r)
+                    }}><Link2 size={14} /></button
+                  >
                   <button
                     class="btn ghost icon sm"
                     title={t('soundChanges.editRule')}
@@ -1301,6 +1377,46 @@
               </div>
             </div>
           {/if}
+        {:else if item.kind === 'simultaneous-start'}
+          <div
+            class="card simultaneous-head row"
+            data-simultaneous-group={item.group.line}
+            use:deletable={{
+              identity: item.group,
+              remove: () => removeSimultaneous(item.group, true)
+            }}
+          >
+            <span class="badge accent">{t('soundChanges.simultaneousShort')}</span>
+            <button
+              class="link grow"
+              disabled={projectState.readOnly}
+              onclick={() => renameSimultaneous(item.group)}
+              >{item.group.name || t('soundChanges.simultaneousUnnamed')}</button
+            >
+            <HelpDot tip={t('soundChanges.simultaneousHint')} />
+            <button
+              class="btn ghost sm"
+              disabled={projectState.readOnly || !item.group.valid}
+              onclick={() => addRuleAfter(item.group.endLine - 1)}
+              ><Plus size={14} />{t('soundChanges.addRule')}</button
+            >
+            <button
+              class="btn ghost sm"
+              disabled={projectState.readOnly || !item.group.valid}
+              onclick={() => removeSimultaneous(item.group, false)}
+              >{t('soundChanges.simultaneousUngroup')}</button
+            >
+            <button
+              class="btn ghost icon sm danger"
+              disabled={projectState.readOnly}
+              title={t('soundChanges.simultaneousDelete')}
+              onclick={() => removeSimultaneous(item.group, true)}><Trash2 size={14} /></button
+            >
+          </div>
+        {:else if item.kind === 'simultaneous-end'}
+          <div class="simultaneous-end small muted" data-simultaneous-end={item.group.line}>
+            {t('soundChanges.simultaneousEnd')}
+          </div>
         {:else if item.kind === 'error'}
           <div
             class="rule card err row"
@@ -1420,6 +1536,13 @@
       {/if}
 
       <div class="row stage-foot">
+        <button
+          class="btn ghost sm"
+          disabled={projectState.readOnly}
+          data-add-simultaneous
+          onclick={() => addSimultaneousAfter(sec.endLine)}
+          ><Plus size={14} />{t('soundChanges.simultaneousAdd')}</button
+        >
         <button class="btn ghost sm" onclick={() => addRuleAfter(sec.endLine)}
           ><Plus size={14} />{sec.marker
             ? t('soundChanges.addRuleHere')
@@ -1469,6 +1592,36 @@
 </div>
 
 <style>
+  .simultaneous-head {
+    flex-wrap: wrap;
+    margin-top: 12px;
+    border: 1px solid var(--accent);
+    padding: 10px;
+    gap: 8px;
+  }
+  .simultaneous-member {
+    border-inline-start: 3px solid var(--accent);
+    margin-inline-start: 12px;
+  }
+  .simultaneous-end {
+    border-inline-start: 3px solid var(--accent);
+    margin-inline-start: 12px;
+    padding: 4px 10px;
+  }
+  .simultaneous-badge {
+    font-size: 10px;
+  }
+  .simultaneous-head .link {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: start;
+    font: inherit;
+    font-weight: 600;
+    padding: 4px;
+    min-inline-size: 120px;
+    cursor: pointer;
+  }
   .list {
     display: flex;
     flex-direction: column;

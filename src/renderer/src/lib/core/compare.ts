@@ -12,6 +12,7 @@ import type { Etymology, Id, Lexeme, LocalizedText, Morpheme, Project } from './
 import { findLanguageByName, morphemeLabel, splitSourceForm } from './etymology'
 import { languageParseOptions } from '$lib/engine/phon'
 import { parseRuleText, revertReplacements, runRules, type RuleProgram } from '$lib/engine/sca'
+import { canonicalG } from '$lib/ipa/equivalence'
 
 export type RootKind = 'lexeme' | 'morpheme' | 'external'
 
@@ -52,7 +53,8 @@ const MAX_DEPTH = 8
 export const MAX_MEMBERS = 40
 const MAX_GROUPS = 12
 
-const fold = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim()
+const fold = (s: string): string =>
+  canonicalG(s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim())
 const strip = (s: string): string => s.replace(/^[-=*·]+|[-=*·]+$/g, '').trim()
 
 function textOf(t: LocalizedText | undefined, langs: string[]): string {

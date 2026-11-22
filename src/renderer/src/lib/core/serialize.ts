@@ -12,7 +12,7 @@ import {
   type Project,
   type SlotGenerator
 } from './model'
-import { createEtymology, createProject, newId } from './factory'
+import { createDoc, createEtymology, createProject, newId } from './factory'
 import { splitRegisters } from './register'
 
 export const PROJECT_EXTENSION = '.laim.json'
@@ -239,8 +239,9 @@ export function projectToFolder(p: Project): Record<string, string> {
   const docPaths = folderPaths(
     p.docs.map((d) => d.title || d.id),
     'docs',
-    'md'
+    p.docs.map((d) => (d.format === 'html' ? 'html' : 'md'))
   )
+  files['docs.json'] = j(p.docs.map((d, i) => ({ ...d, markdown: undefined, path: docPaths[i] })))
   for (const [i, d] of p.docs.entries()) files[docPaths[i]] = d.markdown
   return files
 }
@@ -250,16 +251,16 @@ function safeName(s: string): string {
 }
 
 /** 文件名清理、大小写与 Unicode 规范化都可能使不同标题指向同一个文件。 */
-function folderPaths(names: string[], dir: string, ext: string): string[] {
+function folderPaths(names: string[], dir: string, ext: string | string[]): string[] {
   const used = new Set<string>()
   const key = (name: string): string => name.normalize('NFC').toLowerCase()
-  return names.map((name) => {
+  return names.map((name, index) => {
     const clean = safeName(name)
     let unique = clean
     let n = 2
     while (used.has(key(unique))) unique = `${clean} (${n++})`
     used.add(key(unique))
-    return `${dir}/${unique}.${ext}`
+    return `${dir}/${unique}.${Array.isArray(ext) ? ext[index] : ext}`
   })
 }
 
@@ -305,6 +306,29 @@ export function projectFromFolder(files: Record<string, string>): Project {
     abbreviations: read('abbreviations.json', []),
     customFields: read('custom-fields.json', []),
     docs: []
+  }
+  // 新版目录保留文档ID、语言和格式；旧版只有docs/*.md，仍按标题恢复为项目通用文档。
+  const docMeta = read<(Omit<Project['docs'][number], 'markdown'> & { path: string })[] | null>(
+    'docs.json',
+    null
+  )
+  if (Array.isArray(docMeta)) {
+    obj.docs = docMeta
+      .filter(
+        (d) =>
+          typeof d.path === 'string' &&
+          /^docs\/[^/\\]+\.(?:md|html?)$/i.test(d.path) &&
+          typeof files[d.path] === 'string'
+      )
+      .map(({ path, ...d }) => ({ ...d, markdown: files[path] }))
+  } else {
+    obj.docs = Object.entries(files)
+      .filter(([path]) => /^docs\/[^/\\]+\.(?:md|html?)$/i.test(path))
+      .map(([path, markdown]) => ({
+        ...createDoc(null, path.slice(5).replace(/\.(?:md|html?)$/i, '')),
+        ...(/\.html?$/i.test(path) ? { format: 'html' as const } : {}),
+        markdown
+      }))
   }
   if (!obj.meta) throw new ProjectParseError('缺少 project.json', 'not-a-project')
   return migrate(obj)

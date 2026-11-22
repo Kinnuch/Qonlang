@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { canonicalG, gEquivalent } from '$lib/ipa/equivalence'
   import { deletable } from '$lib/ui/deletable'
   import { traceLine } from '$lib/ui/engineText'
   import { navScroll } from '$lib/ui/navScroll'
@@ -332,7 +333,10 @@
   const lemmaCounts = $derived.by(() => {
     const m = new Map<string, number>()
     for (const l of inLang)
-      m.set(l.languageId + ' ' + l.lemma, (m.get(l.languageId + ' ' + l.lemma) ?? 0) + 1)
+      m.set(
+        l.languageId + ' ' + canonicalG(l.lemma),
+        (m.get(l.languageId + ' ' + canonicalG(l.lemma)) ?? 0) + 1
+      )
     return m
   })
   const collator = $derived(makeCollator(language?.alphabet ?? []))
@@ -470,9 +474,10 @@
       ...project.lexemes.flatMap((l) => l.senses.flatMap((se) => se.registers)).filter(Boolean)
     ])
   ])
-  const isDup = (l: Lexeme): boolean => (lemmaCounts.get(l.languageId + ' ' + l.lemma) ?? 0) > 1
+  const isDup = (l: Lexeme): boolean =>
+    (lemmaCounts.get(l.languageId + ' ' + canonicalG(l.lemma)) ?? 0) > 1
   const duplicatesOf = (l: Lexeme): Lexeme[] =>
-    project.lexemes.filter((x) => x.languageId === l.languageId && x.lemma === l.lemma)
+    project.lexemes.filter((x) => x.languageId === l.languageId && gEquivalent(x.lemma, l.lemma))
   /** 把同形词条并成一条：义项按顺序接起来，词类叠加显示 */
   function mergeDuplicates(l: Lexeme): void {
     const group = duplicatesOf(l)
@@ -2099,7 +2104,9 @@
             onchange={(e) => {
               r.lexemeId =
                 project.lexemes.find(
-                  (x) => x.lemma === (e.currentTarget as HTMLInputElement).value && x.id !== l.id
+                  (x) =>
+                    gEquivalent(x.lemma, (e.currentTarget as HTMLInputElement).value) &&
+                    x.id !== l.id
                 )?.id ?? ''
               touch(l)
             }}

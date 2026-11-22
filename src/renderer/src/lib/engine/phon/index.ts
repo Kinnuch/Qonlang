@@ -5,6 +5,7 @@
 import type { Language, Phoneme, Phonotactics, Project, StressPosition } from '$lib/core/model'
 import type { ParseOptions, SyllableScheme } from '../sca/parse'
 import { inferFeatures } from '$lib/ipa/features'
+import { canonicalG, gEquivalent, hasEquivalentG } from '$lib/ipa/equivalence'
 import {
   activePhonemeRules,
   hasPhonemeRules,
@@ -39,14 +40,14 @@ export const SUPRASEGMENTAL_IGNORE = new Set([
 export function segment(text: string, inventory: string[]): string[] {
   const chars = Array.from(text)
   const maxLen = Math.max(1, ...inventory.map((s) => Array.from(s).length))
-  const inv = new Set(inventory)
+  const inv = new Set(inventory.map(canonicalG))
   const out: string[] = []
   let i = 0
   while (i < chars.length) {
     let matched = false
     for (let len = Math.min(maxLen, chars.length - i); len >= 1; len--) {
       const piece = chars.slice(i, i + len).join('')
-      if (inv.has(piece)) {
+      if (inv.has(canonicalG(piece))) {
         out.push(piece)
         i += len
         matched = true
@@ -97,9 +98,14 @@ export function tokenizeWord(text: string, units: ReadonlySet<string>): WordToke
     else if (SKIPPED.has(c) || /\p{P}/u.test(c)) out.push({ text: c, kind: 'skip' })
     else {
       let len = Math.min(maxLen, chars.length - i)
-      for (; len > 1; len--) if (units.has(chars.slice(i, i + len).join(''))) break
+      for (; len > 1; len--) if (hasEquivalentG(units, chars.slice(i, i + len).join(''))) break
       const piece = chars.slice(i, i + len).join('')
-      if (len === 1 && !units.has(piece) && prev?.kind === 'seg' && /[\p{M}\p{Lm}]/u.test(piece))
+      if (
+        len === 1 &&
+        !hasEquivalentG(units, piece) &&
+        prev?.kind === 'seg' &&
+        /[\p{M}\p{Lm}]/u.test(piece)
+      )
         prev.text += piece
       else out.push({ text: piece, kind: 'seg' })
       i += len
@@ -181,7 +187,10 @@ export function syllableSpans(
       onsetLen = Math.min(clusterLen, opts.maxOnset ?? Infinity)
       // 受允许起首表限制：从最长往下找一个合法的
       if (opts.onsets && opts.onsets.size) {
-        while (onsetLen > 0 && !opts.onsets.has(segs.slice(start - onsetLen, start).join('')))
+        while (
+          onsetLen > 0 &&
+          !hasEquivalentG(opts.onsets, segs.slice(start - onsetLen, start).join(''))
+        )
           onsetLen--
       }
       // 尾音上限
@@ -234,8 +243,8 @@ export function syllableNucleusMatch(
     stripMarks(withoutLength)
   ])) {
     if (!form) continue
-    if (nuclei.has(form)) return true
-    if (consonants?.has(form)) return false
+    if (hasEquivalentG(nuclei, form)) return true
+    if (consonants && hasEquivalentG(consonants, form)) return false
   }
   return undefined
 }
@@ -294,18 +303,19 @@ export function checkWord(segments: string[], sylls: Syllable[], pt: Phonotactic
   const out: Violation[] = []
   const joined = segments.join('')
   for (const ill of pt.illegal)
-    if (ill && joined.includes(ill)) out.push({ kind: 'illegal', detail: ill })
+    if (ill && canonicalG(joined).includes(canonicalG(ill)))
+      out.push({ kind: 'illegal', detail: ill })
   if (pt.onsets.length)
     for (const s of sylls)
-      if (s.onset.length && !pt.onsets.includes(s.onset.join('')))
+      if (s.onset.length && !pt.onsets.some((v) => gEquivalent(v, s.onset.join(''))))
         out.push({ kind: 'onset', detail: s.onset.join('') })
   if (pt.codas.length)
     for (const s of sylls)
-      if (s.coda.length && !pt.codas.includes(s.coda.join('')))
+      if (s.coda.length && !pt.codas.some((v) => gEquivalent(v, s.coda.join(''))))
         out.push({ kind: 'coda', detail: s.coda.join('') })
   if (pt.nuclei.length)
     for (const s of sylls)
-      if (s.nucleus.length && !pt.nuclei.includes(s.nucleus.join('')))
+      if (s.nucleus.length && !pt.nuclei.some((v) => gEquivalent(v, s.nucleus.join(''))))
         out.push({ kind: 'nucleus', detail: s.nucleus.join('') })
   if (sylls.length && sylls[0].nucleus.length === 0) out.push({ kind: 'nucleus', detail: '∅' })
   if (pt.minSyllables && sylls.length < pt.minSyllables)
@@ -357,7 +367,7 @@ function weightedPick(
 export function generateWords(pt: Phonotactics, opts: GenerateOptions): string[] {
   const rand = rng(opts.seed ?? Date.now())
   const out: string[] = []
-  const seen = new Set(opts.exclude ?? [])
+  const seen = new Set([...(opts.exclude ?? [])].map(canonicalG))
   const min = opts.minSyllables ?? pt.minSyllables ?? 1
   const max = Math.max(min, opts.maxSyllables ?? pt.maxSyllables ?? 3)
   const onsetProb = opts.onsetProb ?? 0.85
@@ -373,9 +383,9 @@ export function generateWords(pt: Phonotactics, opts: GenerateOptions): string[]
       w += weightedPick(pt.nuclei, pt.weights, rand)
       if (pt.codas.length && rand() < codaProb) w += weightedPick(pt.codas, pt.weights, rand)
     }
-    if (!w || seen.has(w)) continue
-    if (pt.illegal.some((ill) => ill && w.includes(ill))) continue
-    seen.add(w)
+    if (!w || seen.has(canonicalG(w))) continue
+    if (pt.illegal.some((ill) => ill && canonicalG(w).includes(canonicalG(ill)))) continue
+    seen.add(canonicalG(w))
     out.push(w)
   }
   return out
@@ -391,21 +401,7 @@ export function languageParseOptions(
   if (!lang) return {}
   const classes: Record<string, string[]> = {}
   for (const c of lang.classes) if (c.name && c.members.length) classes[c.name] = c.members
-  // IPA 表里的 ɡ 也常用键盘 g 输入。只给按特征生成的音类补匹配写法，
-  // 不改音位、成员顺序、拼写或手写规则；工程若已同时使用两种字符，照其设置分别匹配。
-  const declared = new Set([
-    ...lang.phonemes.map((p) => p.symbol),
-    ...Object.values(classes).flat()
-  ])
-  const classAliases = new Map<string, { alias: string; member: string }>()
-  if (declared.has('g') !== declared.has('ɡ')) {
-    const member = declared.has('ɡ') ? 'ɡ' : 'g'
-    const alias = member === 'ɡ' ? 'g' : 'ɡ'
-    for (const c of lang.classes) {
-      if (classes[c.name] === c.members && c.featureQuery && c.members.includes(member))
-        classAliases.set(c.name, { alias, member })
-    }
-  }
+  // g / ɡ 在规则的字面匹配中统一识别，不再只给特征生成的音类添加条件别名。
   const morphemes: Record<string, string[]> = {}
   if (project) {
     const stripH = (s: string): string => s.replace(/^[-=]+|[-=]+$/g, '')
@@ -424,7 +420,6 @@ export function languageParseOptions(
     .map((d) => [d.from, d.to] as [string, string])
   return {
     classes,
-    classAliases: [...classAliases],
     replacements,
     morphemes,
     syllables: syllableScheme(lang, replacements),
@@ -457,7 +452,7 @@ function syllableScheme(lang: Language, replacements: [string, string][]): Sylla
   return {
     units: [...units].filter(Boolean),
     nuclei: [...nuclei],
-    consonants: [...consonants].filter((c) => !nuclei.has(c)),
+    consonants: [...consonants].filter((c) => !hasEquivalentG(nuclei, c)),
     onsets: [...lang.phonotactics.onsets],
     maxOnset: tpl ? tpl.maxOnset : null,
     maxCoda: tpl ? tpl.maxCoda : null
@@ -486,7 +481,7 @@ export function spellingUnits(lang: Language): {
       : []
   )
   for (const p of lang.phonemes) {
-    const vowel = nuclei.has(p.symbol) || phonemeKind(lang, p) === 'vowel'
+    const vowel = hasEquivalentG(nuclei, p.symbol) || phonemeKind(lang, p) === 'vowel'
     const written = ortho ? spellingVariants(p.graphemes[ortho.id] ?? '') : []
     for (const g of written) {
       if (managed && !legacyUnits.has(`${p.id}\0${g}`)) continue
@@ -498,19 +493,19 @@ export function spellingUnits(lang: Language): {
     for (const row of activePhonemeRules(ortho, 'toIpa')) {
       units.add(row.from)
       if (
-        nuclei.has(row.to) ||
-        lang.phonemes.some((p) => p.symbol === row.to && phonemeKind(lang, p) === 'vowel')
+        hasEquivalentG(nuclei, row.to) ||
+        lang.phonemes.some((p) => gEquivalent(p.symbol, row.to) && phonemeKind(lang, p) === 'vowel')
       )
         vowels.add(row.from)
     }
   for (const d of lang.digraphs) {
     if (!d.from) continue
     units.add(d.from)
-    if (nuclei.has(d.to)) vowels.add(d.from)
+    if (hasEquivalentG(nuclei, d.to)) vowels.add(d.from)
   }
   return {
     units: [...units].filter(Boolean),
-    isVowel: (s) => nuclei.has(s) || vowels.has(s)
+    isVowel: (s) => hasEquivalentG(nuclei, s) || hasEquivalentG(vowels, s)
   }
 }
 
@@ -536,7 +531,7 @@ export function consonantSet(lang: Language): Set<string> {
   for (const p of lang.phonemes) if (phonemeKind(lang, p) === 'consonant') result.add(p.symbol)
   for (const c of lang.classes)
     if (CONSONANT_CLASS.test(c.name)) for (const member of c.members) result.add(member)
-  return new Set([...result].filter((symbol) => !nuclei.has(symbol)))
+  return new Set([...result].filter((symbol) => !hasEquivalentG(nuclei, symbol)))
 }
 
 const kindOf = (f: Record<string, string>): 'vowel' | 'consonant' | null =>
@@ -550,7 +545,7 @@ export function phonemeKind(lang: Language, p: Phoneme): 'vowel' | 'consonant' |
   const own = kindOf(p.features)
   if (own) return own
   for (const c of lang.classes) {
-    if (!c.members.includes(p.symbol)) continue
+    if (!c.members.some((member) => gEquivalent(member, p.symbol))) continue
     if (VOWEL_CLASS.test(c.name)) return 'vowel'
     if (CONSONANT_CLASS.test(c.name)) return 'consonant'
   }

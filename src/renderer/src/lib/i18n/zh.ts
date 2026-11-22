@@ -301,7 +301,7 @@ export default {
     galleryNext: '下一张',
     exampleDesc: {
       aelith:
-        '黏着先验语：语系节点与分组统计、语言内部的历时阶段与词条的历史形式链、祖语→现代语的语系与姊妹语（关系图里对比同源词的音变与意思）、满足 / 不满足环境两路的音变规则、特征与重音规则、音节边界 σ、自定义重音、元音和谐、流水线构形的九种步骤（含构形套构形）、变体与继承、槽位继承与影响发音的槽位、按维度取值挑异体形、一个词类几个构形、一个词条几个构形、按阴阳换字母、连读浊化反推、连写复合词自动切分、复合词类、检视器模块、词源链、从构形生成的词条、已 gloss 的语料、卢恩刻文与手写字形、收藏与记号、「微调」里现写的音类、两个音并成一个的音变、带标点的例句。临时音类按位置对应，并从词库寻找实际变化的规则示例。可以直接在规则之间添加说明。',
+        '黏着先验语：语系节点与分组统计、语言内部的历时阶段与词条的历史形式链、祖语→现代语的语系与姊妹语（关系图里对比同源词的音变与意思）、满足 / 不满足环境两路的音变规则、特征与重音规则、音节边界 σ、自定义重音、元音和谐、流水线构形的九种步骤（含构形套构形）、变体与继承、槽位继承与影响发音的槽位、按维度取值挑异体形、一个词类几个构形、一个词条几个构形、按阴阳换字母、连读浊化反推、连写复合词自动切分、复合词类、检视器模块、词源链、从构形生成的词条、已 gloss 的语料、卢恩刻文与手写字形、收藏与记号、「微调」里现写的音类、两个音并成一个的音变、带标点的例句。临时音类按位置对应，并从词库寻找实际变化的规则示例。可以直接在规则之间添加说明。 例句可以跳回引用它的 HTML 文档。',
       tsahun:
         '孤立声调语：五个声调与连读变调、罗马化与西里尔双正字法（按写法切音节、数音，可逐条调整音位对应）、音节文字的拼合与竖排、按字号逐词写的意音文字、重叠构形、带空格的屈折形、同形词候选、用文字字体显示的异体字模块。临时音类把多字符数字调对应到完整调符串。'
     },
@@ -425,6 +425,17 @@ export default {
     }
   },
   soundChanges: {
+    simultaneousShort: '同时',
+    simultaneousUnnamed: '同时音变组',
+    simultaneousAdd: '新增同时组',
+    simultaneousName: '同时组名称',
+    simultaneousHint:
+      '同组规则都读取组开始时的原输入和环境，不相互连锁。重叠从左到右选择，同起点按规则顺序取第一条；测试到组内任一规则时执行整组。',
+    simultaneousUngroup: '解除分组',
+    simultaneousDelete: '删除同时组及其中规则',
+    simultaneousEnd: '同时组结束',
+    simultaneousTrace: '同时组：{name}',
+    simultaneousWithNext: '与下一条组成同时组',
     addLineComment: '新增行间注释',
     lineComment: '行间注释',
     symbolsHint:
@@ -674,7 +685,12 @@ export default {
     environment: '出现环境，如 V_、_CC',
     alloValues: '仅在以下维度取值时使用',
     alloValuesHint:
-      '判断依据是当前正在推导的那一格所取的维度值，再加上词条自身的语法特征：如果选了「宾格」，那么所有属于宾格的格都用这一形式。留空表示不限；如果这里和出现环境都填写了，则两边都必须匹配。多个取值并列表示「都要满足」，这样的条件也更具体，会优先匹配。',
+      '按当前槽位取值与词条自身特征判断。默认「全部满足」，也可选择「任一满足」；留空不限。填写出现环境时，环境仍须同时匹配。多条符合时，实际匹配取值较多的优先，再看环境和行顺序。',
+    alloMatch: '取值匹配方式',
+    alloAll: '全部满足',
+    alloAny: '任一满足',
+    bulkDeleted: '已删除 {n} 个语素',
+    selectionHint: 'Ctrl／⌘ 逐条选择，Shift 连选；多选后可批量删除。',
     alloValuesAdd: '添加取值',
     alloValueRemove: '移除该取值',
     gloss: 'gloss 缩写',
@@ -1606,6 +1622,8 @@ export default {
     pasted: '（粘贴的内容）'
   },
   script: {
+    glyphsCopied: '已复制 {n} 个字形',
+    glyphsPasted: '已粘贴 {n} 个字形，跳过已有字符 {skipped} 个',
     search: '搜索字形：字符、名称、转写值',
     packing: {
       title: '音节拼合（CV / VC 音节文字）',
@@ -1761,6 +1779,21 @@ export default {
     variantNote: '变体说明（语域、场合）等'
   },
   docs: {
+    format: '正文格式',
+    formatHint:
+      '只改变这篇文档的解析方式，不改写正文。HTML 只显示安全的文字排版，不保留脚本、CSS、媒体或自动加载的资源。',
+    defaultFormat: '新建文档的默认格式',
+    defaultFormatHint:
+      '只影响本设备在「文档」页新建的页面，不转换已有、导入或示例文档；每篇文档可单独设置。',
+    htmlPlaceholder: '<h2>标题</h2><p>正文与 [[例句:原文]] 链接。</p>',
+    htmlSyntax:
+      '支持 HTML 标题、段落、列表、表格、内联文字及 [[项目链接]]；脚本、CSS、媒体和自动网络加载会移除。',
+    references: '提到这条例句的文档',
+    linkReference: '项目链接',
+    textReference: '完整原句',
+    referencesHint:
+      '项目链接按文档语言解析；正文匹配只认独立段落、成对引号或 HTML q 中的完整原句（至少八个字符）。短词、代码和 HTML 属性不参与；同层有多条同文例句时不猜目标。',
+
     search: '搜索文档：标题或正文',
     title: '文档',
     page: '文档页',
@@ -2914,6 +2947,10 @@ export default {
     issueSteps: '怎样能重现'
   },
   ruleMsg: {
+    simultaneousNested: '同时组不能嵌套',
+    simultaneousEndWithoutStart: '同时组结束行缺少对应的开始行',
+    simultaneousMissingEnd: '同时组缺少结束行 -)',
+    simultaneousForbidden: '同时组内不能包含阶段、重音或引用，请移到组外',
     includeInner: '「{ref}」里第 {line} 行：{msg}',
     includeNoStage: '「{ref}」里没有叫「{stage}」的阶段',
     includeCycle: '「{ref}」转着圈引用了自己',

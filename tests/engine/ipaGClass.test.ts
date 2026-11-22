@@ -60,36 +60,40 @@ describe('keyboard g in IPA-derived sound classes', () => {
     expect(apply('{Consonant} > [bt]', ['p', 'g', 'ɡ'], lang)).toEqual(['b', 't', 't'])
   })
 
-  it('keeps literal spelling, explicit output and numbered captures distinct', () => {
-    expect(apply('ɡ > t', ['g', 'ɡ'])).toEqual(['g', 't'])
-    expect(apply('[g] > t', ['g', 'ɡ'])).toEqual(['t', 'ɡ'])
+  it('matches literal spellings equally while preserving explicit outputs and actual captures', () => {
+    expect(apply('ɡ > t', ['g', 'ɡ'])).toEqual(['t', 't'])
+    expect(apply('[g] > t', ['g', 'ɡ'])).toEqual(['t', 't'])
     expect(apply('C > C', ['g', 'ɡ'])).toEqual(['g', 'ɡ'])
     expect(apply('C > [pɡ]', ['g', 'ɡ'])).toEqual(['ɡ', 'ɡ'])
     expect(apply('C1 > C1C1', ['g', 'ɡ'])).toEqual(['gg', 'ɡɡ'])
-    expect(apply('C1C1 > t', ['gg', 'ɡɡ', 'gɡ'])).toEqual(['t', 't', 'gɡ'])
+    expect(apply('C1C1 > t', ['gg', 'ɡɡ', 'gɡ', 'ɡg'])).toEqual(['t', 't', 't', 't'])
+    expect(apply('[gɡ] > [bt]', ['g', 'ɡ'])).toEqual(['b', 'b'])
   })
 
-  it('respects explicit rules, hand-edited classes and languages with both phonemes', () => {
-    expect(apply('C=pɡ\nC > t', ['g', 'ɡ'])).toEqual(['g', 't'])
-    expect(apply('g|x\nC > t', ['g', 'ɡ'])).toEqual(['g', 't'])
+  it('recognises both glyphs in source classes, manual classes and inventories containing both', () => {
+    expect(apply('C=pɡ\nC > t', ['g', 'ɡ'])).toEqual(['t', 't'])
+    expect(apply('g|x\nC > t', ['g', 'ɡ'])).toEqual(['t', 't'])
     const lang = language()
     lang.classes[0].featureQuery = null
-    expect(apply('C > t', ['g', 'ɡ'], lang)).toEqual(['g', 't'])
+    expect(apply('C > t', ['g', 'ɡ'], lang)).toEqual(['t', 't'])
     const distinct = language()
     distinct.phonemes.push({ ...distinct.phonemes[1], id: newId(), symbol: 'g' })
-    expect(apply('C > t', ['g', 'ɡ'], distinct)).toEqual(['g', 't'])
+    expect(apply('C > t', ['g', 'ɡ'], distinct)).toEqual(['t', 't'])
+    expect(apply('C=gɡp\nC > [btd]', ['g', 'ɡ', 'p'], distinct)).toEqual(['b', 'b', 'd'])
   })
 
   it('also recognises IPA ɡ when the generated class uses keyboard g', () => {
     expect(apply('C > / _#', ['ag', 'aɡ'], language('g'))).toEqual(['a', 'a'])
   })
 
-  it('invalidates cached script rules when a class is switched to manual membership', () => {
+  it('keeps equivalence after switching to manual membership and invalidates changed members', () => {
     const lang = language()
     const script = createScript('Test script')
     script.rules = 'C > t'
     expect(renderScript(lang, script, 'gɡ')).toBe('tt')
     lang.classes[0].featureQuery = null
-    expect(renderScript(lang, script, 'gɡ')).toBe('gt')
+    expect(renderScript(lang, script, 'gɡ')).toBe('tt')
+    lang.classes[0].members = ['p']
+    expect(renderScript(lang, script, 'gɡ')).toBe('gɡ')
   })
 })

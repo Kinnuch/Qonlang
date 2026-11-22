@@ -7,6 +7,7 @@ import { createLexeme, now } from '$lib/core/factory'
 import { lexemePosIds } from '$lib/core/pos'
 import { runRulesOnText, stripStress, type RuleProgram } from '$lib/engine/sca'
 import { lexemeStress, morphemeStress } from '$lib/core/stressInfo'
+import { canonicalG, gEquivalent } from '$lib/ipa/equivalence'
 
 export interface EvolveOptions {
   ruleSet: RuleSet
@@ -47,7 +48,10 @@ export function planEvolution(project: Project, o: EvolveOptions): EvolveRow[] {
     for (const s of t.etymology.sources)
       if (s.kind === 'lexeme' || s.kind === 'morpheme') bySource.set(s.id, t)
   const byLemma = new Map<string, Lexeme>()
-  for (const t of targets) if (!byLemma.has(t.lemma)) byLemma.set(t.lemma, t)
+  for (const t of targets) {
+    const key = canonicalG(t.lemma)
+    if (!byLemma.has(key)) byLemma.set(key, t)
+  }
   const rows: EvolveRow[] = []
   const morphemeMode = o.inputField?.kind === 'morpheme'
   const sources: (Lexeme | Morpheme)[] = morphemeMode
@@ -80,10 +84,10 @@ export function planEvolution(project: Project, o: EvolveOptions): EvolveRow[] {
       output = ''
     }
     const existing = bySource.get(l.id) ?? null
-    const collision = !existing ? (byLemma.get(output) ?? null) : null
+    const collision = !existing ? (byLemma.get(canonicalG(output)) ?? null) : null
     let action: EvolveRow['action'] = 'create'
     if (!output) action = 'skip'
-    else if (existing) action = existing.lemma === output ? 'same' : 'update'
+    else if (existing) action = gEquivalent(existing.lemma, output) ? 'same' : 'update'
     else if (collision) action = 'skip'
     rows.push({
       source: l,
@@ -125,7 +129,7 @@ export function applyEvolution(
     if (r.existing) {
       if (a.updateExisting && r.existing.lemma !== r.output) {
         r.existing.lemma = r.output
-        if (!r.existing.etymology.stages.some((x) => x.form === r.input))
+        if (!r.existing.etymology.stages.some((x) => gEquivalent(x.form, r.input)))
           r.existing.etymology.stages.unshift({
             id: crypto.randomUUID(),
             form: r.input,

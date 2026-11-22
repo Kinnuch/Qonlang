@@ -7,6 +7,7 @@
  */
 import type { Glyph, Language, Script } from '$lib/core/model'
 import { nucleusSet, segment } from '$lib/engine/phon'
+import { canonicalG, gEquivalent } from '$lib/ipa/equivalence'
 
 export interface PackTables {
   /** 切分用的单位表 */
@@ -53,14 +54,16 @@ const words = (t: string): string[] => (t ?? '').split(/[\s,，]+/).filter(Boole
 
 export function packTables(lang: Language, script: Script): PackTables {
   const p = script.packing
-  const nuclei = p?.vowels?.trim() ? new Set(words(p.vowels)) : nucleusSet(lang)
+  const nuclei = new Set(
+    [...(p?.vowels?.trim() ? words(p.vowels) : nucleusSet(lang))].map(canonicalG)
+  )
   const inventory = p?.letters?.trim() ? words(p.letters) : lang.phonemes.map((x) => x.symbol)
   const all = new Set<string>()
   const cv = new Set<string>()
   const vc = new Set<string>()
   const add = (g: Glyph): void => {
     for (const raw of g.value.split(/[/、,，]/)) {
-      const v = raw.trim().toLowerCase()
+      const v = canonicalG(raw.trim().toLowerCase())
       if (!v) continue
       all.add(v)
       const segs = segment(v, inventory)
@@ -74,16 +77,16 @@ export function packTables(lang: Language, script: Script): PackTables {
 
   const letterMap = new Map<string, string>()
   for (const [left, right] of parseLines(p?.letterMap ?? ''))
-    for (const l of left) letterMap.set(l, right)
-  const marked = new Set(words(p?.marked ?? ''))
+    for (const l of left) if (!letterMap.has(canonicalG(l))) letterMap.set(canonicalG(l), right)
+  const marked = new Set(words(p?.marked ?? '').map(canonicalG))
   const lengths = new Map<string, number>()
   const base = new Map<string, string>()
   for (const [left, right] of parseLines(p?.lengths ?? '')) {
     const n = Number(right.replace(/[^\d]/g, '')) || 1
-    for (const l of left) lengths.set(l, n)
+    for (const l of left) if (!lengths.has(canonicalG(l))) lengths.set(canonicalG(l), n)
   }
   for (const [left, right] of parseLines(p?.baseVowels ?? ''))
-    for (const l of left) base.set(l, right)
+    for (const l of left) if (!base.has(canonicalG(l))) base.set(canonicalG(l), right)
   return {
     inventory,
     nuclei,
@@ -114,14 +117,15 @@ interface Seg {
 function toSegs(word: string, t: PackTables): Seg[] {
   const { nuclei, inventory } = t
   return segment(word.normalize('NFC').toLowerCase(), inventory).map((raw): Seg => {
-    const b = t.base.get(raw) ?? raw
-    const isV = nuclei.has(raw) || nuclei.has(b)
+    const key = canonicalG(raw)
+    const b = t.base.get(key) ?? raw
+    const isV = nuclei.has(key) || nuclei.has(canonicalG(b))
     return {
-      c: t.letterMap.get(raw) ?? b,
+      c: t.letterMap.get(key) ?? b,
       raw,
       vowel: isV,
-      len: t.lengths.get(raw) ?? 1,
-      marked: !isV && t.marked.has(raw)
+      len: t.lengths.get(key) ?? 1,
+      marked: !isV && t.marked.has(key)
     }
   })
 }
@@ -138,7 +142,9 @@ export function packWord(
   t: PackTables = packTables(lang, script)
 ): string[] {
   // 括号、引号这类不在单位表里的符号原样保留：e·(ñ)galan 里的括号不是音
-  const segs = toSegs(word, t).filter((x) => t.inventory.includes(x.raw) || x.vowel)
+  const segs = toSegs(word, t).filter(
+    (x) => t.inventory.some((v) => gEquivalent(v, x.raw)) || x.vowel
+  )
   const out: string[] = []
   let carried: Seg | null = null
   let written = false
@@ -163,8 +169,8 @@ export function packWord(
         .slice(i, i + n)
         .map((x) => x.raw)
         .join('')
-      if (t.cv.has(chunk) || t.vc.has(chunk)) continue
-      if (t.all.has(chunk)) {
+      if (t.cv.has(canonicalG(chunk)) || t.vc.has(canonicalG(chunk))) continue
+      if (t.all.has(canonicalG(chunk))) {
         matched = chunk
         matchLen = n
         break
@@ -184,7 +190,7 @@ export function packWord(
       i += 1
       continue
     }
-    const vcOk = carried ? t.vc.has((carried as Seg).c + s.c) : false
+    const vcOk = carried ? t.vc.has(canonicalG((carried as Seg).c + s.c)) : false
     if (carried && vcOk && !(written && next?.vowel && !s.marked)) {
       // 手上有元音：拼 VC，元音因此写第二次
       out.push((carried as Seg).c + s.c)
@@ -198,7 +204,7 @@ export function packWord(
           i += 2
           continue
         }
-        if ((!next || next.c === s.c) && t.killer) out.push(t.killer)
+        if ((!next || gEquivalent(next.c, s.c)) && t.killer) out.push(t.killer)
       }
       i += 1
       continue
