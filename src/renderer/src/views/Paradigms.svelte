@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { deletable } from '$lib/ui/deletable'
   import { traceLine } from '$lib/ui/engineText'
   import { tick } from 'svelte'
   import type { PageView } from '$lib/state/ui.svelte'
@@ -763,6 +764,7 @@
   }
   function removeParadigm(p: Paradigm): void {
     const idx = project.paradigms.indexOf(p)
+    if (idx < 0) return
     const snap = $state.snapshot(p) as Paradigm
     project.paradigms.splice(idx, 1)
     unbindParadigm(project, p.id)
@@ -1085,6 +1087,10 @@
         label: pickText(p.name, glossLangs) || t('paradigms.untitled')
       }))}
       activeId={active?.id ?? null}
+      ondelete={(id) => {
+        const p = project.paradigms.find((item) => item.id === id)
+        if (p) removeParadigm(p)
+      }}
       onselect={(id) => {
         activeId = id
         view = 'slots'
@@ -1360,8 +1366,16 @@
             </span>
             {#each variants as v (v.id)}
               <span class="vwrap">
-                <button class:active={editVariantId === v.id} onclick={() => (editVariantId = v.id)}
-                  >{v.name}</button
+                <button
+                  class:active={editVariantId === v.id}
+                  onclick={() => (editVariantId = v.id)}
+                  use:deletable={{
+                    selected: editVariantId === v.id,
+                    select: () => {
+                      editVariantId = v.id
+                    },
+                    remove: removeVariant
+                  }}>{v.name}</button
                 >
                 <button
                   class="pen"

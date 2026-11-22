@@ -301,6 +301,8 @@ export interface Orthography {
   rulesToIpa: string
   /** IPA → 正字法的规则文本 */
   rulesFromIpa: string
+  /** 正字法输入大小写同音；旧工程缺省为开启，不改写原文或规则输出。 */
+  caseInsensitive?: boolean
   /** 音位默认写法生成的基础条目；缺省时沿用旧版规则与回退方式。 */
   phonemeRules?: {
     toIpa: OrthographyPhonemeRule[]
@@ -359,6 +361,19 @@ export interface Tone {
 }
 
 export interface Phonotactics {
+  /** 缺省沿用历史IPA配列。拼写模式有独立配列表，切换不改写旧数据。 */
+  notation?: 'spelling' | 'ipa'
+  spelling?: PhonotacticLists
+  onsets: string[]
+  nuclei: string[]
+  codas: string[]
+  illegal: string[]
+  weights: Record<string, number>
+  minSyllables: number
+  maxSyllables: number
+}
+
+export interface PhonotacticLists {
   onsets: string[]
   nuclei: string[]
   codas: string[]

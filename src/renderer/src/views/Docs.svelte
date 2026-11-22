@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { deletable } from '$lib/ui/deletable'
   import type { PageView } from '$lib/state/ui.svelte'
   import { matchQuery, parseQuery } from '$lib/core/query'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
@@ -109,6 +110,7 @@
   }
   function remove(d: DocPage): void {
     const idx = project.docs.indexOf(d)
+    if (idx < 0) return
     const snap = $state.snapshot(d) as DocPage
     project.docs.splice(idx, 1)
     if (selectedId === d.id) selectedId = null
@@ -197,7 +199,18 @@
   <div class="body">
     <aside class="pages" data-tour="docs-list">
       {#each list as d (d.id)}
-        <button class="pg" class:active={selectedId === d.id} onclick={() => (selectedId = d.id)}>
+        <button
+          class="pg"
+          class:active={selectedId === d.id}
+          onclick={() => (selectedId = d.id)}
+          use:deletable={{
+            selected: selectedId === d.id,
+            select: () => {
+              selectedId = d.id
+            },
+            remove: () => remove(d)
+          }}
+        >
           <FileText size={14} />
           <span class="grow ellip">{d.title || t('docs.untitled')}</span>
           {#if d.languageId}<span class="tiny muted"

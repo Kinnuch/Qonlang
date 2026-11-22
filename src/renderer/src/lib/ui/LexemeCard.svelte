@@ -5,6 +5,7 @@
     Id,
     Lexeme,
     PartOfSpeech,
+    Pronunciation,
     Project,
     Sense
   } from '$lib/core/model'
@@ -24,6 +25,7 @@
   import { ensureScriptFont, fontCss } from '$lib/script/fonts'
   import { registerShort } from '$lib/core/register'
   import { posStemSlotList, posText, sensePos } from '$lib/core/pos'
+  import { pronunciationOf } from '$lib/core/pronounce'
 
   /** 显示模式下屈折形那一块收没收起（录入模式那边另记，见 Lexicon 的 FORMS_FOLD_EDIT） */
   const FORMS_FOLD_ID = 'lex.forms:show'
@@ -130,8 +132,8 @@
   const pron = $derived(
     lang
       ? lang.orthographies
-          .map((o) => ({ name: o.name, p: l.pronunciations[o.id] }))
-          .filter((x) => x.p?.ipa)
+          .map((o) => ({ name: o.name, p: pronunciationOf(lang, o, l, project) }))
+          .filter((x): x is { name: string; p: Pronunciation } => !!x.p?.ipa)
       : []
   )
   const dialects = $derived(lang ? lang.dialects.filter((d) => l.dialectIds.includes(d.id)) : [])

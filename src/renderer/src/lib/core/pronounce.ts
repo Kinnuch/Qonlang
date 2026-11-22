@@ -1,7 +1,7 @@
 /**
  * 正字法 → IPA 的自动标音。规则文本按正字法解析并缓存；不规则发音不覆盖。
  */
-import type { Language, Lexeme, Orthography, Project } from './model'
+import type { Language, Lexeme, Orthography, Project, Pronunciation } from './model'
 import {
   parseRuleText,
   runRules,
@@ -12,11 +12,14 @@ import {
   type RunOptions,
   type RunResult
 } from '$lib/engine/sca'
-import { languageParseOptions, segment } from '$lib/engine/phon'
+import { languageParseOptions } from '$lib/engine/phon'
 import { inferFeatures } from '$lib/ipa/features'
 import { lexemeStress } from './stressInfo'
 import {
   preparePhonemeMapping,
+  prepareLiteralMapping,
+  orthographyInput,
+  orthographyIgnoresCase,
   hasPhonemeRules,
   type OrthographyDirection
 } from './phonemeSpelling'
@@ -33,7 +36,10 @@ export function orthoProgram(
 ): RuleProgram | null {
   const text = direction === 'toIpa' ? ortho.rulesToIpa : ortho.rulesFromIpa
   if (!text.trim()) return null
-  const opts = languageParseOptions(lang)
+  const opts = {
+    ...languageParseOptions(lang),
+    caseInsensitive: direction === 'toIpa' && orthographyIgnoresCase(ortho)
+  }
   const classesKey = JSON.stringify(opts)
   const key = `${ortho.id}:${direction}`
   const hit = cache.get(key)
@@ -62,6 +68,7 @@ export function orthographySignature(
     ortho.id,
     direction === 'toIpa' ? ortho.rulesToIpa : ortho.rulesFromIpa,
     ortho.phonemeRules?.[direction] ?? null,
+    direction === 'toIpa' && orthographyIgnoresCase(ortho),
     languageParseOptions(lang)
   ])
 }
@@ -87,9 +94,14 @@ export function orthographyRunner(
 ): (word: string) => RunResult {
   const convert = preparePhonemeMapping(ortho, direction)
   const advanced = program === undefined ? orthoProgram(lang, ortho, direction) : program
-  const runOptions = { ...(direction === 'toIpa' ? { keepUnits: ipaUnits(lang) } : {}), ...options }
+  const runOptions = {
+    ...(direction === 'toIpa'
+      ? { keepUnits: ipaUnits(lang), caseInsensitive: orthographyIgnoresCase(ortho) }
+      : {}),
+    ...options
+  }
   return (word) => {
-    const mapped = convert(word)
+    const mapped = convert(direction === 'toIpa' ? orthographyInput(ortho, word) : word)
     if (!advanced) return { input: word, output: mapped, stages: [], trace: [] }
     return { ...runRules(advanced, mapped, runOptions), input: word }
   }
@@ -104,11 +116,6 @@ export function runOrthographyOnText(
   options: RunOptions = {}
 ): string {
   const program = orthoProgram(lang, ortho, direction)
-  if (!hasPhonemeRules(ortho, direction) && program)
-    return runRulesOnText(program, text, {
-      ...(direction === 'toIpa' ? { keepUnits: ipaUnits(lang) } : {}),
-      ...options
-    })
   const run = orthographyRunner(lang, ortho, direction, { ...options, trace: false }, program)
   return mapRuleWords(text, (word) => run(word).output)
 }
@@ -152,14 +159,12 @@ export function spellToIpa(
   if (!ortho) return text
   const byRules = transcribe(lang, ortho, text)
   if (byRules !== null) return byRules
-  const map = new Map<string, string>()
+  const rows: { from: string; to: string }[] = []
   for (const p of lang.phonemes)
     for (const g of (p.graphemes[ortho.id] ?? '').split(/[\s,，、/]+/).filter(Boolean))
-      if (!map.has(g)) map.set(g, p.symbol)
-  if (!map.size) return text
-  return segment(text.toLowerCase(), [...map.keys()])
-    .map((x) => map.get(x) ?? x)
-    .join('')
+      rows.push({ from: g, to: p.symbol })
+  if (!rows.length) return orthographyInput(ortho, text)
+  return prepareLiteralMapping(rows, orthographyIgnoresCase(ortho))(orthographyInput(ortho, text))
 }
 
 const stressCache = new Map<string, { key: string; program: RuleProgram }>()
@@ -203,6 +208,24 @@ export function derivePronunciations(lang: Language, lexeme: Lexeme, project?: P
     }
   }
   return changed
+}
+
+/** 详情按当前规则惰性显示普通读音；打开旧工程不改词条或存盘，手标不规则照旧。 */
+export function pronunciationOf(
+  lang: Language,
+  ortho: Orthography,
+  lexeme: Lexeme,
+  project?: Project
+): Pronunciation | undefined {
+  const stored = lexeme.pronunciations[ortho.id]
+  if (!stored || stored.irregular !== false) return stored
+  const ipa = transcribe(
+    lang,
+    ortho,
+    lexeme.lemma,
+    project ? lexemeStress(project, lexeme) : undefined
+  )
+  return ipa === null ? stored : { ipa, irregular: false }
 }
 
 /** 整门语言重标音；返回改动的词条数 */

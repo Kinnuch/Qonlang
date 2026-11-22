@@ -59,6 +59,7 @@
   import RuleSyntax from '$lib/ui/RuleSyntax.svelte'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
   import SentenceMergeDialog from '$lib/ui/SentenceMergeDialog.svelte'
+  import SelectionMenu from '$lib/ui/SelectionMenu.svelte'
   import { ensureScriptFont } from '$lib/script/fonts'
   import Languages from './Languages.svelte'
   import SoundChanges from './SoundChanges.svelte'
@@ -242,6 +243,8 @@
     else ui.openSyntax(SYNTAX_ANCHORS[ui.section] ?? '')
   }
 </script>
+
+<SelectionMenu />
 
 <svelte:window bind:innerWidth={windowW} />
 

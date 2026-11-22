@@ -1,6 +1,7 @@
 <script lang="ts">
   /** 语言树的一个节点：语系 / 语族 / 语支节点，或者一门语言（带着它的历时阶段） */
   import type { Id } from '$lib/core/model'
+  import { deletable } from '$lib/ui/deletable'
   import type { TreeItem, TreeRef } from '$lib/core/languageTree'
   import { stageShort } from '$lib/core/languageTree'
   import type { TreeDragProps } from '$lib/ui/treeDrag.svelte'
@@ -20,6 +21,7 @@
     onselect,
     onaddchild,
     oncompare,
+    ondelete,
     depth = 0,
     flush = false
   }: {
@@ -37,6 +39,7 @@
     onselect: (id: Id, kind: 'group' | 'language', addToCompare: boolean) => void
     onaddchild: (id: Id, kind: 'group' | 'language') => void
     oncompare: (id: Id) => void
+    ondelete?: (id: Id, kind: 'group' | 'language') => void
     depth?: number
     /** 分组的原始语：跟分组标题那一行对齐，不跟着里面的内容缩进 */
     flush?: boolean
@@ -71,6 +74,12 @@
     class="card lang"
     class:group={item.kind === 'group'}
     class:selected={selectedId === id}
+    use:deletable={{
+      selected: selectedId === id,
+      select: () => onselect(id, item.kind, false),
+      enabled: !!ondelete,
+      remove: () => ondelete?.(id, item.kind)
+    }}
     class:chain={hlNodes.has(key)}
     class:picked={compareIds.includes(id)}
     role="button"
@@ -152,6 +161,7 @@
           {onselect}
           {onaddchild}
           {oncompare}
+          {ondelete}
           depth={depth + 1}
         />
       {/each}

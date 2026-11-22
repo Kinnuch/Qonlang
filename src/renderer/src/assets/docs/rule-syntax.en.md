@@ -2,6 +2,8 @@
 
 Everywhere Qonlang takes "rules" — sound-change rule sets, orthographies, script mappings, adjustments in paradigm pipelines and allomorph environments — the same notation applies (it follows the 音变姬 / Yinbianji rule format). This page starts with a single rule and ends with how each place uses it.
 
+In a sound-change rule set, you decide what each symbol stands for. To produce headwords, write final rules that convert the intermediate symbols to spelling, followed by a stage marker. The language’s spelling-to-IPA rules can then derive the pronunciation. Use **Add comment line** in the list to insert a note that the engine skips.
+
 ## One rule {#rule}
 
 ```

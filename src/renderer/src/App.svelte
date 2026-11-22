@@ -7,7 +7,7 @@
   import { projectState } from '$lib/state/project.svelte'
   import { i18n, t } from '$lib/i18n/index.svelte'
   import { errorMessage } from '$lib/ui/errorText'
-  import { reportIssue } from '$lib/state/diagnostics'
+  import { runMenuAction } from '$lib/state/menuActions'
   import zh from '$lib/i18n/zh'
   import { parseProject, readProjectText } from '$lib/core/serialize'
   import { SECTIONS, type Section } from '$lib/state/ui.svelte'
@@ -41,19 +41,7 @@
     window.addEventListener('unhandledrejection', onRejection)
     const stopTheme = ui.watchSystemTheme()
     const stopChars = chars.install()
-    platform.onMenu((a) => {
-      if (a === 'save' && projectState.project) void projectState.save()
-      else if (a === 'saveAs' && projectState.project) void projectState.save(true)
-      else if (a === 'open') void projectState.open()
-      else if (a === 'undo') projectState.undo()
-      else if (a === 'redo') projectState.redo()
-      else if (a === 'back') {
-        if (ui.supportOpen) ui.supportOpen = false
-        else ui.back()
-      } else if (a === 'palette' && projectState.project) ui.paletteOpen = !ui.paletteOpen
-      else if (a === 'chars') chars.toggle()
-      else if (a === 'reportIssue') void reportIssue()
-    })
+    platform.onMenu(runMenuAction)
     void (async () => {
       await ui.loadPrefs()
       fontLibrary.onProgress()

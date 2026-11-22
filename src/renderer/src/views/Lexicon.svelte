@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { deletable } from '$lib/ui/deletable'
   import { traceLine } from '$lib/ui/engineText'
   import { navScroll } from '$lib/ui/navScroll'
   import type { GrammaticalCategory } from '$lib/core/model'
@@ -18,7 +19,7 @@
   import { toCsv } from '$lib/core/csv'
   import { lexemesToRows, morphemesToRows } from '$lib/importers/csvImport'
   import { parseLexc, mergeLexicanter, type LexcFile } from '$lib/importers/lexicanter'
-  import { derivePronunciations } from '$lib/core/pronounce'
+  import { derivePronunciations, pronunciationOf } from '$lib/core/pronounce'
   import { etymologyOrigin } from '$lib/core/etymology'
   import {
     customFieldScript,
@@ -211,7 +212,7 @@
       const ds = dialectsOf(l)
       return ds.length ? ds.map((d) => d.id) : ['']
     }
-    return [cell(l, key)]
+    return [cell(l, key, false)]
   }
   /** 首字母：按字母表里的多合字母切 */
   function initialOf(lemma: string): string {
@@ -362,7 +363,7 @@
       !key || key === 'lemma'
         ? lemmas
         : arr.map((l) =>
-            key === 'pos' ? posLabelOf(l) : key === 'updated' ? l.updatedAt : cell(l, key)
+            key === 'pos' ? posLabelOf(l) : key === 'updated' ? l.updatedAt : cell(l, key, false)
           )
     const dir = key && sortDir === 'desc' ? -1 : 1
     const order = arr.map((_, i) => i)
@@ -383,12 +384,25 @@
   /** 表格只画看得见的那些行（几千条也不卡），滚动位置照旧 */
   const listIds = $derived(list.map((l) => l.id))
   const rows = new VirtualRows('lexicon', () => listIds)
+  /** 仅可见发音单元格按需读取当前规则，不改工程里的缓存。 */
+  function pronunciationValues(l: Lexeme): string[] {
+    const lg = project.languages.find((item) => item.id === l.languageId)
+    if (!lg) return Object.values(l.pronunciations).map((pron) => pron.ipa)
+    const known = new Set(lg.orthographies.map((ortho) => ortho.id))
+    // 搜索和排序仍读取存储字段；显式全库重标音后其索引随项目更新。
+    return [
+      ...lg.orthographies.map((ortho) => pronunciationOf(lg, ortho, l, project)?.ipa ?? ''),
+      ...Object.entries(l.pronunciations)
+        .filter(([id]) => !known.has(id))
+        .map(([, pron]) => pron.ipa)
+    ]
+  }
   /** 搜索用：词条在某个字段里的文字（field 为 null 时是默认那一组）；只读要找的那个字段 */
   function lexemeFieldValues(l: Lexeme, field: string | null): string[] {
     const defs = (): string[] =>
       l.senses.flatMap((se) => [...Object.values(se.definition), ...se.registers])
     const forms = (): string[] => Object.values(l.forms).map((f) => f.surface)
-    const ipa = (): string[] => Object.values(l.pronunciations).map((pr) => pr.ipa)
+    const ipa = (): string[] => Object.values(l.pronunciations).map((pron) => pron.ipa)
     const etym = (): string[] => [
       l.etymology.notes,
       ...l.etymology.stages.map((st) => st.form),
@@ -709,7 +723,7 @@
     )
   }
 
-  function cell(l: Lexeme, key: string): string {
+  function cell(l: Lexeme, key: string, currentPronunciation = true): string {
     if (key === 'pos') return posLabelOf(l)
     if (key === 'language') {
       const lg = project.languages.find((x) => x.id === l.languageId)
@@ -729,8 +743,12 @@
         .join(i18n.locale.startsWith('zh') ? '、' : ', ')
     if (key === 'proto') return etymologyOrigin(project, l.etymology)
     if (key === 'pron')
-      return Object.values(l.pronunciations)
-        .map((p) => pronText(p.ipa))
+      return (
+        currentPronunciation
+          ? pronunciationValues(l)
+          : Object.values(l.pronunciations).map((p) => p.ipa)
+      )
+        .map((ipa) => pronText(ipa))
         .filter(Boolean)
         .join(' / ')
     if (key.startsWith('feat:')) {
@@ -1258,7 +1276,7 @@
       </Menu>
       <Menu label={t('lexicon.import')} icon={Download} tour="lexicon-io">
         <button onclick={() => (mode = 'csv')}>{t('lexicon.importCsv')}</button>
-        <button onclick={importLexicanter}>{t('lexicon.importLexicanter')}</button>
+        <button onclick={importLexicanter}>{t('csv.lexicanterProject')}</button>
         <!-- 插件注册的导入格式 -->
         {#each pluginRegistry.importers as im (im.pluginId + im.item.id)}
           <button onclick={() => void runPluginImport(im.item)}>{im.item.name}</button>
@@ -1389,6 +1407,7 @@
           >
         </div>
         <span class="small muted">{lexc.name}</span>
+        <p class="small muted">{t('csv.lexicanterProjectHint')}</p>
         <label class="field"
           ><span class="small muted">{t('lexicon.definitionLang')}</span>
           <select class="select" bind:value={lexcLang}>
@@ -1424,6 +1443,10 @@
         {project}
         lexemeId={selected.id}
         onselect={recenterGraph}
+        ondelete={(id) => {
+          const word = project.lexemes.find((item) => item.id === id)
+          if (word) remove(word)
+        }}
         bind:mode={graphMode}
       />
     </div>
@@ -1584,6 +1607,17 @@
             <tr
               use:rows.row
               data-id={l.id}
+              use:deletable={{
+                selected: selectedId === l.id || multiIds.includes(l.id),
+                select: () => {
+                  if (!multiIds.includes(l.id)) multiIds = []
+                  selectedId = l.id
+                },
+                remove: () => {
+                  if (multiIds.includes(l.id) && multiIds.length > 1) removeSelected()
+                  else remove(l)
+                }
+              }}
               class:sel={selectedId === l.id || multiIds.includes(l.id)}
               class:flash={flashId === l.id}
               class:dup-row={ui.prefs.highlightDuplicates && isDup(l)}
@@ -2140,18 +2174,19 @@
           />
         </div>
         {#each selLang.orthographies as o (o.id)}
+          {@const pronunciation = pronunciationOf(selLang, o, l, project)}
           <div class="row kv">
             <span class="small oname" title={o.name}
               >{orthoIpaLabel(o.name, selLang.orthographies.length)}</span
             >
             <input
               class="input data"
-              value={l.pronunciations[o.id]?.ipa ?? ''}
+              value={pronunciation?.ipa ?? ''}
               oninput={(e) => {
                 const v = (e.currentTarget as HTMLInputElement).value
                 l.pronunciations[o.id] = {
                   ipa: v,
-                  irregular: l.pronunciations[o.id]?.irregular ?? true
+                  irregular: true
                 }
                 touch(l)
               }}
@@ -2159,10 +2194,10 @@
             <label class="row small" title={t('lexicon.irregular')}
               ><input
                 type="checkbox"
-                checked={l.pronunciations[o.id]?.irregular ?? true}
+                checked={pronunciation?.irregular ?? true}
                 onchange={(e) => {
                   l.pronunciations[o.id] = {
-                    ipa: l.pronunciations[o.id]?.ipa ?? '',
+                    ipa: pronunciation?.ipa ?? '',
                     irregular: (e.currentTarget as HTMLInputElement).checked
                   }
                   touch(l)

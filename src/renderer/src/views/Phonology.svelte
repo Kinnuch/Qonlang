@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { deletable } from '$lib/ui/deletable'
   import { ruleMsg } from '$lib/ui/engineText'
   import { navScroll } from '$lib/ui/navScroll'
   import { sectionCollapsed } from '$lib/ui/section.svelte'
@@ -37,21 +38,24 @@
     checkWord,
     languageParseOptions,
     phonemeFeatures,
-    phonotacticsFromInventory,
     type Violation
   } from '$lib/engine/phon'
+  import { parseRuleText, mapRuleWords, type RuleProgram, type WordStress } from '$lib/engine/sca'
+  import { MIN_LEXICON } from '$lib/engine/phon/wordgen'
   import {
-    parseRuleText,
-    stripStress,
-    mapRuleWords,
-    type RuleProgram,
-    type WordStress
-  } from '$lib/engine/sca'
-  import { generateNaturalWords, MIN_LEXICON, type LexiconWord } from '$lib/engine/phon/wordgen'
+    generationNotation,
+    generationLists,
+    generationLanguage,
+    generationInventory,
+    setGenerationNotation,
+    generateCandidates,
+    hasLegacyReverse,
+    type GeneratedCandidate,
+    type GenerationNotation
+  } from '$lib/core/wordGeneration'
   import {
     customStressProgram,
     deriveAll,
-    hasOrthographyRules,
     ipaUnits,
     orthographyRunner,
     spellToIpa,
@@ -67,6 +71,8 @@
     resetPhonemeRule,
     duplicatePhonemeRules,
     preparePhonemeMapping,
+    orthographyInput,
+    orthographyIgnoresCase,
     type OrthographyDirection
   } from '$lib/core/phonemeSpelling'
   import Portal from '$lib/ui/Portal.svelte'
@@ -122,6 +128,8 @@
     genMin: number
     genMax: number
     genLearn: boolean
+    legacyOrthoId: Id | null
+    legacyTest: string
   }>('phonology')
   const sameLang = memo.lang === projectState.currentLanguageId
   let tab = $state<Tab>(memo.tab ?? 'phonemes')
@@ -182,8 +190,8 @@
   // 造词的音节范围默认取自语言设置
   $effect(() => {
     if (lang) {
-      genMin = lang.phonotactics.minSyllables || 1
-      genMax = lang.phonotactics.maxSyllables || 3
+      genMin = generationLists(lang).minSyllables || 1
+      genMax = generationLists(lang).maxSyllables || 3
     }
   })
 
@@ -432,7 +440,7 @@
   }
 
   // ───── 正字法 ─────
-  let orthoDir = $state<'toIpa' | 'fromIpa'>(memo.orthoDir ?? 'toIpa')
+  let orthoDir = $state<OrthographyDirection>('toIpa')
   let orthoView = $state<'list' | 'source'>(memo.orthoView ?? 'list')
   let orthoTest = $state(memo.orthoTest ?? '')
   let orthoProgram = $state<RuleProgram | null>(null)
@@ -447,15 +455,22 @@
       direction = orthoDir
     const convert = preparePhonemeMapping(ortho, direction)
     return (entry: Lexeme): string => {
-      const raw = direction === 'toIpa' ? entry.lemma : (entry.pronunciations?.[id]?.ipa ?? '')
+      const raw =
+        direction === 'toIpa'
+          ? orthographyInput(ortho!, entry.lemma)
+          : (entry.pronunciations?.[id]?.ipa ?? '')
       return mapRuleWords(raw, convert)
     }
   })
   const orthographySampleKey = $derived(
-    ortho ? `${ortho.id}:${orthoDir}:${JSON.stringify(ortho.phonemeRules?.[orthoDir] ?? null)}` : ''
+    ortho
+      ? `${ortho.id}:${orthoDir}:${ortho.caseInsensitive}:${JSON.stringify(ortho.phonemeRules?.[orthoDir] ?? null)}`
+      : ''
   )
   const orthographySampleOptions = $derived(
-    orthoDir === 'toIpa' && lang ? { keepUnits: ipaUnits(lang) } : {}
+    orthoDir === 'toIpa' && lang && ortho
+      ? { keepUnits: ipaUnits(lang), caseInsensitive: orthographyIgnoresCase(ortho) }
+      : {}
   )
   function generateSpellingRules(): void {
     if (!lang || !ortho || projectState.readOnly) return
@@ -486,7 +501,10 @@
       return
     }
     const text = orthoDir === 'toIpa' ? ortho.rulesToIpa : ortho.rulesFromIpa
-    const opts = languageParseOptions(lang, project)
+    const opts = {
+      ...languageParseOptions(lang, project),
+      caseInsensitive: orthoDir === 'toIpa' && orthographyIgnoresCase(ortho)
+    }
     const id = setTimeout(() => {
       orthoProgram = parseRuleText(text, opts)
     }, 120)
@@ -513,7 +531,9 @@
   }
   function removeOrtho(o: Orthography): void {
     if (!lang || lang.orthographies.length <= 1) return
-    lang.orthographies.splice(lang.orthographies.indexOf(o), 1)
+    const index = lang.orthographies.indexOf(o)
+    if (index < 0) return
+    lang.orthographies.splice(index, 1)
     if (o.isPrimary && lang.orthographies[0]) lang.orthographies[0].isPrimary = true
     selectedOrtho = lang.orthographies[0]?.id ?? null
     touch()
@@ -571,15 +591,24 @@
   ]
 
   // ───── 配列与造词 ─────
+  const genNotation = $derived(lang ? generationNotation(lang) : 'ipa')
+  const pt = $derived(lang ? generationLists(lang) : null)
+  function switchGenerationMode(mode: GenerationNotation): void {
+    if (!lang || projectState.readOnly) return
+    setGenerationNotation(lang, mode)
+    generated = []
+    violations = null
+    touch()
+  }
   const listText = (a: string[]): string => a.join(' ')
   const setList = (key: 'onsets' | 'nuclei' | 'codas' | 'illegal', text: string): void => {
     if (!lang) return
-    lang.phonotactics[key] = text.split(/[\s,，、]+/).filter(Boolean)
+    generationLists(lang)[key] = text.split(/[\s,，、]+/).filter(Boolean)
     touch()
   }
   const weightsText = $derived(
     lang
-      ? Object.entries(lang.phonotactics.weights)
+      ? Object.entries(generationLists(lang).weights)
           .map(([k, v]) => `${k}=${v}`)
           .join(' ')
       : ''
@@ -591,15 +620,15 @@
       const [k, v] = part.split('=')
       if (k && v && !isNaN(Number(v))) w[k] = Number(v)
     }
-    lang.phonotactics.weights = w
+    generationLists(lang).weights = w
     touch()
   }
   /** 按音位表填起首、音节核、尾音：空着的直接填，已经有内容的问过再重填，结果用提示条说清楚 */
   async function fillFromInventory(): Promise<void> {
     if (!lang) return
     const target = lang
-    const next = phonotacticsFromInventory(target)
-    const pt = target.phonotactics
+    const next = generationInventory(target)
+    const pt = generationLists(target)
     const keys = (['onsets', 'nuclei', 'codas'] as const).filter((k) => next[k].length)
     if (!keys.length) {
       ui.toast(t('phonology.fillNone'))
@@ -655,11 +684,17 @@
     if (!lang) return
     const primary = lang.orthographies.find((o) => o.isPrimary)
     const out: { lemma: string; ipa: string; v: Violation[] }[] = []
+    const work = generationLanguage(lang)
     for (const l of project.lexemes) {
       if (l.languageId !== lang.id) continue
-      const ipa = ipaOf(l, primary)
-      const a = analyzeWord(lang, ipa)
-      const v = checkWord(a.segments, a.syllables, lang.phonotactics)
+      const ipa =
+        genNotation === 'spelling'
+          ? primary
+            ? orthographyInput(primary, l.lemma)
+            : l.lemma
+          : ipaOf(l, primary)
+      const a = analyzeWord(work, ipa)
+      const v = checkWord(a.segments, a.syllables, work.phonotactics)
       if (v.length) out.push({ lemma: l.lemma, ipa, v })
     }
     violations = out
@@ -685,7 +720,9 @@
       genCount,
       genMin,
       genMax,
-      genLearn
+      genLearn,
+      legacyOrthoId,
+      legacyTest
     })
   })
   if (sameLang && !ui.restoring('phonology'))
@@ -697,49 +734,58 @@
   )
   function generate(): void {
     if (!lang) return
-    const primary = lang.orthographies.find((o) => o.isPrimary)
-    const fromIpa = primary ? orthoProgramOf(primary, 'fromIpa') : null
-    const runFromIpa = primary ? orthographyRunner(lang, primary, 'fromIpa', {}, fromIpa) : null
-    const mine = project.lexemes.filter((l) => l.languageId === lang!.id && l.lemma.trim())
-    const existing = new Set(mine.map((l) => l.lemma))
-    const lexicon: LexiconWord[] = genLearn
-      ? mine.map((l) => ({ label: l.lemma, ipa: ipaOf(l, primary) }))
-      : []
-    const words = generateNaturalWords(lang, {
+    generated = generateCandidates(project, lang, {
       count: genCount,
       minSyllables: genMin,
       maxSyllables: genMax,
-      lexicon,
-      exclude: existing
+      learn: genLearn
     })
-    generated = words
-      .map((w) => ({
-        ipa: w.ipa,
-        spelt:
-          primary && hasOrthographyRules(primary, 'fromIpa')
-            ? fromIpa?.hasStress
-              ? stripStress(runFromIpa!(w.ipa).output)
-              : runFromIpa!(w.ipa).output
-            : null,
-        like: w.like
-      }))
-      .filter((g) => !existing.has(g.spelt ?? g.ipa))
   }
-  function orthoProgramOf(o: Orthography, dir: 'toIpa' | 'fromIpa'): RuleProgram | null {
-    if (!lang) return null
-    const text = dir === 'toIpa' ? o.rulesToIpa : o.rulesFromIpa
-    return text.trim() ? parseRuleText(text, languageParseOptions(lang, project)) : null
-  }
-  function addGenerated(g: { ipa: string; spelt: string | null }): void {
-    if (!lang) return
-    const l = createLexeme(lang.id, g.spelt ?? g.ipa)
-    const primary = lang.orthographies.find((o) => o.isPrimary)
-    if (primary) l.pronunciations[primary.id] = { ipa: g.ipa, irregular: false }
+  async function addGenerated(g: GeneratedCandidate): Promise<void> {
+    if (!lang || projectState.readOnly) return
+    const target = lang,
+      session = project
+    const lemma =
+      g.spelt ?? (await ui.prompt(t('phonology.generatedLemmaPrompt', { ipa: g.ipa }), ''))?.trim()
+    if (!lemma || projectState.project !== session || lang !== target || projectState.readOnly)
+      return
+    if (project.lexemes.some((l) => l.languageId === target.id && l.lemma === lemma)) {
+      ui.toast(t('phonology.generatedDuplicate'))
+      return
+    }
+    const l = createLexeme(target.id, lemma)
+    const primary = target.orthographies.find((o) => o.isPrimary)
+    if (primary) {
+      const normal = transcribe(target, primary, lemma)
+      l.pronunciations[primary.id] = { ipa: g.ipa, irregular: normal !== g.ipa }
+    }
     project.lexemes.push(l)
     generated = generated.filter((x) => x !== g)
     touch()
-    ui.toast(t('phonology.addedWord', { w: g.spelt ?? g.ipa }))
+    ui.toast(t('phonology.addedWord', { w: lemma }))
   }
+  let legacyOrthoId = $state<Id | null>(memo.legacyOrthoId ?? null)
+  let legacyTest = $state(memo.legacyTest ?? '')
+  const legacyOrthos = $derived(lang?.orthographies.filter(hasLegacyReverse) ?? [])
+  const legacyOrtho = $derived(
+    legacyOrthos.find((o) => o.id === legacyOrthoId) ??
+      legacyOrthos.find((o) => o.isPrimary) ??
+      legacyOrthos[0] ??
+      null
+  )
+  const legacyProgram = $derived(
+    legacyOrtho && lang
+      ? parseRuleText(legacyOrtho.rulesFromIpa, languageParseOptions(lang, project))
+      : null
+  )
+  const legacyResults = $derived.by(() => {
+    if (!lang || !legacyOrtho) return []
+    const run = orthographyRunner(lang, legacyOrtho, 'fromIpa', {}, legacyProgram)
+    return legacyTest
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => ({ word, out: run(word).output }))
+  })
   async function copyGenerated(): Promise<void> {
     await navigator.clipboard.writeText(
       generated.map((g) => (g.spelt ? `${g.spelt}\t${g.ipa}` : g.ipa)).join('\n')
@@ -898,6 +944,13 @@
                     <button
                       class="chip data"
                       class:active={selectedPhoneme === p.id}
+                      use:deletable={{
+                        selected: selectedPhoneme === p.id,
+                        select: () => {
+                          selectedPhoneme = p.id
+                        },
+                        remove: () => removePhoneme(p)
+                      }}
                       {...sortable(`phonemes-${g}`, pi, (from, to) => {
                         if (lang && moveById(lang.phonemes, ps[from].id, ps[to].id)) touch()
                       })}
@@ -1004,6 +1057,7 @@
           <div
             class="card cls class-summary"
             data-phonology-class={c.id}
+            use:deletable={{ remove: () => removeClass(c), enabled: !classEditor }}
             role="button"
             tabindex={projectState.readOnly || classEditor ? -1 : 0}
             aria-disabled={projectState.readOnly || !!classEditor}
@@ -1061,6 +1115,14 @@
           <button
             class="chip big"
             class:active={ortho?.id === o.id}
+            use:deletable={{
+              selected: ortho?.id === o.id,
+              select: () => {
+                selectedOrtho = o.id
+              },
+              enabled: lang.orthographies.length > 1,
+              remove: () => removeOrtho(o)
+            }}
             {...sortable(`orthos-${lang.id}`, oi, (from, to) => {
               if (lang && moveItem(lang.orthographies, from, to)) touch()
             })}
@@ -1079,14 +1141,20 @@
       </div>
       {#if ortho}
         <div class="row">
-          <div class="seg">
-            <button class:active={orthoDir === 'toIpa'} onclick={() => (orthoDir = 'toIpa')}
-              >{t('phonology.toIpa')}</button
-            >
-            <button class:active={orthoDir === 'fromIpa'} onclick={() => (orthoDir = 'fromIpa')}
-              >{t('phonology.fromIpa')}</button
-            >
-          </div>
+          <strong>{t('phonology.toIpa')}</strong>
+          <label class="row small" data-orthography-case
+            ><input
+              type="checkbox"
+              checked={ortho.caseInsensitive !== false}
+              disabled={projectState.readOnly}
+              onchange={(e) => {
+                ortho.caseInsensitive = e.currentTarget.checked
+                touch()
+              }}
+            />{t('phonology.caseInsensitive')}<HelpDot
+              tip={t('phonology.caseInsensitiveHint')}
+            /></label
+          >
           <span class="grow"></span>
           <div class="seg">
             <button class:active={orthoView === 'list'} onclick={() => (orthoView = 'list')}
@@ -1422,8 +1490,20 @@
         <div class="row">
           <h3 class="grow">
             {t('phonology.phonotactics')}
-            <HelpDot tip={t('phonology.phonotacticsHint')} />
+            <HelpDot tip={t('phonology.generationModeHint')} />
           </h3>
+          <div class="seg" data-generation-mode>
+            <button
+              class:active={genNotation === 'spelling'}
+              disabled={projectState.readOnly}
+              onclick={() => switchGenerationMode('spelling')}>{t('phonology.testSpelling')}</button
+            >
+            <button
+              class:active={genNotation === 'ipa'}
+              disabled={projectState.readOnly}
+              onclick={() => switchGenerationMode('ipa')}>IPA</button
+            >
+          </div>
           <button class="btn sm" onclick={fillFromInventory}
             ><Wand2 size={14} />{t('phonology.fillFromInventory')}</button
           >
@@ -1432,28 +1512,28 @@
           <label class="field"
             ><span>{t('phonology.onsets')}</span><input
               class="input data"
-              value={listText(lang.phonotactics.onsets)}
+              value={listText(pt!.onsets)}
               onchange={(e) => setList('onsets', (e.currentTarget as HTMLInputElement).value)}
             /></label
           >
           <label class="field"
             ><span>{t('phonology.nuclei')}</span><input
               class="input data"
-              value={listText(lang.phonotactics.nuclei)}
+              value={listText(pt!.nuclei)}
               onchange={(e) => setList('nuclei', (e.currentTarget as HTMLInputElement).value)}
             /></label
           >
           <label class="field"
             ><span>{t('phonology.codas')}</span><input
               class="input data"
-              value={listText(lang.phonotactics.codas)}
+              value={listText(pt!.codas)}
               onchange={(e) => setList('codas', (e.currentTarget as HTMLInputElement).value)}
             /></label
           >
           <label class="field"
             ><span>{t('phonology.illegal')}</span><input
               class="input data"
-              value={listText(lang.phonotactics.illegal)}
+              value={listText(pt!.illegal)}
               onchange={(e) => setList('illegal', (e.currentTarget as HTMLInputElement).value)}
             /></label
           >
@@ -1471,7 +1551,7 @@
                 type="number"
                 min="1"
                 class="input num"
-                bind:value={lang.phonotactics.minSyllables}
+                bind:value={pt!.minSyllables}
                 onchange={touch}
               /></label
             >
@@ -1480,7 +1560,7 @@
                 type="number"
                 min="1"
                 class="input num"
-                bind:value={lang.phonotactics.maxSyllables}
+                bind:value={pt!.maxSyllables}
                 onchange={touch}
               /></label
             >
@@ -1572,6 +1652,75 @@
           {/each}
         </div>
       </section>
+      {#if legacyOrtho}
+        <details class="block" data-legacy-reverse>
+          <summary>{t('phonology.legacyReverse')}</summary>
+          {#if legacyOrthos.length > 1}<select
+              class="select"
+              data-legacy-orthography
+              aria-label={t('phonology.tabs.orthography')}
+              bind:value={legacyOrthoId}
+            >
+              {#each legacyOrthos as o (o.id)}<option value={o.id}>{o.name}</option>{/each}
+            </select>{:else}<strong>{legacyOrtho.name}</strong>{/if}
+          <p class="small muted">{t('phonology.legacyReverseHint')}</p>
+          {#each phonemeRules(legacyOrtho, 'fromIpa') as row (row.id)}
+            <div class="row">
+              <input
+                type="checkbox"
+                checked={row.enabled}
+                aria-label={t('phonology.spellingEnabled')}
+                onchange={(e) =>
+                  updateSpellingRule(legacyOrtho!, 'fromIpa', row.id, {
+                    enabled: e.currentTarget.checked
+                  })}
+              />
+              <input
+                class="input data"
+                value={row.from}
+                aria-label="IPA"
+                oninput={(e) =>
+                  updateSpellingRule(legacyOrtho!, 'fromIpa', row.id, {
+                    from: e.currentTarget.value
+                  })}
+              />
+              <span>→</span><input
+                class="input data"
+                value={row.to}
+                aria-label={t('phonology.spellingWritten')}
+                oninput={(e) =>
+                  updateSpellingRule(legacyOrtho!, 'fromIpa', row.id, {
+                    to: e.currentTarget.value
+                  })}
+              />
+            </div>
+          {/each}
+          <RuleList
+            bind:text={legacyOrtho.rulesFromIpa}
+            program={legacyProgram}
+            onchange={touch}
+            foldKey={`legacy-ortho:${legacyOrtho.id}`}
+            sampleLanguageId={lang.id}
+            sampleInput="ipa"
+            sampleOrthoId={legacyOrtho.id}
+          />
+          <label class="field"
+            ><span>{t('phonology.test')}</span><textarea
+              class="textarea data"
+              data-legacy-test
+              bind:value={legacyTest}
+            ></textarea></label
+          >
+          <table class="res">
+            <tbody
+              >{#each legacyResults as row, i (i)}<tr
+                  ><td class="data">{row.word}</td>
+                  <td class="data out">{row.out}</td></tr
+                >{/each}</tbody
+            >
+          </table>
+        </details>
+      {/if}
     </div>
   {/if}
 </div>

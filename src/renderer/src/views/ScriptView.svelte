@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { deletable } from '$lib/ui/deletable'
   import { navScroll } from '$lib/ui/navScroll'
   import { focusField } from '$lib/ui/focus'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
@@ -286,18 +287,28 @@
     touch()
   }
   function removeScript(s: Script): void {
-    if (!lang) return
-    const idx = lang.scripts.indexOf(s)
+    const owner = lang,
+      originalProject = projectState.project
+    if (!owner || !originalProject || projectState.readOnly) return
+    const idx = owner.scripts.indexOf(s)
+    if (idx < 0) return
     const snap = $state.snapshot(s) as Script
-    lang.scripts.splice(idx, 1)
-    selectedScript = lang.scripts[0]?.id ?? null
+    owner.scripts.splice(idx, 1)
+    selectedScript = owner.scripts[0]?.id ?? null
     touch()
     ui.toast(t('script.deleted'), {
       action: {
         label: t('common.undo'),
         run: () => {
-          lang!.scripts.splice(Math.min(idx, lang!.scripts.length), 0, snap)
-          selectedScript = snap.id
+          if (
+            projectState.project !== originalProject ||
+            projectState.readOnly ||
+            !originalProject.languages.includes(owner) ||
+            owner.scripts.some((item) => item.id === snap.id)
+          )
+            return
+          owner.scripts.splice(Math.min(idx, owner.scripts.length), 0, snap)
+          if (lang === owner) selectedScript = snap.id
           touch()
         }
       }
@@ -437,10 +448,13 @@
     selectedGlyph = g.id
   }
   function removeSelectedGlyphs(): void {
-    if (!script || multiGlyphs.length < 2) return
+    if (!script || !lang || projectState.readOnly || multiGlyphs.length < 2) return
+    const targetProject = project
+    const targetLanguage = lang
+    const targetScript = script
     const ids = new Set(multiGlyphs)
-    const snap = $state.snapshot(script.glyphs) as Glyph[]
-    script.glyphs = script.glyphs.filter((g) => !ids.has(g.id))
+    const snap = $state.snapshot(targetScript.glyphs) as Glyph[]
+    targetScript.glyphs = targetScript.glyphs.filter((g) => !ids.has(g.id))
     if (selectedGlyph && ids.has(selectedGlyph)) selectedGlyph = null
     multiGlyphs = []
     touch()
@@ -448,7 +462,14 @@
       action: {
         label: t('common.undo'),
         run: () => {
-          if (script) script.glyphs = snap
+          if (
+            projectState.project !== targetProject ||
+            projectState.readOnly ||
+            !targetProject.languages.includes(targetLanguage) ||
+            !targetLanguage.scripts.includes(targetScript)
+          )
+            return
+          targetScript.glyphs = snap
           touch()
         }
       }
@@ -480,7 +501,9 @@
   }
   function removeGlyph(g: Glyph): void {
     if (!script) return
-    script.glyphs.splice(script.glyphs.indexOf(g), 1)
+    const index = script.glyphs.indexOf(g)
+    if (index < 0) return
+    script.glyphs.splice(index, 1)
     if (selectedGlyph === g.id) selectedGlyph = null
     touch()
   }
@@ -664,6 +687,14 @@
           <button
             class="tab"
             class:active={script?.id === s.id}
+            use:deletable={{
+              selected: script?.id === s.id,
+              select: () => {
+                selectedScript = s.id
+                selectedGlyph = null
+              },
+              remove: () => removeScript(s)
+            }}
             onclick={() => {
               selectedScript = s.id
               selectedGlyph = null
@@ -797,6 +828,17 @@
             <button
               class="gcard"
               class:sel={selectedGlyph === g.id || multiGlyphs.includes(g.id)}
+              use:deletable={{
+                selected: selectedGlyph === g.id || multiGlyphs.includes(g.id),
+                select: () => {
+                  if (!multiGlyphs.includes(g.id)) multiGlyphs = []
+                  selectedGlyph = g.id
+                },
+                remove: () => {
+                  if (multiGlyphs.includes(g.id) && multiGlyphs.length > 1) removeSelectedGlyphs()
+                  else removeGlyph(g)
+                }
+              }}
               onclick={(e) => pickGlyph(e, g, gi)}
               title={g.name}
             >

@@ -66,6 +66,7 @@ export function createOrthography(name: string, isPrimary = false): Orthography 
     direction: 'ltr',
     rulesToIpa: '',
     rulesFromIpa: '',
+    caseInsensitive: true,
     isPrimary
   }
 }
@@ -98,6 +99,16 @@ export function createLanguage(init: Partial<Language> & { name: string }): Lang
     syllable: { enabled: false, template: '', strategy: 'maximal-onset' },
     prosody: { type: 'none', stressPosition: 'initial', rules: '', tones: [] },
     phonotactics: {
+      notation: 'spelling',
+      spelling: {
+        onsets: [],
+        nuclei: [],
+        codas: [],
+        illegal: [],
+        weights: {},
+        minSyllables: 1,
+        maxSyllables: 3
+      },
       onsets: [],
       nuclei: [],
       codas: [],

@@ -461,6 +461,16 @@
       }
     })
   }
+  function removeNode(id: Id, kind: 'group' | 'language'): void {
+    if (projectState.readOnly) return
+    if (kind === 'group') {
+      const group = groups.find((item) => item.id === id)
+      if (group) removeGroup(group)
+    } else {
+      const language = project.languages.find((item) => item.id === id)
+      if (language) remove(language)
+    }
+  }
 
   function setParent(l: Language, parentId: Id | null): void {
     if (wouldCreateCycle(project.languages, l.id, parentId)) {
@@ -527,6 +537,7 @@
       {hlNodes}
       {hlEdges}
       onselect={pick}
+      ondelete={removeNode}
     />
   {:else}
     <div class="tree" data-tour="languages-tree">
@@ -540,6 +551,7 @@
           {hlNodes}
           {dragProps}
           onselect={pick}
+          ondelete={removeNode}
           onaddchild={(id, kind) => (kind === 'group' ? add(null, id) : add(id))}
           oncompare={toggleCompare}
         />

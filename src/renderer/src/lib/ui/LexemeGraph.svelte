@@ -9,6 +9,8 @@
   import type { Id, Lexeme, Morpheme, Project } from '$lib/core/model'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { ui } from '$lib/state/ui.svelte'
+  import { projectState } from '$lib/state/project.svelte'
+  import { deletable } from './deletable'
   import {
     splitSourceForm,
     resolveFormInLanguage,
@@ -24,11 +26,13 @@
     project,
     lexemeId,
     onselect,
+    ondelete,
     mode = $bindable('graph')
   }: {
     project: Project
     lexemeId: Id
     onselect: (id: Id) => void
+    ondelete?: (id: Id) => unknown
     /** 关系图还是对比视图（页面状态里记着） */
     mode?: 'graph' | 'compare'
   } = $props()
@@ -521,7 +525,7 @@
     e.preventDefault()
     e.stopPropagation()
     const W = 230
-    const H = key ? 170 : 110
+    const H = key ? 215 : 110
     menu = {
       x: Math.min(e.clientX, window.innerWidth - W - 8),
       y: Math.min(e.clientY, window.innerHeight - H - 8),
@@ -532,6 +536,22 @@
   $effect(() => {
     if (!menu) return
     const close = (ev: Event): void => {
+      if (
+        ev instanceof KeyboardEvent &&
+        ev.key === 'Delete' &&
+        menuNode?.lexemeId &&
+        ondelete &&
+        !projectState.readOnly &&
+        !ev.repeat &&
+        !ev.ctrlKey &&
+        !ev.metaKey &&
+        !ev.altKey &&
+        !ev.shiftKey
+      ) {
+        ev.preventDefault()
+        void deleteWord(menuNode.lexemeId)
+        return
+      }
       if (ev instanceof KeyboardEvent && ev.key !== 'Escape') return
       if (ev.type === 'pointerdown' && (ev.target as Element).closest?.('.gmenu')) return
       menu = null
@@ -546,6 +566,21 @@
     }
   })
   const menuNode = $derived(menu?.key ? (layout?.byKey.get(menu.key)?.node ?? null) : null)
+  async function deleteWord(id: Id): Promise<void> {
+    if (projectState.readOnly || projectState.project !== project || !ondelete) return
+    const owner = project,
+      existing = new Set(ui.toasts.map((toast) => toast.id))
+    menu = null
+    const result = ondelete(id)
+    for (const toast of ui.toasts)
+      if (!existing.has(toast.id) && toast.action?.label === t('common.undo')) {
+        const undo = toast.action.run
+        toast.action.run = () => {
+          if (projectState.project === owner && !projectState.readOnly) undo()
+        }
+      }
+    await result
+  }
   function run(fn: () => void): void {
     fn()
     menu = null
@@ -604,6 +639,13 @@
               class:open={expanded.has(n.key) && !isCenter}
               class:clickable={!isCenter && (!!n.lexemeId || !!n.morphemeId)}
               data-key={n.key}
+              use:deletable={{
+                identity: n.lexemeId,
+                context: false,
+                selected: isCenter,
+                enabled: !!ondelete && !!n.lexemeId,
+                remove: () => (n.lexemeId ? deleteWord(n.lexemeId) : undefined)
+              }}
               transform={`translate(${p.x}, ${p.y})`}
               role="button"
               tabindex="-1"
@@ -679,6 +721,17 @@
           >{t('corpus.openInMorphemes')}</button
         >
       {/if}
+      {#if menuNode?.lexemeId && ondelete}<hr />
+        <button
+          class="delete-object"
+          role="menuitem"
+          disabled={projectState.readOnly}
+          onclick={() => {
+            if (menuNode?.lexemeId) void deleteWord(menuNode.lexemeId)
+          }}
+          >{t('common.delete')}<span class="grow"></span><span class="small muted">Delete</span
+          ></button
+        >{/if}
     {:else}
       <button role="menuitem" onclick={resetView}>{t('lexicon.graphReset')}</button>
       <button role="menuitem" onclick={() => run(() => (expanded = defaultExpanded(lexemeId)))}
@@ -689,6 +742,9 @@
 {/if}
 
 <style>
+  .gmenu button.delete-object {
+    color: var(--danger);
+  }
   .lg {
     display: flex;
     flex-direction: column;

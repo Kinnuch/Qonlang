@@ -4,6 +4,7 @@
    * 滚轮缩放、按住拖动平移，「适应」把整张图缩到看得全。点一个节点就选中它（跟列表一样）。
    */
   import type { Id } from '$lib/core/model'
+  import { deletable } from '$lib/ui/deletable'
   import { stageShort, type TreeItem } from '$lib/core/languageTree'
   import { t } from '$lib/i18n/index.svelte'
   import { ui } from '$lib/state/ui.svelte'
@@ -19,7 +20,8 @@
     compareIds = [],
     hlNodes = new Set<string>(),
     hlEdges = new Set<string>(),
-    onselect
+    onselect,
+    ondelete
   }: {
     items: TreeItem[]
     /** 顶栏搜索筛出来的可见节点；null 表示不筛 */
@@ -33,6 +35,7 @@
     /** 要描出来的连线 key（`父key>子key`） */
     hlEdges?: Set<string>
     onselect: (id: Id, kind: 'group' | 'language', addToCompare: boolean) => void
+    ondelete?: (id: Id, kind: 'group' | 'language') => void
   } = $props()
 
   const fontScale = $derived(Math.max(1, fontSize(ui.prefs.skin, 'ui') / 100))
@@ -262,6 +265,20 @@
             <g
               class="gnode {n.kind}"
               class:sel={selectedId === n.id}
+              use:deletable={{
+                selected: selectedId === n.id,
+                select: () => onselect(n.id, n.kind, false),
+                enabled: !!ondelete,
+                remove: () => ondelete?.(n.id, n.kind),
+                actions: [
+                  {
+                    label: sectionCollapsed(`langNode:${n.key}`)
+                      ? t('common.expand')
+                      : t('common.collapse'),
+                    run: () => toggleSection(`langNode:${n.key}`)
+                  }
+                ]
+              }}
               class:hl={hlNodes.has(n.key)}
               class:cmp={compareIds.includes(n.id)}
               data-key={n.key}
@@ -271,10 +288,6 @@
               tabindex="0"
               onclick={(e) => onselect(n.id, n.kind, e.ctrlKey || e.metaKey)}
               onkeydown={(e) => e.key === 'Enter' && onselect(n.id, n.kind, false)}
-              oncontextmenu={(e) => {
-                e.preventDefault()
-                toggleSection(`langNode:${n.key}`)
-              }}
             >
               <title>{fullLabel}</title>
               <rect class="box" x={-NW / 2} y={-NH / 2} width={NW} height={NH} rx="9" />

@@ -7,6 +7,7 @@ import type {
   Dialect,
   Etymology,
   EtymologyType,
+  EtymologySource,
   GrammaticalCategory,
   Id,
   Language,
@@ -30,6 +31,7 @@ import { etymologyOrigin } from '$lib/core/etymology'
 import { customFieldTitle, findCustomField } from '$lib/core/customFields'
 import { splitRegisters } from '$lib/core/register'
 import { ensureCompoundPos, posName, posParadigmId, sensePos } from '$lib/core/pos'
+import { automaticImportedIpa, mergeImportedLexeme, mergeImportedSources } from './lexemeImport'
 
 export type FieldSpec =
   | { kind: 'ignore' }
@@ -152,6 +154,10 @@ export interface PosRule {
 }
 
 export interface CsvMapping {
+  /** 默认追加；覆盖仅匹配同语言中可唯一确定的精确词头/词类。 */
+  overwriteExisting?: boolean
+  /** 明确启用本次对应正字法的自动IPA，旧预设缺省不启用。 */
+  automaticIpa?: boolean
   target: 'lexemes' | 'morphemes'
   languageId: Id
   hasHeader: boolean
@@ -193,6 +199,8 @@ export interface CsvMapping {
 }
 
 export interface ImportReport {
+  updated?: number
+  ambiguous?: string[]
   created: number
   skipped: number
   duplicates: string[]
@@ -385,11 +393,14 @@ function resolvePos(
 function findLanguage(project: Project, text: string): Language | undefined {
   const s = text.trim().toLowerCase()
   if (!s) return undefined
-  return project.languages.find(
-    (l) =>
-      l.id === text.trim() ||
-      l.name.trim().toLowerCase() === s ||
-      (!!l.abbr && l.abbr.trim().toLowerCase() === s)
+  return (
+    project.languages.find((language) => language.id === text.trim()) ??
+    project.languages.find(
+      (l) =>
+        l.id === text.trim() ||
+        l.name.trim().toLowerCase() === s ||
+        (!!l.abbr && l.abbr.trim().toLowerCase() === s)
+    )
   )
 }
 
@@ -1120,9 +1131,19 @@ export function applyCsvImport(
   }
   const existingLemmas = new Set(
     mapping.target === 'lexemes'
-      ? project.lexemes.filter((l) => l.languageId === mapping.languageId).map((l) => l.lemma)
-      : project.morphemes.filter((m) => m.languageId === mapping.languageId).map((m) => m.form)
+      ? project.lexemes.map((l) => `${l.languageId}\0${l.lemma.trim()}`)
+      : project.morphemes.map((m) => `${m.languageId}\0${m.form.trim()}`)
   )
+  const matchingLexemes = new Map<string, Lexeme[]>(),
+    positions = new Map<Id, number>()
+  if (mapping.overwriteExisting && mapping.target === 'lexemes')
+    project.lexemes.forEach((entry, index) => {
+      const key = `${entry.languageId}\0${entry.lemma.trim()}`
+      const bucket = matchingLexemes.get(key) ?? []
+      bucket.push(entry)
+      matchingLexemes.set(key, bucket)
+      positions.set(entry.id, index)
+    })
 
   /** 释义开头的编码：旧版「编码=标签」加上新的编码表；只去掉的记成 null */
   const prefixMap = new Map<string, string | null>(parsePrefixMap(mapping.sensePrefixMap ?? ''))
@@ -1143,8 +1164,15 @@ export function applyCsvImport(
     return hit ?? baseLang
   }
   /** 词源来源、关系等全部行都建好再挂，好指向这次导入的其他行 */
-  const pendingSources: { ety: Etymology; text: string; language: string; ownerId: Id }[] = []
-  const pendingRelations: { lx: Lexeme; kind: string; targets: string[] }[] = []
+  const pendingSources: {
+    ety: Etymology
+    text: string
+    language: string
+    ownerId: Id
+    column: number
+  }[] = []
+  const pendingRelations: { ownerId: Id; kind: string; targets: string[] }[] = []
+  const overwrittenOwners = new Set<Id>()
   /** 检视器模块：按标题或别名找，项目里没有就按列里写的名字新建（一次导入只建一次） */
   const customByName = new Map<string, CustomField>()
   const customFieldFor = (name: string): CustomField | null => {
@@ -1161,6 +1189,7 @@ export function applyCsvImport(
     return f
   }
   for (const row of data) {
+    let updated = false
     let key = (row[keyCol] ?? '').trim()
     let protoFromArrow = ''
     if (mapping.splitProtoArrow && key.includes('>')) {
@@ -1181,12 +1210,20 @@ export function applyCsvImport(
         continue
       }
     }
-    if (existingLemmas.has(key)) report.duplicates.push(key)
-    existingLemmas.add(key)
+    const rowLanguage = langOf(row),
+      rowLanguageId = rowLanguage?.id ?? mapping.languageId
+    const scopedKey = `${rowLanguageId}\0${key}`
+    if (existingLemmas.has(scopedKey)) report.duplicates.push(key)
+    existingLemmas.add(scopedKey)
 
     if (mapping.target === 'lexemes') {
-      const lang = langOf(row)
-      const lx = createLexeme(lang?.id ?? mapping.languageId, key)
+      const lang = rowLanguage
+      let lx = createLexeme(lang?.id ?? mapping.languageId, key)
+      const provided = mapping.columns.filter(
+        (field, index) => field.kind !== 'ignore' && !!(row[index] ?? '').trim()
+      )
+      const sourceStart = pendingSources.length,
+        relationStart = pendingRelations.length
       let variantText = ''
       const sense = lx.senses[0]
       const defs: Record<string, string[]> = {}
@@ -1293,6 +1330,7 @@ export function applyCsvImport(
           }
           case 'protoForm':
             pendingSources.push({
+              column: ci,
               ety: lx.etymology,
               text: raw,
               language: spec.language ?? '',
@@ -1304,7 +1342,7 @@ export function applyCsvImport(
             break
           case 'etymologyStage':
             lx.etymology.stages.push({
-              id: newId(),
+              id: `csv-stage:${lx.id}:${ci}`,
               form: raw,
               type: '',
               notes: spec.label?.trim() ?? ''
@@ -1318,7 +1356,7 @@ export function applyCsvImport(
             break
           case 'relation':
             pendingRelations.push({
-              lx,
+              ownerId: lx.id,
               kind: spec.relKind?.trim() || 'related',
               targets: splitTags(raw, mapping.tagSeparator)
             })
@@ -1414,6 +1452,7 @@ export function applyCsvImport(
           [p.baseVariantName?.trim(), '通用', 'base'].some((n) => !!n && n.toLowerCase() === low)
         )
         if (v) lx.paradigmVariantId = v.id
+        else if (isBase) lx.paradigmVariantId = null
         else if (!isBase) warnOnce(`找不到构形变体「${variantText}」`)
       }
       // 组装义项：各释义语言按序号对齐，第一条写进已有的义项
@@ -1451,9 +1490,49 @@ export function applyCsvImport(
         lx.posId = posOf([...new Set(lx.senses.flatMap((s) => (s.posId ? [s.posId] : [])))])
       for (const s of lx.senses) if (s.posId && s.posId === lx.posId) delete s.posId
       lx.tags = [...new Set(lx.tags)]
-      project.lexemes.push(lx)
+      const rawLanguage = langCol >= 0 ? (row[langCol] ?? '').trim() : ''
+      const exactLanguage = project.languages.find((item) => item.id === rawLanguage)
+      const namedLanguages = exactLanguage
+        ? [exactLanguage]
+        : rawLanguage
+          ? project.languages.filter(
+              (item) =>
+                item.id === rawLanguage ||
+                item.name.trim().toLowerCase() === rawLanguage.toLowerCase() ||
+                item.abbr?.trim().toLowerCase() === rawLanguage.toLowerCase()
+            )
+          : []
+      const clearLanguage = !rawLanguage || namedLanguages.length === 1
+      const same =
+        mapping.overwriteExisting && clearLanguage ? (matchingLexemes.get(scopedKey) ?? []) : []
+      const candidates = lx.posId ? same.filter((item) => item.posId === lx.posId) : same
+      if (candidates.length === 1) {
+        const existing = candidates[0]
+        lx = mergeImportedLexeme(existing, lx, provided)
+        project.lexemes[positions.get(existing.id)!] = lx
+        same[same.indexOf(existing)] = lx
+        updated = true
+        report.updated = (report.updated ?? 0) + 1
+        overwrittenOwners.add(existing.id)
+      } else {
+        if (mapping.overwriteExisting && (candidates.length > 1 || !clearLanguage))
+          (report.ambiguous ??= []).push(key)
+        if (mapping.overwriteExisting) {
+          const bucket = matchingLexemes.get(scopedKey) ?? []
+          bucket.push(lx)
+          matchingLexemes.set(scopedKey, bucket)
+          positions.set(lx.id, project.lexemes.length)
+        }
+        project.lexemes.push(lx)
+      }
+      for (const pending of pendingSources.slice(sourceStart)) {
+        pending.ety = lx.etymology
+        pending.ownerId = lx.id
+      }
+      for (const pending of pendingRelations.slice(relationStart)) pending.ownerId = lx.id
+      if (mapping.automaticIpa) automaticImportedIpa(project, lang, lx, mapping.columns)
     } else {
-      const m = createMorpheme(langOf(row)?.id ?? mapping.languageId, mapping.defaultMorphemeType)
+      const m = createMorpheme(rowLanguageId, mapping.defaultMorphemeType)
       m.form = key
       mapping.columns.forEach((spec, ci) => {
         const raw = (row[ci] ?? '').trim()
@@ -1497,6 +1576,7 @@ export function applyCsvImport(
             break
           case 'protoForm':
             pendingSources.push({
+              column: ci,
               ety: m.etymology,
               text: raw,
               language: spec.language ?? '',
@@ -1536,13 +1616,23 @@ export function applyCsvImport(
       m.tags = [...new Set(m.tags)]
       project.morphemes.push(m)
     }
-    report.created++
+    if (!updated) report.created++
   }
   // 词源来源与关系：全部行都建好了再挂，可以指向这次导入的其他行
   const lemmaIndex = new Map<string, Lexeme[]>()
-  for (const l of project.lexemes) lemmaIndex.set(l.lemma, [...(lemmaIndex.get(l.lemma) ?? []), l])
+  const owners = new Map<Id, Lexeme>()
+  for (const l of project.lexemes) {
+    const bucket = lemmaIndex.get(l.lemma) ?? []
+    bucket.push(l)
+    lemmaIndex.set(l.lemma, bucket)
+    owners.set(l.id, l)
+  }
   const noHyphens = (s: string): string => s.replace(/^[-=]+|[-=]+$/g, '')
-  for (const { ety, text, language, ownerId } of pendingSources) {
+  const resolvedImports = new Map<Id, Map<number, EtymologySource[]>>()
+  for (const pending of pendingSources) {
+    const { text, language, ownerId } = pending
+    const ety = owners.get(ownerId)?.etymology ?? pending.ety
+    const resolved: EtymologySource[] = []
     const lang = language.trim() ? findLanguage(project, language) : undefined
     for (const piece of text.split(/\s+\+\s+/)) {
       // 「形式 ‘意义’」：引号里的是来源的意义
@@ -1563,20 +1653,31 @@ export function applyCsvImport(
                 noHyphens(x.form) === noHyphens(bare)
             )
           : undefined
-      if (lexeme) ety.sources.push({ kind: 'lexeme', id: lexeme.id })
-      else if (morpheme) ety.sources.push({ kind: 'morpheme', id: morpheme.id })
+      if (lexeme) resolved.push({ kind: 'lexeme', id: lexeme.id })
+      else if (morpheme) resolved.push({ kind: 'morpheme', id: morpheme.id })
       else
-        ety.sources.push({
+        resolved.push({
           kind: 'external',
           language: lang?.name ?? language.trim(),
           form,
           meaning: quoted ? quoted[2].trim() : ''
         })
     }
+    if (overwrittenOwners.has(ownerId)) {
+      const fields = resolvedImports.get(ownerId) ?? new Map<number, EtymologySource[]>()
+      fields.set(pending.column, resolved)
+      resolvedImports.set(ownerId, fields)
+    } else ety.sources.push(...resolved)
     if (ety.type === 'unknown') ety.type = 'inherited'
   }
+  for (const [ownerId, fields] of resolvedImports) {
+    const ety = owners.get(ownerId)!.etymology
+    ety.sources = mergeImportedSources(ety.sources, [...fields.values()].flat())
+  }
   const missingTargets = new Set<string>()
-  for (const { lx, kind, targets } of pendingRelations)
+  for (const { ownerId, kind, targets } of pendingRelations) {
+    const lx = owners.get(ownerId)
+    if (!lx) continue
     for (const target of targets) {
       const same = (lemmaIndex.get(target) ?? []).filter((l) => l.id !== lx.id)
       const hit = same.find((l) => l.languageId === lx.languageId) ?? same[0]
@@ -1584,6 +1685,7 @@ export function applyCsvImport(
       else if (!lx.relations.some((r) => r.kind === kind && r.lexemeId === hit.id))
         lx.relations.push({ kind, lexemeId: hit.id })
     }
+  }
   if (missingTargets.size)
     report.warnings.push(
       `关系里这些单词在项目里找不到：${[...missingTargets].slice(0, 20).join('、')}${missingTargets.size > 20 ? '…' : ''}`

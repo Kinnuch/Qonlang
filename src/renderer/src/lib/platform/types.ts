@@ -17,7 +17,16 @@ import type { Skin, UserSkinPreset } from '$lib/skin/presets'
 import type { CustomLocale } from '$lib/i18n/index.svelte'
 
 export type MenuAction =
-  'save' | 'saveAs' | 'open' | 'undo' | 'redo' | 'palette' | 'chars' | 'back' | 'reportIssue'
+  | 'save'
+  | 'saveAs'
+  | 'open'
+  | 'undo'
+  | 'redo'
+  | 'palette'
+  | 'chars'
+  | 'back'
+  | 'reportIssue'
+  | 'guide'
 /**
  * 平台适配层：渲染层只认这个接口，不直接碰 Node 或浏览器专有 API。
  * Electron 实现走 IPC；网页实现走 File System Access API + IndexedDB。
@@ -136,6 +145,8 @@ export interface Prefs {
 export type FormsLayout = 'list' | 'table' | 'tree'
 
 export interface CsvPreset {
+  automaticIpa?: boolean
+  overwriteExisting?: boolean
   name: string
   target: 'lexemes' | 'morphemes'
   /** 表头名（或无表头时的列序号字符串）→ 字段 JSON */

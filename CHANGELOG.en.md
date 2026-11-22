@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3 · unreleased
+
+- Spelling-to-IPA transcription treats uppercase and lowercase alike by default, with a separate setting for each orthography. Word generation supports spelling and IPA modes and retains access to older reverse mappings.
+- Delete selected items through their context menu or the Delete key. Word-list imports can derive IPA automatically and update matching entries in the same language.
+- The sound-change editor explains how your symbols become spelling and how spelling becomes IPA. You can insert, edit, move and delete standalone comments between rules.
+
 ## 1.0.2 · 2026-11-20
 
 - Syllabification recognises vowels with IPA length marks and keeps the marks in the correct syllable.

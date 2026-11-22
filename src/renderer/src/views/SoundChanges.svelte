@@ -27,6 +27,7 @@
   import Portal from '$lib/ui/Portal.svelte'
   import ImportPreview from '$lib/ui/ImportPreview.svelte'
   import Hint from '$lib/ui/Hint.svelte'
+  import HelpDot from '$lib/ui/HelpDot.svelte'
   import RuleEditor from '$lib/ui/RuleEditor.svelte'
   import RuleList from '$lib/ui/RuleList.svelte'
   import TabStrip from '$lib/ui/TabStrip.svelte'
@@ -328,6 +329,7 @@
   <div class="page-head row tabbed">
     <h1>{t('soundChanges.title')}</h1>
     <GuideLink section="soundChanges" />
+    <HelpDot tip={t('soundChanges.hint')} />
     <TabStrip
       kind="ruleSets"
       items={project.ruleSets.map((rs) => ({
@@ -335,6 +337,10 @@
         label: rs.name || t('soundChanges.untitledSet')
       }))}
       activeId={active?.id ?? null}
+      ondelete={(id) => {
+        const rs = project.ruleSets.find((item) => item.id === id)
+        if (rs) removeSet(rs)
+      }}
       onselect={(id) => (activeId = id)}
       onrename={(id) => {
         activeId = id
@@ -366,7 +372,7 @@
       ><Plus size={16} />{t('soundChanges.newSet')}</button
     >
   </div>
-  <Hint id="soundchanges" text={t('soundChanges.hint')} />
+  <Hint id="soundchanges-symbols" text={t('soundChanges.symbolsHint')} />
 
   {#if rulePending}
     <div class="rule-import-wrap">

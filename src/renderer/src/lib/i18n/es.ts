@@ -323,7 +323,7 @@ export default {
     galleryNext: 'Siguiente',
     exampleDesc: {
       aelith:
-        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente.',
+        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas.',
       tsahun:
         'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura. Las clases temporales relacionan los números de tono de varias cifras con secuencias completas de letras tonales.'
     },
@@ -460,6 +460,10 @@ export default {
     }
   },
   soundChanges: {
+    addLineComment: 'Añadir línea de comentario',
+    lineComment: 'Línea de comentario',
+    symbolsHint:
+      'Los cambios de sonido sustituyen los símbolos que definas. Las reglas de la última etapa pueden convertirlos en grafías. Las reglas de ortografía a AFI de la lengua permiten obtener después la pronunciación de cada entrada.',
     search: 'Buscar reglas, clases de sonidos, etapas',
     hint: 'Las reglas de cambio fonético pueden usar las clases de sonidos creadas en el módulo de fonología; las lenguas vinculadas a las etapas de cambio fonético pueden citarse desde el módulo de paradigmas.',
     title: 'Cambios fonéticos',
@@ -1545,6 +1549,22 @@ export default {
     addPosScope: '＋ Clase de palabra'
   },
   csv: {
+    previewUpdates: 'Vista previa: se actualizarán {n} entradas existentes',
+    previewAmbiguous: 'Vista previa sin coincidencia única; se añadirán: {list}',
+    automaticIpa: 'Activar IPA automático para esta importación',
+    automaticIpaHint:
+      'Desactiva «Irregular» en las pronunciaciones afectadas y aplica las reglas existentes. Las columnas IPA eligen sus ortografías; sin ellas se usa la principal. Las demás no cambian.',
+    overwriteExisting: 'Actualizar entradas existentes con coincidencia única',
+    overwriteExistingHint:
+      'Misma lengua y lema exacto, y misma categoría si se proporciona. Conserva ID, relaciones y campos no importados. Las celdas vacías no borran valores; los sentidos se actualizan por orden. Si es ambiguo, se añade.',
+    reportUpdated: 'Se actualizaron {n} entradas existentes',
+    reportAmbiguous: 'Sin coincidencia única; se añadieron: {list}',
+    previewUpdated: 'Actualizar entrada existente',
+    ipaAutomatic: 'IPA automático',
+    ipaManual: 'IPA manual',
+    lexicanterProject: 'Proyecto Lexicanter (lenguas nuevas)…',
+    lexicanterProjectHint:
+      'Lexicanter añade un proyecto completo: lengua principal y relacionadas, léxicos, ortografías, etimología y documentos. No reemplaza lenguas existentes. Para actualizar una lista, usa CSV/tabla.',
     title: 'Importación de CSV',
     pickFile: 'Elegir archivo…',
     file: 'Archivo',
@@ -1937,6 +1957,17 @@ export default {
     exported: 'Exportado'
   },
   phonology: {
+    caseInsensitive: 'Misma pronunciación para mayúsculas y minúsculas',
+    caseInsensitiveHint:
+      'Aplica la misma transcripción a mayúsculas y minúsculas. Desactívelo para distinguirlas. Solo afecta a la conversión grafía→AFI de esta ortografía; conserva los lemas, las reglas y la salida AFI.',
+    generationModeHint:
+      'Los dos modos guardan listas fonotácticas separadas. El modo Grafía genera grafías y las transcribe con la ortografía principal. El modo AFI genera fonemas y conserva las reglas inversas existentes.',
+    legacyReverse: 'Reglas antiguas AFI → grafía',
+    legacyReverseHint:
+      'Las correspondencias inversas y reglas avanzadas existentes se pueden seguir editando y probando. Solo se usan al generar en modo AFI.',
+    generatedLemmaPrompt:
+      'El resultado /{ipa}/ está en AFI. Escriba la grafía del lema que desea guardar:',
+    generatedDuplicate: 'Ese lema ya existe; no se añadió un duplicado.',
     spellingRules: 'Correspondencias de fonemas',
     spellingRulesHint:
       'Convierte una sola vez con la coincidencia más larga y después aplica las reglas avanzadas. Hacia IPA se aceptan todas las grafías; en sentido inverso se usa la primera. Las filas editadas o desactivadas se conservan. Restablece el modo automático para volver a seguir el fonema.',

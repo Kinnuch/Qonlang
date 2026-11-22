@@ -327,7 +327,7 @@ export default {
     galleryNext: 'Suivante',
     exampleDesc: {
       aelith:
-        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement.',
+        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles.',
       tsahun:
         'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation suivant la graphie et correspondances graphème–phonème modifiables), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture. Les classes temporaires associent les numéros de ton à plusieurs chiffres à des séquences complètes de lettres de ton.'
     },
@@ -463,6 +463,10 @@ export default {
     }
   },
   soundChanges: {
+    addLineComment: 'Ajouter une ligne de commentaire',
+    lineComment: 'Ligne de commentaire',
+    symbolsHint:
+      'Les changements phonétiques remplacent les symboles de votre choix. Les dernières règles peuvent les convertir en graphie. Les règles de conversion de la graphie en API permettent ensuite de déduire la prononciation de chaque entrée.',
     search: 'Rechercher des règles, des classes de sons, des stades',
     hint: 'Les règles de changement phonétique peuvent utiliser les classes de sons créées dans le module de phonologie ; les langues liées aux stades peuvent être appelées par le module des paradigmes.',
     title: 'Changements phonétiques',
@@ -1551,6 +1555,22 @@ export default {
     addPosScope: '＋ Classe de mots'
   },
   csv: {
+    previewUpdates: 'Aperçu : {n} entrées existantes seront mises à jour',
+    previewAmbiguous: 'Aperçu sans correspondance unique ; ajout prévu : {list}',
+    automaticIpa: 'Activer l’IPA automatique pour cet import',
+    automaticIpaHint:
+      'Désactive « Irrégulier » pour les prononciations concernées et applique les règles existantes. Les colonnes IPA désignent leurs orthographes ; sinon, seule la principale est traitée. Les autres restent inchangées.',
+    overwriteExisting: 'Mettre à jour les entrées correspondantes uniques',
+    overwriteExistingHint:
+      'Même langue et lemme exact, avec même catégorie si fournie. ID, relations et champs non importés sont conservés. Les cellules vides ne suppriment rien ; les sens suivent leur ordre. Les correspondances ambiguës sont ajoutées.',
+    reportUpdated: '{n} entrées existantes mises à jour',
+    reportAmbiguous: 'Aucune correspondance unique ; ajout : {list}',
+    previewUpdated: 'Mettre à jour l’entrée',
+    ipaAutomatic: 'IPA automatique',
+    ipaManual: 'IPA manuel',
+    lexicanterProject: 'Projet Lexicanter (nouvelles langues)…',
+    lexicanterProjectHint:
+      'Lexicanter ajoute un projet complet : langues principale et apparentées, lexiques, orthographes, étymologies et documents. Il ne remplace pas les langues existantes. Pour mettre à jour une liste, utilisez CSV/tableau.',
     title: 'Import CSV',
     pickFile: 'Choisir un fichier…',
     file: 'Fichier',
@@ -1939,6 +1959,17 @@ export default {
     exported: 'Exporté'
   },
   phonology: {
+    caseInsensitive: 'Même prononciation pour les majuscules et minuscules',
+    caseInsensitiveHint:
+      'Applique la même transcription aux majuscules et minuscules. Désactivez pour les distinguer. Seule la conversion graphie→API de cette orthographe change ; les entrées, règles et sorties API sont conservées.',
+    generationModeHint:
+      'Les deux modes enregistrent des listes phonotactiques distinctes. Le mode Graphie produit des graphies puis les transcrit avec l’orthographe principale. Le mode API produit des phonèmes et conserve les règles inverses existantes.',
+    legacyReverse: 'Anciennes règles API → graphie',
+    legacyReverseHint:
+      'Les correspondances inverses et règles avancées existantes restent modifiables et testables. Elles servent uniquement à la génération en mode API.',
+    generatedLemmaPrompt:
+      'Le résultat /{ipa}/ est en API. Saisissez la graphie du mot à enregistrer :',
+    generatedDuplicate: 'Cette entrée existe déjà ; aucun doublon n’a été ajouté.',
     spellingRules: 'Correspondances des phonèmes',
     spellingRulesHint:
       'Convertissez une seule fois par correspondance la plus longue, puis appliquez les règles avancées ci-dessous. Toutes les graphies sont acceptées vers les API ; la première est utilisée en sens inverse. Les lignes modifiées ou désactivées sont conservées. Rétablissez le mode automatique pour suivre le phonème.',

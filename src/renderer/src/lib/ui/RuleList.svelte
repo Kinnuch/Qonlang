@@ -8,6 +8,8 @@
    */
   import { t } from '$lib/i18n/index.svelte'
   import { projectState } from '$lib/state/project.svelte'
+  import { ui } from '$lib/state/ui.svelte'
+  import { deletable } from '$lib/ui/deletable'
   import {
     ExampleWordIndex,
     type ExampleInput,
@@ -119,12 +121,14 @@
       return 1
     }
     ls.splice(line, 0, s)
+    remapOpenLines((n) => (n > line ? n + 1 : n))
     commit(ls)
     return line + 1
   }
   function deleteLine(line: number): void {
     const ls = lines()
     ls.splice(line - 1, 1)
+    remapOpenLines((n) => (n === line ? null : n > line ? n - 1 : n))
     commit(ls.length ? ls : [''])
   }
   // ───── 拖动：同一段里换位置，也可以拖到别的阶段 ─────
@@ -138,7 +142,14 @@
     if (from < 1 || from > ls.length || from === before) return
     const [s] = ls.splice(from - 1, 1)
     const at = from < before ? before - 2 : before - 1
-    ls.splice(Math.max(0, Math.min(ls.length, at)), 0, s)
+    const dest = Math.max(0, Math.min(ls.length, at)) + 1
+    ls.splice(dest - 1, 0, s)
+    remapOpenLines((n) => {
+      if (n === from) return dest
+      if (from < n && n <= dest) return n - 1
+      if (dest <= n && n < from) return n + 1
+      return n
+    })
     commit(ls)
   }
   function dropOnLine(before: number): void {
@@ -188,6 +199,7 @@
     const ls = lines()
     if (a < 1 || b < 1 || a > ls.length || b > ls.length) return
     ;[ls[a - 1], ls[b - 1]] = [ls[b - 1], ls[a - 1]]
+    remapOpenLines((n) => (n === a ? b : n === b ? a : n))
     commit(ls)
   }
 
@@ -264,6 +276,17 @@
   let editingFeature = $state<number | null>(null)
   let featureDraft = $state({ sign: '+' as '+' | '-', name: '', members: '', comment: '' })
   let replayKey = $state(0)
+
+  /** 行间插入、删除或调序后，选区和未提交的编辑表单仍指向原来的行。 */
+  function remapOpenLines(remap: (line: number) => number | null): void {
+    if (selectedLine !== null) selectedLine = remap(selectedLine)
+    if (editingLine !== null) editingLine = remap(editingLine)
+    if (editingMarker !== null) editingMarker = remap(editingMarker)
+    if (editingStress !== null) editingStress = remap(editingStress)
+    if (editingFeature !== null) editingFeature = remap(editingFeature)
+    if (typeof editingClass === 'number') editingClass = remap(editingClass)
+    if (typeof editingDigraph === 'number') editingDigraph = remap(editingDigraph)
+  }
 
   function openRule(r: ParsedRule): void {
     editingLine = r.line
@@ -351,8 +374,33 @@
     const other = line + dir
     if (other < 1 || other > ls.length) return
     swapLines(line, other)
-    if (editingLine === line) editingLine = other
-    if (selectedLine === line) selectedLine = other
+  }
+  async function writeNote(line: number, existing = false): Promise<void> {
+    if (projectState.readOnly) return
+    const original = text,
+      owner = projectState.project,
+      key = foldKey
+    const raw = existing ? lines()[line - 1] : ''
+    const prefix = raw.match(/^\s*[;#]\s?/)?.[0] ?? '; '
+    const value = await ui.prompt(
+      t(existing ? 'soundChanges.lineComment' : 'soundChanges.addLineComment'),
+      raw.slice(existing ? prefix.length : 0)
+    )
+    if (
+      !value?.trim() ||
+      text !== original ||
+      projectState.project !== owner ||
+      key !== foldKey ||
+      projectState.readOnly
+    )
+      return
+    const content = value.trim().replace(/[\r\n]+/g, ' ')
+    if (existing) replaceLine(line, prefix + content)
+    else insertAfter(original ? line : 0, '; ' + content)
+  }
+  function removeNote(line: number): void {
+    if (projectState.readOnly) return
+    removeRule(line)
   }
   function insertClassName(name: string): void {
     insertToken(name.length === 1 ? name : `{${name}}`)
@@ -702,6 +750,7 @@
           <button
             class="chip cls"
             class:active={editingClass === l.line}
+            use:deletable={{ identity: l, remove: () => deleteLine(l.line) }}
             {...sortable(`${chipGroup}-classes`, li, (from, to) =>
               moveLineOnto(classLines[from].line, classLines[to].line)
             )}
@@ -764,6 +813,7 @@
           <button
             class="chip cls"
             class:active={editingDigraph === l.line}
+            use:deletable={{ identity: l, remove: () => deleteLine(l.line) }}
             {...sortable(`${chipGroup}-digraphs`, li, (from, to) =>
               moveLineOnto(digraphLines[from].line, digraphLines[to].line)
             )}
@@ -938,6 +988,14 @@
             <div
               class="rule card"
               data-line={r.line}
+              use:deletable={{
+                identity: r,
+                selected: selectedLine === r.line,
+                select: () => {
+                  selectedLine = r.line
+                },
+                remove: () => removeRule(r.line)
+              }}
               class:selected={selectedLine === r.line}
               class:dragging={dragLine === r.line}
               role="button"
@@ -1081,6 +1139,14 @@
             <div
               class="rule card special"
               data-line={st.line}
+              use:deletable={{
+                identity: st,
+                selected: selectedLine === st.line,
+                select: () => {
+                  selectedLine = st.line
+                },
+                remove: () => removeRule(st.line)
+              }}
               class:dragging={dragLine === st.line}
               role="button"
               tabindex="0"
@@ -1166,6 +1232,14 @@
             <div
               class="rule card special"
               data-line={f.line}
+              use:deletable={{
+                identity: f,
+                selected: selectedLine === f.line,
+                select: () => {
+                  selectedLine = f.line
+                },
+                remove: () => removeRule(f.line)
+              }}
               class:dragging={dragLine === f.line}
               role="button"
               tabindex="0"
@@ -1228,7 +1302,10 @@
             </div>
           {/if}
         {:else if item.kind === 'error'}
-          <div class="rule card err row">
+          <div
+            class="rule card err row"
+            use:deletable={{ identity: item, remove: () => removeRule(item.line) }}
+          >
             <span class="num mono">{item.line}</span>
             <AlertTriangle size={14} />
             <input
@@ -1242,12 +1319,68 @@
             >
           </div>
         {:else if item.kind === 'comment'}
-          <div class="note row" data-line={item.line}>
-            <span class="small muted">{item.raw.replace(/^\s*[;#]\s?/, '')}</span>
+          <div
+            class="note row"
+            class:selected={selectedLine === item.line}
+            data-line={item.line}
+            use:deletable={{
+              identity: item,
+              selected: selectedLine === item.line,
+              select: () => {
+                selectedLine = item.line
+              },
+              remove: () => removeNote(item.line)
+            }}
+          >
+            <button
+              type="button"
+              class="small muted note-text"
+              onclick={() => (selectedLine = item.line)}
+              ondblclick={() => writeNote(item.line, true)}
+              >{item.raw.replace(/^\s*[;#]\s?/, '')}</button
+            >
+            {#if !projectState.readOnly}
+              <span class="note-tools row">
+                <button
+                  class="btn ghost icon sm"
+                  title={t('common.edit')}
+                  onclick={() => writeNote(item.line, true)}><Pencil size={14} /></button
+                >
+                <button
+                  class="btn ghost icon sm"
+                  title={t('soundChanges.moveUp')}
+                  disabled={item.line <= 1}
+                  onclick={() => moveRule(item.line, -1)}><ChevronUp size={14} /></button
+                >
+                <button
+                  class="btn ghost icon sm"
+                  title={t('soundChanges.moveDown')}
+                  disabled={item.line >= lastLine}
+                  onclick={() => moveRule(item.line, 1)}><ChevronDown size={14} /></button
+                >
+                <button
+                  class="btn ghost icon sm danger"
+                  title={t('common.delete')}
+                  onclick={() => removeNote(item.line)}><Trash2 size={14} /></button
+                >
+              </span>
+            {/if}
           </div>
         {:else if item.kind === 'include'}
           <!-- 引用另一套音变的一段：这里只占一行，跑的时候把那一段原样跑一遍 -->
-          <div class="rule card special row" class:err={!!item.error} data-line={item.line}>
+          <div
+            class="rule card special row"
+            class:err={!!item.error}
+            data-line={item.line}
+            use:deletable={{
+              identity: item,
+              selected: selectedLine === item.line,
+              select: () => {
+                selectedLine = item.line
+              },
+              remove: () => removeRule(item.line)
+            }}
+          >
             <span class="num mono">{item.line}</span>
             {#if item.error}<AlertTriangle size={14} />{:else}<Link2 size={14} />{/if}
             <span class="grow"
@@ -1301,6 +1434,16 @@
         <button class="btn ghost sm" onclick={() => addStageAfter(sec.endLine)}
           ><Plus size={14} />{t('soundChanges.addStage')}</button
         >
+        {#if !projectState.readOnly}
+          <button
+            class="btn ghost sm"
+            data-add-line-comment
+            onclick={() =>
+              writeNote(sec.items.find((item) => item.line === selectedLine)?.line ?? sec.endLine)}
+          >
+            <Plus size={14} />{t('soundChanges.addLineComment')}
+          </button>
+        {/if}
       </div>
     </section>
   {/each}
@@ -1315,6 +1458,11 @@
         <button class="btn sm" onclick={() => addStageAfter(lastLine)}
           ><Plus size={14} />{t('soundChanges.addStage')}</button
         >
+        {#if !projectState.readOnly}
+          <button class="btn sm" data-add-line-comment onclick={() => writeNote(lastLine)}
+            ><Plus size={14} />{t('soundChanges.addLineComment')}</button
+          >
+        {/if}
       </div>
     {/if}
   {/if}
@@ -1603,8 +1751,36 @@
     gap: 10px;
     padding: 0 10px;
   }
+  .note-text {
+    border: 0;
+    padding: 2px 0;
+    background: transparent;
+    text-align: start;
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+  .note.selected {
+    background: var(--accent-soft);
+    border-radius: var(--radius-sm);
+  }
+  .note-tools {
+    flex-shrink: 0;
+    gap: 0;
+    opacity: 0;
+  }
+  .note:hover .note-tools,
+  .note.selected .note-tools,
+  .note:focus-within .note-tools {
+    opacity: 1;
+  }
+  @media (hover: none) {
+    .note-tools {
+      opacity: 1;
+    }
+  }
   .stage-foot {
     padding: 2px 0 0 4px;
+    flex-wrap: wrap;
   }
   .preview {
     gap: 10px;

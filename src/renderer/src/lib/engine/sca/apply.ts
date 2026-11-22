@@ -2,6 +2,8 @@ import {
   applyReplacements,
   BOUNDARY,
   revertReplacements,
+  matchingRegex,
+  sameCaseInsensitive,
   type CompiledContext,
   type ParsedRule,
   type RuleBranch,
@@ -42,6 +44,8 @@ export interface WordStress {
 }
 
 export interface RunOptions {
+  /** 正字法等明确要求时忽略匹配的大小写；规则文字、输出与实际捕获不改。 */
+  caseInsensitive?: boolean
   /** 输入里的点号按字面保留（文字转写时句号是标点）；默认去掉，点号只用来隔开字母 */
   keepDots?: boolean
   /** 输入已经是该阶段的形式：跳过它之前的规则 */
@@ -77,13 +81,14 @@ type Substitution = Pick<
 function substitute(
   rule: Substitution,
   match: string,
-  named: Record<string, string> | undefined
+  named: Record<string, string> | undefined,
+  caseInsensitive = false
 ): string {
   if (rule.segments)
     return rule.segments
       .map((segment) => {
         const captured = named?.[segment.capture] ?? ''
-        return substitute(segment, captured, { ...named, tc: captured })
+        return substitute(segment, captured, { ...named, tc: captured }, caseInsensitive)
       })
       .join('')
   if (rule.replacement === '\\') return reverseText(match)
@@ -92,26 +97,40 @@ function substitute(
   let pos = 0
   const captured = named?.tc ?? ''
   const alias = rule.targetClass?.alias
+  const aliasMatches =
+    !!alias &&
+    (alias.alias === captured || (caseInsensitive && sameCaseInsensitive(alias.alias, captured)))
   if (rule.targetClass) {
     // 目标里第一个音类是命名组 tc（见 parse.ts 的 expand）
-    pos = rule.targetClass.members.indexOf(alias?.alias === captured ? alias.member : captured)
+    pos = rule.targetClass.members.indexOf(captured)
+    if (pos < 0 && alias?.alias === captured) pos = rule.targetClass.members.indexOf(alias.member)
+    if (pos < 0 && caseInsensitive)
+      pos = rule.targetClass.members.findIndex((member) => sameCaseInsensitive(member, captured))
+    if (pos < 0 && aliasMatches) pos = rule.targetClass.members.indexOf(alias!.member)
     if (pos < 0) pos = 9999
   }
   let out = ''
   for (const part of rule.replacementParts) {
     if (part.kind === 'text') out += part.text
     else if (part.kind === 'ref') out += named?.['n' + part.name] ?? ''
-    else if (alias?.alias === captured && part.ref.members === rule.targetClass?.members)
+    else if ((caseInsensitive || aliasMatches) && part.ref.members === rule.targetClass?.members)
       out += captured
-    else out += part.ref.members[pos] ?? ''
+    else out += (part.ref.outputMembers ?? part.ref.members)[pos] ?? ''
   }
   return out
 }
 
 /** 各个排除环境命中的范围 */
-function exclusionRanges(excludes: RegExp[], input: string): [number, number][] {
+function exclusionRanges(
+  excludes: RegExp[],
+  input: string,
+  caseInsensitive = false
+): [number, number][] {
   return excludes.flatMap((re) =>
-    [...input.matchAll(re)].map((m): [number, number] => [m.index, m.index + m[0].length])
+    [...input.matchAll(matchingRegex(re, caseInsensitive))].map((m): [number, number] => [
+      m.index,
+      m.index + m[0].length
+    ])
   )
 }
 
@@ -123,7 +142,11 @@ const excluded = (ranges: [number, number][], start: number, end: number): boole
  * if-else 规则：满足环境的 x1 改成 a，其余位置的 x2 改成 b。两路都按改之前的词判断、一次改完，
  * 满足环境那一路先占位置，另一路跟它重叠的不改。
  */
-function applyBranches(branches: NonNullable<ParsedRule['branches']>, input: string): string {
+function applyBranches(
+  branches: NonNullable<ParsedRule['branches']>,
+  input: string,
+  caseInsensitive = false
+): string {
   const spans: { start: number; end: number; out: string }[] = []
   const free = (start: number, end: number): boolean =>
     spans.every((x) =>
@@ -137,11 +160,11 @@ function applyBranches(branches: NonNullable<ParsedRule['branches']>, input: str
     const start = m.index ?? 0
     const end = start + m[0].length
     if (!free(start, end)) return
-    spans.push({ start, end, out: substitute(branch, m[0], m.groups) })
+    spans.push({ start, end, out: substitute(branch, m[0], m.groups, caseInsensitive) })
   }
   const inContext = (c: CompiledContext): RegExpMatchArray[] => {
-    const ranges = exclusionRanges(c.excludes, input)
-    return [...input.matchAll(c.main)].filter(
+    const ranges = exclusionRanges(c.excludes, input, caseInsensitive)
+    return [...input.matchAll(matchingRegex(c.main, caseInsensitive))].filter(
       (m) => !excluded(ranges, m.index ?? 0, (m.index ?? 0) + m[0].length)
     )
   }
@@ -150,7 +173,7 @@ function applyBranches(branches: NonNullable<ParsedRule['branches']>, input: str
   const inside = new Set<number>()
   for (const c of branches.otherwise.compiled)
     for (const m of inContext(c)) inside.add(m.index ?? 0)
-  for (const m of input.matchAll(branches.otherwise.anywhere))
+  for (const m of input.matchAll(matchingRegex(branches.otherwise.anywhere, caseInsensitive)))
     if (m[0].length && !inside.has(m.index ?? 0)) take(branches.otherwise, m)
   if (!spans.length) return input
   spans.sort((a, b) => a.start - b.start || a.end - b.end)
@@ -175,10 +198,10 @@ interface Hit {
 
 const MARKS_RE = new RegExp(`[${BOUNDARY}ˈˌ]`, 'g')
 
-function hitsOf(re: RegExp, ann: Annotated, word: string): Hit[] {
+function hitsOf(re: RegExp, ann: Annotated, word: string, caseInsensitive = false): Hit[] {
   const out: Hit[] = []
   let lastEmpty = -1
-  for (const m of ann.text.matchAll(re)) {
+  for (const m of ann.text.matchAll(matchingRegex(re, caseInsensitive))) {
     const a = m.index ?? 0
     const start = ann.source(a)
     const end = ann.source(a + m[0].length)
@@ -215,9 +238,14 @@ function keepMarks(out: string, hit: Hit, explicit: boolean): string {
   return res
 }
 
-function applyMarked(rule: ParsedRule, input: string, program: RuleProgram): string {
+function applyMarked(
+  rule: ParsedRule,
+  input: string,
+  program: RuleProgram,
+  caseInsensitive = false
+): string {
   const annotated = (w: string): Annotated =>
-    rule.sigma ? annotate(w, program) : plainAnnotated(w)
+    rule.sigma ? annotate(w, program, caseInsensitive) : plainAnnotated(w)
   if (rule.branches) {
     const b = rule.branches
     const ann = annotated(input)
@@ -235,19 +263,25 @@ function applyMarked(rule: ParsedRule, input: string, program: RuleProgram): str
       spans.push({
         start: h.start,
         end: h.end,
-        out: keepMarks(substitute(branch, h.text, h.groups), h, rule.explicitStress)
+        out: keepMarks(
+          substitute(branch, h.text, h.groups, caseInsensitive),
+          h,
+          rule.explicitStress
+        )
       })
     }
     const inContext = (c: CompiledContext): Hit[] => {
       const ranges = c.excludes.flatMap((re) =>
-        hitsOf(re, ann, input).map((h): [number, number] => [h.start, h.end])
+        hitsOf(re, ann, input, caseInsensitive).map((h): [number, number] => [h.start, h.end])
       )
-      return hitsOf(c.main, ann, input).filter((h) => !excluded(ranges, h.start, h.end))
+      return hitsOf(c.main, ann, input, caseInsensitive).filter(
+        (h) => !excluded(ranges, h.start, h.end)
+      )
     }
     for (const c of b.then.compiled) for (const h of inContext(c)) take(b.then, h)
     const inside = new Set<number>()
     for (const c of b.otherwise.compiled) for (const h of inContext(c)) inside.add(h.start)
-    for (const h of hitsOf(b.otherwise.anywhere, ann, input))
+    for (const h of hitsOf(b.otherwise.anywhere, ann, input, caseInsensitive))
       if (h.end > h.start && !inside.has(h.start)) take(b.otherwise, h)
     if (!spans.length) return input
     spans.sort((x, y) => x.start - y.start || x.end - y.end)
@@ -263,15 +297,15 @@ function applyMarked(rule: ParsedRule, input: string, program: RuleProgram): str
   for (const c of rule.compiled) {
     const ann = annotated(current)
     const ranges = c.excludes.flatMap((re) =>
-      hitsOf(re, ann, current).map((h): [number, number] => [h.start, h.end])
+      hitsOf(re, ann, current, caseInsensitive).map((h): [number, number] => [h.start, h.end])
     )
     let out = ''
     let pos = 0
-    for (const h of hitsOf(c.main, ann, current)) {
+    for (const h of hitsOf(c.main, ann, current, caseInsensitive)) {
       if (h.start < pos || excluded(ranges, h.start, h.end)) continue
       out +=
         current.slice(pos, h.start) +
-        keepMarks(substitute(rule, h.text, h.groups), h, rule.explicitStress)
+        keepMarks(substitute(rule, h.text, h.groups, caseInsensitive), h, rule.explicitStress)
       pos = h.end
     }
     current = out + current.slice(pos)
@@ -279,14 +313,19 @@ function applyMarked(rule: ParsedRule, input: string, program: RuleProgram): str
   return current
 }
 
-function applyRule(rule: ParsedRule, input: string, program: RuleProgram): string {
-  if (rule.literal && !input.includes(rule.literal)) return input
-  if (rule.marks) return applyMarked(rule, input, program)
-  if (rule.branches) return applyBranches(rule.branches, input)
+function applyRule(
+  rule: ParsedRule,
+  input: string,
+  program: RuleProgram,
+  caseInsensitive = false
+): string {
+  if (!caseInsensitive && rule.literal && !input.includes(rule.literal)) return input
+  if (rule.marks) return applyMarked(rule, input, program, caseInsensitive)
+  if (rule.branches) return applyBranches(rule.branches, input, caseInsensitive)
   let current = input
   for (const { main, excludes } of rule.compiled) {
-    const ranges = exclusionRanges(excludes, current)
-    current = current.replace(main, (...args: unknown[]) => {
+    const ranges = exclusionRanges(excludes, current, caseInsensitive)
+    current = current.replace(matchingRegex(main, caseInsensitive), (...args: unknown[]) => {
       const match = args[0] as string
       // 最后两个（或三个，若有命名组）参数是 offset 与整串
       let offsetIdx = args.length - 2
@@ -300,7 +339,7 @@ function applyRule(rule: ParsedRule, input: string, program: RuleProgram): strin
         const end = offset + match.length
         for (const [s, e] of ranges) if (offset >= s && end <= e) return match
       }
-      return substitute(rule, match, named)
+      return substitute(rule, match, named, caseInsensitive)
     })
   }
   return current
@@ -312,7 +351,13 @@ export function runRules(program: RuleProgram, word: string, options: RunOptions
   const replacements = keep
     ? program.replacements.filter(([, to]) => !keep.has(to))
     : program.replacements
-  let current = applyReplacements(word, program.replacements, options.keepDots)
+  let current = applyReplacements(
+    word,
+    program.replacements,
+    options.keepDots,
+    false,
+    options.caseInsensitive
+  )
   const stages: StageForm[] = []
   const trace: TraceEntry[] = []
   let stage = ''
@@ -351,7 +396,13 @@ export function runRules(program: RuleProgram, word: string, options: RunOptions
         stages.push(st)
       }
       if (options.trace !== false) for (const t of sr.trace) trace.push({ ...t, ref: step.ref })
-      current = applyReplacements(sr.output, program.replacements, options.keepDots)
+      current = applyReplacements(
+        sr.output,
+        program.replacements,
+        options.keepDots,
+        false,
+        options.caseInsensitive
+      )
       // 外面要停在引用段里的某个阶段：停在这里
       if (options.stopAt && sr.stages.some((x) => x.name === options.stopAt)) break
       continue
@@ -359,8 +410,8 @@ export function runRules(program: RuleProgram, word: string, options: RunOptions
     if (!active) continue
     const next =
       step.kind === 'stress'
-        ? assignStress(step, current, program, options.word)
-        : applyRule(step, current, program)
+        ? assignStress(step, current, program, options.word, options.caseInsensitive)
+        : applyRule(step, current, program, options.caseInsensitive)
     if (next !== current) {
       if (options.trace !== false) {
         trace.push(
@@ -424,11 +475,17 @@ export function runSingleRule(
   word: string,
   options: RunOptions = {}
 ): string {
-  const inner = applyReplacements(word, program.replacements, options.keepDots)
+  const inner = applyReplacements(
+    word,
+    program.replacements,
+    options.keepDots,
+    false,
+    options.caseInsensitive
+  )
   const replacements = options.keepUnits?.length
     ? program.replacements.filter(([, to]) => !options.keepUnits!.includes(to))
     : program.replacements
-  return revertReplacements(applyRule(rule, inner, program), replacements)
+  return revertReplacements(applyRule(rule, inner, program, options.caseInsensitive), replacements)
 }
 
 /** 只有本条规则确实改动、且外显结果不同才算命中；预处理变化不冒充规则效果。 */
@@ -438,8 +495,14 @@ export function changedRuleResult(
   word: string,
   options: RunOptions = {}
 ): string | null {
-  const inner = applyReplacements(word, program.replacements, options.keepDots)
-  const after = applyRule(rule, inner, program)
+  const inner = applyReplacements(
+    word,
+    program.replacements,
+    options.keepDots,
+    false,
+    options.caseInsensitive
+  )
+  const after = applyRule(rule, inner, program, options.caseInsensitive)
   if (after === inner) return null
   const replacements = options.keepUnits?.length
     ? program.replacements.filter(([, to]) => !options.keepUnits!.includes(to))

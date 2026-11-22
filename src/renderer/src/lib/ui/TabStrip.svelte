@@ -5,6 +5,7 @@
    * 分组存在项目设置里；用户没动过时按默认分法显示（音变：共时 / 历时，构形：按词类），一改就把整套写进项目。
    */
   import type { Id, TabGroupSet } from '$lib/core/model'
+  import { deletable } from './deletable'
   import { newId } from '$lib/core/factory'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { projectState } from '$lib/state/project.svelte'
@@ -26,7 +27,8 @@
     activeId,
     onselect,
     onrename,
-    onmove
+    onmove,
+    ondelete
   }: {
     kind: TabGroupKind
     items: { id: Id; label: string }[]
@@ -35,6 +37,7 @@
     onrename: (id: Id) => void
     /** 拖着换顺序：挪好了返回 true */
     onmove: (from: number, to: number) => boolean
+    ondelete?: (id: Id) => unknown
   } = $props()
 
   const project = $derived(projectState.project!)
@@ -67,6 +70,7 @@
   let menuEl = $state<HTMLDivElement | null>(null)
   function openMenu(e: MouseEvent, target: { tab?: Id; group?: Id }): void {
     e.preventDefault()
+    if (target.tab) onselect(target.tab)
     menu = { x: e.clientX, y: e.clientY, ...target }
   }
   $effect(() => {
@@ -76,6 +80,20 @@
     }
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') menu = null
+      if (
+        e.key === 'Delete' &&
+        menu?.tab &&
+        ondelete &&
+        !projectState.readOnly &&
+        !e.repeat &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        !e.shiftKey
+      ) {
+        e.preventDefault()
+        void deleteTab(menu.tab)
+      }
     }
     window.addEventListener('pointerdown', onDown, true)
     window.addEventListener('keydown', onKey)
@@ -98,6 +116,21 @@
       if (gid) s.members[tab] = gid
       else delete s.members[tab]
     })
+  }
+  async function deleteTab(id: Id): Promise<void> {
+    if (projectState.readOnly) return
+    const owner = project,
+      existing = new Set(ui.toasts.map((toast) => toast.id))
+    menu = null
+    const result = ondelete?.(id)
+    for (const toast of ui.toasts)
+      if (!existing.has(toast.id) && toast.action?.label === t('common.undo')) {
+        const undo = toast.action.run
+        toast.action.run = () => {
+          if (projectState.project === owner && !projectState.readOnly) undo()
+        }
+      }
+    await result
   }
   async function newGroup(tab?: Id): Promise<void> {
     menu = null
@@ -178,6 +211,13 @@
     {#each folded ? row.items.filter((x) => x.item.id === activeId) : row.items as { item, index } (item.id)}
       <span
         class="tabwrap tg-{g?.color ?? 'none'}"
+        use:deletable={{
+          selected: activeId === item.id,
+          select: () => onselect(item.id),
+          enabled: !!ondelete,
+          context: false,
+          remove: () => ondelete?.(item.id)
+        }}
         class:grouped={!!g}
         {...sortable(`tabs-${kind}`, index, drop)}
         oncontextmenu={(e) => openMenu(e, { tab: item.id })}
@@ -208,6 +248,13 @@
       {/each}
       <button onclick={() => newGroup(tab)}>{t('tabGroups.newGroup')}</button>
       {#if cur}<button onclick={() => moveTo(tab, null)}>{t('tabGroups.removeFromGroup')}</button
+        >{/if}
+      {#if ondelete}<button
+          class="danger"
+          disabled={projectState.readOnly}
+          onclick={() => void deleteTab(tab)}
+          >{t('common.delete')} <span class="grow"></span><span class="small muted">Delete</span
+          ></button
         >{/if}
     {:else if menu.group}
       {@const gid = menu.group}

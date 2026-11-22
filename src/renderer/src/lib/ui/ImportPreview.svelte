@@ -24,6 +24,7 @@
   import { customFieldTitle } from '$lib/core/customFields'
   import { previewKind, type PreviewData, type PreviewKind } from '$lib/importers/preview'
   import HelpDot from './HelpDot.svelte'
+  import { pronunciationOf } from '$lib/core/pronounce'
 
   let {
     kind,
@@ -32,6 +33,7 @@
     lexemes = [],
     morphemes = [],
     duplicates = undefined,
+    updatedIds = undefined,
     records = [],
     fieldLabel = (key: string) => key,
     glyphs = [],
@@ -50,6 +52,7 @@
     morphemes?: Morpheme[]
     /** 项目里已经有的单词或形式 */
     duplicates?: Set<string>
+    updatedIds?: Set<string>
     /** 表格记录；skip 写着为什么会跳过 */
     records?: { rec: Record<string, string>; skip?: string }[]
     fieldLabel?: (key: string) => string
@@ -80,7 +83,15 @@
               : 0
   )
   /** 上面那块样例的数据 */
-  const main = $derived<PreviewData>({ project, lexemes, morphemes, records, glyphs, lines })
+  const main = $derived<PreviewData>({
+    project,
+    lexemes,
+    morphemes,
+    records,
+    glyphs,
+    lines,
+    updatedIds
+  })
 
   // 来源刚换时先不闪，稍等一下再开始标出变化
   let armedFor = $state<string | null>(null)
@@ -209,13 +220,23 @@
     return parts.join('；')
   }
   function lexemeFacts(p: Project, l: Lexeme): Fact[] {
+    const language = p.languages.find((lang) => lang.id === l.languageId)
+    const pronunciations = Object.entries(l.pronunciations).map(([id, stored]) => {
+      const ortho = language?.orthographies.find((ortho) => ortho.id === id)
+      return {
+        name: ortho?.name ?? '',
+        value: language && ortho ? (pronunciationOf(language, ortho, l, p) ?? stored) : stored
+      }
+    })
     return facts([
       [
         t('lexicon.colPron'),
-        Object.values(l.pronunciations)
-          .map((x) => x.ipa)
-          .filter(Boolean)
-          .map((x) => `/${x}/`)
+        pronunciations
+          .filter(({ value }) => !!value.ipa || !value.irregular)
+          .map(
+            ({ name, value }) =>
+              `${name} ${value.ipa ? `/${value.ipa}/` : '—'} · ${t(value.irregular ? 'csv.ipaManual' : 'csv.ipaAutomatic')}`
+          )
           .join(' ')
       ],
       [t('lexicon.colTags'), l.tags.join(', ')],
@@ -272,7 +293,9 @@
         <div class="ip-row">
           <span class="ip-main data" use:flashChange={fx(l.lemma, armed)}>{l.lemma || '—'}</span>
           {#if pos}<span class="ip-pos" use:flashChange={fx(pos, armed)}>{pos}</span>{/if}
-          {#if duplicates?.has(l.lemma)}<span class="badge dup">{t('importPreview.duplicate')}</span
+          {#if d.updatedIds?.has(l.id)}<span class="badge">{t('csv.previewUpdated')}</span>
+          {:else if duplicates?.has(l.lemma)}<span class="badge dup"
+              >{t('importPreview.duplicate')}</span
             >{/if}
         </div>
         <ol class="ip-senses">

@@ -20,6 +20,7 @@
   } from '$lib/core/compare'
   import { etymologyTypeLabel, pronText } from '$lib/ui/labels'
   import { posText } from '$lib/core/pos'
+  import { pronunciationOf } from '$lib/core/pronounce'
   import { ArrowLeft, TriangleAlert } from '@lucide/svelte'
 
   let {
@@ -87,7 +88,7 @@
           pieces: meaningPieces(defs.join('；')),
           langName: lang?.name ?? '',
           pos: pos ? posText(pos, glossLangs) : '',
-          ipa: ortho ? (w.pronunciations[ortho.id]?.ipa ?? '') : '',
+          ipa: lang && ortho ? (pronunciationOf(lang, ortho, w, project)?.ipa ?? '') : '',
           registers: [...new Set(w.senses.flatMap((s) => s.registers ?? []))].join('、'),
           tags: w.tags.join('、'),
           dialects: (lang?.dialects ?? [])

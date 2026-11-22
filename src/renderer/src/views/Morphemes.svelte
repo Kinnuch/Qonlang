@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { deletable } from '$lib/ui/deletable'
   import { navScroll } from '$lib/ui/navScroll'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
   import { scrollToItem } from '$lib/ui/reveal'
@@ -529,6 +530,13 @@
           {#each list.slice(0, lz.shown) as m (m.id)}
             <tr
               data-id={m.id}
+              use:deletable={{
+                selected: selectedId === m.id,
+                select: () => {
+                  selectedId = m.id
+                },
+                remove: () => remove(m)
+              }}
               class:sel={selectedId === m.id}
               class:flash={flashId === m.id}
               onclick={() => (selectedId = m.id)}

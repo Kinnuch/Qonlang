@@ -20,6 +20,8 @@ interface ClassAlias {
 export interface ClassRef {
   name: string
   members: string[]
+  /** 可选正字法预处理后的成员仍保留输出一侧原写法。 */
+  outputMembers?: readonly string[]
   /** 可供匹配的另一写法，对应原成员的同一个替换位置。 */
   alias?: ClassAlias
 }
@@ -308,6 +310,8 @@ export interface RuleProgram {
 }
 
 export interface ParseOptions {
+  /** 正字法可选的来源预处理：多合字母也忽略大小写；运行匹配须同时传 RunOptions.caseInsensitive。 */
+  caseInsensitive?: boolean
   /** 外部提供的音类（如来自语言的音系页） */
   classes?: Record<string, string[]>
   /** 语言提供的按特征生成的音类的匹配别名。规则文字里的定义优先。 */
@@ -509,11 +513,34 @@ export function applyReplacements(
   text: string,
   replacements: [string, string][],
   keepDots = false,
-  classLists = false
+  classLists = false,
+  caseInsensitive = false,
+  classNames?: ReadonlySet<string>
 ): string {
   const one = (s: string): string => {
-    let t = s
-    for (const [from, to] of replacements) t = t.split(from).join(to)
+    const convert = (value: string): string => {
+      let result = value
+      for (const [from, to] of replacements)
+        result = caseInsensitive
+          ? result.replace(insensitiveLiteral(from, true, classLists), () => to)
+          : result.split(from).join(to)
+      return result
+    }
+    let t = ''
+    if (classLists && caseInsensitive) {
+      // C、C1 和 [+特征名] 是语法引用，不能因 c|k 把引用本身误改成 k。
+      let cursor = 0
+      for (const match of s.matchAll(/\[[^\]]*\]|[A-Z]\d*/gu)) {
+        const token = match[0]
+        const protectedToken = token.startsWith('[')
+          ? FEATURE_REF.test(decodeEscapes(token.slice(1, -1)))
+          : classNames?.has(token[0])
+        if (!protectedToken) continue
+        t += convert(s.slice(cursor, match.index)) + token
+        cursor = match.index + token.length
+      }
+      t += convert(s.slice(cursor))
+    } else t = convert(s)
     if (!classLists) return keepDots ? t : t.split('.').join('')
     return keepDots
       ? t
@@ -543,6 +570,50 @@ export function revertReplacements(text: string, replacements: [string, string][
 
 const CLASS_ESCAPE = /[\\\]^-]/g
 const RE_ESCAPE = /[\\^$.*+?()[\]{}|/]/g
+const insensitiveRegexes = new WeakMap<RegExp, RegExp>()
+const insensitiveLiterals = new Map<string, RegExp>()
+
+/** 匹配选项只作用于本次运行，不改共享的规则、音类或捕获内容。 */
+export function matchingRegex(regex: RegExp, caseInsensitive = false): RegExp {
+  if (!caseInsensitive || regex.ignoreCase) return regex
+  let compiled = insensitiveRegexes.get(regex)
+  if (!compiled) {
+    compiled = new RegExp(regex.source, regex.flags + 'i')
+    insensitiveRegexes.set(regex, compiled)
+  }
+  compiled.lastIndex = 0
+  return compiled
+}
+
+function insensitiveLiteral(text: string, replacement = false, encodedSource = false): RegExp {
+  const key = `${replacement ? 'replace' : 'match'}:${encodedSource}:${text}`
+  let regex = insensitiveLiterals.get(key)
+  if (!regex) {
+    if (insensitiveLiterals.size >= 2048) insensitiveLiterals.clear()
+    const literal = Array.from(text)
+      .map((character) => {
+        const normal = character.replace(RE_ESCAPE, '\\$&')
+        if (!encodedSource) return normal
+        const capital = [character.toUpperCase(), character.toLowerCase().toUpperCase()].find(
+          (value) => /^[A-Z]$/u.test(value)
+        )
+        // \C 是字面 C，不是音类 C；它仍应参与正字法的多合字母来源匹配。
+        return capital
+          ? `(?:${normal}|${String.fromCodePoint(ESCAPE_BASE + capital.charCodeAt(0))})`
+          : normal
+      })
+      .join('')
+    regex = new RegExp(replacement ? literal : `^(?:${literal})$`, replacement ? 'giu' : 'iu')
+    insensitiveLiterals.set(key, regex)
+  }
+  regex.lastIndex = 0
+  return regex
+}
+
+/** 与 Unicode 正则的 i 选项一致；不把匹配到的原字串改成小写。 */
+export function sameCaseInsensitive(left: string, right: string): boolean {
+  return left === right || insensitiveLiteral(left).test(right)
+}
 
 function classRegex(members: string[], marks = false, alias?: ClassAlias): string {
   if (alias) members = [...members, alias.alias]
@@ -752,7 +823,8 @@ function parseReplacement(
   s: string,
   classes: Map<string, string[]>,
   features?: FeatureTable,
-  warn?: (m: string) => void
+  warn?: (m: string) => void,
+  surfaceMembers?: ReadonlyMap<string[], string[]>
 ): ReplacementPart[] {
   const parts: ReplacementPart[] = []
   let text = ''
@@ -823,6 +895,12 @@ function parseReplacement(
     } else text += c
   }
   if (text) parts.push({ kind: 'text', text })
+  if (surfaceMembers)
+    for (const part of parts) {
+      if (part.kind !== 'class') continue
+      const original = surfaceMembers.get(part.ref.members)
+      if (original) part.ref.outputMembers = original
+    }
   return parts
 }
 
@@ -1128,6 +1206,7 @@ function parseInclude(
   if (!found) return bail(`找不到叫「${ref}」的音变`)
   out.program = parseRuleText(found.text, {
     ...(found.options ?? {}),
+    ...(options.caseInsensitive ? { caseInsensitive: true } : {}),
     resolveInclude: options.resolveInclude,
     includeStack: [...stack, ref]
   })
@@ -1222,15 +1301,26 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
   replacements.sort((a, b) => b[0].length - a[0].length)
   // 音类成员也要过一遍多合字母替换（用户在音类里写 th，等价于写 θ）
   const classAliases = new Map<string[], ClassAlias>()
+  const surfaceMembers = new Map<string[], string[]>()
+  const declaredClassNames = new Set(classes.keys())
   for (const [k, v] of classes) {
-    const members = v.map((m) => applyReplacements(m, replacements))
+    const members = v.map((m) =>
+      applyReplacements(m, replacements, false, false, options.caseInsensitive)
+    )
     classes.set(k, members)
+    if (options.caseInsensitive) surfaceMembers.set(members, v)
     const alias = importedAliases.get(k)
     // 明确配置的多合字母或替换可以让两种字符各有不同的用途。
     if (
       alias &&
       !replacements.some(([from, to]) =>
-        [alias.alias, alias.member].some((letter) => letter === from || letter === to)
+        [alias.alias, alias.member].some(
+          (letter) =>
+            letter === from ||
+            letter === to ||
+            (options.caseInsensitive &&
+              (sameCaseInsensitive(letter, from) || sameCaseInsensitive(letter, to)))
+        )
       ) &&
       members.includes(alias.member) &&
       !members.includes(alias.alias)
@@ -1311,7 +1401,20 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
       const sign = fm[1] as '+' | '-'
       // 显示、再写回用原来的写法（ng）；匹配用换过多合字母的（ŋ）
       const written = dedupe(featureMembers(fm[3]).map(literalEscapes))
-      const members = dedupe(written.map((m) => applyReplacements(m, replacements)))
+      const members = dedupe(
+        written.map((m) =>
+          applyReplacements(m, replacements, false, false, options.caseInsensitive)
+        )
+      )
+      if (options.caseInsensitive)
+        surfaceMembers.set(
+          members,
+          members.map((member) =>
+            written.find(
+              (value) => applyReplacements(value, replacements, false, false, true) === member
+            )!
+          )
+        )
       if (!members.length) warn(`特征 [${sign}${name}] 没有成员`)
       const prev = features.get(name) ?? { plus: null, minus: null }
       features = new Map(features)
@@ -1328,7 +1431,14 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
       try {
         for (const c of draft.clauses) {
           const pattern = (x: string): string =>
-            applyReplacements(encodeEscapes(x), replacements, false, true)
+            applyReplacements(
+              encodeEscapes(x),
+              replacements,
+              false,
+              true,
+              options.caseInsensitive,
+              declaredClassNames
+            )
           const common = { captureFirst: false, warn, marks: true, features, classAliases }
           const matcher = (target: string, ctx: Context): ClauseMatcher => {
             const t = target
@@ -1409,7 +1519,14 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     // 编译用换过多合字母的（th → θ）；留给界面显示、再写回规则的是原来的写法
     const writtenTarget = rulePart.slice(0, gt).trim()
     const writtenReplacement = rulePart.slice(gt + 1).trim()
-    const target = applyReplacements(writtenTarget, replacements, false, true)
+    const target = applyReplacements(
+      writtenTarget,
+      replacements,
+      false,
+      true,
+      options.caseInsensitive,
+      declaredClassNames
+    )
     const replacement = applyReplacements(writtenReplacement, replacements, false, true)
     const sigma = content.includes('σ')
     const marks = stressScope || sigma
@@ -1420,7 +1537,16 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     const writtenContexts: Context[] = []
     if (contextPart.trim()) {
       for (const piece of splitTopLevel(contextPart, ',')) {
-        const ctx = splitContext(applyReplacements(piece.trim(), replacements, false, true))
+        const ctx = splitContext(
+          applyReplacements(
+            piece.trim(),
+            replacements,
+            false,
+            true,
+            options.caseInsensitive,
+            declaredClassNames
+          )
+        )
         if (!ctx) return fail(`环境「${decodeEscapes(piece.trim())}」缺少 _`)
         contexts.push(ctx)
         writtenContexts.push(splitContext(piece.trim())!)
@@ -1435,7 +1561,16 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     if (exceptionPart) {
       for (const piece of splitTopLevel(exceptionPart, ',')) {
         if (!piece.trim()) continue
-        const ex = splitContext(applyReplacements(piece.trim(), replacements, false, true))
+        const ex = splitContext(
+          applyReplacements(
+            piece.trim(),
+            replacements,
+            false,
+            true,
+            options.caseInsensitive,
+            declaredClassNames
+          )
+        )
         if (!ex) return fail(`排除环境「${decodeEscapes(piece.trim())}」缺少 _`)
         if (ex.left || ex.right) {
           exceptions.push(ex)
@@ -1582,7 +1717,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
         ))
           return undefined
         const ref = firstClassOf(part).firstClass
-        const parts = parseReplacement(replacements[i], classes, features, warn)
+        const parts = parseReplacement(replacements[i], classes, features, warn, surfaceMembers)
         if (
           !ref?.members.length ||
           !parts.some((p) => p.kind === 'class') ||
@@ -1653,7 +1788,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
           replacement: decodeEscapes(shown[1]),
           targetClass: x.firstClass,
           targetGroup: x.groupIndex,
-          replacementParts: parseReplacement(rep, classes, features, warn),
+          replacementParts: parseReplacement(rep, classes, features, warn, surfaceMembers),
           ...(segments ? { segments } : {}),
           compiled: c
         })
@@ -1694,7 +1829,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
       targetClass: t.firstClass,
       targetGroup: t.groupIndex,
       compiled,
-      replacementParts: parseReplacement(thenReplacement, classes, features, warn),
+      replacementParts: parseReplacement(thenReplacement, classes, features, warn, surfaceMembers),
       ...(thenSegments ? { segments: thenSegments } : {}),
       marks,
       sigma,

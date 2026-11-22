@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { deletable } from '$lib/ui/deletable'
   import { navScroll } from '$lib/ui/navScroll'
   import { morphJoiner } from '$lib/engine/gloss'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
@@ -326,6 +327,7 @@
   }
   function remove(s: Sentence): void {
     const idx = project.sentences.indexOf(s)
+    if (idx < 0) return
     const snap = $state.snapshot(s) as Sentence
     project.sentences.splice(idx, 1)
     if (selectedId === s.id) selectedId = null
@@ -1081,6 +1083,13 @@
             <div
               class="card item"
               data-id={s.id}
+              use:deletable={{
+                selected: selectedId === s.id,
+                select: () => {
+                  selectedId = s.id
+                },
+                remove: () => remove(s)
+              }}
               class:sel={selectedId === s.id}
               class:flash={flashId === s.id}
               use:flashOn={justConfirmed === s.id}

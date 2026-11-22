@@ -320,7 +320,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change.',
+        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font. Temporary classes map multi-character tone numbers to complete tone-letter sequences.'
     },
@@ -453,6 +453,10 @@ const en: Dict = {
     }
   },
   soundChanges: {
+    addLineComment: 'Add comment line',
+    lineComment: 'Comment line',
+    symbolsHint:
+      'Sound changes replace symbols you define. A final set of rules can turn them into spelling. The language’s spelling-to-IPA rules can then derive the pronunciation of each entry.',
     search: 'Search rules, classes, stages',
     hint: 'Rules can use the classes from Phonology; bind stages to languages to use them in paradigms and lexicon evolution.',
     title: 'Sound changes',
@@ -1530,6 +1534,22 @@ const en: Dict = {
     addPosScope: '+ Part of speech'
   },
   csv: {
+    previewUpdates: 'Preview will update {n} existing entries',
+    previewAmbiguous: 'Preview has no unique match; will append: {list}',
+    automaticIpa: 'Enable automatic IPA for this import',
+    automaticIpaHint:
+      'Clear “Irregular” for the affected pronunciations and derive them with existing orthography rules. IPA columns select their orthographies; without one, use the primary orthography. Other pronunciations stay unchanged.',
+    overwriteExisting: 'Update uniquely matched existing entries',
+    overwriteExistingHint:
+      'Match the same language and exact headword; when provided, the part of speech must also match. Keep IDs, relations and unmapped data. Empty cells do not clear values; senses update by position. Ambiguous matches are appended.',
+    reportUpdated: 'Updated {n} existing entries',
+    reportAmbiguous: 'No unique match; appended: {list}',
+    previewUpdated: 'Update existing entry',
+    ipaAutomatic: 'Automatic IPA',
+    ipaManual: 'Manual IPA',
+    lexicanterProject: 'Lexicanter project (new languages)…',
+    lexicanterProjectHint:
+      'Lexicanter imports a complete project, adding its main and related languages, lexicons, orthographies, etymology and documents. Existing languages are not overwritten. Use CSV/table import to update a word list.',
     title: 'CSV import',
     pickFile: 'Choose file…',
     file: 'File',
@@ -1913,6 +1933,17 @@ const en: Dict = {
     exported: 'Exported'
   },
   phonology: {
+    caseInsensitive: 'Same pronunciation for upper/lower case',
+    caseInsensitiveHint:
+      'Use the same transcription for upper- and lowercase spelling. Turn off to define them separately. This only affects this orthography’s spelling → IPA; lemmas, rules and IPA output are preserved.',
+    generationModeHint:
+      'The two modes store separate phonotactic lists. Spelling mode generates spellings and transcribes them with the primary orthography. IPA mode generates phonemes and still uses existing reverse rules to recover spellings.',
+    legacyReverse: 'Legacy IPA → spelling rules',
+    legacyReverseHint:
+      'Existing reverse entries and advanced rules remain editable and testable. They are used only when generating in IPA mode.',
+    generatedLemmaPrompt:
+      'The generated result /{ipa}/ is IPA. Enter the headword spelling to save:',
+    generatedDuplicate: 'That headword already exists; no duplicate was added.',
     spellingRules: 'Phoneme spelling entries',
     spellingRulesHint:
       'Apply the longest spellings simultaneously once, then run the advanced rules below. All spellings are accepted toward IPA; the first is the default reverse spelling. Edited or disabled entries stay unchanged when defaults change. Reset an entry to follow its phoneme again.',

@@ -1,6 +1,10 @@
 import type { Id, Language, Orthography, OrthographyPhonemeRule } from './model'
 
 export type OrthographyDirection = 'toIpa' | 'fromIpa'
+export const orthographyIgnoresCase = (ortho: Orthography): boolean =>
+  ortho.caseInsensitive !== false
+export const orthographyInput = (ortho: Orthography, text: string): string =>
+  orthographyIgnoresCase(ortho) ? text.toLowerCase() : text
 export const spellingVariants = (text: string): string[] => [
   ...new Set(text.split(/[\s,，、/]+/u).filter(Boolean))
 ]
@@ -187,8 +191,9 @@ export function duplicatePhonemeRules(
     duplicates = new Set<string>()
   for (const row of phonemeRules(ortho, direction)) {
     if (!row.enabled || !row.from) continue
-    if (seen.has(row.from)) duplicates.add(row.id)
-    else seen.add(row.from)
+    const source = direction === 'toIpa' ? orthographyInput(ortho, row.from) : row.from
+    if (seen.has(source)) duplicates.add(row.id)
+    else seen.add(source)
   }
   return duplicates
 }
@@ -199,24 +204,47 @@ export function preparePhonemeMapping(
   ortho: Orthography,
   direction: OrthographyDirection
 ): (text: string) => string {
-  const rows = activePhonemeRules(ortho, direction)
+  return prepareLiteralMapping(
+    activePhonemeRules(ortho, direction),
+    direction === 'toIpa' && orthographyIgnoresCase(ortho)
+  )
+}
+/** 旧写法回退与基础条目共用字面最长匹配，大小写只影响来源匹配。 */
+export function prepareLiteralMapping(
+  rows: readonly { from: string; to: string }[],
+  ignoreCase = false
+): (text: string) => string {
   if (!rows.length) return (text) => text
-  const key = JSON.stringify(rows.map((row) => [row.from, row.to]))
+  const key = JSON.stringify([ignoreCase, rows.map((row) => [row.from, row.to])])
   let cached = mappingCache.get(key)
   if (!cached) {
-    const replacements = new Map(rows.map((row) => [row.from, row.to]))
+    const replacements = new Map<string, string>()
+    for (const row of rows) {
+      const source = ignoreCase ? row.from.toLowerCase() : row.from
+      if (!replacements.has(source)) replacements.set(source, row.to)
+    }
     const pattern = new RegExp(
       [...replacements.keys()]
         .sort((a, b) => b.length - a.length)
         .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
         .join('|'),
-      'gu'
+      ignoreCase ? 'giu' : 'gu'
     )
     cached = { pattern, replacements }
     if (mappingCache.size >= 128) mappingCache.delete(mappingCache.keys().next().value!)
     mappingCache.set(key, cached)
   }
-  return (text) => text.replace(cached!.pattern, (match) => cached!.replacements.get(match)!)
+  return (text) =>
+    text.replace(cached!.pattern, (match) => {
+      const key = ignoreCase ? match.toLowerCase() : match
+      const exact = cached!.replacements.get(key)
+      if (exact !== undefined) return exact
+      // Unicode简单大小写折叠（如长s）可能与toLowerCase不同，仍按来源顺序取首条。
+      for (const [source, value] of cached!.replacements)
+        if (new RegExp(`^${source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'iu').test(match))
+          return value
+      return match
+    })
 }
 export function applyPhonemeRules(
   ortho: Orthography,

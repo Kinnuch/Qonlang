@@ -5,6 +5,7 @@
 </script>
 
 <script lang="ts">
+  import { deletable } from '$lib/ui/deletable'
   import { orthoIpaLabel } from '$lib/ui/labels'
   import { navScroll } from '$lib/ui/navScroll'
   import { scrollToItem } from '$lib/ui/reveal'
@@ -471,6 +472,7 @@
   }
   function remove(p: Phrase): void {
     const idx = project.phrasebook.indexOf(p)
+    if (idx < 0) return
     const snap = $state.snapshot(p) as Phrase
     project.phrasebook.splice(idx, 1)
     if (selectedId === p.id) selectedId = null
@@ -646,6 +648,13 @@
               <div
                 class="card item"
                 data-id={p.id}
+                use:deletable={{
+                  selected: selectedId === p.id,
+                  select: () => {
+                    selectedId = p.id
+                  },
+                  remove: () => remove(p)
+                }}
                 class:sel={selectedId === p.id}
                 class:flash={flashId === p.id}
                 role="button"

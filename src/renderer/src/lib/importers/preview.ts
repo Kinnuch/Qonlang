@@ -35,6 +35,7 @@ export type PreviewKind = 'lexemes' | 'morphemes' | 'records' | 'glyphs' | 'line
 
 /** 一份样例数据：测试台按当前设置解析出来的结果也是这个形状 */
 export interface PreviewData {
+  updatedIds?: Set<string>
   /** 词条、语素要配一份临时项目（词类、维度的名字从这里找） */
   project?: Project
   lexemes?: Lexeme[]

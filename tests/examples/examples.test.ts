@@ -25,6 +25,21 @@ const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
 
 describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', () => {
+  it('keeps harmony notes outside the derivation and reads capitalized Tsahun spellings', () => {
+    const aelith = load('Aelith.laim.json')
+    const text = aelith.ruleSets.find((set) => set.name === '元音和谐')!.text
+    const program = parseRuleText(text)
+    expect(
+      program.lines.some((line) => line.kind === 'comment' && line.raw.includes('下一行记录结果'))
+    ).toBe(true)
+    expect(runRules(program, 'nöl¢dA').output).toBe('nölde')
+    const tsahun = load('Tsahun.laim.json').languages[0]
+    const orthography = tsahun.orthographies.find((o) => o.isPrimary) ?? tsahun.orthographies[0]
+    const lower = transcribe(tsahun, orthography, 'tsang55')
+    expect(lower).toBeTruthy()
+    expect(transcribe(tsahun, orthography, 'TSANG55')).toBe(lower)
+  })
+
   it('Aelith loads and its vowel-harmony rules resolve suffix archiphonemes', () => {
     const p = load('Aelith.laim.json')
     // 祖语 + 现代语 + 姊妹语；词条、语素、构形都要够示范用

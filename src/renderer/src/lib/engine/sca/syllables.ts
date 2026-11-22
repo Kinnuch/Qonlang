@@ -7,6 +7,8 @@ import { inferFeatures } from '$lib/ipa/features'
 import { stripMarks, syllableNucleusMatch, syllableSpans, tokenizeWord } from '../phon'
 import {
   BOUNDARY,
+  matchingRegex,
+  sameCaseInsensitive,
   type ClauseMatcher,
   type RuleProgram,
   type StressClause,
@@ -22,19 +24,33 @@ interface Syllabifier {
   maxCoda: number
 }
 
-const cache = new WeakMap<RuleProgram, Syllabifier>()
+const cache = new WeakMap<RuleProgram, Map<boolean, Syllabifier>>()
 
-function syllabifierOf(program: RuleProgram): Syllabifier {
-  const hit = cache.get(program)
+/** 仅本次分类器的集合忽略大小写；原程序保持可序列化且不会被改写。 */
+function matchingSet(values: Iterable<string>, caseInsensitive: boolean): Set<string> {
+  const set = new Set(values)
+  if (!caseInsensitive) return set
+  const exact = set.has.bind(set)
+  set.has = (value: string): boolean =>
+    exact(value) || [...set].some((member) => sameCaseInsensitive(member, value))
+  return set
+}
+
+function syllabifierOf(program: RuleProgram, caseInsensitive = false): Syllabifier {
+  const hit = cache.get(program)?.get(caseInsensitive)
   if (hit) return hit
   const sc = program.syllables
   const nuclei = new Set(sc.nuclei)
   const consonants = new Set(sc.consonants)
+  const foldedNuclei = matchingSet(sc.nuclei, caseInsensitive)
+  const foldedConsonants = matchingSet(sc.consonants, caseInsensitive)
   const known = new Map<string, boolean>()
   const isNucleus = (s: string): boolean => {
     let v = known.get(s)
     if (v === undefined) {
-      const declared = syllableNucleusMatch(s, nuclei, consonants)
+      const declared =
+        syllableNucleusMatch(s, nuclei, consonants) ??
+        (caseInsensitive ? syllableNucleusMatch(s, foldedNuclei, foldedConsonants) : undefined)
       if (declared !== undefined) v = declared
       else {
         // 表里没有的多字母单位（aa、ai）逐个字母看，全是元音才算
@@ -42,7 +58,7 @@ function syllabifierOf(program: RuleProgram): Syllabifier {
         v =
           letters.length > 0 &&
           letters.every((ch) => {
-            const f = inferFeatures(ch)
+            const f = inferFeatures(caseInsensitive ? ch.toLowerCase() : ch)
             return f.type === 'vowel' || f.syllabic === 'yes'
           })
       }
@@ -51,13 +67,18 @@ function syllabifierOf(program: RuleProgram): Syllabifier {
     return v
   }
   const sy: Syllabifier = {
-    units: new Set(sc.units),
+    units: matchingSet(sc.units, caseInsensitive),
     isNucleus,
-    onsets: sc.onsets.length ? new Set(sc.onsets) : undefined,
+    onsets: sc.onsets.length ? matchingSet(sc.onsets, caseInsensitive) : undefined,
     maxOnset: sc.maxOnset ?? Infinity,
     maxCoda: sc.maxCoda ?? Infinity
   }
-  cache.set(program, sy)
+  let modes = cache.get(program)
+  if (!modes) {
+    modes = new Map()
+    cache.set(program, modes)
+  }
+  modes.set(caseInsensitive, sy)
   return sy
 }
 
@@ -87,8 +108,8 @@ export function plainAnnotated(word: string): Annotated {
  * 给词划音节：音节之间插入 BOUNDARY（放在前一个音节最后一个音的后面，
  * 下一个音节前面的重音记号跟着下一个音节），分隔符、空白两边也插。
  */
-export function annotate(word: string, program: RuleProgram): Annotated {
-  const sy = syllabifierOf(program)
+export function annotate(word: string, program: RuleProgram, caseInsensitive = false): Annotated {
+  const sy = syllabifierOf(program, caseInsensitive)
   const tokens = tokenizeWord(word, sy.units)
   const boundaryBefore = new Set<number>()
   interface TokSyllable {
@@ -162,13 +183,23 @@ export function annotate(word: string, program: RuleProgram): Annotated {
 }
 
 /** 这个音节合不合这一条：音节核里有目标，左环境在核前、右环境在核后，又不在排除里 */
-function clauseHolds(c: StressClause, text: string, s: AnnotatedSyllable): boolean {
+function clauseHolds(
+  c: StressClause,
+  text: string,
+  s: AnnotatedSyllable,
+  caseInsensitive = false
+): boolean {
   const sticky = (re: RegExp, at: number): boolean => {
-    re.lastIndex = at
-    return re.test(text)
+    const compiled = matchingRegex(re, caseInsensitive)
+    compiled.lastIndex = at
+    return compiled.test(text)
   }
   const holds = (m: ClauseMatcher, withTarget: boolean): boolean => {
-    if (withTarget && m.target && !m.target.test(text.slice(s.nucleusStart, s.nucleusEnd)))
+    if (
+      withTarget &&
+      m.target &&
+      !matchingRegex(m.target, caseInsensitive).test(text.slice(s.nucleusStart, s.nucleusEnd))
+    )
       return false
     if (m.left && !sticky(m.left, s.nucleusStart)) return false
     if (m.right && !sticky(m.right, s.nucleusEnd)) return false
@@ -182,7 +213,8 @@ function chooseSyllable(
   clauses: StressClause[],
   text: string,
   sylls: AnnotatedSyllable[],
-  info: WordStress | undefined
+  info: WordStress | undefined,
+  caseInsensitive = false
 ): number {
   const n = sylls.length
   // 一个元音都没有的词（ng、hm）不标重音
@@ -197,7 +229,7 @@ function chooseSyllable(
     }
     if (c.count !== null && (c.orMore ? n < c.count : n !== c.count)) continue
     if (c.position === 0) return -1
-    const ok = (i: number): boolean => clauseHolds(c, text, sylls[i])
+    const ok = (i: number): boolean => clauseHolds(c, text, sylls[i], caseInsensitive)
     if (c.position === 'first') {
       for (let i = 0; i < n; i++) if (ok(i)) return i
       continue
@@ -225,12 +257,13 @@ export function assignStress(
   step: StressLine,
   word: string,
   program: RuleProgram,
-  info?: WordStress
+  info?: WordStress,
+  caseInsensitive = false
 ): string {
   const clean = step.level === 'primary' ? word.replace(/[ˈˌ]/g, '') : word.replace(/ˌ/g, '')
   const special = step.special && step.level === 'primary' ? (info?.stress ?? null) : null
   if (!step.clauses.length && special === null) return clean
-  const ann = annotate(clean, program)
+  const ann = annotate(clean, program, caseInsensitive)
   const inserts: [number, string][] = []
   // 词条自己的特殊重音：整个词按它，第几个音节数的是整个词的（0 不重读）
   if (special !== null) {
@@ -254,7 +287,9 @@ export function assignStress(
       parts[parts.length - 1].push(...ch.syllables)
       if (i < w.chunks.length - 1 && ch.sep && step.split.includes(ch.sep)) parts.push([])
     })
-    const chosen = parts.map((p) => chooseSyllable(step.clauses, ann.text, p, info))
+    const chosen = parts.map((p) =>
+      chooseSyllable(step.clauses, ann.text, p, info, caseInsensitive)
+    )
     const at = (pi: number): number => ann.source(parts[pi][chosen[pi]].start)
     if (step.level === 'secondary') {
       chosen.forEach((k, pi) => {

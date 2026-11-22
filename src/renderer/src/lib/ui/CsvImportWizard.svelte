@@ -238,7 +238,9 @@
     // 词源来源、关系要能链到项目里已有的单词和语素：拿真项目的列表当底子，样例只列新加的
     scratch.lexemes = [...project.lexemes]
     scratch.morphemes = [...project.morphemes]
-    applyCsvImport(scratch, sample, m)
+    const result = applyCsvImport(scratch, sample, m)
+    const originals = new Map(project.lexemes.map((item) => [item.id, item]))
+    const changed = scratch.lexemes.filter((item) => originals.get(item.id) !== item)
     const existing = new Set(
       m.target === 'lexemes'
         ? project.lexemes.filter((l) => l.languageId === m.languageId).map((l) => l.lemma)
@@ -248,7 +250,9 @@
       project: scratch,
       total: data.length,
       existing,
-      lexemes: scratch.lexemes.slice(project.lexemes.length),
+      report: result,
+      updatedIds: new Set(changed.filter((item) => originals.has(item.id)).map((item) => item.id)),
+      lexemes: changed,
       morphemes: scratch.morphemes.slice(project.morphemes.length)
     }
   })
@@ -267,9 +271,12 @@
     scratch.lexemes = [...project.lexemes]
     scratch.morphemes = [...project.morphemes]
     applyCsvImport(scratch, data, m)
+    const originals = new Map(project.lexemes.map((item) => [item.id, item]))
+    const changed = scratch.lexemes.filter((item) => originals.get(item.id) !== item)
     return {
       project: scratch,
-      lexemes: scratch.lexemes.slice(project.lexemes.length),
+      updatedIds: new Set(changed.filter((item) => originals.has(item.id)).map((item) => item.id)),
+      lexemes: changed,
       morphemes: scratch.morphemes.slice(project.morphemes.length)
     }
   }
@@ -303,7 +310,9 @@
       senseCodes: cleanCodeRules($state.snapshot(mapping.senseCodes)),
       senseMarkers: effectiveMarkers(),
       posMarkers: effectivePosMarkers(),
-      parenMarkers: mapping.parenMarkers !== false
+      parenMarkers: mapping.parenMarkers !== false,
+      automaticIpa: !!mapping.automaticIpa,
+      overwriteExisting: !!mapping.overwriteExisting
     }
     ui.prefs.csvPresets = [...ui.prefs.csvPresets.filter((p) => p.name !== preset.name), preset]
     void ui.savePrefs()
@@ -325,6 +334,8 @@
     mapping.senseMarkers = cleanMarkerRules(p.senseMarkers)
     mapping.posMarkers = cleanPosRules(p.posMarkers)
     mapping.parenMarkers = p.parenMarkers ?? true
+    mapping.automaticIpa = !!p.automaticIpa
+    mapping.overwriteExisting = !!p.overwriteExisting
     mapping.columns = mapping.columns.map(
       (_, i) => (p.columns[keyFor(i)] as FieldSpec | undefined) ?? { kind: 'ignore' }
     )
@@ -590,6 +601,22 @@
         ><input type="checkbox" bind:checked={mapping.splitSenses} />{t('csv.splitSenses')}</label
       >
       {#if mapping.target === 'lexemes'}
+        <div class="row check-help">
+          <label class="row check"
+            ><input data-import-auto-ipa type="checkbox" bind:checked={mapping.automaticIpa} />{t(
+              'csv.automaticIpa'
+            )}</label
+          ><HelpDot tip={t('csv.automaticIpaHint')} />
+        </div>
+        <div class="row check-help">
+          <label class="row check"
+            ><input
+              data-import-overwrite
+              type="checkbox"
+              bind:checked={mapping.overwriteExisting}
+            />{t('csv.overwriteExisting')}</label
+          ><HelpDot tip={t('csv.overwriteExistingHint')} />
+        </div>
         <!-- 问号放在 label 外面：点它不会顺手勾掉选项 -->
         <div class="row check-help">
           <label class="row check"
@@ -785,11 +812,21 @@
     {/if}
 
     {#if !lemmaMapped}<p class="small warn">{t('csv.needLemma')}</p>{/if}
+    {#if mapping?.overwriteExisting && preview}<p class="small muted" data-import-update-plan>
+        {t('csv.previewUpdates', {
+          n: preview.report.updated ?? 0
+        })}{#if preview.report.ambiguous?.length}
+          · {t('csv.previewAmbiguous', { list: preview.report.ambiguous.join(', ') })}{/if}
+      </p>{/if}
 
     {#if report}
       <div class="card report">
         <strong>{t('csv.reportTitle')}</strong>
         <div>{t('csv.reportCreated', { n: report.created })}</div>
+        {#if report.updated}<div>{t('csv.reportUpdated', { n: report.updated })}</div>{/if}
+        {#if report.ambiguous?.length}<div>
+            {t('csv.reportAmbiguous', { list: report.ambiguous.join(', ') })}
+          </div>{/if}
         {#if report.skipped}<div>{t('csv.reportSkipped', { n: report.skipped })}</div>{/if}
         {#if report.duplicates.length}<div>
             {t('csv.reportDuplicates', {
@@ -840,6 +877,7 @@
       lexemes={preview?.lexemes ?? []}
       morphemes={preview?.morphemes ?? []}
       duplicates={preview?.existing}
+      updatedIds={preview?.updatedIds}
       source={fileName}
       testParse={testRows}
       testPlaceholder={t('importPreview.phCsv')}
