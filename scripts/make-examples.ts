@@ -1301,6 +1301,7 @@ function makeAelith(): void {
     '- **语言**：语系树（「Ael 语系」节点下 Proto-Aelith → Aelith 与姊妹语 Merun；点语系节点看数量、音位对照、同源比例、对应词表）、Aelith 内部的两个历时阶段（古典 CAe → 现代 Ae，「Proto → Aelith」的阶段标记绑到它们）、方言、字母表',
     '- **音系**：音位与特征、由特征生成的音类、多合字母、两套正字法（罗马化转音标的最后一行 `ˈ = @ , <代词|小品词> 0 , 1` 是重音规则，转出来的音标带重音：telikaso 按词条标的特殊重音读 teliˈkaso，men、biz 这些代词不重读）、音节与重音、配列与造词；姊妹语 Merun 的「音节与韵律」用的是自定义重音规则 `@ , -2 / _CC , -1`，测试里输入 hasta、hasu 看重音落在哪，hara 在词条里标了特殊重音，重读第一个音节',
     '- **音类编辑**：在「音系 → 音类」点击卡片，修改后选择「完成」；「取消」不会把名称、成员或特征条件写入工程。删除后可点击通知里的「撤销」恢复。',
+    '- **文字入门**：在「文字」中打开「附标与 RIME 迁移入门」，按内置步骤区分基字、附标和完整音节码表，并在试写框检查组合；也可查看已有 RIME `.dict.yaml` 码表应如何整理为映射。',
     '- **文字**：卢恩刻文、映射规则、手填的文字写法；「刻痕句读」是在手写板上画的字（打开它点「改手写」看笔画）',
     '- **音变**：四套规则集（元音和谐、Proto → Aelith、Proto → Merun、书面语 → 口语），阶段绑定语言，测试台词表；「Proto → Aelith」里有满足 / 不满足环境两路的规则（`θ > t?s / #_`：词首变 t、别处变 s）和带两个排除的规则（`u > o / _# - k_ , g_`），整库演化推出来的正是词库里的 kaso、nöl、sör-；「书面语 → 口语」演示特征（`[+浊] = b d g z v`，规则里写 `[+浊] > [-浊] / _σ`）、重音规则（`ˈ = @ , <代词|小品词> 0 , 1`，测试台每一列都带着 ˈ；biz、sen 是代词不重读，telikaso 重读 ka）、音节边界 σ（不重读的 e 弱化：`e > ə / σ(C)(C)_ - ˈ(C)(C)_`，sen → sən）和临时音类中的位置对应（`[t d] > [r.r] / V_V`：元音之间的 t、d 都闪成 r，kasoda → ˈkasora；左侧空格分开候选，右侧圆点分开完整的对应写法，两个 r 各写一次）',
     '- **规则示例**：在「音变」选中一条规则，卡片优先从该语言的词库寻找会实际变化的词头或已存读音；没有匹配词时再尝试构造并核对示例，不会向词库写入候选。',
@@ -1853,6 +1854,41 @@ function makeTsahun(): void {
   // 括号里的可省；音节文字设了「括号连内容都不写」，文字行里没有 (lo21)
   phrase('句式', 'ni33 hem55 (lo21)', '你看见了（吗）', 'You saw it (?)')
 
+  // 可选的语素槽示范只重现已有语料片段；放在原构形推导和语料分析之后。
+  const corpusParticleSlot = {
+    id: newId(),
+    name: '语料小品词',
+    description: '仅复现公开语料中 kwe51 后的 ta33 与 lun35 后的 lo21；由词条明确绑定具体语素。'
+  }
+  p.morphemeSlots = [corpusParticleSlot]
+  const corpusDemoCategory = category(p, '语料组合示范', 'corpus-combination demo', [
+    ['语料组合', 'corpus combination', 'DEMO']
+  ])
+  const corpusParticleDemo = paradigm(
+    p,
+    '语素槽（语料组合示范）',
+    'morpheme slot (corpus combinations)',
+    [corpusDemoCategory]
+  )
+  corpusParticleDemo.generators[value(corpusDemoCategory, 'DEMO')] = pipeline(
+    'lemma',
+    step('suffix', {
+      text: '',
+      morphemeSlot: corpusParticleSlot.id,
+      slotBefore: ' ',
+      slotAfter: ''
+    })
+  )
+  for (const [lemma, particle] of [
+    ['kwe51', 'ta33'],
+    ['lun35', 'lo21']
+  ] as const)
+    lex.get(lemma)!.morphemeBindings = {
+      [corpusParticleSlot.id]: p.morphemes.find(
+        (m) => m.languageId === L.id && m.form === particle
+      )!.id
+    }
+
   // ── 文档、缩写、导出模板 ──
   const about = createDoc(null, '关于这个示例')
   about.markdown = [
@@ -1869,6 +1905,7 @@ function makeTsahun(): void {
     '- **双正字法**：罗马化（数字标调）与西里尔正字，例句可以并列两种写法；音位表里填了每个音位在罗马化里的写法，「音节与韵律」的测试按拼写输入 tsang55 时 ts、ng 各算一个音，形容词强调重叠 tsing55 得 tsitsing55（按字母数会是 tstsing55）',
     '- 在「音系 → 正字法」选择罗马化，可查看从音位写法生成的 ts → t͡s 和 ng → ŋ，单独微调一行，再用试写框检查结果。',
     '- **文字**：音节文字的**拼合**（辅音+元音自动拼格，尾辅音用消音符）与**竖排显示**',
+    '- **语素槽**：在「构形」选择 [[构形:语素槽（语料组合示范）]]，在测试台选择「对比」，分别输入 kwe51 和 lun35 并点击词库候选，再查看「语料组合」这一格。同一构形从词条的「语料小品词」槽取用具体语素：kwe51 绑定 ta33，生成 `kwe51 ta33`；lun35 绑定 lo21，生成 `lun35 lo21`。可在词条录入的「语素槽」查看这两项 ID 绑定。ta33 表完成体，lo21 表疑问；后接一步只表示按空格拼接，示范取自已有句子中的相邻片段。',
     '- **构形**：孤立语也有构形——重叠出复数与强调；代词复数后面空一格接 `@tui55`（语素表里没有就引用同名词条），推出带空格的 `ngo21 tui55`',
     '- **语料**：重叠形也能被自动 gloss 认出来（`lun35lun35`），带空格的 `ngo21 tui55` 并成一个词认；`hok33 lo21` 里的同形词故意没确认，悬浮时并排给候选；工作台里点一个动词，附着台列出语料里跟动词用过的小品词：完成体 ta33 放在后面、否定 mo35 放在前面（按语料里惯常挨着的那一边）',
     '- **词库**：同音异调的最小对、同形词 hok33（红 / 学）、复合词、整套借入的数词、一个义项几个语域（hu35）',

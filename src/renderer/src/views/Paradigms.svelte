@@ -39,7 +39,7 @@
     resolveGenerator,
     effectiveGenerator,
     slotFromKey,
-    generateForm,
+    generateFormWithDiagnostics,
     deriveForms,
     reconcileSlot,
     makeContext,
@@ -404,10 +404,12 @@
     slot: SlotDef
     generated: string
     trace: string[]
+    diagnostics: string[]
     stored: string
     status: 'none' | 'missing' | 'same' | 'diff'
   } {
-    const g = generateForm(ctx, lexeme, para, s, editVariantId)
+    const result = generateFormWithDiagnostics(ctx, lexeme, para, s, editVariantId),
+      g = result.generated
     const stored = lexeme.forms[formKeyOf(project, lexeme, para.id, s, editVariantId)]
     const status = !g
       ? 'none'
@@ -422,7 +424,8 @@
     return {
       slot: s,
       generated: g?.surface ?? '',
-      trace: g?.trace ?? [],
+      trace: [...(g?.trace ?? []), ...result.diagnostics],
+      diagnostics: result.diagnostics,
       stored: stored?.surface ?? '',
       status
     }
@@ -439,8 +442,14 @@
     return slots
       .filter((s) => !para.disabledSlots.includes(s.key))
       .map((s) => {
-        const g = generateForm(ctx, pseudo, para, s, editVariantId)
-        return { slot: s, generated: g?.surface ?? '', trace: g?.trace ?? [] }
+        const result = generateFormWithDiagnostics(ctx, pseudo, para, s, editVariantId),
+          g = result.generated
+        return {
+          slot: s,
+          generated: g?.surface ?? '',
+          trace: [...(g?.trace ?? []), ...result.diagnostics],
+          diagnostics: result.diagnostics
+        }
       })
   })
   /** 测试台里某一格推出来的形式：生成成一个新词条（弹出表单，词源、关系按构形填好） */
@@ -516,6 +525,13 @@
       switch (st.kind) {
         case 'prefix':
         case 'suffix':
+          if (st.morphemeSlot)
+            return t('morphemeSlots.slotSource', {
+              name:
+                project.morphemeSlots?.find((slot) => slot.id === st.morphemeSlot)?.name ??
+                t('morphemeSlots.missingSlot')
+            })
+          return st.text.trim() || t(`paradigms.steps.${st.kind}`)
         case 'infix':
           return st.text.trim() || t(`paradigms.steps.${st.kind}`)
         case 'circumfix':
@@ -1419,7 +1435,7 @@
               class="pcell"
               class:off
               class:dim={!shownKeys.has(s.key)}
-              class:bad={f?.status === 'diff'}
+              class:bad={f?.status === 'diff' || !!f?.diagnostics.length}
               title={[s.label, sum, ...(f?.trace ?? []).map(traceLine)].filter(Boolean).join('\n')}
               onclick={() => openSlot(s.key)}
             >
@@ -1427,6 +1443,9 @@
                 <span class="small muted">{t('paradigms.slotOff')}</span>
               {:else}
                 {#if testLexeme}<span class="data form">{f?.generated || '—'}</span>{/if}
+                {#if f?.diagnostics.length}<span class="small bad"
+                    >{t('morphemeSlots.blocked')}</span
+                  >{/if}
                 <span class="sum">{sum || t('paradigms.kinds.none')}</span>
               {/if}
             </button>
@@ -1944,7 +1963,12 @@
                 <tr title={r.trace.map(traceLine).join('\n')}>
                   <td class="muted slot-name" title={r.slot.label}>{r.slot.abbr || r.slot.label}</td
                   >
-                  <td class="data">{r.generated || '—'}</td>
+                  <td class="data"
+                    >{r.generated || '—'}{#if r.diagnostics.length}<span
+                        class="bad small"
+                        data-morpheme-diagnostic>{r.diagnostics.map(traceLine).join(' · ')}</span
+                      >{/if}</td
+                  >
                   <td class="st">
                     {#if r.generated}
                       <button
@@ -2012,7 +2036,12 @@
                 <tr title={r.trace.map(traceLine).join('\n')}>
                   <td class="muted slot-name" title={r.slot.label}>{r.slot.abbr || r.slot.label}</td
                   >
-                  <td class="data">{r.generated || '—'}</td>
+                  <td class="data"
+                    >{r.generated || '—'}{#if r.diagnostics.length}<span
+                        class="bad small"
+                        data-morpheme-diagnostic>{r.diagnostics.map(traceLine).join(' · ')}</span
+                      >{/if}</td
+                  >
                   <td class="st">
                     {#if r.status === 'same'}<span class="ok"><Check size={12} /></span>
                     {:else if r.status === 'diff'}<span class="bad" title={r.stored}

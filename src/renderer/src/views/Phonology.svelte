@@ -1361,6 +1361,20 @@
             /></label
           >
         </div>
+        {#if lang.syllable.strategy === 'template'}
+          <label class="row check small" data-syllable-onset-whitelist>
+            <input
+              type="checkbox"
+              checked={lang.syllable.useOnsetWhitelist === true}
+              disabled={projectState.readOnly}
+              onchange={(e) => {
+                lang.syllable.useOnsetWhitelist = e.currentTarget.checked
+                touch()
+              }}
+            />
+            {t('phonology.templateOnsets')}<HelpDot tip={t('phonology.templateOnsetsHint')} />
+          </label>
+        {/if}
       </section>
       <section class="block">
         <h3>{t('phonology.prosody')}</h3>

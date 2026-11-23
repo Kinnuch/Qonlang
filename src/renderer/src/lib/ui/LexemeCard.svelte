@@ -16,7 +16,7 @@
   import FormsView from '$lib/ui/FormsView.svelte'
   import { etymologyTypeLabel, orthoIpaLabel, pronText, relationLabel } from '$lib/ui/labels'
   import LexemeHistory from './LexemeHistory.svelte'
-  import { blockSize, cardBlocks } from '$lib/ui/cardBlocks'
+  import { blockSize, cardBlocks, cardBlockVisible } from '$lib/ui/cardBlocks'
   import { customFieldScript, customFieldsFor, customItems } from '$lib/core/customFields'
   import { morphemeLabel } from '$lib/core/etymology'
   import { t, pickText } from '$lib/i18n/index.svelte'
@@ -110,6 +110,8 @@
   const pos = $derived(project.posList.find((p) => p.id === l.posId))
   /** 各块的顺序：皮肤页里拖着排，没排过就用默认顺序 */
   const blocks = $derived(cardBlocks(ui.prefs.cardOrder))
+  const visible = (key: string): boolean =>
+    cardBlockVisible(ui.prefs.cardHidden, key, ui.prefs.showHistory)
   /** 每一块的字号（皮肤页里逐块调，px）；块里的字号都按 em 跟着走，比例不变 */
   const px = (key: string): string =>
     `calc(${blockSize(ui.prefs.cardBlockSize, key)}px * var(--font-scale-ui, 1))`
@@ -203,7 +205,7 @@
   {/each}
 {/snippet}
 
-<article class="entry" class:has-img={!!l.images?.length}>
+<article class="entry" class:has-img={!!l.images?.length} class:header-hidden={!visible('header')}>
   {#if l.images?.[0]}
     <img
       class="hero"
@@ -212,34 +214,36 @@
       title={l.images[0].caption}
     />
   {/if}
-  <header style:font-size={px('header')} data-block="header" class:hl={highlight === 'header'}>
-    <h2 class="lemma data">
-      {#if l.marked}<span class="mark">{project.settings.markSymbol || '*'}</span>{/if}{l.lemma ||
-        '—'}
-    </h2>
-    {#each scripts as x (x.sc.id)}<div
-        class="scr"
-        style={fontCss(x.sc)}
-        dir={x.sc.direction === 'rtl' ? 'rtl' : 'ltr'}
-        title={x.sc.name}
-      >
-        {x.text}
-      </div>{/each}
-    <div class="row meta">
-      {#if pos}<span class="pos">{pos.abbr || pickText(pos.name, glossLangs)}</span>{/if}
-      {#each pron as p, pi (pi)}<span class="ipa data" title={orthoIpaLabel(p.name, pron.length)}
-          >{pronText(p.p.ipa)}{#if pron.length > 1}<span class="tiny">{p.name}</span>{/if}</span
-        >{/each}
-    </div>
-    {#if features.length || dialects.length}
-      <div class="chips">
-        {#each features as f (f.cat)}<span class="chip" title={f.cat}
-            >{f.val}{#if f.abbr && f.abbr !== f.val}<span class="tiny">{f.abbr}</span>{/if}</span
+  {#if visible('header')}
+    <header style:font-size={px('header')} data-block="header" class:hl={highlight === 'header'}>
+      <h2 class="lemma data">
+        {#if l.marked}<span class="mark">{project.settings.markSymbol || '*'}</span>{/if}{l.lemma ||
+          '—'}
+      </h2>
+      {#each scripts as x (x.sc.id)}<div
+          class="scr"
+          style={fontCss(x.sc)}
+          dir={x.sc.direction === 'rtl' ? 'rtl' : 'ltr'}
+          title={x.sc.name}
+        >
+          {x.text}
+        </div>{/each}
+      <div class="row meta">
+        {#if pos}<span class="pos">{pos.abbr || pickText(pos.name, glossLangs)}</span>{/if}
+        {#each pron as p, pi (pi)}<span class="ipa data" title={orthoIpaLabel(p.name, pron.length)}
+            >{pronText(p.p.ipa)}{#if pron.length > 1}<span class="tiny">{p.name}</span>{/if}</span
           >{/each}
-        {#each dialects as d (d.id)}<span class="chip dia">{d.name}</span>{/each}
       </div>
-    {/if}
-  </header>
+      {#if features.length || dialects.length}
+        <div class="chips">
+          {#each features as f (f.cat)}<span class="chip" title={f.cat}
+              >{f.val}{#if f.abbr && f.abbr !== f.val}<span class="tiny">{f.abbr}</span>{/if}</span
+            >{/each}
+          {#each dialects as d (d.id)}<span class="chip dia">{d.name}</span>{/each}
+        </div>
+      {/if}
+    </header>
+  {/if}
 
   {#if (l.images?.length ?? 0) > 1}
     <div class="thumbs">
@@ -252,8 +256,6 @@
   {/if}
 
   {#snippet blockSenses()}
-    {@render customBlocks('beforeSenses')}
-
     {#snippet senseBody(s: Sense, firstLang: string | undefined, sp: PartOfSpeech | undefined)}
       {#each glossLangs as g (g)}
         {#if s.definition[g]}<p class="def" lang={g}>
@@ -302,7 +304,6 @@
         </li>
       {/each}
     </ol>
-    {@render customBlocks('afterSenses')}
   {/snippet}
 
   {#snippet blockTags()}
@@ -338,7 +339,6 @@
         {#if l.etymology.notes}<p class="small muted">{l.etymology.notes}</p>{/if}
       </section>
     {/if}
-    {@render customBlocks('afterEtymology')}
   {/snippet}
 
   {#snippet formCell(s: LexemeSlot | null)}
@@ -478,10 +478,27 @@
 
   <!-- 各块按皮肤页里排好的顺序画 -->
   {#each blocks as b (b)}
-    <!-- display:contents：不占布局，只把这一块的字号传给里面 -->
-    <div class="blk-scale" style:font-size={px(b)} data-block={b} class:hl={highlight === b}>
-      {#if b === 'senses'}{@render blockSenses()}{:else if b === 'tags'}{@render blockTags()}{:else if b === 'etymology'}{@render blockEtymology()}{:else if b === 'history'}{@render blockHistory()}{:else if b === 'stems'}{@render blockStems()}{:else if b === 'forms'}{@render blockForms()}{:else if b === 'relations'}{@render blockRelations()}{:else if b === 'derived'}{@render blockDerived()}{:else}{@render blockNotes()}{/if}
-    </div>
+    <!-- 检视器模块各自独立，隐藏相邻的内置块也保留它原来的插入位置与字号。 -->
+    {#if b === 'senses'}
+      <div class="blk-scale" style:font-size={px(b)} data-custom-position="beforeSenses">
+        {@render customBlocks('beforeSenses')}
+      </div>
+    {/if}
+    {#if visible(b)}
+      <!-- display:contents：不占布局，只把这一块的字号传给里面 -->
+      <div class="blk-scale" style:font-size={px(b)} data-block={b} class:hl={highlight === b}>
+        {#if b === 'senses'}{@render blockSenses()}{:else if b === 'tags'}{@render blockTags()}{:else if b === 'etymology'}{@render blockEtymology()}{:else if b === 'history'}{@render blockHistory()}{:else if b === 'stems'}{@render blockStems()}{:else if b === 'forms'}{@render blockForms()}{:else if b === 'relations'}{@render blockRelations()}{:else if b === 'derived'}{@render blockDerived()}{:else}{@render blockNotes()}{/if}
+      </div>
+    {/if}
+    {#if b === 'senses' || b === 'etymology'}
+      <div
+        class="blk-scale"
+        style:font-size={px(b)}
+        data-custom-position={b === 'senses' ? 'afterSenses' : 'afterEtymology'}
+      >
+        {@render customBlocks(b === 'senses' ? 'afterSenses' : 'afterEtymology')}
+      </div>
+    {/if}
   {/each}
   {@render customBlocks('end')}
 </article>
@@ -519,6 +536,10 @@
   .entry.has-img header {
     padding-inline-end: 172px;
     min-height: 120px;
+  }
+  .entry.header-hidden .hero {
+    position: static;
+    align-self: flex-end;
   }
   .thumbs {
     display: flex;

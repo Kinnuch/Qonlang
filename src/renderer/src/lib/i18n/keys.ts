@@ -45,6 +45,7 @@ export const paramsOf = (s: string): string[] => [...new Set(s.match(/\{[^{}]+\}
  */
 const GROUP_OF: Record<string, string> = {
   taxonomy: 'lexicon',
+  morphemeSlots: 'paradigms',
   newLexeme: 'lexicon',
   images: 'lexicon',
   evolve: 'lexicon',

@@ -26,6 +26,7 @@ import { activeValues, conditionVariants, resolveConditions } from './conditions
 import { activeValueIds, alloValues, valueLabel, valueMatch } from './allomorph'
 import type { LayoutDim } from './layout'
 import { canonicalG } from '$lib/ipa/equivalence'
+import { boundMorpheme } from '$lib/core/morphemeSlots'
 
 export interface SlotDef {
   key: string
@@ -436,6 +437,33 @@ function resolveAffix(
   }
 }
 
+class MorphemeSlotError extends Error {}
+
+function resolveSlotAffix(
+  ctx: MorphContext,
+  lexeme: Lexeme,
+  step: Extract<MorphStep, { kind: 'prefix' | 'suffix' }>,
+  stem: string,
+  active?: ReadonlyMap<Id, Id>
+): { form: string; note: string; morpheme: Morpheme; slotName: string } {
+  const hit = boundMorpheme(ctx.project, lexeme, step.morphemeSlot!)
+  const name = hit.slot?.name || step.morphemeSlot!
+  if (hit.issue === 'slot-missing') throw new MorphemeSlotError(`语素槽「${name}」不存在`)
+  if (hit.issue === 'unbound') throw new MorphemeSlotError(`语素槽「${name}」尚未绑定语素`)
+  if (hit.issue === 'morpheme-missing')
+    throw new MorphemeSlotError(`语素槽「${name}」绑定的语素已不存在`)
+  if (hit.issue === 'wrong-language' || hit.morpheme!.languageId !== ctx.language.id)
+    throw new MorphemeSlotError(`语素槽「${name}」只能绑定当前词条语言的语素`)
+  const morpheme = hit.morpheme!
+  const selected = selectAllomorph(ctx, morpheme, stem, step.kind, active)
+  return {
+    form: (step.slotBefore ?? '') + trimHyphens(selected.form) + (step.slotAfter ?? ''),
+    note: selected.note,
+    morpheme,
+    slotName: name
+  }
+}
+
 /** 拼写里有几个音节：按拼写单位数元音，挨着的元音算一个 */
 function syllableCount(text: string, units: string[], isVowel: (s: string) => boolean): number {
   let n = 0
@@ -807,6 +835,7 @@ const shown = (raw: string, got: string): string => (raw === got ? raw : `${raw}
  */
 function runStep(
   ctx: MorphContext,
+  lexeme: Lexeme,
   step: MorphStep,
   surface: string,
   trace: string[],
@@ -819,20 +848,26 @@ function runStep(
   switch (step.kind) {
     case 'prefix': {
       const text = pick(step.text)
-      const a = resolveAffix(ctx, text, surface, 'prefix', active)
+      const a = step.morphemeSlot
+        ? resolveSlotAffix(ctx, lexeme, step, surface, active)
+        : resolveAffix(ctx, text, surface, 'prefix', active)
+      if ('slotName' in a) trace.push(`语素槽「${a.slotName}」引用语素「${a.morpheme!.form}」`)
       if (a.note) trace.push(a.note)
       stressAfterAffix(ctx, word, a.form, a.morpheme, 'prefix')
       surface = a.form + surface
-      trace.push(`前缀 ${shown(step.text, text)}: ${surface}`)
+      trace.push(`前缀 ${step.morphemeSlot ? a.form : shown(step.text, text)}: ${surface}`)
       return surface
     }
     case 'suffix': {
       const text = pick(step.text)
-      const a = resolveAffix(ctx, text, surface, 'suffix', active)
+      const a = step.morphemeSlot
+        ? resolveSlotAffix(ctx, lexeme, step, surface, active)
+        : resolveAffix(ctx, text, surface, 'suffix', active)
+      if ('slotName' in a) trace.push(`语素槽「${a.slotName}」引用语素「${a.morpheme!.form}」`)
       if (a.note) trace.push(a.note)
       stressAfterAffix(ctx, word, a.form, a.morpheme, 'suffix')
       surface = surface + a.form
-      trace.push(`后缀 ${shown(step.text, text)}: ${surface}`)
+      trace.push(`后缀 ${step.morphemeSlot ? a.form : shown(step.text, text)}: ${surface}`)
       return surface
     }
     case 'circumfix': {
@@ -937,7 +972,7 @@ function nestParadigm(
     forms: {},
     paradigmVariantId: step.variantId ?? null
   }
-  const g = generateForm(ctx, inner, p, slot, step.variantId ?? null, depth + 1)
+  const g = generateFormInner(ctx, inner, p, slot, step.variantId ?? null, depth + 1)
   if (!g) {
     trace.push(`构形 ${name} · ${slot.label}：这一格没有写法`)
     return surface
@@ -986,7 +1021,7 @@ function baseForm(
     trace.push(`继承 ${name} · ${slot.label}（手改过）: ${stored.surface}`)
     return stored.surface
   }
-  const g = generateForm(ctx, lexeme, p, slot, vid, depth + 1)
+  const g = generateFormInner(ctx, lexeme, p, slot, vid, depth + 1)
   const surface = g?.surface ?? stored?.surface ?? ''
   if (!surface) {
     trace.push(`继承 ${name} · ${slot.label}：那一格没有形式`)
@@ -1021,7 +1056,7 @@ function slotPron(
   } else out = (ortho ? transcribe(lang, ortho, surface, word.current) : null) ?? surface
   trace.push(`发音起点: ${out}`)
   for (const step of pron.steps)
-    if (step.kind !== 'paradigm') out = runStep(ctx, step, out, trace, pick, word, active)
+    if (step.kind !== 'paradigm') out = runStep(ctx, lexeme, step, out, trace, pick, word, active)
   trace.push(`发音: ${out}`)
   return out
 }
@@ -1084,6 +1119,37 @@ export function generateForm(
   variantId?: Id | null,
   depth = 0
 ): Generated | null {
+  return generateFormWithDiagnostics(ctx, lexeme, paradigm, slot, variantId, depth).generated
+}
+
+/** 缺失语素绑定不产生半成品；测试台可同时展示未生成的具体原因。 */
+export function generateFormWithDiagnostics(
+  ctx: MorphContext,
+  lexeme: Lexeme,
+  paradigm: Paradigm,
+  slot: SlotDef,
+  variantId?: Id | null,
+  depth = 0
+): { generated: Generated | null; diagnostics: string[] } {
+  try {
+    return {
+      generated: generateFormInner(ctx, lexeme, paradigm, slot, variantId, depth),
+      diagnostics: []
+    }
+  } catch (error) {
+    if (error instanceof MorphemeSlotError) return { generated: null, diagnostics: [error.message] }
+    throw error
+  }
+}
+
+function generateFormInner(
+  ctx: MorphContext,
+  lexeme: Lexeme,
+  paradigm: Paradigm,
+  slot: SlotDef,
+  variantId?: Id | null,
+  depth = 0
+): Generated | null {
   const { generator: g } = effectiveGenerator(
     ctx.project,
     paradigm,
@@ -1128,7 +1194,7 @@ export function generateForm(
       out =
         step.kind === 'paradigm'
           ? nestParadigm(ctx, lexeme, step, out, trace, depth)
-          : runStep(ctx, step, out, trace, pick, word, active)
+          : runStep(ctx, lexeme, step, out, trace, pick, word, active)
     noteUnknown()
     if (!g.pron?.on) return { surface: out, trace }
     return { surface: out, trace, ipa: slotPron(ctx, lexeme, out, g.pron, trace, pick, active) }
@@ -1202,8 +1268,16 @@ export function deriveForms(
     const key = keys.get(s.key) ?? s.label
     const cur = lexeme.forms[key]
     if (cur?.override) continue
-    const g = generateForm(ctx, lexeme, paradigm, s, variantId)
-    if (!g) continue
+    const result = generateFormWithDiagnostics(ctx, lexeme, paradigm, s, variantId)
+    const g = result.generated
+    if (!g) {
+      // 绑定失败会使旧自动结果失效；手填值和普通无生成器的旧行为保持。
+      if (result.diagnostics.length && cur?.derived) {
+        delete lexeme.forms[key]
+        n++
+      }
+      continue
+    }
     if (!cur || cur.surface !== g.surface || !cur.derived || cur.ipa !== g.ipa) {
       const f: InflectedForm = {
         surface: g.surface,

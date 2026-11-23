@@ -24,6 +24,8 @@ export interface Project {
   categories: GrammaticalCategory[]
   posList: PartOfSpeech[]
   morphemes: Morpheme[]
+  /** 可复用的语素槽；词条绑定具体语素，构形按槽取用。旧工程没有。 */
+  morphemeSlots?: MorphemeSlot[]
   lexemes: Lexeme[]
   paradigms: Paradigm[]
   sentences: Sentence[]
@@ -332,6 +334,8 @@ export interface SyllableSettings {
   /** 如 "(C)(C)V(C)"，引用音类名 */
   template: string
   strategy: 'template' | 'maximal-onset'
+  /** 模板默认只限制长度；明确开启后叠加IPA配列起首表。缺省不改写旧工程。 */
+  useOnsetWhitelist?: boolean
 }
 
 export type ProsodyType = 'none' | 'stress' | 'pitch' | 'tone'
@@ -517,6 +521,12 @@ export interface Allomorph {
   valueMatch?: 'all' | 'any'
 }
 
+export interface MorphemeSlot {
+  id: Id
+  name: string
+  description: string
+}
+
 // ───────────────────────── 词位 ─────────────────────────
 
 export interface Lexeme {
@@ -545,6 +555,8 @@ export interface Lexeme {
   etymology: Etymology
   /** 用户自定义的词干槽：名称 → 形式 */
   stems: Record<string, string>
+  /** 语素槽 id → 同语言的具体语素 id；不按形式或标签猜测。 */
+  morphemeBindings?: Record<Id, Id>
   /** 范式槽位 → 形式 */
   forms: Record<string, InflectedForm>
   /** orthographyId → 发音 */
@@ -733,8 +745,8 @@ export interface Adjust {
  * 词缀文本可以直接写形式，也可以写 `@语素` 引用语素表（按环境挑异体形）。
  */
 export type MorphStep =
-  | { id: Id; kind: 'prefix'; text: string }
-  | { id: Id; kind: 'suffix'; text: string }
+  | ({ id: Id; kind: 'prefix'; text: string } & MorphemeSlotAffix)
+  | ({ id: Id; kind: 'suffix'; text: string } & MorphemeSlotAffix)
   | { id: Id; kind: 'infix'; text: string; at: string }
   | { id: Id; kind: 'circumfix'; text: string; text2: string }
   | { id: Id; kind: 'sca'; ruleSetId: Id | null; fromStage: string; toStage: string }
@@ -745,6 +757,14 @@ export type MorphStep =
   | { id: Id; kind: 'paradigm'; paradigmId: Id | null; slotKey: string; variantId?: Id | null }
 
 export type MorphStepKind = MorphStep['kind']
+
+/** 配置了槽就从词条绑定取语素；未配置时仍用原来的 text / @具体语素。 */
+export interface MorphemeSlotAffix {
+  morphemeSlot?: Id
+  /** 明确填写的字面分隔符，不参与 @ 名称或条件解析。 */
+  slotBefore?: string
+  slotAfter?: string
+}
 
 /** 槽位继承的起点：哪个构形（null 是本构形）的哪一格，挑了变体时用那个变体的写法 */
 export interface SlotBase {

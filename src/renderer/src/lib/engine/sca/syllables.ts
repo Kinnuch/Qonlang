@@ -23,6 +23,7 @@ interface Syllabifier {
   onsets: Set<string> | undefined
   maxOnset: number
   maxCoda: number
+  respectOnsetLimits?: boolean
 }
 
 const cache = new WeakMap<RuleProgram, Map<boolean, Syllabifier>>()
@@ -75,7 +76,8 @@ function syllabifierOf(program: RuleProgram, caseInsensitive = false): Syllabifi
     isNucleus,
     onsets: sc.onsets.length ? matchingSet(sc.onsets, caseInsensitive) : undefined,
     maxOnset: sc.maxOnset ?? Infinity,
-    maxCoda: sc.maxCoda ?? Infinity
+    maxCoda: sc.maxCoda ?? Infinity,
+    ...(sc.respectOnsetLimits ? { respectOnsetLimits: true } : {})
   }
   let modes = cache.get(program)
   if (!modes) {

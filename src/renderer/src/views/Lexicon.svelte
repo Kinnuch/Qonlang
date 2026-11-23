@@ -1,6 +1,7 @@
 <script lang="ts">
   import { canonicalG, gEquivalent } from '$lib/ipa/equivalence'
   import { deletable } from '$lib/ui/deletable'
+  import MorphemeBindingsEditor from '$lib/ui/MorphemeBindingsEditor.svelte'
   import { traceLine } from '$lib/ui/engineText'
   import { navScroll } from '$lib/ui/navScroll'
   import type { GrammaticalCategory } from '$lib/core/model'
@@ -2121,6 +2122,8 @@
         </div>
       {/each}
     </div>
+
+    <MorphemeBindingsEditor {project} lexeme={l} onchange={() => touch(l)} />
 
     <div class="field">
       <div class="row">

@@ -8,6 +8,7 @@
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import AccountPanel from '$lib/ui/AccountPanel.svelte'
   import { filterRows } from '$lib/ui/filterRows'
+  import { cardBlockVisible, setCardBlockVisible } from '$lib/ui/cardBlocks'
 </script>
 
 <div class="groups" data-tour="settings-app">
@@ -213,8 +214,16 @@
       <label class="row check">
         <input
           type="checkbox"
-          bind:checked={ui.prefs.showHistory}
-          onchange={() => ui.savePrefs()}
+          checked={cardBlockVisible(ui.prefs.cardHidden, 'history', ui.prefs.showHistory)}
+          onchange={(e) => {
+            ui.prefs.showHistory = e.currentTarget.checked
+            ui.prefs.cardHidden = setCardBlockVisible(
+              ui.prefs.cardHidden,
+              'history',
+              e.currentTarget.checked
+            )
+            void ui.savePrefs()
+          }}
         />
         {t('settings.showHistory')}<HelpDot tip={t('settings.showHistoryHint')} />
       </label>

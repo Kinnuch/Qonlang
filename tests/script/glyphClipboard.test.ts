@@ -48,6 +48,14 @@ describe('copying selected glyphs', () => {
     sc.glyphs = parseGlyphLines('क\tk\nि\ti').map(({ char, value }) => glyph(char, value))
     sc.rules = 'C=k\nC > C् / _#\na > / C_\n@glyphs'
     expect(renderScript(lang, sc, 'ka ki k')).toBe('क कि क्')
+    sc.glyphs.push(glyph('त', 't'))
+    sc.rules = sc.rules.replace('C=k', 'C=k t')
+    expect(renderScript(lang, sc, 'ti')).toBe('ति')
+    const syllables = createScript('complete syllables')
+    syllables.glyphs = parseGlyphLines('क\tka\nकि\tki\nक्\tk').map(({ char, value }) =>
+      glyph(char, value)
+    )
+    expect(renderScript(lang, syllables, 'ka ki k')).toBe('क कि क्')
     const abjad = createScript('consonants')
     abjad.glyphs = [glyph('כ', 'k'), glyph('ת', 't')]
     abjad.rules = '[aiu] > / _\n@glyphs'

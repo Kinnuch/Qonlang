@@ -323,9 +323,9 @@ export default {
     galleryNext: 'Siguiente',
     exampleDesc: {
       aelith:
-        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan.',
+        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura.',
       tsahun:
-        'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura. Las clases temporales relacionan los números de tono de varias cifras con secuencias completas de letras tonales.'
+        'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura. Las clases temporales relacionan los números de tono de varias cifras con secuencias completas de letras tonales. Un paradigma opcional usa las ranuras de morfemas de cada entrada para reproducir combinaciones de partículas del corpus.'
     },
     coffee: 'Invíteme a un café',
     changelog: 'Registro de cambios',
@@ -735,8 +735,6 @@ export default {
     alloAll: 'Todos los valores',
     alloAny: 'Cualquier valor',
     bulkDeleted: 'Se eliminaron {n} morfemas',
-    selectionHint:
-      'Ctrl/⌘-clic para seleccionar uno a uno, Mayús-clic para un intervalo; elimine juntos los seleccionados.',
     alloValuesAdd: 'Añadir valor',
     alloValueRemove: 'Quitar este valor',
     gloss: 'Abreviatura de glosa',
@@ -747,6 +745,39 @@ export default {
     allTypes: 'Todos los tipos',
     search: 'Buscar morfemas: forma, glosa, significado',
     count: '{n} elementos'
+  },
+  morphemeSlots: {
+    title: 'Espacios de morfemas',
+    hint: 'Defina un espacio reutilizable y elija un morfema del idioma de esta entrada. El paradigma usa ese vínculo y selecciona alomorfos por valores y entorno. Confirme la separación antes de guardar el tema; el lema no cambia.',
+    add: 'Añadir espacio',
+    newName: 'Escriba un nombre para el espacio.',
+    duplicateName: 'Ya existe este nombre. Elija ese espacio u otro nombre.',
+    unbound: 'Sin vincular',
+    invalidBinding: 'Morfema vinculado no disponible',
+    filterType: 'Filtrar por tipo',
+    split: 'Separar lema',
+    side: 'Posición',
+    part: 'Parte que se quitará, incluido el separador',
+    stemName: 'Guardar como tema con nombre',
+    remaining: 'Tema restante',
+    splitInvalid: 'Escriba una parte inicial o final completa que deje un tema no vacío.',
+    confirmSplit: 'Confirmar tema',
+    baseStem: 'Tema base',
+    overwriteStem: 'El tema «{name}» contiene «{old}». ¿Sustituirlo por «{next}»?',
+    splitSaved: 'Tema «{name}» guardado: {stem}',
+    literalSource: 'Texto / @morfema concreto',
+    chooseSource: 'Origen del morfema',
+    slotSource: 'Espacio: {name}',
+    before: 'Antes del morfema',
+    after: 'Después del morfema',
+    missingSlot: 'El espacio ya no existe',
+    blocked: 'No se puede generar: revise los vínculos',
+    issues: {
+      'slot-missing': 'Este espacio de morfema ya no existe.',
+      unbound: 'Elija un morfema para este espacio.',
+      'morpheme-missing': 'El morfema vinculado fue eliminado.',
+      'wrong-language': 'Solo se pueden vincular morfemas del idioma de esta entrada.'
+    }
   },
   tabGroups: {
     synchronic: 'Sincrónico',
@@ -1713,6 +1744,8 @@ export default {
     pasted: '(contenido pegado)'
   },
   script: {
+    starterGuide: 'Signos vocálicos y diccionarios Rime',
+    moduleGuide: 'Guía completa de escrituras',
     glyphsCopied: 'Se han copiado {n} glifos',
     glyphsPasted: 'Se han pegado {n} glifos. Se han omitido {skipped} caracteres existentes.',
     search: 'Buscar glifos: carácter, nombre, valor de transliteración',
@@ -1991,6 +2024,9 @@ export default {
     exported: 'Exportado'
   },
   phonology: {
+    templateOnsets: 'Limitar también a los inicios permitidos de la fonotáctica AFI',
+    templateOnsetsHint:
+      'Por defecto, la plantilla solo limita las longitudes del inicio y la coda. Marque para usar también los inicios permitidos en Fonotáctica y generación → AFI. Una lista vacía no añade límites; la lista de grafías es independiente. Si las restricciones son incompatibles, se conservan todos los segmentos con el inicio permitido más largo, por lo que la coda puede superar su límite.',
     caseInsensitive: 'Misma pronunciación para mayúsculas y minúsculas',
     caseInsensitiveHint:
       'Aplica la misma transcripción a mayúsculas y minúsculas. Desactívelo para distinguirlas. Solo afecta a la conversión grafía→AFI de esta ortografía; conserva los lemas, las reglas y la salida AFI.',
@@ -2561,8 +2597,10 @@ export default {
     library: 'Biblioteca de fuentes',
     card: 'Tarjeta de entrada',
     cardHint:
-      'Este módulo permite ajustar el tamaño de letra y el orden de cada bloque de la tarjeta de entrada.',
-    cardOrder: 'Tamaño de letra y orden de los bloques',
+      'Elija qué bloques mostrar y ajuste su tamaño y orden. Estas preferencias locales se aplican al léxico, las tarjetas emergentes y la galería de inicio. Ocultar no elimina datos; los módulos personalizados y las imágenes siguen siendo independientes. Restablecer recupera todos los bloques, tamaños y orden.',
+    cardOrder: 'Bloques: visibilidad, tamaño y orden',
+    cardShow: 'Mostrar',
+    cardBlockVisible: 'Mostrar {block}',
     cardBlockSize: 'Tamaño de letra de este bloque',
     cardReset: 'Restablecer',
     cardBlocks: {
@@ -3203,6 +3241,11 @@ export default {
     conditionUnmatched: 'Condiciones que no coinciden con ningún valor: {list}',
     joined: 'Unión: {rest}',
     lemmaRef: 'Usa la entrada {rest}',
+    morphemeSlotMissing: 'El espacio «{name}» no existe',
+    morphemeSlotUnbound: 'El espacio «{name}» no tiene morfema vinculado',
+    morphemeSlotGone: 'El morfema del espacio «{name}» ya no existe',
+    morphemeSlotLanguage: 'El espacio «{name}» requiere un morfema del idioma de esta entrada',
+    morphemeSlotUsed: 'El espacio «{name}» usa el morfema «{form}»',
     morphemeMissing: 'No se encuentra el morfema {rest}'
   }
 }

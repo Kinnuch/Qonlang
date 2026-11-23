@@ -65,6 +65,7 @@
   import { flashOn } from '$lib/ui/flash'
   import {
     Plus,
+    BookOpen,
     Trash2,
     Download,
     FileType,
@@ -77,7 +78,7 @@
     PenTool,
     FileOutput
   } from '@lucide/svelte'
-  import GuideLink from '$lib/ui/GuideLink.svelte'
+  import { tour } from '$lib/state/tour.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
 
   let {
@@ -739,7 +740,12 @@
 <div class="page">
   <div class="page-head row tabbed">
     <h1>{t('script.title')}</h1>
-    <GuideLink section="script" />
+    <Menu label={t('common.guide')} icon={BookOpen} small>
+      <button data-script-tutorial onclick={() => ui.openSyntax('script-starter')}
+        >{t('script.starterGuide')}</button
+      >
+      <button onclick={() => tour.request('script')}>{t('script.moduleGuide')}</button>
+    </Menu>
     {#if lang}<span class="badge lang-badge" style:background-color={lang.color} style:color="#fff"
         >{lang.name}</span
       >{/if}

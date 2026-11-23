@@ -1,7 +1,12 @@
+<script module lang="ts">
+  // 一次启动只提醒一次；关掉工程再打开时不重新播放。
+  let syntaxReminderPending = true
+</script>
+
 <script lang="ts">
   import { hintTitles } from '$lib/ui/hintTitles'
   import markSvg from '../assets/brand/mark.svg?raw'
-  import type { Component } from 'svelte'
+  import { onMount, type Component } from 'svelte'
   import { ui, SECTIONS, type Section } from '$lib/state/ui.svelte'
   import { projectState } from '$lib/state/project.svelte'
   import { i18n, t } from '$lib/i18n/index.svelte'
@@ -238,7 +243,16 @@
     script: 'places',
     soundChanges: 'rule'
   }
+  let syntaxReminder = $state(false)
+  onMount(() => {
+    if (!syntaxReminderPending) return
+    syntaxReminderPending = false
+    syntaxReminder = true
+    const timer = setTimeout(() => (syntaxReminder = false), 6600)
+    return () => clearTimeout(timer)
+  })
   function toggleSyntax(): void {
+    syntaxReminder = false
     if (ui.syntaxOpen) ui.syntaxOpen = false
     else ui.openSyntax(SYNTAX_ANCHORS[ui.section] ?? '')
   }
@@ -419,6 +433,8 @@
       <button
         class="btn ghost icon"
         title={t('syntax.hint')}
+        data-rule-syntax
+        class:syntax-reminder={syntaxReminder && !ui.syntaxOpen}
         class:active={ui.syntaxOpen}
         onclick={toggleSyntax}
       >
@@ -502,7 +518,9 @@
     ></div>
     <div class="inspector-head row">
       {#if ui.syntaxOpen}
-        <h3 class="grow">{t('syntax.title')}</h3>
+        <h3 class="grow">
+          {t(ui.syntaxAnchor === 'script-starter' ? 'common.guide' : 'syntax.title')}
+        </h3>
         <button
           class="btn ghost icon sm"
           title={t('common.close')}
@@ -671,6 +689,55 @@
     gap: 8px;
     margin-inline-start: auto;
     max-width: 100%;
+  }
+  .syntax-reminder {
+    position: relative;
+    animation: syntax-glow 2.2s ease-in-out 3;
+  }
+  .syntax-reminder::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border: 2px solid #d69a20;
+    border-radius: inherit;
+    pointer-events: none;
+    animation: syntax-ripple 2.2s ease-out 3;
+  }
+  @keyframes syntax-glow {
+    0%,
+    100% {
+      box-shadow: 0 0 0 transparent;
+    }
+    42% {
+      color: var(--syntax-gold, #9b6500);
+      box-shadow: 0 0 10px 2px #eeb0309c;
+    }
+  }
+  :global([data-theme='dark']) .syntax-reminder {
+    --syntax-gold: #ffda78;
+  }
+  @keyframes syntax-ripple {
+    0% {
+      transform: scale(0.93);
+      opacity: 0;
+    }
+    18% {
+      opacity: 0.85;
+    }
+    85%,
+    100% {
+      transform: scale(1.58);
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .syntax-reminder {
+      animation: none;
+      box-shadow: 0 0 0 2px #d69a20;
+    }
+    .syntax-reminder::after {
+      display: none;
+    }
   }
   .pname {
     overflow: hidden;

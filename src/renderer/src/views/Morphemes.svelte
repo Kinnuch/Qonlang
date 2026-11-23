@@ -519,7 +519,6 @@
   {:else if !project.morphemes.some((m) => !langId || m.languageId === langId)}
     <p class="muted">{t('morphemes.empty')}</p>
   {:else}
-    <span class="small muted">{t('morphemes.selectionHint')}</span>
     {#if multiIds.length > 1}
       <div class="row bulk" data-morpheme-selection>
         <span class="small">{t('lexicon.selectedN', { n: multiIds.length })}</span>
@@ -761,7 +760,7 @@
               />
             {/if}
             <select
-              class="select vpick"
+              class="select vpick match-mode"
               data-allo-match
               aria-label={t('morphemes.alloMatch')}
               value={a.valueMatch ?? 'all'}
@@ -1022,10 +1021,16 @@
   }
   .allo-vals .vpick {
     width: auto;
-    max-width: 150px;
-    padding: 1px 4px;
+    max-width: min(150px, 100%);
+    padding-block: 2px;
+    padding-inline: 6px 24px;
+    background-position: right 6px center;
     font-size: 12px;
     color: var(--text-3);
+  }
+  .allo-vals .match-mode {
+    flex: 0 0 auto;
+    max-width: 100%;
   }
   .feat {
     gap: 8px;

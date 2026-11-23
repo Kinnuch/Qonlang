@@ -327,9 +327,9 @@ export default {
     galleryNext: 'Suivante',
     exampleDesc: {
       aelith:
-        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent.',
+        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture.',
       tsahun:
-        'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation suivant la graphie et correspondances graphème–phonème modifiables), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture. Les classes temporaires associent les numéros de ton à plusieurs chiffres à des séquences complètes de lettres de ton.'
+        'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation suivant la graphie et correspondances graphème–phonème modifiables), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture. Les classes temporaires associent les numéros de ton à plusieurs chiffres à des séquences complètes de lettres de ton. Un paradigme facultatif utilise les emplacements de morphèmes de chaque entrée pour reproduire des combinaisons de particules du corpus.'
     },
     coffee: 'Offrez-moi un café',
     changelog: 'Journal des modifications',
@@ -739,8 +739,6 @@ export default {
     alloAll: 'Toutes les valeurs',
     alloAny: 'Au moins une valeur',
     bulkDeleted: '{n} morphèmes supprimés',
-    selectionHint:
-      'Ctrl/⌘-clic pour sélectionner un élément, Maj-clic pour une plage ; supprimez la sélection en une fois.',
     alloValuesAdd: 'Ajouter une valeur',
     alloValueRemove: 'Retirer cette valeur',
     gloss: 'Abréviation de glose',
@@ -751,6 +749,40 @@ export default {
     allTypes: 'Tous les types',
     search: 'Rechercher un morphème : forme, glose, signification',
     count: '{n} éléments'
+  },
+  morphemeSlots: {
+    title: 'Emplacements de morphèmes',
+    hint: 'Définissez un emplacement réutilisable, puis choisissez un morphème de la langue de cette entrée. Le paradigme utilise ce lien et choisit l’allomorphe selon les valeurs et l’environnement. Confirmez la séparation avant de sauver le radical ; le lemme reste intact.',
+    add: 'Ajouter un emplacement',
+    newName: 'Saisissez le nom de l’emplacement.',
+    duplicateName: 'Ce nom existe déjà. Choisissez cet emplacement ou un autre nom.',
+    unbound: 'Non lié',
+    invalidBinding: 'Morphème lié indisponible',
+    filterType: 'Filtrer par type',
+    split: 'Séparer le lemme',
+    side: 'Position',
+    part: 'Partie à retirer, séparateur compris',
+    stemName: 'Enregistrer comme radical nommé',
+    remaining: 'Radical restant',
+    splitInvalid:
+      'Saisissez une partie initiale ou finale complète en laissant un radical non vide.',
+    confirmSplit: 'Confirmer le radical',
+    baseStem: 'Radical de base',
+    overwriteStem: 'Le radical « {name} » contient « {old} ». Le remplacer par « {next} » ?',
+    splitSaved: 'Radical « {name} » enregistré : {stem}',
+    literalSource: 'Texte / @morphème précis',
+    chooseSource: 'Source du morphème',
+    slotSource: 'Emplacement : {name}',
+    before: 'Avant le morphème',
+    after: 'Après le morphème',
+    missingSlot: 'Emplacement absent',
+    blocked: 'Génération impossible : vérifiez les liens',
+    issues: {
+      'slot-missing': 'Cet emplacement de morphème n’existe plus.',
+      unbound: 'Choisissez un morphème pour cet emplacement.',
+      'morpheme-missing': 'Le morphème lié a été supprimé.',
+      'wrong-language': 'Seuls les morphèmes de la langue de cette entrée sont autorisés.'
+    }
   },
   tabGroups: {
     synchronic: 'Synchronie',
@@ -1717,6 +1749,8 @@ export default {
     pasted: '(contenu collé)'
   },
   script: {
+    starterGuide: 'Signes vocaliques et dictionnaires Rime',
+    moduleGuide: 'Guide complet des écritures',
     glyphsCopied: '{n} glyphes copiés',
     glyphsPasted: '{n} glyphes collés. {skipped} caractères déjà présents ont été ignorés.',
     search: 'Rechercher un glyphe : caractère, nom, valeur de translittération',
@@ -1993,6 +2027,9 @@ export default {
     exported: 'Exporté'
   },
   phonology: {
+    templateOnsets: 'Limiter aussi aux attaques autorisées de la phonotactique API',
+    templateOnsetsHint:
+      'Par défaut, le modèle ne limite que les longueurs des attaques et des codas. Cochez pour utiliser aussi les attaques autorisées dans Phonotactique et génération → API. Une liste vide n’ajoute aucune limite ; la liste en graphie est distincte. Si les contraintes sont incompatibles, tous les segments sont conservés avec la plus longue attaque autorisée, et la coda peut dépasser sa limite.',
     caseInsensitive: 'Même prononciation pour les majuscules et minuscules',
     caseInsensitiveHint:
       'Applique la même transcription aux majuscules et minuscules. Désactivez pour les distinguer. Seule la conversion graphie→API de cette orthographe change ; les entrées, règles et sorties API sont conservées.',
@@ -2567,8 +2604,10 @@ export default {
     library: 'Bibliothèque de polices',
     card: 'Carte d’entrée',
     cardHint:
-      'Ce module permet de régler le corps et l’ordre d’affichage de chaque bloc de la carte d’entrée.',
-    cardOrder: 'Corps et ordre des blocs',
+      'Choisissez les blocs à afficher, leur taille et leur ordre. Ces préférences locales s’appliquent au lexique, aux cartes au survol et à la galerie d’accueil. Masquer ne supprime aucune donnée ; modules personnalisés et images restent indépendants. Rétablir restaure tous les blocs, tailles et ordre.',
+    cardOrder: 'Blocs : visibilité, taille et ordre',
+    cardShow: 'Afficher',
+    cardBlockVisible: 'Afficher {block}',
     cardBlockSize: 'Corps de ce bloc',
     cardReset: 'Rétablir les valeurs par défaut',
     cardBlocks: {
@@ -3214,6 +3253,11 @@ export default {
     conditionUnmatched: 'Conditions qui ne correspondent à aucune valeur : {list}',
     joined: 'Assemblage : {rest}',
     lemmaRef: 'Renvoie à l’entrée {rest}',
+    morphemeSlotMissing: 'L’emplacement « {name} » n’existe pas',
+    morphemeSlotUnbound: 'Aucun morphème n’est lié à « {name} »',
+    morphemeSlotGone: 'Le morphème lié à « {name} » n’existe plus',
+    morphemeSlotLanguage: 'L’emplacement « {name} » exige un morphème de la langue de cette entrée',
+    morphemeSlotUsed: 'L’emplacement « {name} » utilise « {form} »',
     morphemeMissing: 'Morphème introuvable : {rest}'
   }
 }

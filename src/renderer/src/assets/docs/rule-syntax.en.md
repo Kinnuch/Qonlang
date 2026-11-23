@@ -307,3 +307,49 @@ In the list, choose **Add simultaneous group**, then use **Add rule** in its hea
 Groups cannot be nested. Place stages, stress rules and references outside them; classes and features retain their existing syntax. Testing up to any member executes the whole group. The trace labels each group and uses the same before/after forms for its members, rather than implying a sequential cascade.
 
 Keyboard `g` and IPA `ɡ` are equivalent in literal rules, environments, exceptions, named or temporary classes and numbered classes. Thus `g > k` also changes an input `ɡ`; numbered captures preserve the actual input glyph. If a correspondence table lists both spellings, the first source entry wins. Explicit replacement text is output as written. Class names, syntax, IDs and original word forms are not rewritten.
+
+## Vowel signs and Rime dictionaries {#script-starter}
+
+Try three spellings. In this example, `क` by itself reads `ka`. Add the vowel sign `ि` to write `ki` as `कि`, or the vowel-cancelling sign `्` to write a bare `k` as `क्`. These Devanagari characters are examples you can replace with your own.
+
+**1. Give two characters their readings.** In **Script**, create a script of type **Abugida**. Under **Glyphs → Paste glyph list**, paste these two rows, check the preview and confirm. The left column is what you want to display; the right column is what you will type. A vowel sign displayed on its own may appear on a dotted circle. Copy the character in the box below.
+
+```text
+क	k
+ि	i
+```
+
+**2. Try `ki` first.** Under **Mapping rules → Source**, leave just `@glyphs`. Type `ki` in the inspector’s test box. The glyph table turns `k` into `क` and `i` into `ि`. Together they read `कि`. The font draws the sign on the left, but you still enter `k` first. Leave syllable packing off so the mapping rules are used.
+
+**3. Tell `ka` and `k` apart.** Replace the source with these four lines:
+
+```text
+C=k
+C > C् / _#
+a > / C_
+@glyphs
+```
+
+The first line puts `k` in the consonant class `C`. The second adds the cancelling sign to a consonant that was originally word-final. The third removes `a` after a consonant because its glyph already supplies that vowel. The last line applies the glyph table. Try `ka ki k`: you should see **क कि क्**. The order matters: mark an originally bare consonant before dropping `a`.
+
+To add the consonant `t`, enter `त` with reading `t` in the glyph table and change the first rule to `C=k t`. Type `ti` to get `ति` with the same vowel sign.
+
+**For a script that writes only consonants**, try a separate table with `כ` for `k` and `ת` for `t`. Use two lines of source: `[aiu] > / _` to drop those three short vowels, followed by `@glyphs` to look up the remaining letters. Type `kat` to get `כת`.
+
+**If you already have a Rime dictionary, check what one row represents.** In your `.dict.yaml`, find the line containing only `...`. The code table begins below it. These three example rows each give a complete written syllable:
+
+```text
+क	ka	100
+कि	ki	80
+क्	k	60
+```
+
+Create a second script to try this. Remove the header, comments and the final weight column. Paste these two columns in **Paste glyph list**:
+
+```text
+क	ka
+कि	ki
+क्	k
+```
+
+For this script, leave just `@glyphs` in the rule source. Type `ka ki k` to get the same **क कि क्**. If your table encodes consonants and vowel signs separately, follow steps 1–3 instead. Combine alternative readings of a character in one value, such as `ka/ga`. Choose one automatic output for a code that has multiple candidates. If the dictionary declares custom `columns`, use its actual text and code columns. For keyboard shortcuts that differ from your headword spellings, convert the codes or select a custom field containing them as the script’s transcription source.

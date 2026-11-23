@@ -130,6 +130,8 @@ export interface Prefs {
   cardOrder: string[]
   /** 词条卡里每一块的字号（块键 → px）；没设过的块用默认字号 */
   cardBlockSize: Record<string, number>
+  /** 词条卡里主动隐藏的块；没有此项时默认全显，不影响录入或导出数据。 */
+  cardHidden?: string[]
   /** 发音两边的符号：音位标注斜线 /…/、音值标注方括号 […]、什么都不加 */
   pronBrackets: 'slash' | 'bracket' | 'none'
   /** 收起来的板块（SectionHead 的 id） */
@@ -208,6 +210,7 @@ export const DEFAULT_PREFS: Prefs = {
   registerDisplay: 'short',
   cardOrder: [],
   cardBlockSize: {},
+  cardHidden: [],
   pronBrackets: 'slash',
   collapsedSections: [],
   formsLayout: 'list'

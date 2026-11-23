@@ -20,6 +20,27 @@ export type CardBlock = (typeof CARD_BLOCKS)[number]
 export const CARD_SCALABLE = ['header', ...CARD_BLOCKS] as const
 export type CardScalable = (typeof CARD_SCALABLE)[number]
 
+/** 只记录主动隐藏的块；旧偏好没有此项时全显，历史形式沿用原有独立开关。 */
+export function cardHiddenBlocks(value: unknown, showHistory = true): CardScalable[] {
+  const hidden = new Set(Array.isArray(value) ? value : [])
+  if (!showHistory) hidden.add('history')
+  return CARD_SCALABLE.filter((key) => hidden.has(key))
+}
+
+export function cardBlockVisible(value: unknown, key: string, showHistory = true): boolean {
+  return !cardHiddenBlocks(value, showHistory).includes(key as CardScalable)
+}
+
+/** 返回新数组，不改顺序或字号，也不修改来路偏好对象。 */
+export function setCardBlockVisible(value: unknown, key: string, visible: boolean): CardScalable[] {
+  const hidden = new Set(cardHiddenBlocks(value))
+  if ((CARD_SCALABLE as readonly string[]).includes(key)) {
+    if (visible) hidden.delete(key as CardScalable)
+    else hidden.add(key as CardScalable)
+  }
+  return cardHiddenBlocks([...hidden])
+}
+
 /** 词条卡正文的默认字号（px，跟 LexemeCard 里 .entry 的一样）；块里的字号都按 em 跟着它走 */
 export const CARD_BASE_PX = 15
 export const CARD_SIZE_MIN = 10

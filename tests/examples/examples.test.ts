@@ -18,7 +18,12 @@ import { sentenceScriptText } from '$lib/script/lexiconScript'
 import { groupLanguages } from '$lib/core/languageTree'
 import { historyChain } from '$lib/core/history'
 import { docLink } from '$lib/core/docLinks'
-import { applyAdjust, makeContext } from '$lib/engine/morph'
+import {
+  applyAdjust,
+  makeContext,
+  generateFormWithDiagnostics,
+  paradigmSlots
+} from '$lib/engine/morph'
 import { localizeExampleDocs, type ExampleDocsEn } from '$lib/core/exampleDocs'
 import { buildSentenceDocReferences } from '$lib/core/docReferences'
 
@@ -458,6 +463,63 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
         p.lexemes.find((l) => l.lemma === 'wa55')!
       )
     ).toBe('⼧ ⼈')
+  })
+
+  it('Tsahun optional morpheme-slot demo reproduces existing adjacent particles without changing default forms', () => {
+    const p = load('Tsahun.laim.json'),
+      lang = p.languages[0]
+    const slot = p.morphemeSlots!.find((item) => item.name === '语料小品词')!
+    const demo = p.paradigms.find((item) => item.name.zh === '语素槽（语料组合示范）')!
+    expect(demo.appliesToAll).not.toBe(true)
+    expect(
+      p.posList.every(
+        (pos) => pos.paradigmId !== demo.id && !pos.extraParadigmIds?.includes(demo.id)
+      )
+    ).toBe(true)
+    const cells = paradigmSlots(demo, p.categories, p.settings.glossLanguages)
+    expect(cells).toHaveLength(1)
+    expect(cells[0].label).toBe('语料组合')
+    const generator = demo.generators[cells[0].key]
+    expect(generator).toMatchObject({
+      kind: 'pipeline',
+      stem: 'lemma',
+      steps: [{ kind: 'suffix', text: '', morphemeSlot: slot.id, slotBefore: ' ' }]
+    })
+    const before = JSON.stringify(p.lexemes),
+      ctx = makeContext(p, lang)
+    for (const [lemma, particle] of [
+      ['kwe51', 'ta33'],
+      ['lun35', 'lo21']
+    ]) {
+      const word = p.lexemes.find((item) => item.lemma === lemma)!
+      const morpheme = p.morphemes.find((item) => item.id === word.morphemeBindings![slot.id])!
+      expect(morpheme).toMatchObject({
+        form: particle,
+        type: 'particle',
+        languageId: word.languageId
+      })
+      expect(word.paradigmId).not.toBe(demo.id)
+      expect(word.extraParadigms?.some((item) => item.paradigmId === demo.id)).not.toBe(true)
+      const result = generateFormWithDiagnostics(ctx, word, demo, cells[0])
+      expect(result.diagnostics).toEqual([])
+      expect(result.generated?.surface).toBe(`${lemma} ${particle}`)
+      expect(result.generated?.trace.join('\n')).toContain(
+        `语素槽「语料小品词」引用语素「${particle}」`
+      )
+      expect(
+        p.sentences.some((sentence) => sentence.text.includes(result.generated!.surface))
+      ).toBe(true)
+      expect(word.forms).not.toHaveProperty('语料组合')
+    }
+    expect(JSON.stringify(p.lexemes)).toBe(before)
+    const unbound = p.lexemes.find((word) => word.lemma === 'wa55')!
+    expect(generateFormWithDiagnostics(ctx, unbound, demo, cells[0]).generated).toBeNull()
+    expect(p.docs.find((d) => d.title === '关于这个示例')!.markdown).toContain(
+      '语素槽（语料组合示范）'
+    )
+    expect(
+      load('Aelith.laim.json').docs.find((d) => d.title === '关于这个示例')!.markdown
+    ).toContain('附标与 RIME 迁移入门')
   })
 
   it('示例的每一篇文档都有英文版，英文版里的链接都对得上（界面不是中文时打开示例换成英文那份）', () => {

@@ -3,7 +3,7 @@ import { platform, DEFAULT_PREFS, type Prefs } from '$lib/platform'
 import { i18n } from '$lib/i18n/index.svelte'
 import { applySkin } from '$lib/skin/apply'
 import { DEFAULT_SKIN, EMPTY_FONTS } from '$lib/skin/presets'
-import { sizesFromScales } from '$lib/ui/cardBlocks'
+import { cardHiddenBlocks, sizesFromScales } from '$lib/ui/cardBlocks'
 import { corpusTextSize } from '$lib/ui/corpusTextSize'
 import { fontSizeMap } from '$lib/skin/fontSizes'
 
@@ -401,6 +401,8 @@ class UiState {
     if (!Array.isArray(this.prefs.cardOrder)) this.prefs.cardOrder = []
     if (!this.prefs.cardBlockSize || typeof this.prefs.cardBlockSize !== 'object')
       this.prefs.cardBlockSize = {}
+    this.prefs.cardHidden = cardHiddenBlocks(this.prefs.cardHidden, this.prefs.showHistory)
+    this.prefs.showHistory = !this.prefs.cardHidden.includes('history')
     // 0.8.0 的字号是倍数（整张卡 × 每块）：换算成每块的字号一次，旧的两项不再留着
     const legacy = this.prefs as Prefs & { cardScale?: unknown; cardBlockScale?: unknown }
     if ('cardScale' in legacy || 'cardBlockScale' in legacy) {

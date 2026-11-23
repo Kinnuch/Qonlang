@@ -129,6 +129,8 @@ export interface SyllableOptions {
   /** 模板法的最大起首 / 尾音长度 */
   maxOnset?: number
   maxCoda?: number
+  /** 模板的起首限制优先：无可行切分时不为尾音上限强造非法起首。 */
+  respectOnsetLimits?: boolean
   /** 忽略的音段（如重音、长音、声调符号），保留在前一音段后 */
   ignore?: Set<string>
 }
@@ -164,7 +166,7 @@ export interface SyllableSpan {
 export function syllableSpans(
   segs: string[],
   isNucleus: (s: string) => boolean,
-  opts: Pick<SyllableOptions, 'onsets' | 'maxOnset' | 'maxCoda'> = {}
+  opts: Pick<SyllableOptions, 'onsets' | 'maxOnset' | 'maxCoda' | 'respectOnsetLimits'> = {}
 ): SyllableSpan[] {
   const nucleusIdx: number[] = []
   segs.forEach((s, i) => {
@@ -195,7 +197,8 @@ export function syllableSpans(
       }
       // 尾音上限
       const maxCoda = opts.maxCoda ?? Infinity
-      if (clusterLen - onsetLen > maxCoda) onsetLen = Math.max(0, clusterLen - maxCoda)
+      if (clusterLen - onsetLen > maxCoda && !opts.respectOnsetLimits)
+        onsetLen = Math.max(0, clusterLen - maxCoda)
     }
     const onsetStart = start - onsetLen
     if (spans.length) spans[spans.length - 1].end = onsetStart
@@ -438,6 +441,13 @@ export function languageParseOptions(
 }
 
 /** 规则里切音节（σ、重音规则）用的设置：音位表、音节核、确定是辅音的音、起首表与模板 */
+/** 模板只限制长度，叠加IPA起首表必须明确选择；最大起首策略保持历史表语义。 */
+export function syllableOnsets(lang: Language): readonly string[] {
+  return lang.syllable.strategy === 'template' && lang.syllable.useOnsetWhitelist !== true
+    ? []
+    : lang.phonotactics.onsets
+}
+
 function syllableScheme(lang: Language, replacements: [string, string][]): SyllableScheme {
   const nuclei = nucleusSet(lang)
   const consonants = consonantSet(lang)
@@ -453,9 +463,10 @@ function syllableScheme(lang: Language, replacements: [string, string][]): Sylla
     units: [...units].filter(Boolean),
     nuclei: [...nuclei],
     consonants: [...consonants].filter((c) => !hasEquivalentG(nuclei, c)),
-    onsets: [...lang.phonotactics.onsets],
+    onsets: [...syllableOnsets(lang)],
     maxOnset: tpl ? tpl.maxOnset : null,
-    maxCoda: tpl ? tpl.maxCoda : null
+    maxCoda: tpl ? tpl.maxCoda : null,
+    ...(lang.syllable.strategy === 'template' ? { respectOnsetLimits: true } : {})
   }
 }
 
@@ -594,9 +605,10 @@ export function analyzeWord(
       ? parseTemplate(lang.syllable.template)
       : { maxOnset: Infinity, maxCoda: Infinity }
   const opts = {
-    onsets: lang.phonotactics.onsets.length ? new Set(lang.phonotactics.onsets) : undefined,
+    onsets: syllableOnsets(lang).length ? new Set(syllableOnsets(lang)) : undefined,
     maxOnset: tpl.maxOnset,
-    maxCoda: tpl.maxCoda
+    maxCoda: tpl.maxCoda,
+    ...(lang.syllable.strategy === 'template' ? { respectOnsetLimits: true } : {})
   }
   const segments: string[] = []
   const syllables: Syllable[] = []

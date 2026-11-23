@@ -191,6 +191,7 @@ export interface SyllableScheme {
   onsets: string[]
   maxOnset: number | null
   maxCoda: number | null
+  respectOnsetLimits?: boolean
 }
 
 /** 重音规则里一条的匹配：音节核里有 target，左环境在核前、右环境在核后 */
@@ -1400,7 +1401,8 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     consonants: [...consonants].filter((c) => !nuclei.has(c)),
     onsets: base?.onsets ?? [],
     maxOnset: base?.maxOnset ?? null,
-    maxCoda: base?.maxCoda ?? null
+    maxCoda: base?.maxCoda ?? null,
+    ...(base?.respectOnsetLimits ? { respectOnsetLimits: true } : {})
   }
 
   const groupAt = new Map<number, SimultaneousGroup>()

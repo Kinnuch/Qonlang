@@ -60,6 +60,11 @@ const ADJUST = '(?<label>微调(?:\\((?:前|后)\\))?)'
 
 /** 构形推导的轨迹（每一步一行，套进来的构形缩进两格） */
 export const TRACE_PATTERNS: EnginePattern[] = [
+  { key: 'morphemeSlotMissing', re: /^语素槽「(?<name>.*)」不存在$/s },
+  { key: 'morphemeSlotUnbound', re: /^语素槽「(?<name>.*)」尚未绑定语素$/s },
+  { key: 'morphemeSlotGone', re: /^语素槽「(?<name>.*)」绑定的语素已不存在$/s },
+  { key: 'morphemeSlotLanguage', re: /^语素槽「(?<name>.*)」只能绑定当前词条语言的语素$/s },
+  { key: 'morphemeSlotUsed', re: /^语素槽「(?<name>.*)」引用语素「(?<form>.*)」$/s },
   {
     key: 'adjustError',
     re: new RegExp(`^${ADJUST} ✗ (?<line>.+?): (?<msg>.*)$`, 's'),

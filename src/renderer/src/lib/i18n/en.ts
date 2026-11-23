@@ -320,9 +320,9 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them.',
+        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script.',
       tsahun:
-        'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font. Temporary classes map multi-character tone numbers to complete tone-letter sequences.'
+        'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font. Temporary classes map multi-character tone numbers to complete tone-letter sequences. An optional paradigm uses per-entry morpheme slots to reproduce corpus particle combinations.'
     },
     coffee: 'Buy me a coffee',
     changelog: 'Changelog',
@@ -724,8 +724,6 @@ const en: Dict = {
     alloAll: 'Match all',
     alloAny: 'Match any',
     bulkDeleted: 'Deleted {n} morphemes',
-    selectionHint:
-      'Ctrl/⌘-click to select individually, Shift-click for a range; delete multiple selections together.',
     alloValuesAdd: 'Add value',
     alloValueRemove: 'Remove this value',
     gloss: 'Gloss abbreviation',
@@ -736,6 +734,39 @@ const en: Dict = {
     allTypes: 'All types',
     search: 'Search morphemes: form, gloss, meaning',
     count: '{n} items'
+  },
+  morphemeSlots: {
+    title: 'Morpheme slots',
+    hint: 'Define a reusable slot, then choose a specific morpheme in this entry’s language. Paradigms use the binding and select allomorphs by the current slot values and environment. Confirm a split before saving a stem; the headword stays unchanged.',
+    add: 'Add morpheme slot',
+    newName: 'Enter a morpheme slot name.',
+    duplicateName: 'A slot with this name already exists. Select it or use another name.',
+    unbound: 'Not bound',
+    invalidBinding: 'Bound morpheme unavailable',
+    filterType: 'Filter morpheme type',
+    split: 'Split headword',
+    side: 'Split position',
+    part: 'Part to remove, including separator',
+    stemName: 'Save as named stem',
+    remaining: 'Remaining stem',
+    splitInvalid: 'Enter a complete initial or final part and leave a nonempty stem.',
+    confirmSplit: 'Confirm stem',
+    baseStem: 'Base stem',
+    overwriteStem: 'Stem “{name}” already contains “{old}”. Replace it with “{next}”?',
+    splitSaved: 'Saved stem “{name}”: {stem}',
+    literalSource: 'Text / specific @morpheme',
+    chooseSource: 'Choose morpheme source',
+    slotSource: 'Slot: {name}',
+    before: 'Before morpheme',
+    after: 'After morpheme',
+    missingSlot: 'Slot no longer exists',
+    blocked: 'Cannot generate: check morpheme bindings',
+    issues: {
+      'slot-missing': 'This morpheme slot no longer exists.',
+      unbound: 'Choose a morpheme for this slot.',
+      'morpheme-missing': 'The bound morpheme has been deleted.',
+      'wrong-language': 'Only morphemes in this entry’s language can be bound.'
+    }
   },
   tabGroups: {
     synchronic: 'Synchronic',
@@ -1696,6 +1727,8 @@ const en: Dict = {
     pasted: '(pasted content)'
   },
   script: {
+    starterGuide: 'Vowel signs and Rime dictionaries',
+    moduleGuide: 'Full script guide',
     glyphsCopied: 'Copied {n} glyphs',
     glyphsPasted: 'Pasted {n} glyphs. Skipped {skipped} existing characters.',
     search: 'Search glyphs: character, name, value',
@@ -1967,6 +2000,9 @@ const en: Dict = {
     exported: 'Exported'
   },
   phonology: {
+    templateOnsets: 'Also restrict onsets to the IPA phonotactics list',
+    templateOnsetsHint:
+      'Templates limit onset and coda lengths by default. Tick to also use the allowed onsets under Phonotactics & generator → IPA; an empty list adds no restriction. The spelling list is separate. If the template is too tight, all segments are kept and the longest allowed onset is used, so the coda may still exceed its limit.',
     caseInsensitive: 'Same pronunciation for upper/lower case',
     caseInsensitiveHint:
       'Use the same transcription for upper- and lowercase spelling. Turn off to define them separately. This only affects this orthography’s spelling → IPA; lemmas, rules and IPA output are preserved.',
@@ -2527,8 +2563,10 @@ const en: Dict = {
     library: 'Font library',
     card: 'Entry card',
     cardHint:
-      'Font size and order of each block on the entry card: drag a slider to resize that block, drag a row to reorder.',
-    cardOrder: 'Blocks: size and order',
+      'Choose which entry-card blocks to show and adjust their font sizes and order. These local preferences apply to the lexicon, hover cards and start-page gallery. Hiding keeps the data; custom inspector modules and images remain independent. Reset restores all blocks, sizes and order.',
+    cardOrder: 'Blocks: visibility, size and order',
+    cardShow: 'Show',
+    cardBlockVisible: 'Show {block}',
     cardBlockSize: 'Font size of this block',
     cardReset: 'Reset',
     cardBlocks: {
@@ -3155,6 +3193,11 @@ const en: Dict = {
     conditionUnmatched: 'These conditions matched no value: {list}',
     joined: 'Joined: {rest}',
     lemmaRef: 'Uses the entry {rest}',
+    morphemeSlotMissing: 'Morpheme slot “{name}” does not exist',
+    morphemeSlotUnbound: 'Morpheme slot “{name}” has no bound morpheme',
+    morphemeSlotGone: 'The morpheme bound to slot “{name}” no longer exists',
+    morphemeSlotLanguage: 'Morpheme slot “{name}” requires a morpheme in this entry’s language',
+    morphemeSlotUsed: 'Morpheme slot “{name}” uses morpheme “{form}”',
     morphemeMissing: 'Morpheme not found: {rest}'
   }
 }

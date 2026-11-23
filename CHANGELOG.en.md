@@ -2,6 +2,10 @@
 
 ## 1.0.4 · unreleased
 
+- Bind different morphemes to the same named slot on each headword. Prefix and suffix steps resolve the current word’s binding and its allomorphs. Splitting a headword previews the remaining stem before saving it.
+- Choose which blocks appear on lexeme cards in theme settings. Allomorph selectors have room for their arrows, and the static multi-select hint has been removed from the morpheme list.
+- Template-based syllabification uses the template’s length limits by default, with an optional IPA onset list. The rule syntax button pulses gold the first time a project opens after launch. The Script guide includes an offline walkthrough for vowel signs and Rime dictionaries.
+
 - Simultaneous sound changes match every rule against the same input, allowing direct swaps. Matching, transcription, search and word-list comparisons recognise g and ɡ as equivalent while preserving the original spelling.
 - Open a document from a corpus sentence it cites. Documents can use HTML, and settings let you choose the default format for new documents. Existing Markdown documents remain readable.
 - Allomorphs can require all or any of the selected values. Morphemes support multi-select, batch deletion and undo. Copy selected glyphs between scripts in different languages.

@@ -305,9 +305,9 @@ export default {
     galleryNext: '下一張',
     exampleDesc: {
       aelith:
-        '黏著先驗語：語系節點與分組統計、語言內部的歷時階段與詞條的歷史形式鏈、祖語→現代語的語系與姊妹語（關係圖裡對比同源詞的音變與意思）、滿足 / 不滿足環境兩路的音變規則、特徵與重音規則、音節邊界 σ、自定義重音、母音和諧、流水線構形的九種步驟（含構形套構形）、變體與繼承、槽位繼承與影響發音的槽位、按維度取值挑異體形、一個詞類幾個構形、一個詞條几個構形、按陰陽換字母、連讀濁化反推、連寫複合詞自動切分、複合詞類、檢視器模組、詞源鏈、從構形生成的詞條、已 gloss 的語料、盧恩刻文與手寫字形、收藏與記號、「微調」裡現寫的音類、兩個音併成一個的音變、帶標點的例句。臨時音類按位置對應，並從詞庫尋找實際變化的規則示例。可以直接在規則之間加入說明。 例句可以跳回引用它的 HTML 文件。',
+        '黏著先驗語：語系節點與分組統計、語言內部的歷時階段與詞條的歷史形式鏈、祖語→現代語的語系與姊妹語（關係圖裡對比同源詞的音變與意思）、滿足 / 不滿足環境兩路的音變規則、特徵與重音規則、音節邊界 σ、自定義重音、母音和諧、流水線構形的九種步驟（含構形套構形）、變體與繼承、槽位繼承與影響發音的槽位、按維度取值挑異體形、一個詞類幾個構形、一個詞條几個構形、按陰陽換字母、連讀濁化反推、連寫複合詞自動切分、複合詞類、檢視器模組、詞源鏈、從構形生成的詞條、已 gloss 的語料、盧恩刻文與手寫字形、收藏與記號、「微調」裡現寫的音類、兩個音併成一個的音變、帶標點的例句。臨時音類按位置對應，並從詞庫尋找實際變化的規則示例。可以直接在規則之間加入說明。 例句可以跳回引用它的 HTML 文件。文字頁可開啟附標與 RIME 遷移入門。',
       tsahun:
-        '孤立聲調語：五個聲調與連讀變調、羅馬化與西里爾雙正字法（按寫法切音節、數音，可逐條調整音位對應）、音節文字的拼合與豎排、按字號逐詞寫的意音文字、重疊構形、帶空格的屈折形、同形詞候選、用文字字型顯示的異體字模組。臨時音類把多字元數字調對應到完整調符串。'
+        '孤立聲調語：五個聲調與連讀變調、羅馬化與西里爾雙正字法（按寫法切音節、數音，可逐條調整音位對應）、音節文字的拼合與豎排、按字號逐詞寫的意音文字、重疊構形、帶空格的屈折形、同形詞候選、用文字字型顯示的異體字模組。臨時音類把多字元數字調對應到完整調符串。可選構形依詞條語素槽重現語料中的小品詞組合。'
     },
     coffee: '請我喝咖啡',
     changelog: '更新日誌',
@@ -694,7 +694,6 @@ export default {
     alloAll: '全部滿足',
     alloAny: '任一滿足',
     bulkDeleted: '已刪除 {n} 個語素',
-    selectionHint: 'Ctrl／⌘ 逐條選擇，Shift 連選；多選後可批次刪除。',
     alloValuesAdd: '新增取值',
     alloValueRemove: '移除該取值',
     gloss: 'gloss 縮寫',
@@ -705,6 +704,39 @@ export default {
     allTypes: '全部型別',
     search: '搜尋語素：形式、gloss、意義',
     count: '{n} 條'
+  },
+  morphemeSlots: {
+    title: '語素槽',
+    hint: '請先定義可重用的槽，再為目前詞條選擇同語言的具體語素。構形按槽取用，仍按目前格子的取值和環境選擇異體形。拆分詞頭須確認，原詞頭不變。',
+    add: '新增語素槽',
+    newName: '請輸入語素槽名稱。',
+    duplicateName: '已有同名語素槽，請直接選擇它或使用其他名稱。',
+    unbound: '尚未綁定',
+    invalidBinding: '綁定的語素無法使用',
+    filterType: '篩選語素類型',
+    split: '拆分詞頭',
+    side: '拆分位置',
+    part: '要拆出的部分（含分隔符）',
+    stemName: '儲存到命名詞幹',
+    remaining: '剩餘詞幹',
+    splitInvalid: '請填寫詞頭開頭或末尾的完整部分，且保留非空詞幹。',
+    confirmSplit: '確認儲存詞幹',
+    baseStem: '普通詞幹',
+    overwriteStem: '詞幹「{name}」已有「{old}」，是否替換為「{next}」？',
+    splitSaved: '已儲存詞幹「{name}」：{stem}',
+    literalSource: '文字 / @具體語素',
+    chooseSource: '選擇語素來源',
+    slotSource: '槽：{name}',
+    before: '語素前分隔符',
+    after: '語素後分隔符',
+    missingSlot: '槽已不存在',
+    blocked: '無法生成：請檢查語素槽綁定',
+    issues: {
+      'slot-missing': '此語素槽已不存在。',
+      unbound: '請為此槽選擇一個語素。',
+      'morpheme-missing': '綁定的語素已被刪除。',
+      'wrong-language': '只能綁定目前詞條語言的語素。'
+    }
   },
   tabGroups: {
     synchronic: '共時',
@@ -1626,6 +1658,8 @@ export default {
     pasted: '（貼上的內容）'
   },
   script: {
+    starterGuide: '附標與 RIME 遷移入門',
+    moduleGuide: '文字模組完整指南',
     glyphsCopied: '已複製 {n} 個字形',
     glyphsPasted: '已貼上 {n} 個字形，略過已有字元 {skipped} 個',
     search: '搜尋字形：字元、名稱、轉寫值',
@@ -1886,6 +1920,9 @@ export default {
     exported: '已匯出'
   },
   phonology: {
+    templateOnsets: '同時限制為 IPA 配列表中的起首',
+    templateOnsetsHint:
+      '模板預設只限制起首、尾音長度。勾選後再按「配列與造詞 → IPA」的合法起首表限制，空表不另作限制；拼寫表不會取代該表。模板過緊時保留所有音段並選允許的最長起首，尾音可能仍超過上限。',
     caseInsensitive: '大小寫同音',
     caseInsensitiveHint:
       '勾選後，拼寫中的大小寫使用同一套轉寫。取消後可分別定義；只影響本正字法的拼寫→IPA，不改寫詞頭、規則或IPA輸出。',
@@ -2411,8 +2448,11 @@ export default {
     fontPlaceholder: '留空時使用預設字型，多個字型間請使用逗號分隔',
     library: '字型庫',
     card: '詞條卡',
-    cardHint: '該模組可以調整詞條顯示時各條目的字號和顯示順序。',
-    cardOrder: '各塊的字號與順序',
+    cardHint:
+      '為詞條卡的每一塊選擇是否顯示，並調整字號與順序。設定儲存在本機，影響詞庫、懸浮卡和開始頁畫廊；隱藏不刪除資料，自訂檢視器模組與配圖保持獨立。「恢復預設」會恢復全部顯示、字號和順序。',
+    cardOrder: '各塊的顯示、字號與順序',
+    cardShow: '顯示',
+    cardBlockVisible: '顯示{block}',
     cardBlockSize: '該塊的字號',
     cardReset: '恢復預設',
     cardBlocks: {
@@ -3011,6 +3051,11 @@ export default {
     conditionUnmatched: '條件沒對上任何取值：{list}',
     joined: '拼接: {rest}',
     lemmaRef: '引用詞條 {rest}',
+    morphemeSlotMissing: '語素槽「{name}」不存在',
+    morphemeSlotUnbound: '語素槽「{name}」尚未綁定語素',
+    morphemeSlotGone: '語素槽「{name}」綁定的語素已不存在',
+    morphemeSlotLanguage: '語素槽「{name}」只能綁定目前詞條語言的語素',
+    morphemeSlotUsed: '語素槽「{name}」引用語素「{form}」',
     morphemeMissing: '未找到語素 {rest}'
   }
 }

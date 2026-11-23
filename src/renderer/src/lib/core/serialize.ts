@@ -215,7 +215,12 @@ function migrateEtymology(e: Etymology | undefined): Etymology {
 export function projectToFolder(p: Project): Record<string, string> {
   const j = (v: unknown): string => JSON.stringify(v, withLegacyRegister, 2) + '\n'
   const files: Record<string, string> = {
-    'project.json': j({ schemaVersion: p.schemaVersion, meta: p.meta, settings: p.settings }),
+    'project.json': j({
+      schemaVersion: p.schemaVersion,
+      meta: p.meta,
+      settings: p.settings,
+      ...(p.morphemeSlots ? { morphemeSlots: p.morphemeSlots } : {})
+    }),
     'languages.json': j(p.languages),
     'rule-sets.json': j(p.ruleSets.map((r) => ({ ...r, text: undefined }))),
     'categories.json': j(p.categories),
@@ -275,6 +280,7 @@ export function projectFromFolder(files: Record<string, string>): Project {
     schemaVersion: number
     meta: Project['meta']
     settings: Project['settings']
+    morphemeSlots?: Project['morphemeSlots']
   }>('project.json', {
     schemaVersion: SCHEMA_VERSION,
     meta: undefined as never,
@@ -294,6 +300,7 @@ export function projectFromFolder(files: Record<string, string>): Project {
     schemaVersion: head.schemaVersion,
     meta: head.meta,
     settings: head.settings,
+    ...(head.morphemeSlots ? { morphemeSlots: head.morphemeSlots } : {}),
     languages: read('languages.json', []),
     ruleSets,
     categories: read('categories.json', []),

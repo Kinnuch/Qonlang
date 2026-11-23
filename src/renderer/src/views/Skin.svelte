@@ -9,6 +9,8 @@
     CARD_SIZE_MIN,
     blockSize,
     cardBlocks,
+    cardBlockVisible,
+    setCardBlockVisible,
     type CardBlock
   } from '$lib/ui/cardBlocks'
   import { SEARCH_FIELDS } from '$lib/core/searchFields'
@@ -442,6 +444,8 @@
   function resetCard(): void {
     ui.prefs.cardOrder = []
     ui.prefs.cardBlockSize = {}
+    ui.prefs.cardHidden = []
+    ui.prefs.showHistory = true
     void ui.savePrefs()
   }
   /** 某一块的字号（px）：跟默认字号一样就当没设过 */
@@ -452,6 +456,12 @@
     else next[key] = n
     ui.prefs.cardBlockSize = next
     void ui.savePrefs()
+  }
+  function setBlockVisible(key: string, visible: boolean): void {
+    ui.prefs.cardHidden = setCardBlockVisible(ui.prefs.cardHidden, key, visible)
+    if (key === 'history') ui.prefs.showHistory = visible
+    void ui.savePrefs()
+    pulseBlock(key)
   }
   /** 这次按下去是不是按在字号滑块上：是的话这一行不跟着拖去排序 */
   let onSlider = false
@@ -948,6 +958,18 @@
           />
           <span class="small px" class:changed={n !== CARD_BASE_PX}>{n}px</span>
         {/snippet}
+        {#snippet visibleCtl(key: string)}
+          <label class="block-visible">
+            <input
+              type="checkbox"
+              data-card-visible={key}
+              checked={cardBlockVisible(ui.prefs.cardHidden, key, ui.prefs.showHistory)}
+              aria-label={t('skin.cardBlockVisible', { block: t(`skin.cardBlocks.${key}`) })}
+              onchange={(e) => setBlockVisible(key, e.currentTarget.checked)}
+            />
+            <span>{t('skin.cardShow')}</span>
+          </label>
+        {/snippet}
         <span class="small muted">{t('skin.cardOrder')}</span>
         <div class="blocks" role="list" onpointerdown={showEntryPreview}>
           <div
@@ -956,8 +978,10 @@
             onmouseenter={() => (cardHover = 'header')}
             onmouseleave={() => (cardHover = '')}
           >
-            <span class="grow">{t('skin.cardBlocks.header')}</span>
-            {@render sizeCtl('header')}
+            <span class="grow block-name">{t('skin.cardBlocks.header')}</span>
+            <div class="block-controls">
+              {@render visibleCtl('header')}{@render sizeCtl('header')}
+            </div>
           </div>
           {#each cardOrder as b (b)}
             <div
@@ -967,7 +991,8 @@
               role="listitem"
               onmouseenter={() => (cardHover = b)}
               onmouseleave={() => (cardHover = '')}
-              onpointerdown={(e) => (onSlider = !!(e.target as HTMLElement).closest('.bsz'))}
+              onpointerdown={(e) =>
+                (onSlider = !!(e.target as HTMLElement).closest('.block-controls'))}
               ondragstart={(e) => {
                 // 按在字号滑块上拖动的是滑块，这一行不跟着去排序
                 if (onSlider) {
@@ -992,8 +1017,10 @@
                 dragOver = ''
               }}
             >
-              <GripVertical size={13} /><span class="grow">{t(`skin.cardBlocks.${b}`)}</span>
-              {@render sizeCtl(b)}
+              <GripVertical size={13} /><span class="grow block-name"
+                >{t(`skin.cardBlocks.${b}`)}</span
+              >
+              <div class="block-controls">{@render visibleCtl(b)}{@render sizeCtl(b)}</div>
             </div>
           {/each}
         </div>
@@ -1678,6 +1705,7 @@ a > e / _i</span
   /* 拖着排顺序：悬停时描一圈虚线 */
   .blk {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
     padding: 4px 8px;
@@ -1686,6 +1714,27 @@ a > e / _i</span
     background: var(--bg-sunken);
     cursor: grab;
     font-size: 13px;
+  }
+  .block-name {
+    min-width: 90px;
+    flex-basis: 110px;
+  }
+  .block-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    cursor: default;
+  }
+  .block-visible {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .block-visible input {
+    margin: 0;
   }
   /* 「词头与发音」只调字号，不参与排序 */
   .blk.fixed {

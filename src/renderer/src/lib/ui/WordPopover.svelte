@@ -5,6 +5,7 @@
    * 用法：wordHover.show(lexemeId, rect) / wordHover.showMorpheme(id, rect) / wordHover.hide()
    */
   import { projectState } from '$lib/state/project.svelte'
+  import { untrack } from 'svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { wordHover } from '$lib/state/wordHover.svelte'
@@ -366,11 +367,17 @@
           {/if}
         </div>
       {:else if lexeme}
-        <LexemeCard
-          {lexeme}
-          project={project!}
-          onpicksense={wordHover.assign ? (i) => wordHover.chooseSense(i) : undefined}
-        />
+        {#key project}
+          {#key lexeme}
+            <!-- 换项目或关闭悬浮时，旧卡退出前仍持有原对象，不能先把null传给其派生值。 -->
+            {@const card = untrack(() => ({ lexeme: lexeme!, project: project! }))}
+            <LexemeCard
+              lexeme={card.lexeme}
+              project={card.project}
+              onpicksense={wordHover.assign ? (i) => wordHover.chooseSense(i) : undefined}
+            />
+          {/key}
+        {/key}
       {:else if morpheme}
         <div class="mor">
           <div class="row">

@@ -11,6 +11,8 @@
   import { conditionVariants, hasConditions } from '$lib/engine/morph/conditions'
   import { sortable } from '$lib/ui/sortable.svelte'
   import { moveItem } from '$lib/core/move'
+  import { projectState } from '$lib/state/project.svelte'
+  import { createMorphemeSlot } from '$lib/state/morphemeSlotActions'
 
   /** 「构形」这一步能套的构形：名字、各槽位、各变体（不含正在编辑的这个构形） */
   interface ParadigmChoice {
@@ -230,13 +232,64 @@
             />{/if}</button
         >
       {:else if st.kind === 'prefix' || st.kind === 'suffix'}
-        <input
-          class="input data"
-          placeholder={t('paradigms.affixPlaceholder')}
-          bind:value={st.text}
-          oninput={onchange}
-        />
-        {@render alts(st.text)}
+        <select
+          class="select source"
+          data-step-morpheme-slot
+          disabled={projectState.readOnly}
+          aria-label={t('morphemeSlots.chooseSource')}
+          value={st.morphemeSlot ?? ''}
+          onchange={async (e) => {
+            const field = e.currentTarget
+            let id: string | null = field.value
+            if (id === '__create__')
+              id = projectState.project ? await createMorphemeSlot(projectState.project) : null
+            if (id !== null && steps.includes(st) && !projectState.readOnly) {
+              if (id) st.morphemeSlot = id
+              else delete st.morphemeSlot
+              onchange()
+            }
+            field.value = st.morphemeSlot ?? ''
+          }}
+        >
+          <option value="">{t('morphemeSlots.literalSource')}</option>
+          {#if st.morphemeSlot && !projectState.project?.morphemeSlots?.some((slot) => slot.id === st.morphemeSlot)}<option
+              value={st.morphemeSlot}>{t('morphemeSlots.missingSlot')}</option
+            >{/if}
+          {#each projectState.project?.morphemeSlots ?? [] as slot (slot.id)}<option value={slot.id}
+              >{t('morphemeSlots.slotSource', { name: slot.name })}</option
+            >{/each}
+          <option value="__create__">＋{t('morphemeSlots.add')}</option>
+        </select>
+        {#if st.morphemeSlot}
+          <input
+            class="input data separator"
+            data-slot-before
+            disabled={projectState.readOnly}
+            title={t('morphemeSlots.before')}
+            aria-label={t('morphemeSlots.before')}
+            placeholder={t('morphemeSlots.before')}
+            bind:value={st.slotBefore}
+            oninput={onchange}
+          />
+          <input
+            class="input data separator"
+            data-slot-after
+            disabled={projectState.readOnly}
+            title={t('morphemeSlots.after')}
+            aria-label={t('morphemeSlots.after')}
+            placeholder={t('morphemeSlots.after')}
+            bind:value={st.slotAfter}
+            oninput={onchange}
+          />
+        {:else}
+          <input
+            class="input data"
+            placeholder={t('paradigms.affixPlaceholder')}
+            bind:value={st.text}
+            oninput={onchange}
+          />
+          {@render alts(st.text)}
+        {/if}
       {:else if st.kind === 'circumfix'}
         <input class="input data sm" bind:value={st.text} oninput={onchange} placeholder="a-" />
         <span class="dots">…</span>
@@ -435,6 +488,12 @@
   }
   .step .input.num {
     width: 46px;
+  }
+  .step .select.source {
+    width: 150px;
+  }
+  .step .input.separator {
+    width: 78px;
   }
   .step .adj {
     width: 260px;
