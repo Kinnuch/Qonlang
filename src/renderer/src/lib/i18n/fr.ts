@@ -867,7 +867,10 @@ export default {
     node: 'Nœuds',
     nodeHint: 'Cliquez sur un trait ou un contour pour afficher ses nœuds',
     erase: 'Gomme',
-    eraseHint: 'Supprime le trait ou le contour sélectionné',
+    eraseHint:
+      'Cliquez ou faites glisser la gomme ronde pour effacer une partie du trait ou du contour. Vous pouvez annuler le geste en une seule fois.',
+    eraserDiameter: 'Diamètre de la gomme',
+    eraseFailed: 'Impossible de terminer cet effacement.',
     width: 'Épaisseur',
     widthHint: 'Règle l’épaisseur du pinceau, des lignes droites, du détourage, etc.',
     stabilizer: 'Stabilisateur',

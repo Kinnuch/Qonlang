@@ -837,7 +837,10 @@ export default {
     node: '노드',
     nodeHint: '획이나 윤곽을 누르면 노드가 나타납니다',
     erase: '지우개',
-    eraseHint: '고른 획이나 윤곽을 지웁니다',
+    eraseHint:
+      '둥근 지우개를 클릭하거나 끌어 획이나 윤곽선의 일부를 지웁니다. 한 번의 실행 취소로 복원할 수 있습니다.',
+    eraserDiameter: '지우개 지름',
+    eraseFailed: '지우기를 완료하지 못했습니다.',
     width: '굵기',
     widthHint: '펜, 직선, 테두리 등의 굵기를 조절합니다',
     stabilizer: '손떨림 보정',

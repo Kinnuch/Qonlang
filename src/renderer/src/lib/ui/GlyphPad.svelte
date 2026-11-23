@@ -4,13 +4,14 @@
    * 左右两条竖线是字的起点和字宽（右边那条下面的小圆点可以拖）。
    * 字由两样东西组成：笔画（点列 + 粗细）和轮廓（填实的闭合路径，从字体载入或用形状工具拉出来的）。
    * 画笔带拉绳式防抖；形状拉矩形 / 椭圆 / 正多边形 / 直线；选择点选框选、拖着挪、拖角缩放；
-   * 节点工具拖轮廓和笔画上的点；橡皮点到哪个删哪个。选中的（没选就是整个字）可以改宽高、翻转、反向、勾线、加粗、复制。
+   * 节点工具拖轮廓和笔画上的点；橡皮按圆形笔刷的轨迹擦除墨迹。选中的（没选就是整个字）可以改宽高、翻转、反向、勾线、加粗、复制。
    */
   import { onMount, untrack } from 'svelte'
   import { rangeFill } from '$lib/ui/rangeFill'
   import type { GlyphDrawing } from '$lib/core/model'
   import { GUIDES } from '$lib/script/drawnFont'
   import { drawingFromFont } from '$lib/script/fontBuild'
+  import { eraseDrawing } from '$lib/script/glyphEraser'
   import {
     contourOutline,
     contourSvg,
@@ -118,6 +119,11 @@
   )
   let advance = $state(initial?.advance ?? 1000)
   let width = $state(initial?.strokes.at(-1)?.width ?? 60)
+  let eraserSize = $state(60)
+  let eraserCursor = $state.raw<Pt | null>(null)
+  let inkLayer: SVGGElement
+  let eraserTrail = $state.raw<SVGPolylineElement>()
+  const eraseMaskId = $props.id()
   let tool = $state<Tool>('pen')
   let shapeKind = $state<ShapeKind>('rect')
   let sides = $state(6)
@@ -260,6 +266,7 @@
   }
   function onWheel(e: WheelEvent): void {
     e.preventDefault()
+    if (drag?.kind === 'erase') return
     const p = svgPoint(e.clientX, e.clientY)
     const next = Math.max(0.25, Math.min(12, zoom * Math.exp(-e.deltaY * 0.0015)))
     const k = zoom / next
@@ -507,7 +514,13 @@
     | { kind: 'node'; from: Pt; base: Snap; ref: NodeRef }
     | { kind: 'advance' }
     | { kind: 'pan'; from: Pt; center: Pt }
-    | { kind: 'erase' }
+    | {
+        kind: 'erase'
+        pointerId: number
+        points: Pt[]
+        radius: number
+        bounds: { x: number; y: number; width: number; height: number }
+      }
   let drag = $state.raw<Drag | null>(null)
 
   // 画笔：正在画的这一笔、指针位置、笔尖位置、防抖器
@@ -534,13 +547,30 @@
     raf = requestAnimationFrame(tick)
   }
 
-  function eraseAt(p: Pt): void {
-    const hit = hitItem(p)
-    if (!hit) return
-    remember()
-    if (hit.kind === 's') strokes = strokes.filter((_, k) => k !== hit.i)
-    else contours = contours.filter((_, k) => k !== hit.i)
-    clearSelection()
+  function appendErasePoint(d: Extract<Drag, { kind: 'erase' }>, p: Pt): void {
+    const last = d.points[d.points.length - 1]
+    if (p[0] === last[0] && p[1] === last[1]) return
+    d.points.push(p)
+    // 给实时遮罩追加新点，避免每次移动都重建整条路径。
+    if (eraserTrail && svg) {
+      const svgPoint = svg.createSVGPoint()
+      svgPoint.x = p[0]
+      svgPoint.y = -p[1]
+      eraserTrail.points.appendItem(svgPoint)
+    }
+  }
+  function finishErase(d: Extract<Drag, { kind: 'erase' }>): void {
+    const before = snap()
+    try {
+      const after = eraseDrawing(before, d.points, d.radius)
+      if (after === before) return
+      pushHistory(before)
+      strokes = after.strokes
+      contours = after.contours ?? []
+      clearSelection()
+    } catch {
+      msg = t('glyphPad.eraseFailed')
+    }
   }
 
   /**
@@ -564,6 +594,7 @@
   }
 
   function down(e: PointerEvent): void {
+    if (drag?.kind === 'erase' || (tool === 'erase' && !e.isPrimary)) return
     measure()
     if (e.button === 1) {
       e.preventDefault()
@@ -587,8 +618,23 @@
     } else if (tool === 'shape') {
       drag = { kind: 'shape', a: p, b: p, shift: e.shiftKey }
     } else if (tool === 'erase') {
-      drag = { kind: 'erase' }
-      eraseAt(p)
+      eraserCursor = p
+      if (!strokes.length && !contours.length) return
+      // getBBox 不含笔画粗细；遮罩应完整盖住真实墨迹，字身框以外的部分也算。
+      const box = inkLayer.getBBox()
+      const pad = strokes.reduce((maximum, s) => Math.max(maximum, s.width / 2), 0) + 2
+      drag = {
+        kind: 'erase',
+        pointerId: e.pointerId,
+        points: [p],
+        radius: eraserSize / 2,
+        bounds: {
+          x: box.x - pad,
+          y: box.y - pad,
+          width: box.width + 2 * pad,
+          height: box.height + 2 * pad
+        }
+      }
     } else if (tool === 'node') {
       const n = hitNode(p)
       if (n) {
@@ -646,6 +692,7 @@
     }
   }
   function startAdvance(e: PointerEvent): void {
+    if (tool === 'erase') return
     e.stopPropagation()
     if (e.button !== 0) return
     grab(e)
@@ -655,6 +702,11 @@
 
   function move(e: PointerEvent): void {
     const d = drag
+    if (d?.kind === 'erase' && d.pointerId !== e.pointerId) return
+    if (tool === 'erase' && !d) {
+      eraserCursor = toFont(e)
+      return
+    }
     if (!d) return
     if (d.kind === 'pan') {
       center = [
@@ -707,7 +759,9 @@
       changed()
       dragNode(d.base, d.ref, dx, dy)
     } else if (d.kind === 'erase' && e.buttons & 1) {
-      eraseAt(p)
+      for (const sample of e.getCoalescedEvents?.() ?? []) appendErasePoint(d, toFont(sample))
+      appendErasePoint(d, p)
+      eraserCursor = p
     }
   }
 
@@ -750,12 +804,20 @@
   }
   const shapePreview = $derived(drag?.kind === 'shape' ? shapeOf(drag.a, drag.b, drag.shift) : null)
 
-  function up(): void {
+  function up(e: PointerEvent): void {
     const d = drag
+    if (d?.kind === 'erase' && d.pointerId !== e.pointerId) return
     drag = null
     pending = null
     if (!d) return
-    if (d.kind === 'pen' && current && stab) {
+    if (d.kind === 'erase') {
+      // 系统取消指针时只收起预览；正常抬起时才把整次擦除作为一次修改提交。
+      if (e.type === 'pointerup') {
+        appendErasePoint(d, toFont(e))
+        finishErase(d)
+      }
+      if (e.pointerType !== 'mouse') eraserCursor = null
+    } else if (d.kind === 'pen' && current && stab) {
       cancelAnimationFrame(raf)
       // 抬笔：笔尖收绳追到指针，再平滑、抽稀
       for (const q of stab.finish(pointer)) current.points.push(q)
@@ -905,6 +967,17 @@
       e.preventDefault()
       e.stopImmediatePropagation()
     }
+    if (drag?.kind === 'erase') {
+      const command = e.ctrlKey || e.metaKey
+      if (e.key === 'Escape' || (command && e.key.toLowerCase() === 'z')) {
+        stop()
+        drag = null
+        eraserCursor = null
+      } else if (command || ['Delete', 'Backspace'].includes(e.key)) {
+        stop()
+      }
+      return
+    }
     const mod = e.ctrlKey || e.metaKey
     const key = e.key.toLowerCase()
     if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -1017,6 +1090,7 @@
           title={t(`glyphPad.${tl.id}Hint`)}
           onclick={() => {
             tool = tl.id
+            eraserCursor = null
             selNode = null
           }}><tl.icon size={14} />{t(`glyphPad.${tl.id}`)}</button
         >
@@ -1047,11 +1121,27 @@
         >
       {/if}
     {/if}
-    <label class="row small" title={t('glyphPad.widthHint')}
-      >{t('glyphPad.width')}
-      <input type="range" min="10" max="220" step="5" bind:value={width} use:rangeFill={width} />
-      <span class="num">{width}</span></label
-    >
+    {#if tool === 'erase'}
+      <label class="row small" title={t('glyphPad.eraseHint')}>
+        {t('glyphPad.eraserDiameter')}
+        <input
+          data-eraser-size
+          type="range"
+          min="10"
+          max="220"
+          step="5"
+          bind:value={eraserSize}
+          use:rangeFill={eraserSize}
+        />
+        <span class="num">{eraserSize}</span>
+      </label>
+    {:else}
+      <label class="row small" title={t('glyphPad.widthHint')}
+        >{t('glyphPad.width')}
+        <input type="range" min="10" max="220" step="5" bind:value={width} use:rangeFill={width} />
+        <span class="num">{width}</span></label
+      >
+    {/if}
     {#if tool === 'pen'}
       <label class="row small" title={t('glyphPad.stabilizerHint')}
         >{t('glyphPad.stabilizer')}
@@ -1194,6 +1284,7 @@
     aria-label={title}
     onpointerdown={down}
     onpointermove={move}
+    onpointerleave={() => (eraserCursor = null)}
     onpointerup={up}
     onpointercancel={up}
     onlostpointercapture={up}
@@ -1239,34 +1330,58 @@
       r={Math.max(10, 10 * upp)}
       onpointerdown={startAdvance}
     />
-    <!-- 轮廓：合成一条路径按非零规则填，内洞才是空的 -->
-    {#if allContours}<path class="fill" d={allContours} />{/if}
-    {#each selC as ci (ci)}
-      {#if contours[ci]}<path
-          class="c-sel"
-          d={contourSvg(contours[ci])}
-          vector-effect="non-scaling-stroke"
-        />{/if}
-    {/each}
-    <!-- 笔画 -->
-    {#each strokes as s, i (i)}
-      {#if s.points.length === 1}
-        <circle
-          class="ink"
-          class:sel={selS.includes(i)}
-          cx={s.points[0][0]}
-          cy={-s.points[0][1]}
-          r={s.width / 2}
-        />
-      {:else}
-        <polyline
-          class="stroke"
-          class:sel={selS.includes(i)}
-          points={pts(s)}
-          stroke-width={s.width}
-        />
-      {/if}
-    {/each}
+    {#if drag?.kind === 'erase'}
+      <defs>
+        <mask
+          id={eraseMaskId}
+          maskUnits="userSpaceOnUse"
+          {...drag.bounds}
+          style="mask-type:luminance"
+        >
+          <rect {...drag.bounds} fill="white" />
+          <circle cx={drag.points[0][0]} cy={-drag.points[0][1]} r={drag.radius} fill="black" />
+          <polyline
+            bind:this={eraserTrail}
+            points={drag.points.map(([x, y]) => `${x},${-y}`).join(' ')}
+            stroke="black"
+            fill="none"
+            stroke-width={drag.radius * 2}
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </mask>
+      </defs>
+    {/if}
+    <g bind:this={inkLayer} mask={drag?.kind === 'erase' ? `url(#${eraseMaskId})` : undefined}>
+      <!-- 轮廓：合成一条路径按非零规则填，内洞才是空的 -->
+      {#if allContours}<path class="fill" d={allContours} />{/if}
+      {#each selC as ci (ci)}
+        {#if contours[ci]}<path
+            class="c-sel"
+            d={contourSvg(contours[ci])}
+            vector-effect="non-scaling-stroke"
+          />{/if}
+      {/each}
+      <!-- 笔画 -->
+      {#each strokes as s, i (i)}
+        {#if s.points.length === 1}
+          <circle
+            class="ink"
+            class:sel={selS.includes(i)}
+            cx={s.points[0][0]}
+            cy={-s.points[0][1]}
+            r={s.width / 2}
+          />
+        {:else}
+          <polyline
+            class="stroke"
+            class:sel={selS.includes(i)}
+            points={pts(s)}
+            stroke-width={s.width}
+          />
+        {/if}
+      {/each}
+    </g>
     {#if current}
       {#if current.points.length === 1}
         <circle
@@ -1385,6 +1500,26 @@
         {/if}
       {/each}
     {/if}
+    {#if tool === 'erase' && eraserCursor && drag?.kind !== 'pan'}
+      <g data-eraser-cursor pointer-events="none" fill="none">
+        <circle
+          cx={eraserCursor[0]}
+          cy={-eraserCursor[1]}
+          r={eraserSize / 2}
+          stroke="white"
+          stroke-width="3"
+          vector-effect="non-scaling-stroke"
+        />
+        <circle
+          cx={eraserCursor[0]}
+          cy={-eraserCursor[1]}
+          r={eraserSize / 2}
+          stroke="#424653"
+          stroke-width="1"
+          vector-effect="non-scaling-stroke"
+        />
+      </g>
+    {/if}
   </svg>
   <p class="small muted hint">
     {#if msg}<span class="msg">{msg}</span>{/if}{t('glyphPad.hint')}
@@ -1474,7 +1609,7 @@
     cursor: crosshair;
   }
   .canvas.erase {
-    cursor: cell;
+    cursor: crosshair;
   }
   .canvas.panning {
     cursor: grabbing;

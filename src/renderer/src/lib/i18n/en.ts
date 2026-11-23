@@ -851,7 +851,10 @@ const en: Dict = {
     nodeHint:
       'Click an outline or stroke to show its nodes: squares are on-curve points, small circles are control points; drag to reshape, Delete removes the selected node',
     erase: 'Eraser',
-    eraseHint: 'Click a stroke or outline to delete it',
+    eraseHint:
+      'Click or drag the round eraser to remove part of a stroke or outline. Undo restores the whole gesture.',
+    eraserDiameter: 'Eraser diameter',
+    eraseFailed: 'Could not complete this erasure.',
     width: 'Weight',
     widthHint: 'Weight used by the pen, lines and Outline (font units)',
     stabilizer: 'Stabilizer',

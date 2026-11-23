@@ -860,7 +860,10 @@ export default {
     node: 'Nodos',
     nodeHint: 'Pulse un trazo o un contorno para mostrar sus nodos',
     erase: 'Goma',
-    eraseHint: 'Elimina el trazo o el contorno seleccionado',
+    eraseHint:
+      'Haz clic o arrastra la goma circular para borrar parte de un trazo o contorno. Puedes deshacer todo el gesto en un solo paso.',
+    eraserDiameter: 'Diámetro de la goma',
+    eraseFailed: 'No se pudo completar el borrado.',
     width: 'Grosor',
     widthHint:
       'Sirve para ajustar el grosor del pincel, de las líneas rectas, del contorneado, etc.',

@@ -2,6 +2,8 @@
  * 示例项目（examples/*.laim.json）必须能被当前版本读回，且其中的规则集给出预期结果。
  */
 import { buildDrawnFont } from '$lib/script/drawnFont'
+import { eraseDrawing } from '$lib/script/glyphEraser'
+import { flattenContour, pointInPolygon, signedArea, type Pt } from '$lib/script/glyphGeometry'
 import { describe, it, expect } from 'vitest'
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
@@ -31,6 +33,21 @@ const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
 
 describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', () => {
+  it('can erase just one edge of the hand-drawn punctuation in Aelith', () => {
+    const example = load('Aelith.laim.json')
+    const glyph = example.languages
+      .flatMap((l) => l.scripts.flatMap((s) => s.glyphs))
+      .find((g) => g.name === '刻痕句读')!
+    const original = glyph.drawing!
+    const edited = eraseDrawing(original, [[420, 370]], 42)
+    const rings = (edited.contours ?? []).map((c) => flattenContour(c))
+    const filled = (p: Pt) =>
+      rings.reduce((n, r) => n + (pointInPolygon(p, r) ? Math.sign(signedArea(r)) : 0), 0) !== 0
+    expect(filled([420, 370])).toBe(false)
+    expect(filled([280, 230])).toBe(true)
+    expect(edited.advance).toBe(original.advance)
+    expect(original.strokes[0].points).toHaveLength(5)
+  })
   it('opens Aelith’s HTML reference from its corpus sentence and groups Tsahun’s tone changes', () => {
     const ae = load('Aelith.laim.json')
     const sentence = ae.sentences.find((s) => s.text === 'ilenler kasoda jatdu.')!

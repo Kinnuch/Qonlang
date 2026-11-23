@@ -832,7 +832,10 @@ export default {
     node: 'ノード',
     nodeHint: 'ストロークまたは輪郭をクリックするとノードが表示されます',
     erase: '消しゴム',
-    eraseHint: '選んだストロークまたは輪郭を削除します',
+    eraseHint:
+      '丸い消しゴムをクリックまたはドラッグして、線や輪郭の一部を消します。ひとつの操作で元に戻せます。',
+    eraserDiameter: '消しゴムの直径',
+    eraseFailed: '消去できませんでした。',
     width: '太さ',
     widthHint: 'ペン、直線、輪郭線化などの太さを調整します',
     stabilizer: '手ブレ補正',

@@ -1,6 +1,8 @@
 # Changelog
 
-## 1.0.4 · unreleased
+## 1.0.4 · 2026-11-23
+
+- The glyph drawing pad has an adjustable round eraser. Click or drag to erase part of a pen stroke, filled shape or imported font outline. Each drag can be undone in one step.
 
 - Bind different morphemes to the same named slot on each headword. Prefix and suffix steps resolve the current word’s binding and its allomorphs. Splitting a headword previews the remaining stem before saving it.
 - Choose which blocks appear on lexeme cards in theme settings. Allomorph selectors have room for their arrows, and the static multi-select hint has been removed from the morpheme list.
