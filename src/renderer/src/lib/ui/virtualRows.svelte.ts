@@ -157,11 +157,11 @@ export class VirtualRows {
     }
   }
 
-  /** 把第 i 行滚到可见区域中间附近（先让它画出来，再由调用方精确滚过去） */
-  scrollToIndex(i: number): void {
+  /** 默认滚到中间；按字母跳转时将第一条匹配行放在固定表头的下方。 */
+  scrollToIndex(i: number, align: 'center' | 'start' = 'center'): void {
     const node = this.boxEl
     if (!node || i < 0) return
-    const y = Math.max(0, (this.offsets[i] ?? 0) - this.viewport / 2)
+    const y = Math.max(0, (this.offsets[i] ?? 0) - (align === 'start' ? 0 : this.viewport / 2))
     node.scrollTop = y
     this.top = node.scrollTop
   }

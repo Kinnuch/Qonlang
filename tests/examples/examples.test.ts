@@ -35,6 +35,28 @@ const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
 
 describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', () => {
+  it('teaches separate letter jumps and ending order with existing Aelith entries', () => {
+    const p = load('Aelith.laim.json'),
+      lang = p.languages.find((l) => l.name === 'Aelith')!,
+      about = p.docs.find((d) => d.id === 'd48b00eb-e7f1-4865-92c5-0f7491ff36bc')!
+    expect(
+      p.lexemes.filter(
+        (word) => word.languageId === lang.id && ['kaso', 'telikaso'].includes(word.lemma)
+      )
+    ).toHaveLength(2)
+    expect(about.markdown).toContain('词库：字母跳转与词尾排序')
+    expect(about.markdown).toContain('勾选框决定哪些字母分组显示')
+    expect(about.markdown).toContain('按尾字母排序')
+    expect(about.markdown).toContain('关系图：沿现有数据展开四层网络')
+    const en = JSON.parse(readFileSync(join(dir, 'docs-en.json'), 'utf8')) as ExampleDocsEn
+    localizeExampleDocs(p, 'aelith', en, 'en')
+    expect(p.docs.find((d) => d.id === about.id)!.markdown).toContain(
+      'Lexicon: letter jumps and ending order'
+    )
+    expect(p.docs.find((d) => d.id === about.id)!.markdown).toContain(
+      'A four-level network from existing records'
+    )
+  })
   it('teaches a verifiable four-hop network using only the existing public Aelith records', () => {
     const p = load('Aelith.laim.json'),
       ae = p.languages.find((l) => l.name === 'Aelith')!,

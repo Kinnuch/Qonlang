@@ -17,7 +17,7 @@
   import { platform } from '$lib/platform'
   import { i18n, t, pickText } from '$lib/i18n/index.svelte'
   import { createLexeme, createSense, now } from '$lib/core/factory'
-  import { makeCollator } from '$lib/core/collate'
+  import { makeCollator, makeLexiconLetters } from '$lib/core/collate'
   import { toCsv } from '$lib/core/csv'
   import { lexemesToRows, morphemesToRows } from '$lib/importers/csvImport'
   import { parseLexc, mergeLexicanter, type LexcFile } from '$lib/importers/lexicanter'
@@ -140,6 +140,8 @@
     sortKey: string | null
     sortDir: 'asc' | 'desc'
     customOrder: boolean
+    sortFromEnd: boolean
+    endingFilter: Set<string> | null
     colFilters: Record<string, Set<string>>
     favOnly: boolean
   }>('lexicon')
@@ -168,6 +170,8 @@
   let sortKey = $state<string | null>(memo.sortKey ?? null)
   let sortDir = $state<'asc' | 'desc'>(memo.sortDir ?? 'desc')
   let customOrder = $state(memo.customOrder ?? false)
+  let sortFromEnd = $state(memo.sortFromEnd ?? false)
+  let endingFilter = $state<Set<string> | null>(memo.endingFilter ?? null)
   /** 表头筛选：列 key → 选中的取值；不在里面的列不筛 */
   let colFilters = $state<Record<string, Set<string>>>(memo.colFilters ?? {})
   /** 只看收藏（列表左边点亮的那些） */
@@ -181,11 +185,23 @@
   const sort = $derived(customOrder ? 'custom' : 'alphabet')
   function cycleSort(key: string): void {
     if (customOrder) customOrder = false
+    if (key !== 'lemma') sortFromEnd = false
     if (sortKey !== key) {
       sortKey = key
       sortDir = 'desc'
     } else if (sortDir === 'desc') sortDir = 'asc'
     else sortKey = null
+  }
+  function changeLetterOrder(fromEnd: boolean): void {
+    sortFromEnd = fromEnd
+    customOrder = false
+    sortKey = null
+    ui.cancelScrollRestore('lexicon')
+    rows.scrollToIndex(0, 'start')
+  }
+  function toggleCustomOrder(): void {
+    customOrder = !customOrder
+    if (customOrder) sortFromEnd = false
   }
   function setFilter(key: string, sel: Set<string> | null): void {
     const next = { ...colFilters }
@@ -201,7 +217,7 @@
     return (lg?.dialects ?? []).filter((d) => ids.has(d.id))
   }
   function filterValues(l: Lexeme, key: string): string[] {
-    if (key === 'lemma') return [initialOf(l.lemma)]
+    if (key === 'lemma') return [letterOf(l.lemma)]
     if (key === 'pos') {
       // 复合词类的组成、义项单独选的词类也算：筛「名词」时名词兼动词的词也在
       const ids = lexemePosIds(project, l)
@@ -215,14 +231,6 @@
       return ds.length ? ds.map((d) => d.id) : ['']
     }
     return [cell(l, key, false)]
-  }
-  /** 首字母：按字母表里的多合字母切 */
-  function initialOf(lemma: string): string {
-    const w = lemma.replace(/^[-=*·]+/, '')
-    const alpha = language?.alphabet ?? []
-    for (const a of [...alpha].sort((x, y) => y.length - x.length))
-      if (a && w.toLowerCase().startsWith(a.toLowerCase())) return a
-    return Array.from(w)[0]?.toUpperCase() ?? ''
   }
   /** 某一列的筛选项（带计数） */
   function filterOptions(key: string): { value: string; label: string; count: number }[] {
@@ -316,6 +324,8 @@
       sortKey,
       sortDir,
       customOrder,
+      sortFromEnd,
+      endingFilter,
       colFilters: { ...colFilters },
       favOnly
     })
@@ -341,6 +351,18 @@
     return m
   })
   const collator = $derived(makeCollator(language?.alphabet ?? []))
+  const letters = $derived(makeLexiconLetters(language?.alphabet ?? []))
+  const letterOf = $derived(sortFromEnd ? letters.final : letters.initial)
+  const lemmaFilter = $derived(sortFromEnd ? endingFilter : colFilters.lemma)
+  // 两个字母表各记各的勾选，切换方向时不会用一组首字母误筛词尾。
+  const activeFilters = $derived.by(() => {
+    const filters = { ...colFilters }
+    if (sortFromEnd) {
+      if (endingFilter) filters.lemma = endingFilter
+      else delete filters.lemma
+    }
+    return Object.entries(filters)
+  })
   /** 搜索字段：内置的，再加每个检视器模块（标题或别名写成 标题=内容） */
   const searchFields = $derived([
     ...SEARCH_FIELDS.lexicon,
@@ -354,7 +376,7 @@
     const pq = parseQuery(query, searchFields)
     const arr = inLang.filter((l) => {
       if (favOnly && !l.favorite) return false
-      for (const [key, sel] of Object.entries(colFilters))
+      for (const [key, sel] of activeFilters)
         if (!filterValues(l, key).some((v) => sel.has(v))) return false
       if (pq.terms.length && !matchQuery(pq, (f) => lexemeFieldValues(l, f))) return false
       return true
@@ -363,32 +385,48 @@
     if (customOrder) return arr
     // 排序键每行只算一次：比较时现算的话，按文字列排一次要转写几万遍
     const key = sortKey
-    const lemmas = arr.map((l) => l.lemma)
-    const keys =
-      !key || key === 'lemma'
-        ? lemmas
-        : arr.map((l) =>
-            key === 'pos' ? posLabelOf(l) : key === 'updated' ? l.updatedAt : cell(l, key, false)
-          )
     const dir = key && sortDir === 'desc' ? -1 : 1
+    const lemmas = arr.map((l) => l.lemma)
     const order = arr.map((_, i) => i)
-    order.sort((i, j) => {
-      if (!key) return collator(lemmas[i], lemmas[j])
-      const c =
-        key === 'updated'
-          ? keys[i] < keys[j]
-            ? -1
-            : keys[i] > keys[j]
-              ? 1
-              : 0
-          : collator(keys[i], keys[j])
-      return (c || collator(lemmas[i], lemmas[j])) * dir
-    })
+    if (!key || key === 'lemma') {
+      const compare = sortFromEnd ? letters.compareFromEnd : collator
+      order.sort((i, j) => compare(lemmas[i], lemmas[j]) * dir)
+    } else {
+      const keys = arr.map((l) =>
+        key === 'pos' ? posLabelOf(l) : key === 'updated' ? l.updatedAt : cell(l, key, false)
+      )
+      order.sort((i, j) => {
+        const c =
+          key === 'updated'
+            ? keys[i] < keys[j]
+              ? -1
+              : keys[i] > keys[j]
+                ? 1
+                : 0
+            : collator(keys[i], keys[j])
+        return (c || collator(lemmas[i], lemmas[j])) * dir
+      })
+    }
     return order.map((i) => arr[i])
   })
   /** 表格只画看得见的那些行（几千条也不卡），滚动位置照旧 */
   const listIds = $derived(list.map((l) => l.id))
   const rows = new VirtualRows('lexicon', () => listIds)
+  const firstRowByLetter = $derived.by(() => {
+    const first = new Map<string, number>()
+    list.forEach((word, index) => {
+      const letter = letterOf(word.lemma)
+      if (!first.has(letter)) first.set(letter, index)
+    })
+    return first
+  })
+  function jumpToLetter(letter: string): void {
+    const index = firstRowByLetter.get(letter)
+    if (index === undefined) return
+    ui.cancelScrollRestore('lexicon')
+    rows.scrollToIndex(index, 'start')
+    flash(list[index].id)
+  }
   /** 仅可见发音单元格按需读取当前规则，不改工程里的缓存。 */
   function pronunciationValues(l: Lexeme): string[] {
     const lg = project.languages.find((item) => item.id === l.languageId)
@@ -1123,6 +1161,7 @@
     if (langId && l.languageId !== langId) projectState.currentLanguageId = l.languageId
     ui.search = ''
     colFilters = {}
+    endingFilter = null
     mode = 'entries'
     mainView = 'list'
     selectedId = id
@@ -1559,18 +1598,35 @@
                 class="btn ghost icon sm"
                 class:active={customOrder}
                 title={t('table.customOrder')}
-                onclick={() => (customOrder = !customOrder)}><ListOrdered size={14} /></button
+                onclick={toggleCustomOrder}><ListOrdered size={14} /></button
               >
             </th>
             <th>
               <ColHead
                 label={t('lexicon.lemma')}
-                sort={sortKey === 'lemma' ? sortDir : null}
+                sort={sortKey === 'lemma' ? sortDir : sortFromEnd ? 'asc' : null}
                 onsort={() => cycleSort('lemma')}
                 options={filterOptions('lemma')}
-                selected={colFilters.lemma ?? null}
-                onfilter={(sel) => setFilter('lemma', sel)}
-              />
+                selected={lemmaFilter ?? null}
+                onfilter={(sel) => {
+                  if (sortFromEnd) endingFilter = sel
+                  else setFilter('lemma', sel)
+                }}
+                onjump={jumpToLetter}
+                canjump={(letter) => firstRowByLetter.has(letter)}
+              >
+                {#snippet filterTools()}
+                  <label class="ending-sort">
+                    <input
+                      type="checkbox"
+                      data-lemma-ending-sort
+                      checked={sortFromEnd}
+                      onchange={(e) => changeLetterOrder(e.currentTarget.checked)}
+                    />
+                    {t('lexicon.sortFromEnd')}
+                  </label>
+                {/snippet}
+              </ColHead>
               <span
                 class="grip"
                 role="separator"
@@ -2813,6 +2869,13 @@
     padding-inline-end: 4px;
     display: flex;
     flex-direction: column;
+  }
+  .ending-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    cursor: pointer;
   }
   .tbl {
     border-collapse: collapse;

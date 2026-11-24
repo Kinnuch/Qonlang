@@ -4,7 +4,9 @@
    * 右侧的漏斗打开筛选面板（全选 / 全不选 / 逐项勾）。
    * `children` 放列宽把手之类的附件。
    */
-  import type { Snippet } from 'svelte'
+  import { tick, type Snippet } from 'svelte'
+  import { newId } from '$lib/core/factory'
+  import { pickFilterOption } from './colHeadFilter'
   import { t } from '$lib/i18n/index.svelte'
   import { Filter, ChevronDown, ChevronUp } from '@lucide/svelte'
 
@@ -21,6 +23,9 @@
     options,
     selected = null,
     onfilter,
+    onjump,
+    canjump,
+    filterTools,
     children
   }: {
     label: string
@@ -32,6 +37,10 @@
     /** 选中的取值集合；null 表示不筛 */
     selected?: Set<string> | null
     onfilter?: (sel: Set<string> | null) => void
+    /** 有此回调时，字母文字只负责跳转，勾选框才改变筛选。 */
+    onjump?: (value: string) => void
+    canjump?: (value: string) => boolean
+    filterTools?: Snippet
     children?: Snippet
   } = $props()
 
@@ -40,6 +49,7 @@
   let panel = $state<HTMLElement | null>(null)
   let btn = $state<HTMLElement | null>(null)
   let panelStyle = $state('')
+  const panelId = `column-filter-${newId()}`
 
   const shown = $derived.by(() => {
     const q = query.trim().toLowerCase()
@@ -54,17 +64,21 @@
     query = ''
     if (open && btn) {
       const r = btn.getBoundingClientRect()
-      const left = Math.min(r.left, window.innerWidth - 260)
+      const width = Math.min(filterTools ? 300 : 240, window.innerWidth - 16)
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8))
       panelStyle = `left:${left}px;top:${r.bottom + 4}px`
+      void tick().then(() => panel?.querySelector<HTMLElement>('button, input')?.focus())
     }
   }
   function pick(v: string, on: boolean): void {
-    const all = new Set((options ?? []).map((o) => o.value))
-    const cur = new Set(selected ?? all)
-    if (on) cur.add(v)
-    else cur.delete(v)
-    // 全都勾上等于不筛
-    onfilter?.(cur.size === all.size ? null : cur)
+    onfilter?.(
+      pickFilterOption(
+        (options ?? []).map((o) => o.value),
+        selected,
+        v,
+        on
+      )
+    )
   }
   function all(): void {
     onfilter?.(null)
@@ -73,6 +87,12 @@
     onfilter?.(new Set())
   }
   const isOn = (v: string): boolean => !selected || selected.has(v)
+  function jump(value: string): void {
+    if (!onjump || canjump?.(value) === false) return
+    open = false
+    btn?.focus()
+    onjump(value)
+  }
 
   /**
    * 面板挪到 <body> 底下再定位：留在表头里时，外面的滚动容器、检视器会把它裁掉一截。
@@ -89,7 +109,11 @@
       if (panel && !panel.contains(tg) && btn && !btn.contains(tg)) open = false
     }
     const key = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') open = false
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        open = false
+        btn?.focus()
+      }
     }
     window.addEventListener('pointerdown', down, true)
     window.addEventListener('keydown', key)
@@ -113,6 +137,9 @@
       class:on={active}
       bind:this={btn}
       title={t('table.filterHint')}
+      aria-label={`${label} · ${t('table.filterHint')}`}
+      aria-expanded={open}
+      aria-controls={panelId}
       onclick={toggle}><Filter size={11} /></button
     >
   {/if}
@@ -120,10 +147,20 @@
 </div>
 
 {#if open && options}
-  <div class="panel card" use:toBody bind:this={panel} style={panelStyle} role="dialog">
+  <div
+    id={panelId}
+    class="panel card"
+    class:with-tools={!!filterTools}
+    use:toBody
+    bind:this={panel}
+    style={panelStyle}
+    role="dialog"
+    aria-label={`${label} · ${t('table.filterHint')}`}
+  >
     <div class="row tools">
       <button class="btn ghost sm" onclick={all}>{t('table.selectAll')}</button>
       <button class="btn ghost sm" onclick={none}>{t('table.selectNone')}</button>
+      {#if filterTools}<div class="filter-tools">{@render filterTools()}</div>{/if}
       <span class="grow"></span>
       <span class="small muted">{options.length}</span>
     </div>
@@ -132,15 +169,41 @@
     {/if}
     <div class="opts">
       {#each shown as o (o.value)}
-        <label class="opt">
-          <input
-            type="checkbox"
-            checked={isOn(o.value)}
-            onchange={(e) => pick(o.value, (e.currentTarget as HTMLInputElement).checked)}
-          />
-          <span class="grow">{o.label || '—'}</span>
-          {#if o.count !== undefined}<span class="small muted">{o.count}</span>{/if}
-        </label>
+        {#if onjump}
+          <div class="opt jump-option">
+            <label class="option-check">
+              <input
+                type="checkbox"
+                data-filter-option={o.value}
+                checked={isOn(o.value)}
+                aria-label={t('lexicon.filterLetter', { value: o.label || '—' })}
+                onchange={(e) => pick(o.value, e.currentTarget.checked)}
+              />
+            </label>
+            <button
+              class="option-jump grow"
+              data-filter-jump={o.value}
+              disabled={canjump?.(o.value) === false}
+              aria-label={t('lexicon.jumpToLetter', { value: o.label || '—' })}
+              title={canjump?.(o.value) === false
+                ? t('lexicon.letterJumpUnavailable')
+                : t('lexicon.jumpToLetter', { value: o.label || '—' })}
+              onclick={() => jump(o.value)}>{o.label || '—'}</button
+            >
+            {#if o.count !== undefined}<span class="small muted">{o.count}</span>{/if}
+          </div>
+        {:else}
+          <label class="opt">
+            <input
+              type="checkbox"
+              data-filter-option={o.value}
+              checked={isOn(o.value)}
+              onchange={(e) => pick(o.value, (e.currentTarget as HTMLInputElement).checked)}
+            />
+            <span class="grow">{o.label || '—'}</span>
+            {#if o.count !== undefined}<span class="small muted">{o.count}</span>{/if}
+          </label>
+        {/if}
       {:else}
         <span class="small muted">{t('common.noResults')}</span>
       {/each}
@@ -197,6 +260,7 @@
     /* 比检视器、面板都高：筛选面板不该被它们盖住 */
     z-index: 300;
     width: 240px;
+    max-width: calc(100vw - 16px);
     max-height: 320px;
     display: flex;
     flex-direction: column;
@@ -208,6 +272,16 @@
   }
   .tools {
     gap: 4px;
+    flex-wrap: wrap;
+  }
+  .panel.with-tools {
+    width: 300px;
+  }
+  .filter-tools {
+    display: flex;
+    align-items: center;
+    max-width: 100%;
+    min-width: 0;
   }
   .opts {
     overflow: auto;
@@ -226,6 +300,44 @@
   }
   .opt:hover {
     background: var(--bg-hover);
+  }
+  .jump-option {
+    cursor: default;
+  }
+  .option-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 3px;
+  }
+  .option-check input {
+    margin: 0;
+  }
+  .option-jump {
+    border: 0;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    text-align: start;
+    padding: 3px 1px;
+    cursor: pointer;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .option-jump:hover:not(:disabled) {
+    color: var(--accent-text);
+    text-decoration: underline;
+  }
+  .option-jump:disabled {
+    color: var(--text-3);
+    opacity: 0.55;
+    cursor: default;
+  }
+  .option-jump:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    border-radius: 2px;
   }
   .input.sm {
     padding: 3px 8px;
