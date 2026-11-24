@@ -1,7 +1,8 @@
 # Changelog
 
-## 1.0.5 · unreleased
+## 1.0.5 · 2026-11-24
 
+- Choosing a word in the translation workbench sends the other candidates for the same part of the translation into the bin at the upper right of the candidate area. Open the bin and drag a word back to use it again.
 - Letter buttons in the headword filter jump to the corresponding group in the current lexicon list, while checkboxes control filtering separately. “Sort from the end” compares words from their endings using the language’s alphabet, making shared endings easier to find.
 - The word relation graph is a force-directed network with multiple expansion levels, directed sources, cross-links and intermediate stages. Drag nodes individually or in groups to pin them, and unpin them when needed.
 - Local graph settings control nodes and labels, line thickness, ordered color groups by part of speech/tag/language, and independent center, repulsion, link and natural-length parameters. The public Aelith example includes a four-level network walkthrough.

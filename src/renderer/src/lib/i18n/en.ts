@@ -320,7 +320,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings.',
+        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font. Temporary classes map multi-character tone numbers to complete tone-letter sequences. An optional paradigm uses per-entry morpheme slots to reproduce corpus particle combinations.'
     },
@@ -2865,6 +2865,13 @@ const en: Dict = {
       'The change doesn’t affect this translation: clear the “Source changed” mark and keep the translation as it is'
   },
   bench: {
+    trashTitle: 'Collected candidates ({n})',
+    trashHint: 'Drag back to the candidate area below, or choose Restore.',
+    trashEmpty: 'No candidates have been collected yet.',
+    restoreCandidate: 'Restore candidate',
+    candidateLocation: 'Translation position {n}',
+    restoreDrop: 'Release to restore the candidate',
+    candidateLimited: 'There are many candidates; only some are currently shown.',
     unplacedConfirmTitle: 'Some translation punctuation is unplaced',
     unplacedConfirmBody:
       'The final text does not include translation punctuation “{marks}”. Saving the current text omits these marks. Cancel to return and adjust it.',

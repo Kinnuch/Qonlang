@@ -3,6 +3,7 @@
   import type { Analysis, Token } from '$lib/core/model'
   import type { ComposeWordMetadata } from '$lib/engine/composeInput'
   import type { ComposeLayout, ComposeFormatOptions } from '$lib/engine/composeFormat'
+  import type { ComposeTrayState } from '$lib/engine/composeTray'
 
   /**
    * 工作台拼好的一个词：挂着哪个词条 / 语素，挑了哪一格构形，加了哪些词缀、动词头，过了哪个词首音变。
@@ -42,6 +43,7 @@
     outputDraft?: string | null
     draftAligned?: boolean
     formatOpen?: boolean
+    tray?: ComposeTrayState
   }
 </script>
 
@@ -102,6 +104,23 @@
   } from '$lib/engine/composeFormat'
   import { tokenize, wordCharsFor } from '$lib/engine/gloss'
   import { canonicalG } from '$lib/ipa/equivalence'
+  import {
+    expandComposeCandidateView,
+    loadComposeTray,
+    claimComposeCandidate,
+    reconcileComposeTray,
+    seedComposeTrayOwners,
+    restoreComposeCandidate,
+    partitionComposeTray,
+    planComposeAddAll,
+    type ComposeTrayCandidate,
+    type ComposeTrayOwner
+  } from '$lib/engine/composeTray'
+  import CandidateTrash, {
+    CANDIDATE_TRAY_DRAG,
+    type CandidateFlight,
+    type CandidateFlightRequest
+  } from '$lib/ui/CandidateTrash.svelte'
 
   let {
     languageId,
@@ -166,6 +185,12 @@
   let outputDraft = $state<string | null>(start?.outputDraft ?? null)
   let draftAligned = $state(start?.draftAligned ?? false)
   let formatOpen = $state(start?.formatOpen ?? false)
+  let tray = $state<ComposeTrayState>(
+    loadComposeTray(
+      start?.tray,
+      untrack(() => translation)
+    )
+  )
   $effect(() => {
     const s: BenchSaved = {
       translation,
@@ -179,7 +204,8 @@
       punctuationSource,
       outputDraft,
       draftAligned,
-      formatOpen
+      formatOpen,
+      tray: $state.snapshot(tray)
     }
     untrack(() => onsave?.(s))
   })
@@ -197,9 +223,10 @@
   ])
   const glossIndex = $derived(prepareComposeIndex(project, languageId, langs))
   const suggestions = $derived(composeSuggestionsFrom(glossIndex, query))
-  const candidates = $derived(suggestions.candidates)
+  const candidateView = $derived(expandComposeCandidateView(suggestions.candidates, query))
+  const candidates = $derived(query === translation ? candidateView.candidates : [])
   /** 译文里在词库、语素表里都没对上的部分 */
-  const gaps = $derived(suggestions.gaps)
+  const gaps = $derived(query === translation ? suggestions.gaps : [])
   /** 没对上的那一段：跳到词库新建一个词条，释义先填好；工作台的样子页面记着，「返回上一页」回来接着拼 */
   function createFor(text: string): void {
     ui.lexemeDraft = { definition: { [glossLang]: text } }
@@ -208,19 +235,154 @@
       action: { label: t('bench.backToBench'), run: () => ui.back() }
     })
   }
-  /** 已经拖上去的就不再漂着 */
-  const floating = $derived(
-    candidates.filter(
-      (c) =>
-        !words.some(
-          (w) =>
-            (c.lexemeId && w.lexemeId === c.lexemeId) ||
-            (c.morphemeId &&
-              (w.morphemeId === c.morphemeId ||
-                w.pieces.some((p) => p.morphemeId === c.morphemeId)))
-        )
+  const partition = $derived(partitionComposeTray(candidates, tray))
+  const floating = $derived(partition.floating)
+  const stashed = $derived(partition.stashed)
+  function activeOwners(): string[] {
+    const owners: string[] = []
+    for (const word of words) {
+      owners.push('w:' + word.id)
+      if (word.hostId && word.markerKey) owners.push(`piece:${word.hostId}:${word.markerKey}`)
+      for (const piece of word.pieces)
+        if (piece.morphemeId) owners.push(`piece:${word.id}:m:${piece.morphemeId}`)
+    }
+    return owners
+  }
+  function existingOwners(): ComposeTrayOwner[] {
+    const owners = new Map<string, ComposeTrayOwner>()
+    for (const word of words) {
+      if (word.hostId && word.markerKey) {
+        const owner = `piece:${word.hostId}:${word.markerKey}`
+        owners.set(owner, { owner, lexemeId: word.lexemeId, morphemeId: word.morphemeId })
+      } else {
+        const owner = 'w:' + word.id
+        owners.set(owner, {
+          owner,
+          lexemeId: word.lexemeId,
+          morphemeId: word.morphemeId,
+          sourceAt: word.sourceAt,
+          sourceEnd: word.sourceEnd,
+          sourceTranslation: word.sourceTranslation
+        })
+      }
+      for (const piece of word.pieces)
+        if (piece.morphemeId) {
+          const owner = `piece:${word.id}:m:${piece.morphemeId}`
+          owners.set(owner, { owner, morphemeId: piece.morphemeId })
+        }
+    }
+    return [...owners.values()]
+  }
+  $effect(() => {
+    let next = reconcileComposeTray(tray, translation, activeOwners())
+    if (query === translation) next = seedComposeTrayOwners(next, candidates, existingOwners())
+    if (next !== tray) tray = next
+  })
+  let trashButton = $state<HTMLButtonElement | null>(null)
+  let flightRequest = $state<CandidateFlightRequest | null>(null)
+  let flightSerial = 0,
+    flightItemSerial = 0
+  let collectedFlights: CandidateFlight[] | null = null
+  let dragRects: Map<string, DOMRect> | null = null
+  let candidateDragging = false,
+    dragEndedAt = 0
+  function candidateRects(): Map<string, DOMRect> {
+    return new Map(
+      [...document.querySelectorAll<HTMLElement>('[data-candidate-key]')].map((node) => [
+        node.dataset.candidateKey!,
+        node.getBoundingClientRect()
+      ])
     )
-  )
+  }
+  function claim(c: ComposeTrayCandidate, owner: string): void {
+    if (c.translation !== translation || query !== translation) return
+    const before = new Set(floating.map((item) => item.id)),
+      next = claimComposeCandidate(tray, c, owner)
+    const retiring = partitionComposeTray(candidates, next).stashed.filter((item) =>
+      before.has(item.id)
+    )
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches && retiring.length) {
+      const rects = dragRects ?? candidateRects()
+      const items: CandidateFlight[] = retiring.flatMap((item) => {
+        const r = rects.get(item.id)
+        return r &&
+          r.width > 0 &&
+          r.height > 0 &&
+          r.bottom > 0 &&
+          r.top < innerHeight &&
+          r.right > 0 &&
+          r.left < innerWidth
+          ? [
+              {
+                id: `${++flightItemSerial}:${item.id}`,
+                surface: item.surface,
+                matched: item.matched,
+                morph: !!item.morphemeId,
+                x: r.x,
+                y: r.y,
+                width: r.width,
+                height: r.height
+              }
+            ]
+          : []
+      })
+      if (collectedFlights) collectedFlights.push(...items)
+      else if (items.length) flightRequest = { id: ++flightSerial, items }
+    }
+    tray = next
+  }
+  function restoreCandidate(id: string, snapshot: string): void {
+    if (
+      snapshot !== translation ||
+      query !== translation ||
+      !stashed.some((item) => item.id === id)
+    )
+      return
+    tray = restoreComposeCandidate(tray, id)
+  }
+  function candidateDragStart(e: DragEvent, c: ComposeTrayCandidate): void {
+    if (!e.dataTransfer) return
+    candidateDragging = true
+    dragRects = candidateRects()
+    e.dataTransfer.effectAllowed = 'copy'
+    e.dataTransfer.setData(
+      'text/x-qonlang-cand',
+      JSON.stringify({ id: c.id, translation: c.translation })
+    )
+  }
+  function candidateDragEnd(): void {
+    candidateDragging = false
+    dragEndedAt = performance.now()
+    dragRects = null
+  }
+  function addAll(): void {
+    const plan = planComposeAddAll(candidates, tray)
+    collectedFlights = []
+    for (const item of plan) if (floating.some((candidate) => candidate.id === item.id)) add(item)
+    const items = collectedFlights
+    collectedFlights = null
+    if (items.length) flightRequest = { id: ++flightSerial, items }
+  }
+  let restoreHover = $state(false)
+  function poolDragOver(e: DragEvent): void {
+    if (!e.dataTransfer?.types.includes(CANDIDATE_TRAY_DRAG)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    restoreHover = true
+  }
+  function poolDrop(e: DragEvent): void {
+    const raw = e.dataTransfer?.getData(CANDIDATE_TRAY_DRAG)
+    if (!raw) return
+    e.preventDefault()
+    restoreHover = false
+    try {
+      const value = JSON.parse(raw) as { id?: unknown; translation?: unknown }
+      if (typeof value.id === 'string' && typeof value.translation === 'string')
+        restoreCandidate(value.id, value.translation)
+    } catch {
+      /* 外部或过期的拖动不改变收纳。 */
+    }
+  }
 
   // ───── 拼词：这门语言能加的东西（语料里的证据）只算一次 ─────
   const language = $derived(project.languages.find((l) => l.id === languageId))
@@ -370,14 +532,14 @@
     mutation: null,
     ...over
   })
-  function toWord(c: ComposeCandidate): BenchWord {
+  function toWord(c: ComposeTrayCandidate): BenchWord {
     return blank({
       lexemeId: c.lexemeId,
       morphemeId: c.morphemeId,
       base: bare(c.surface),
       sourceAt: c.at,
       sourceEnd: c.end,
-      sourceTranslation: query
+      sourceTranslation: c.translation
     })
   }
   /** 贴进词里的语素（前缀、后缀……）拖上来时，接到哪个词上：选中的那个，没有就前面最近的一个词 */
@@ -387,7 +549,13 @@
       if (!words[i].hostId && !words[i].morphemeId) return words[i]
     return null
   }
-  function add(c: ComposeCandidate, at = words.length, onto?: BenchWord | null): void {
+  function add(c: ComposeTrayCandidate, at = words.length, onto?: BenchWord | null): void {
+    if (
+      c.translation !== translation ||
+      query !== translation ||
+      !floating.some((item) => item.id === c.id)
+    )
+      return
     // 语素：贴得进词里的直接接到词上，单独成词的挂在词旁边
     if (c.morphemeId && env) {
       const marker = env.catalog.markers.find((x) => x.key === 'm:' + c.morphemeId)
@@ -396,12 +564,15 @@
         const mode = modeOf(env.catalog, marker, hostPos(host))
         selectedId = host.id
         toggleOn(host, marker.key, mode)
+        const owner = `piece:${host.id}:${marker.key}`
+        if (activeOwners().includes(owner)) claim(c, owner)
         return
       }
     }
     const w = toWord(c)
     words = [...words.slice(0, at), w, ...words.slice(at)]
     selectedId = w.id
+    claim(c, 'w:' + w.id)
   }
   function addFree(): void {
     const f = free.trim()
@@ -578,9 +749,15 @@
       if (!host || !marker) return
       const mode = modeOf(env.catalog, marker, hostPos(host))
       const gone = selected.id
+      const previousClaim = tray.claims.find((claim) => claim.owner === 'w:' + gone)
       words = words.filter((w) => w.id !== gone)
       selectedId = host.id
       toggleOn(host, marker.key, mode)
+      const owner = `piece:${host.id}:${marker.key}`
+      const candidate = previousClaim
+        ? candidates.find((item) => item.id === previousClaim.candidateId)
+        : undefined
+      if (candidate && activeOwners().includes(owner)) claim(candidate, owner)
     }
   }
 
@@ -605,12 +782,34 @@
     dropAt = indexAt(e.clientX)
   }
   function onDrop(e: DragEvent): void {
+    const types = e.dataTransfer?.types ?? []
+    if (!types.includes('text/x-qonlang-cand') && !types.includes('text/x-qonlang-chip')) return
     e.preventDefault()
     const at = indexAt(e.clientX)
     dropAt = null
-    const cand = e.dataTransfer?.getData('text/x-qonlang-cand')
-    if (cand) {
-      const c = candidates.find((x) => x.key === cand)
+    const cand = types.includes('text/x-qonlang-cand')
+      ? e.dataTransfer?.getData('text/x-qonlang-cand')
+      : ''
+    if (types.includes('text/x-qonlang-cand')) {
+      if (!cand) return
+      let payload: { id?: unknown; translation?: unknown }
+      try {
+        const parsed: unknown = JSON.parse(cand)
+        if (
+          !parsed ||
+          typeof parsed !== 'object' ||
+          !('id' in parsed) ||
+          typeof parsed.id !== 'string' ||
+          !('translation' in parsed) ||
+          typeof parsed.translation !== 'string'
+        )
+          return
+        payload = parsed
+      } catch {
+        return
+      }
+      if (payload.translation !== translation) return
+      const c = floating.find((x) => x.id === payload.id)
       if (!c) return
       // 语素正好落在某个词上：贴到那个词上
       const chipEl = (e.target as Element | null)?.closest<HTMLElement>('.chip')
@@ -618,7 +817,11 @@
       add(c, at, onto && !onto.hostId && !onto.morphemeId ? onto : null)
       return
     }
-    const from = Number(e.dataTransfer?.getData('text/x-qonlang-chip'))
+    const chip = types.includes('text/x-qonlang-chip')
+      ? e.dataTransfer?.getData('text/x-qonlang-chip')
+      : ''
+    if (!chip || !/^\d+$/.test(chip)) return
+    const from = Number(chip)
     if (Number.isInteger(from) && from >= 0 && from < words.length) {
       const next = [...words]
       const [w] = next.splice(from, 1)
@@ -894,22 +1097,51 @@
 
   <!-- 下：候选词泡泡 -->
   <section class="bubbles-wrap">
-    <div class="label small muted">
-      {t('bench.candidates')}{#if query.trim()}
-        · {t('bench.candidateCount', {
-          n: floating.length
-        })}{/if}
+    <div class="candidate-head row">
+      <div
+        class="label small muted grow"
+        title={candidateView.truncated ? t('bench.candidateLimited') : undefined}
+      >
+        {t('bench.candidates')}{#if query.trim()}
+          · {t('bench.candidateCount', {
+            n: floating.length
+          })}{/if}
+        {#if candidateView.truncated}<HelpDot tip={t('bench.candidateLimited')} />{/if}
+      </div>
+      <CandidateTrash
+        items={stashed}
+        {translation}
+        onrestore={restoreCandidate}
+        motion={flightRequest}
+        bind:button={trashButton}
+      />
     </div>
-    <div class="bubbles">
-      {#each floating as c (c.key)}
+    <div
+      class="bubbles"
+      class:restore-hover={restoreHover}
+      data-candidate-pool
+      role="region"
+      aria-label={t('bench.candidates')}
+      ondragover={poolDragOver}
+      ondragleave={() => (restoreHover = false)}
+      ondrop={poolDrop}
+    >
+      {#if restoreHover}<span class="restore-drop small" role="status"
+          >{t('bench.restoreDrop')}</span
+        >{/if}
+      {#each floating as c (c.id)}
         <button
           class="bubble"
           class:morph={!!c.morphemeId}
-          style={drift(c.key)}
+          style={drift(c.id)}
+          data-candidate-key={c.id}
           draggable="true"
-          ondragstart={(e) => e.dataTransfer?.setData('text/x-qonlang-cand', c.key)}
-          onclick={() => add(c)}
-          title={t('bench.bubbleTitle')}
+          ondragstart={(e) => candidateDragStart(e, c)}
+          ondragend={candidateDragEnd}
+          onclick={() => {
+            if (!candidateDragging && performance.now() - dragEndedAt > 100) add(c)
+          }}
+          title={`${t('bench.bubbleTitle')} · ${t('bench.candidateLocation', { n: [...c.translation.slice(0, c.at)].length + 1 })}`}
         >
           <span class="data">{c.surface}</span>
           <span class="tiny muted">{glossOf(c)}</span>
@@ -920,10 +1152,8 @@
         </p>
       {/each}
     </div>
-    <button
-      class="btn sm add-all"
-      disabled={!floating.length}
-      onclick={() => floating.forEach((c) => add(c))}><Plus size={13} />{t('bench.addAll')}</button
+    <button class="btn sm add-all" disabled={!floating.length} onclick={addAll}
+      ><Plus size={13} />{t('bench.addAll')}</button
     >
   </section>
 </div>
@@ -1083,6 +1313,22 @@
     flex-wrap: wrap;
     gap: 10px 12px;
     padding: 8px 2px 14px;
+    min-height: 62px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    position: relative;
+  }
+  .candidate-head {
+    min-height: 30px;
+    gap: 8px;
+  }
+  .bubbles.restore-hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .restore-drop {
+    width: 100%;
+    color: var(--accent-text);
   }
   /* 泡泡：圆滚滚的，轻轻上下漂；拖到上面那一行固定下来，或者点一下接在末尾 */
   .bubble {

@@ -16,9 +16,22 @@ import {
   prepareGlossPattern,
   type GlossMatch,
   type GlossMatcher,
-  type GlossPattern
+  type GlossPattern,
+  type GlossSpan
 } from './composeMatch'
 export { isSpaceless } from './composeMatch'
+export const COMPOSE_OCCURRENCE_LIMIT = 64
+
+/** 同一个词的所有可用位置；固定锚点区别于框架包住的槽内文本。 */
+export interface ComposeOccurrence {
+  matched: string
+  at: number
+  end: number
+  anchors: GlossSpan[]
+  template: boolean
+  score: number
+  priority: number
+}
 
 export interface ComposeCandidate {
   /** 同一个词条 / 语素只出一个泡泡 */
@@ -34,6 +47,10 @@ export interface ComposeCandidate {
   /** 对上范围的末尾（不包含）；框架包含槽内文本。旧调用方可以不提供。 */
   end?: number
   score: number
+  /** 新工作台按位置展开，旧调用方仍然只使用本候选的最佳位置。 */
+  occurrences?: ComposeOccurrence[]
+  /** 单词条重复位置达到视图预算；原译文和词条数据不受影响。 */
+  occurrencesTruncated?: boolean
 }
 
 /** 释义里一个个说法的分隔：分号、逗号、顿号、斜线；括号里的补充说明不算 */
@@ -182,6 +199,8 @@ interface RankedCandidate {
   candidate: ComposeCandidate
   /** 同起点：覆盖完整框架的精准短语 > 框架 > 部分短语；总排序保持可传递。 */
   priority: number
+  items?: MatchedEntry['items']
+  singleItem?: boolean
 }
 
 /** 同一起点的精准完整短语优先于带槽框架，其余沿用长度、经验和稳定字形顺序。 */
@@ -229,9 +248,14 @@ function candidatesFrom(scan: ComposeScan, index: ComposeIndex, limit: number): 
       )
         best = hit
     }
-    if (best) found.set(e.key, best)
+    if (best) {
+      best.items = items
+      best.singleItem = e.items.length === 1
+      found.set(e.key, best)
+    }
   }
   if (!found.size) return []
+  const memories = new Map<string, GlossMatcher[]>()
   // 借经验：译文跟这句重叠的例句、短语，它们用过的词加分
   for (const x of index.memory) {
     const used = x.used
@@ -239,13 +263,63 @@ function candidatesFrom(scan: ComposeScan, index: ComposeIndex, limit: number): 
       .filter((c): c is ComposeCandidate => !!c)
     if (!used.length) continue
     const matcher = prepareGlossMatcher(x.translation)
-    for (const c of used) if (matcher.match(index.patterns.get(c.matched)!).length) c.score += 2
+    for (const c of used) {
+      if (matcher.match(index.patterns.get(c.matched)!).length) c.score += 2
+      const previous = memories.get(c.key)
+      if (previous) previous.push(matcher)
+      else memories.set(c.key, [matcher])
+    }
   }
   // 同一处对上好几个的：按分数排，位置相同的高分在前；整体按位置
   return [...found.values()]
     .sort(compareCandidates)
     .slice(0, limit)
-    .map((x) => x.candidate)
+    .map(({ candidate, items = [], singleItem = false }) => {
+      // 先按旧行为排出最终词条，再投影已有匹配；不为其余成千同义词复制重复位置。
+      const occurrences = new Map<string, ComposeOccurrence>(),
+        scores = new Map<string, number>()
+      const add = (item: string, match: GlossMatch): boolean => {
+        const key = JSON.stringify([match.at, match.end, match.template, match.anchors])
+        const previous = occurrences.get(key)
+        if (!previous && occurrences.size >= COMPOSE_OCCURRENCE_LIMIT) return false
+        let score = scores.get(item)
+        if (score === undefined) {
+          score = Math.min(match.literalLength, 8) + (singleItem ? 1 : 0)
+          // 同一说法只查一次经验；同一经验里重复使用的原计分语义保留。
+          for (const matcher of memories.get(candidate.key) ?? [])
+            if (matcher.match(index.patterns.get(item)!).length) score += 2
+          scores.set(item, score)
+        }
+        if (!previous || score > previous.score) {
+          const end = scan.frameEnds.get(match.at)
+          occurrences.set(key, {
+            matched: item,
+            at: match.at,
+            end: match.end,
+            anchors: match.anchors.map((anchor) => ({ ...anchor })),
+            template: match.template,
+            score,
+            priority: end === undefined ? 0 : match.template ? 1 : match.end >= end ? 2 : 0
+          })
+        }
+        return true
+      }
+      const best = items
+        .find(({ item }) => item === candidate.matched)
+        ?.matches.find((match) => match.at === candidate.at && match.end === candidate.end)
+      if (best) add(candidate.matched, best)
+      outer: for (const { item, matches } of items)
+        for (const match of matches) {
+          if (!match.template && scan.outsideFrames[match.end] === scan.outsideFrames[match.at])
+            continue
+          if (!add(item, match)) {
+            candidate.occurrencesTruncated = true
+            break outer
+          }
+        }
+      candidate.occurrences = [...occurrences.values()]
+      return candidate
+    })
 }
 
 export interface ComposeGap {

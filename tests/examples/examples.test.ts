@@ -35,6 +35,26 @@ const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
 
 describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', () => {
+  it.each([
+    ['Aelith', 've', '和', 'and'],
+    ['Tsahun', 'mo35', '否定', 'negation']
+  ])('%s has distinct candidate records for the workbench bin tutorial', (name, form, zh, en) => {
+    const p = load(name + '.laim.json')
+    const lang = p.languages.find((l) => l.name === name)!
+    for (const [locale, gloss] of [
+      ['zh', zh],
+      ['en', en]
+    ]) {
+      const { candidates } = composeSuggestions(p, lang.id, gloss, [locale])
+      const matches = candidates.filter(
+        (c) => c.surface === form && c.at === 0 && c.end === gloss.length
+      )
+      expect(matches.some((c) => c.lexemeId)).toBe(true)
+      expect(matches.some((c) => c.morphemeId)).toBe(true)
+    }
+    expect(p.docs.find((d) => d.title === '关于这个示例')!.markdown).toContain('垃圾桶')
+  })
+
   it('teaches separate letter jumps and ending order with existing Aelith entries', () => {
     const p = load('Aelith.laim.json'),
       lang = p.languages.find((l) => l.name === 'Aelith')!,
