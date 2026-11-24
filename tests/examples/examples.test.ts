@@ -29,11 +29,54 @@ import {
 } from '$lib/engine/morph'
 import { localizeExampleDocs, type ExampleDocsEn } from '$lib/core/exampleDocs'
 import { buildSentenceDocReferences } from '$lib/core/docReferences'
+import { createLexemeGraph, collectLexemeGraph } from '$lib/core/lexemeGraph'
 
 const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
 
 describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', () => {
+  it('teaches a verifiable four-hop network using only the existing public Aelith records', () => {
+    const p = load('Aelith.laim.json'),
+      ae = p.languages.find((l) => l.name === 'Aelith')!,
+      proto = p.languages.find((l) => l.name === 'Proto-Aelith')!,
+      kaso = p.lexemes.find((l) => l.languageId === ae.id && l.lemma === 'kaso')!,
+      mill = p.lexemes.find((l) => l.languageId === ae.id && l.lemma === 'telikaso')!,
+      water = p.lexemes.find((l) => l.languageId === ae.id && l.lemma === 'teli')!,
+      root = p.morphemes.find((m) => m.languageId === proto.id && m.form === 'teli')!,
+      model = createLexemeGraph(p, ['zh', 'en'])
+    const one = collectLexemeGraph(model, 'l:' + kaso.id, { depth: 1 }),
+      four = collectLexemeGraph(model, 'l:' + kaso.id, { depth: 4 })
+    const external = [...model.nodes.values()].find(
+      (node) =>
+        node.kind === 'external' && node.label === '*telie' && node.languageLabel === 'Pre-Aelith'
+    )!
+    expect(external).toBeTruthy()
+    expect(one.byKey.has(external.key)).toBe(false)
+    expect(four.byKey.has(external.key)).toBe(true)
+    expect(four.nodes.length).toBeGreaterThan(one.nodes.length)
+    expect(four.truncated).toBe(false)
+    const path = ['l:' + kaso.id, 'l:' + mill.id, 'l:' + water.id, 'm:' + root.id, external.key]
+    for (let i = 0; i + 1 < path.length; i++)
+      expect(model.linksOf(path[i]).some((link) => link.node.key === path[i + 1])).toBe(true)
+    const directions = [
+      [path[0], path[1]],
+      [path[2], path[1]],
+      [path[3], path[2]],
+      [path[4], path[3]]
+    ]
+    for (const [from, to] of directions)
+      expect(four.edges.some((edge) => edge.from === from && edge.to === to && edge.directed)).toBe(
+        true
+      )
+    const about = p.docs.find((doc) => doc.title === '关于这个示例')!
+    expect(about.markdown).toContain('关系图：沿现有数据展开四层网络')
+    expect(about.markdown).toContain('显示节点间的交叉连线')
+    const en = JSON.parse(readFileSync(join(dir, 'docs-en.json'), 'utf8')) as ExampleDocsEn
+    localizeExampleDocs(p, 'aelith', en, 'en')
+    expect(p.docs.find((doc) => doc.id === about.id)!.markdown).toContain(
+      'A four-level network from existing records'
+    )
+  })
   it('offers the attested Aelith locative and the noun filling its gloss frame', () => {
     const p = load('Aelith.laim.json'),
       lang = p.languages.find((l) => l.name === 'Aelith')!

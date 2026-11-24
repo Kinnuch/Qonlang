@@ -327,7 +327,7 @@ export default {
     galleryNext: 'Suivante',
     exampleDesc: {
       aelith:
-        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète.',
+        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète. Le graphe propose un parcours à quatre niveaux, des nœuds fixés par déplacement et des réglages indépendants de forces et de couleurs.',
       tsahun:
         'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation suivant la graphie et correspondances graphème–phonème modifiables), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture. Les classes temporaires associent les numéros de ton à plusieurs chiffres à des séquences complètes de lettres de ton. Un paradigme facultatif utilise les emplacements de morphèmes de chaque entrée pour reproduire des combinaisons de particules du corpus.'
     },
@@ -2531,6 +2531,72 @@ export default {
       'Cette image fait {iw}×{ih}, ce qui ne correspond pas à la taille d’illustration {w}×{h} définie pour le projet. Faites glisser le cadre lumineux sur la zone à conserver (molette ou curseur pour zoomer), ou modifiez d’abord la taille par défaut dans « Paramètres → Taille des illustrations d’entrée », puis réimportez l’image.',
     sizeHint: 'Uniformise à {w}×{h} la taille des illustrations du projet.'
   },
+  graph: {
+    settings: 'Réglages du graphe',
+    localHint: 'Réglages locaux propres à chaque projet, sans modification des données du projet.',
+    expandSettings: 'Déplier les réglages',
+    collapseSettings: 'Replier les réglages',
+    scope: 'Étendue',
+    depth: 'Profondeur d’expansion',
+    crossLinks: 'Afficher les liens croisés entre nœuds',
+    appearance: 'Apparence',
+    shape: 'Style des nœuds',
+    shapes: {
+      dots: 'Points',
+      cards: 'Cartes'
+    },
+    nodeScale: 'Taille relative des nœuds',
+    frameScale: 'Taille relative des cartes',
+    labelScale: 'Taille relative des libellés',
+    showLabels: 'Afficher les libellés des nœuds',
+    showEdgeLabels: 'Afficher les libellés des liens',
+    edgeWidth: 'Épaisseur des lignes',
+    forces: 'Forces et longueur',
+    forcesHint:
+      'Les trois premières forces sont indépendantes ; 0 désactive la force concernée. La longueur fixe l’espacement souhaité.',
+    centerForce: 'Attraction centrale',
+    repelForce: 'Répulsion',
+    linkForce: 'Attraction des liens',
+    linkLength: 'Longueur des liens',
+    colorGroups: 'Groupes de couleurs',
+    groupsHint:
+      'Le premier groupe actif correspondant, de haut en bas, détermine la couleur. Les catégories incluent les catégories composées et propres aux sens ; étiquettes et langues couvrent aussi les morphèmes. Les groupes colorent sans masquer les nœuds.',
+    newGroup: 'Groupe {n}',
+    groupName: 'Nom du groupe',
+    color: 'Couleur',
+    matchField: 'Champ à comparer',
+    matchValue: 'Valeur à comparer',
+    chooseValue: 'Choisir…',
+    missingValue: 'L’ancienne option n’existe plus',
+    enabled: 'Actif',
+    moveUp: 'Monter',
+    moveDown: 'Descendre',
+    deleteGroup: 'Supprimer le groupe',
+    addGroup: 'Ajouter un groupe',
+    defaultColors: 'Catégories de nœuds par défaut',
+    nodeKinds: {
+      lexeme: 'Entrée',
+      morpheme: 'Morphème',
+      external: 'Source externe'
+    },
+    useThemeColor: 'Utiliser la couleur du thème',
+    resetHint:
+      'Rétablit l’apparence, les couleurs et les forces de ce projet sans effacer les positions épinglées manuellement.',
+    resetSettings: 'Rétablir les réglages',
+    dragHint:
+      'Cliquez pour recentrer, faites glisser pour épingler ; Maj-clic sélectionne un groupe à déplacer. Faites glisser le fond pour déplacer la vue ; Ctrl/⌘ + molette pour zoomer.',
+    unpin: 'Désépingler',
+    clearPins: 'Effacer les positions épinglées',
+    truncated: '{n} nœuds affichés ; limite atteinte',
+    pinned: 'Épinglé',
+    fit: 'Cadrer tous les nœuds',
+    fields: {
+      all: 'Tous les nœuds',
+      pos: 'Catégorie grammaticale',
+      tag: 'Étiquette',
+      language: 'Langue'
+    }
+  },
   skin: {
     fontSizesHint:
       '100 % conserve la taille initiale. Vide : le texte du corpus et les écritures suivent les données linguistiques, les traductions l’interface, les gloses le monospace. Chaque écriture peut remplacer ce choix. Seul l’affichage change, pas les projets ni les exports.',
@@ -2799,6 +2865,7 @@ export default {
     importBad: 'Ce n’est pas un fichier de traduction de l’interface',
     untitled: 'Traduction sans titre',
     groups: {
+      graph: 'Réglages du graphe',
       app: 'L’application',
       common: 'Général',
       nav: 'Navigation',

@@ -320,7 +320,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it.',
+        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font. Temporary classes map multi-character tone numbers to complete tone-letter sequences. An optional paradigm uses per-entry morpheme slots to reproduce corpus particle combinations.'
     },
@@ -2492,6 +2492,72 @@ const en: Dict = {
     sizeHint:
       'Uniform size {w}×{h}; matching images are stored as-is, same-ratio images are scaled, others open the cropper. PNG / GIF stay lossless; JPEG / WebP keep their format at high quality.'
   },
+  graph: {
+    settings: 'Graph settings',
+    localHint: 'Graph settings are saved locally per project and do not change project data.',
+    expandSettings: 'Expand graph settings',
+    collapseSettings: 'Collapse graph settings',
+    scope: 'Scope',
+    depth: 'Expansion depth',
+    crossLinks: 'Show cross-links between nodes',
+    appearance: 'Appearance',
+    shape: 'Node style',
+    shapes: {
+      dots: 'Dots',
+      cards: 'Cards'
+    },
+    nodeScale: 'Relative node size',
+    frameScale: 'Relative card size',
+    labelScale: 'Relative label size',
+    showLabels: 'Show node labels',
+    showEdgeLabels: 'Show edge labels',
+    edgeWidth: 'Line thickness',
+    forces: 'Forces and length',
+    forcesHint:
+      'The first three controls are independent forces; 0 disables that force. Link length sets the preferred spacing.',
+    centerForce: 'Center force',
+    repelForce: 'Repulsion',
+    linkForce: 'Link force',
+    linkLength: 'Link length',
+    colorGroups: 'Color groups',
+    groupsHint:
+      'The first enabled matching group wins, from top to bottom. Parts of speech include compound and sense-specific classes; tags and languages also match morphemes. Groups color nodes without hiding them.',
+    newGroup: 'Group {n}',
+    groupName: 'Group name',
+    color: 'Color',
+    matchField: 'Match field',
+    matchValue: 'Match value',
+    chooseValue: 'Choose…',
+    missingValue: 'Previous option no longer exists',
+    enabled: 'Enabled',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    deleteGroup: 'Delete color group',
+    addGroup: 'Add color group',
+    defaultColors: 'Default node categories',
+    nodeKinds: {
+      lexeme: 'Lexeme',
+      morpheme: 'Morpheme',
+      external: 'External source'
+    },
+    useThemeColor: 'Use theme default',
+    resetHint:
+      'Reset this project’s graph appearance, colors and forces without clearing manually pinned positions.',
+    resetSettings: 'Reset settings',
+    dragHint:
+      'Click to recenter, drag to pin; Shift-click to select and drag a group. Drag the background to pan; Ctrl/⌘ + wheel to zoom.',
+    unpin: 'Unpin',
+    clearPins: 'Clear pinned positions',
+    truncated: 'Showing {n} nodes; display limit reached',
+    pinned: 'Pinned',
+    fit: 'Fit all nodes',
+    fields: {
+      all: 'All nodes',
+      pos: 'Part of speech',
+      tag: 'Tag',
+      language: 'Language'
+    }
+  },
   skin: {
     fontSizesHint:
       '100% preserves the original sizes. Empty fields inherit: corpus text and scripts follow language data, translations follow the interface, and glosses follow monospace. Individual scripts can override this. Display only; projects and exports are unchanged.',
@@ -2754,6 +2820,7 @@ const en: Dict = {
     importBad: 'Not an interface translation file',
     untitled: 'Untitled translation',
     groups: {
+      graph: 'Graph settings',
       app: 'The app itself',
       common: 'Common',
       nav: 'Navigation',

@@ -15,6 +15,7 @@ export type {
 } from '../../../../shared/account'
 import type { Skin, UserSkinPreset } from '$lib/skin/presets'
 import type { CustomLocale } from '$lib/i18n/index.svelte'
+import type { GraphSettings } from '$lib/ui/graphSettings'
 
 export type MenuAction =
   | 'save'
@@ -132,6 +133,9 @@ export interface Prefs {
   cardBlockSize: Record<string, number>
   /** 词条卡里主动隐藏的块；没有此项时默认全显，不影响录入或导出数据。 */
   cardHidden?: string[]
+  /** 图谱设置与面板收放按项目保存在本机，避免项目内ID相互混用。 */
+  lexemeGraphSettingsByProject?: Record<string, GraphSettings>
+  lexemeGraphPanelCollapsedByProject?: Record<string, boolean>
   /** 发音两边的符号：音位标注斜线 /…/、音值标注方括号 […]、什么都不加 */
   pronBrackets: 'slash' | 'bracket' | 'none'
   /** 收起来的板块（SectionHead 的 id） */
