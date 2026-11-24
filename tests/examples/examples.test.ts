@@ -5,6 +5,7 @@ import { buildDrawnFont } from '$lib/script/drawnFont'
 import { eraseDrawing } from '$lib/script/glyphEraser'
 import { flattenContour, pointInPolygon, signedArea, type Pt } from '$lib/script/glyphGeometry'
 import { describe, it, expect } from 'vitest'
+import { composeSuggestions } from '$lib/engine/compose'
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { parseProject } from '$lib/core/serialize'
@@ -33,6 +34,13 @@ const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
 
 describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', () => {
+  it('offers the attested Aelith locative and the noun filling its gloss frame', () => {
+    const p = load('Aelith.laim.json'),
+      lang = p.languages.find((l) => l.name === 'Aelith')!
+    const { candidates, gaps } = composeSuggestions(p, lang.id, '在房子里', ['zh', 'en'])
+    expect(candidates.map((c) => c.surface)).toEqual(expect.arrayContaining(['-dA', 'kaso']))
+    expect(gaps).toEqual([])
+  })
   it('can erase just one edge of the hand-drawn punctuation in Aelith', () => {
     const example = load('Aelith.laim.json')
     const glyph = example.languages

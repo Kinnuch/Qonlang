@@ -425,6 +425,10 @@
   let bench = $state<{ targetId: Id | null; initial: string } | null>(
     sameLang && memo.bench ? { targetId: memo.bench.targetId, initial: memo.bench.initial } : null
   )
+  const benchSource = $derived.by(() => {
+    const id = bench?.targetId
+    return id ? project.phrasebook.find((p) => p.id === id) : undefined
+  })
   function closeBench(): void {
     bench = null
     memo.bench = null
@@ -432,11 +436,21 @@
   /** 工作台里的译文按界面语言写（跟释义输入框默认给的那种一致） */
   const benchGloss = $derived(uiGlossCode(i18n.locale, i18n.custom?.base))
   function openBench(p: Phrase): void {
-    bench = { targetId: p.id, initial: p.translation[benchGloss] ?? '' }
-    memo.bench = { ...bench }
+    if (memo.bench?.targetId === p.id) bench = { targetId: p.id, initial: memo.bench.initial }
+    else {
+      bench = { targetId: p.id, initial: p.translation[benchGloss] ?? '' }
+      memo.bench = { ...bench }
+    }
   }
   function benchDone(r: BenchResult): void {
-    if (!langId) return
+    if (
+      !langId ||
+      !bench ||
+      !r.text.trim() ||
+      projectState.readOnly ||
+      (benchSource && benchSource.languageId !== langId)
+    )
+      return
     let p = bench?.targetId ? project.phrasebook.find((x) => x.id === bench!.targetId) : undefined
     if (!p || p.text.trim()) {
       project.phrasebook.unshift(createPhrase(langId, category))
@@ -607,18 +621,20 @@
         />
       {/key}
     </div>
-  {:else if bench && language}
+  {:else if bench && language && (!benchSource || benchSource.languageId === language.id)}
     <!-- 译文工作台：先写译文、挑词拼原文，完成后填进这条短语（或者新加一条） -->
-    <Workbench
-      languageId={language.id}
-      initial={bench.initial}
-      glossLang={benchGloss}
-      kind="phrase"
-      saved={memo.bench?.saved ?? null}
-      onsave={(s) => memo.bench && (memo.bench.saved = s)}
-      ondone={benchDone}
-      oncancel={closeBench}
-    />
+    {#key `${language.id}:${bench.targetId ?? ''}`}<Workbench
+        languageId={language.id}
+        initial={bench.initial}
+        sourceText={benchSource?.text ?? ''}
+        sourceTokens={benchSource?.tokens ?? []}
+        glossLang={benchGloss}
+        kind="phrase"
+        saved={memo.bench?.saved ?? null}
+        onsave={(s) => memo.bench && (memo.bench.saved = s)}
+        ondone={benchDone}
+        oncancel={closeBench}
+      />{/key}
   {:else if !language}
     <p class="muted">{t('lexicon.noLanguage')}</p>
   {:else}

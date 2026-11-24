@@ -10,6 +10,15 @@
  * 3. **按在译文里的位置排**：泡泡按译文的先后摆，同一处有几个候选的，分高的在前。
  */
 import type { Analysis, Id, LocalizedText, Project, Token } from '$lib/core/model'
+import {
+  isSpaceless,
+  prepareGlossMatcher,
+  prepareGlossPattern,
+  type GlossMatch,
+  type GlossMatcher,
+  type GlossPattern
+} from './composeMatch'
+export { isSpaceless } from './composeMatch'
 
 export interface ComposeCandidate {
   /** 同一个词条 / 语素只出一个泡泡 */
@@ -22,6 +31,8 @@ export interface ComposeCandidate {
   matched: string
   /** 在译文里第一次对上的位置（排序用） */
   at: number
+  /** 对上范围的末尾（不包含）；框架包含槽内文本。旧调用方可以不提供。 */
+  end?: number
   score: number
 }
 
@@ -37,43 +48,14 @@ export function glossItems(text: string): string[] {
     .map((s) =>
       s.replace(/^[\s“”"'‘’「」『』…·.。!！?？]+|[\s“”"'‘’「」『』…·.。!！?？]+$/g, '').trim()
     )
-    .filter((s) => s && s.length <= 24)
-}
-
-/** 这段文字用不用空格隔词（汉字、假名、谚文以外的都按用空格算） */
-const SPACELESS = /[぀-ヿ㐀-鿿豈-﫿가-힯]/
-export const isSpaceless = (text: string): boolean => SPACELESS.test(text) && !/\s\S+\s/.test(text)
-
-/** 拉丁字母这类：切成词（比对用小写），记下每个词在原文里的起点和原样 */
-function wordsOf(text: string): { w: string; at: number; raw: string }[] {
-  const out: { w: string; at: number; raw: string }[] = []
-  for (const m of text.matchAll(/[\p{L}\p{N}'’-]+/gu))
-    out.push({ w: m[0].toLowerCase(), at: m.index ?? 0, raw: m[0] })
-  return out
+    .filter((s) => s && s.replace(/(?:\.{3,}|…+)+/g, '…').length <= 24)
 }
 
 /**
- * 译文里的词对不对得上说法里的词：一样；或者说法里的词至少四个字母、译文里只在词尾多两三个（know → knows）；
- * 三个字母的只认多一个 s（see → sees），免得 see 对上 seed
- */
-const sameWord = (have: string, w: string): boolean =>
-  have === w ||
-  (w.length >= 4 && have.startsWith(w) && have.length - w.length <= 3) ||
-  (w.length === 3 && have === w + 's')
-
-/**
- * 一个说法在译文里出现在哪（没出现给 -1）。
- * 不用空格的文字按子串找；用空格的按词找，几个词的说法要连着出现，词尾可以多两三个字母
+ * 一个说法在译文里出现在哪（没出现给 -1）；省略号表示非空槽，其余文字沿用子串 / 词边界匹配。
  */
 export function findIn(text: string, item: string): number {
-  if (!item) return -1
-  if (isSpaceless(item) || isSpaceless(text)) return text.indexOf(item)
-  const words = wordsOf(text)
-  const want = wordsOf(item).map((x) => x.w)
-  if (!want.length) return -1
-  for (let i = 0; i + want.length <= words.length; i++)
-    if (want.every((w, j) => sameWord(words[i + j].w, w))) return words[i].at
-  return -1
+  return prepareGlossMatcher(text).match(item)[0]?.at ?? -1
 }
 
 interface Entry {
@@ -119,61 +101,151 @@ function usedIn(tokens: Token[] | undefined): string[] {
   return out
 }
 
+export interface ComposeIndex {
+  entries: Entry[]
+  patterns: Map<string, GlossPattern>
+  memory: { translation: string; used: string[] }[]
+}
+
 /**
- * 候选词：译文里对上的词条与语素，按在译文里的先后排。
- * `langs` 是释义语言的先后（译文是哪种语言就把它放最前）
+ * 只读取候选有关的工程字段，预先拆义项、编译锚点与收集语料经验。
+ * 界面放在独立 $derived 中，工程真有相关改动才更新；纯函数调用方随时可以重建。
  */
-export function composeCandidates(
+export function prepareComposeIndex(
   project: Project,
   languageId: Id,
-  translation: string,
-  langs: string[],
-  limit = 40
-): ComposeCandidate[] {
-  const text = translation.trim()
-  if (!text) return []
-  const found = new Map<string, ComposeCandidate>()
-  for (const e of entriesOf(project, languageId, langs)) {
-    let best: ComposeCandidate | null = null
-    for (const item of e.items) {
-      const at = findIn(text, item)
-      if (at < 0) continue
-      // 长的说法更可信（「房子」比「房」可信）；整条释义就是这个说法的再加一点
-      const score = Math.min(item.length, 8) + (e.items.length === 1 ? 1 : 0)
-      if (!best || score > best.score)
-        best = {
+  langs: string[]
+): ComposeIndex {
+  const entries = entriesOf(project, languageId, langs)
+  const patterns = new Map<string, GlossPattern>()
+  for (const e of entries)
+    for (const item of e.items)
+      if (!patterns.has(item)) patterns.set(item, prepareGlossPattern(item))
+  const memory: ComposeIndex['memory'] = []
+  for (const x of [...project.sentences, ...project.phrasebook]) {
+    if (x.languageId !== languageId) continue
+    const translation =
+      langs.map((l) => x.translation[l]).find(Boolean) ?? Object.values(x.translation).find(Boolean)
+    if (!translation) continue
+    const used = usedIn(x.tokens)
+    if (used.length) memory.push({ translation, used })
+  }
+  return { entries, patterns, memory }
+}
+
+interface MatchedEntry {
+  entry: Entry
+  items: { item: string; matches: GlossMatch[] }[]
+}
+interface ComposeScan {
+  matcher: GlossMatcher
+  entries: MatchedEntry[]
+  covered: Uint8Array
+  /** 固定锚点以外字符的前缀计数，用来判断短候选是否全部已由框架解释。 */
+  outsideFrames: Uint32Array
+  frameEnds: Map<number, number>
+}
+
+function scanGlosses(index: ComposeIndex, text: string): ComposeScan {
+  const matcher = prepareGlossMatcher(text)
+  const covered = new Uint8Array(text.length)
+  const frames = new Uint8Array(text.length)
+  const entries: MatchedEntry[] = []
+  const frameEnds = new Map<number, number>()
+  const seenCoverage = new Set<string>()
+  if (text.trim())
+    for (const entry of index.entries) {
+      const items = entry.items
+        .map((item) => ({ item, matches: matcher.match(index.patterns.get(item)!) }))
+        .filter((x) => x.matches.length)
+      if (!items.length) continue
+      entries.push({ entry, items })
+      for (const { item, matches } of items) {
+        if (seenCoverage.has(item)) continue
+        seenCoverage.add(item)
+        for (const match of matches) {
+          if (match.template)
+            frameEnds.set(match.at, Math.max(match.end, frameEnds.get(match.at) ?? 0))
+          for (const anchor of match.anchors) {
+            covered.fill(1, anchor.at, anchor.end)
+            if (match.template) frames.fill(1, anchor.at, anchor.end)
+          }
+        }
+      }
+    }
+  const outsideFrames = new Uint32Array(text.length + 1)
+  for (let i = 0; i < text.length; i++) outsideFrames[i + 1] = outsideFrames[i] + 1 - frames[i]
+  return { matcher, entries, covered, outsideFrames, frameEnds }
+}
+
+interface RankedCandidate {
+  candidate: ComposeCandidate
+  /** 同起点：覆盖完整框架的精准短语 > 框架 > 部分短语；总排序保持可传递。 */
+  priority: number
+}
+
+/** 同一起点的精准完整短语优先于带槽框架，其余沿用长度、经验和稳定字形顺序。 */
+function compareCandidates(a: RankedCandidate, b: RankedCandidate): number {
+  const ca = a.candidate
+  const cb = b.candidate
+  if (ca.at !== cb.at) return ca.at - cb.at
+  return (
+    b.priority - a.priority ||
+    cb.score - ca.score ||
+    ca.surface.localeCompare(cb.surface) ||
+    ca.key.localeCompare(cb.key)
+  )
+}
+
+function candidatesFrom(scan: ComposeScan, index: ComposeIndex, limit: number): ComposeCandidate[] {
+  const found = new Map<string, RankedCandidate>()
+  for (const { entry: e, items } of scan.entries) {
+    let best: RankedCandidate | null = null
+    for (const { item, matches } of items) {
+      const match = matches.find(
+        (m) => m.template || scan.outsideFrames[m.end] !== scan.outsideFrames[m.at]
+      )
+      if (!match) continue
+      // 省略号长短不参与计分，只看固定文字。
+      const score = Math.min(match.literalLength, 8) + (e.items.length === 1 ? 1 : 0)
+      const frameEnd = scan.frameEnds.get(match.at)
+      const hit: RankedCandidate = {
+        candidate: {
           key: e.key,
           lexemeId: e.lexemeId,
           morphemeId: e.morphemeId,
           surface: e.surface,
           matched: item,
-          at,
+          at: match.at,
+          end: match.end,
           score
-        }
+        },
+        priority: frameEnd === undefined ? 0 : match.template ? 1 : match.end >= frameEnd ? 2 : 0
+      }
+      if (
+        !best ||
+        score > best.candidate.score ||
+        (score === best.candidate.score && compareCandidates(hit, best) < 0)
+      )
+        best = hit
     }
     if (best) found.set(e.key, best)
   }
+  if (!found.size) return []
   // 借经验：译文跟这句重叠的例句、短语，它们用过的词加分
-  const memory: { tr: LocalizedText; tokens?: Token[] }[] = [
-    ...project.sentences
-      .filter((s) => s.languageId === languageId)
-      .map((s) => ({ tr: s.translation, tokens: s.tokens })),
-    ...project.phrasebook
-      .filter((p) => p.languageId === languageId)
-      .map((p) => ({ tr: p.translation, tokens: p.tokens }))
-  ]
-  for (const x of memory) {
-    const tr = langs.map((l) => x.tr[l]).find(Boolean) ?? Object.values(x.tr).find(Boolean)
-    if (!tr) continue
-    for (const key of usedIn(x.tokens)) {
-      const c = found.get(key)
-      if (c && tr.includes(c.matched)) c.score += 2
-    }
+  for (const x of index.memory) {
+    const used = x.used
+      .map((key) => found.get(key)?.candidate)
+      .filter((c): c is ComposeCandidate => !!c)
+    if (!used.length) continue
+    const matcher = prepareGlossMatcher(x.translation)
+    for (const c of used) if (matcher.match(index.patterns.get(c.matched)!).length) c.score += 2
   }
   // 同一处对上好几个的：按分数排，位置相同的高分在前；整体按位置
   return [...found.values()]
-    .sort((a, b) => a.at - b.at || b.score - a.score || a.surface.localeCompare(b.surface))
+    .sort(compareCandidates)
     .slice(0, limit)
+    .map((x) => x.candidate)
 }
 
 export interface ComposeGap {
@@ -187,15 +259,8 @@ export interface ComposeGap {
  * 译文里哪些部分在词库、语素表里都没有对上（标点、空白不算）：不用空格的文字按连着没对上的一段算
  * （「云鸟飞往森林」里的「往」），用空格的按词算；同一段出现几次只列一次，按在译文里的先后
  */
-export function composeGaps(
-  project: Project,
-  languageId: Id,
-  translation: string,
-  langs: string[]
-): ComposeGap[] {
-  const text = translation
-  if (!text.trim()) return []
-  const items = [...new Set(entriesOf(project, languageId, langs).flatMap((e) => e.items))]
+function gapsFrom({ matcher, covered }: ComposeScan): ComposeGap[] {
+  const text = matcher.text
   const out: ComposeGap[] = []
   const seen = new Set<string>()
   const push = (s: string, at: number): void => {
@@ -204,34 +269,69 @@ export function composeGaps(
     seen.add(k)
     out.push({ text: s, at })
   }
-  if (isSpaceless(text)) {
-    const covered = new Uint8Array(text.length)
-    for (const item of items)
-      for (let i = text.indexOf(item); i >= 0; i = text.indexOf(item, i + 1))
-        covered.fill(1, i, i + item.length)
-    let start = -1
-    for (let i = 0; i <= text.length; i++) {
-      const gap = i < text.length && !covered[i] && /[\p{L}\p{N}]/u.test(text[i])
-      if (gap && start < 0) start = i
-      if (!gap && start >= 0) {
-        push(text.slice(start, i), start)
-        start = -1
+  for (const w of matcher.words)
+    if (isSpaceless(w.raw)) {
+      let start = -1
+      // 按码点读字，保存的仍是原译文 UTF-16 位置。
+      for (const m of w.raw.matchAll(/[\s\S]/gu)) {
+        const at = w.at + m.index
+        const gap = !covered[at] && /[\p{L}\p{N}]/u.test(m[0])
+        if (gap && start < 0) start = at
+        if (!gap && start >= 0) {
+          push(text.slice(start, at), start)
+          start = -1
+        }
       }
-    }
-    return out
-  }
-  const words = wordsOf(text)
-  const covered = new Uint8Array(words.length)
-  for (const item of items) {
-    const want = wordsOf(item).map((x) => x.w)
-    if (!want.length) continue
-    for (let i = 0; i + want.length <= words.length; i++)
-      if (want.every((w, j) => sameWord(words[i + j].w, w))) covered.fill(1, i, i + want.length)
-  }
-  words.forEach((w, i) => {
-    if (!covered[i]) push(w.raw, w.at)
-  })
+      if (start >= 0) push(text.slice(start, w.end), start)
+    } else if (covered.subarray(w.at, w.end).some((n) => !n)) push(w.raw, w.at)
   return out
+}
+
+export interface ComposeSuggestions {
+  candidates: ComposeCandidate[]
+  gaps: ComposeGap[]
+}
+
+/** 输入变化时复用已准备的释义索引，候选和缺词共用一次匹配。 */
+export function composeSuggestionsFrom(
+  index: ComposeIndex,
+  translation: string,
+  limit = 40
+): ComposeSuggestions {
+  const scan = scanGlosses(index, translation)
+  return { candidates: candidatesFrom(scan, index, limit), gaps: gapsFrom(scan) }
+}
+
+/** 工作台一次反查，同时得到候选和缺词；不缓存工程对象，不改写词条或译文。 */
+export function composeSuggestions(
+  project: Project,
+  languageId: Id,
+  translation: string,
+  langs: string[],
+  limit = 40
+): ComposeSuggestions {
+  return composeSuggestionsFrom(prepareComposeIndex(project, languageId, langs), translation, limit)
+}
+
+/** 兼容原有的单独候选查询；同时需要缺词时请用 composeSuggestions，避免重复扫描。 */
+export function composeCandidates(
+  project: Project,
+  languageId: Id,
+  translation: string,
+  langs: string[],
+  limit = 40
+): ComposeCandidate[] {
+  const index = prepareComposeIndex(project, languageId, langs)
+  return candidatesFrom(scanGlosses(index, translation), index, limit)
+}
+
+export function composeGaps(
+  project: Project,
+  languageId: Id,
+  translation: string,
+  langs: string[]
+): ComposeGap[] {
+  return gapsFrom(scanGlosses(prepareComposeIndex(project, languageId, langs), translation))
 }
 
 /** 拼出来的原文：每个词之间按项目的分词方式隔开（逐字的文字不加空格） */
@@ -249,6 +349,8 @@ export interface PinnedWord {
   slotKey: string | null
   /** 工作台里拼好的各段（加了词缀、动词头、词首音变的）：分析里没有对得上的就照它记 */
   morphs?: Analysis['morphs']
+  /** 来源句里已确认的手选分析；词块重新构形后不再沿用。 */
+  analysis?: Analysis
 }
 
 /**
@@ -269,8 +371,44 @@ export function pinChoices(
     const k = tokens.findIndex((tk, i) => i >= j && same(tk.surface, w.form))
     if (k < 0) continue
     j = k + 1
-    if (!w.lexemeId && !w.morphemeId) continue
+    if (!w.lexemeId && !w.morphemeId && !w.analysis) continue
     const tk = tokens[k]
+    if (
+      w.analysis &&
+      (!w.lexemeId ||
+        w.analysis.lexemeId === w.lexemeId ||
+        w.analysis.morphs.some((m) => m.lexemeId === w.lexemeId)) &&
+      (!w.morphemeId || w.analysis.morphs.some((m) => m.morphemeId === w.morphemeId))
+    ) {
+      const signature = (a: Analysis): string =>
+        JSON.stringify([
+          a.lexemeId,
+          a.slot,
+          a.part?.i,
+          a.part?.n,
+          a.morphs.map((m) => [
+            m.form.normalize('NFC').toLowerCase(),
+            m.gloss,
+            m.morphemeId,
+            m.lexemeId,
+            m.sep
+          ])
+        ])
+      const wanted = signature(w.analysis)
+      let chosen = tk.analyses.findIndex((a) => signature(a) === wanted)
+      if (chosen < 0) {
+        tk.analyses.push({
+          ...w.analysis,
+          morphs: w.analysis.morphs.map((m) => ({ ...m })),
+          ...(w.analysis.part ? { part: { ...w.analysis.part } } : {})
+        })
+        chosen = tk.analyses.length - 1
+      }
+      tk.chosen = chosen
+      tk.confirmed = true
+      pinned++
+      continue
+    }
     // 工作台里加上的语素，分析里都得有
     const need = (w.morphs ?? [])
       .map((m) => m.morphemeId)

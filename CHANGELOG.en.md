@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.5 · unreleased
+
+- The translation workbench recognises ellipsis frames in lexeme and morpheme glosses. For 在光中 it suggests both 在…中 and 光, without duplicating the frame’s two ends as separate words.
+- New corpus sentences get initial capitalization and punctuation. You can review the final text before adding it, with dictionary spellings and selected lexical analyses preserved.
+
 ## 1.0.4 · 2026-11-23
 
 - The glyph drawing pad has an adjustable round eraser. Click or drag to erase part of a pen stroke, filled shape or imported font outline. Each drag can be undone in one step.

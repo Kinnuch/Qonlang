@@ -327,7 +327,7 @@ export default {
     galleryNext: 'Suivante',
     exampleDesc: {
       aelith:
-        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture.',
+        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète.',
       tsahun:
         'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation suivant la graphie et correspondances graphème–phonème modifiables), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture. Les classes temporaires associent les numéros de ton à plusieurs chiffres à des séquences complètes de lettres de ton. Un paradigme facultatif utilise les emplacements de morphèmes de chaque entrée pour reproduire des combinaisons de particules du corpus.'
     },
@@ -2838,6 +2838,30 @@ export default {
       'La modification ne change rien à cette traduction : retirer la marque « Source modifiée » sans toucher à la traduction'
   },
   bench: {
+    unplacedConfirmTitle: 'Certains signes restent à placer',
+    unplacedConfirmBody:
+      'Le texte final ne contient pas les signes « {marks} » de la traduction. Enregistrer ce texte les omet. Annulez pour revenir et les ajuster.',
+    saveCurrentText: 'Enregistrer le texte final actuel',
+    capitalize: 'Majuscule en début de phrase',
+    punctuationSource: 'Source de ponctuation',
+    punctuationOriginal: 'Conserver celle du texte original',
+    punctuationTranslation: 'Utiliser celle de la traduction',
+    punctuationNone: 'Sans ponctuation automatique',
+    punctuationStyle: 'Style de ponctuation',
+    styleAuto: 'Adapter à l’écriture du résultat',
+    styleKeep: 'Conserver tel quel',
+    styleLatin: 'Ponctuation latine courante',
+    styleFull: 'Ponctuation pleine chasse',
+    endPeriod: 'Ajouter un point si la fin est vide',
+    finalText: 'Texte final (ponctuation et casse modifiables)',
+    finalHint:
+      'Le texte est enregistré tel qu’affiché. Modifiez ici ponctuation, espaces et casse ; changez les mots ou leur ordre avec les blocs. La ponctuation manuelle survit au déplacement : vérifiez sa position. Le style automatique utilise la ponctuation latine pour les écritures avec casse, sinon il conserve les signes.',
+    finalMismatch:
+      'Le texte final ne correspond pas aux blocs. Ajustez les blocs ou rétablissez le format automatique pour conserver les analyses choisies.',
+    resetFormat: 'Rétablir le format automatique',
+    reviewPunctuation: 'Ordre ou position modifié : vérifiez la ponctuation finale.',
+    formatOptions: 'Réglages de mise en forme',
+    unplacedPunctuation: 'La ponctuation « {marks} » doit être placée dans le texte final.',
     title: 'Atelier de traduction',
     hint: 'Commencez par la traduction : le logiciel y cherche dans le lexique les mots dont vous aurez sans doute besoin et les fait flotter en bulles en dessous. Glissez ceux qu’il vous faut dans la ligne du haut (ou cliquez pour les ajouter à la fin) ; cliquez un mot de cette ligne pour choisir sa forme et lui ajouter affixes, particules et autres éléments : le texte se compose tout seul.',
     forSentence: 'Nouvelle phrase',

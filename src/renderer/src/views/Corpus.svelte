@@ -293,6 +293,10 @@
   let bench = $state<{ targetId: Id | null; initial: string } | null>(
     sameLang && memo.bench ? { targetId: memo.bench.targetId, initial: memo.bench.initial } : null
   )
+  const benchSource = $derived.by(() => {
+    const id = bench?.targetId
+    return id ? project.sentences.find((s) => s.id === id) : undefined
+  })
   function closeBench(): void {
     bench = null
     memo.bench = null
@@ -308,7 +312,14 @@
     mode = 'entries'
   }
   function benchDone(r: BenchResult): void {
-    if (!langId) return
+    if (
+      !langId ||
+      !bench ||
+      !r.text.trim() ||
+      projectState.readOnly ||
+      (benchSource && benchSource.languageId !== langId)
+    )
+      return
     let s = bench?.targetId ? project.sentences.find((x) => x.id === bench!.targetId) : undefined
     if (!s || s.text.trim()) {
       project.sentences.unshift(createSentence(langId))
@@ -822,18 +833,20 @@
         />
       {/key}
     </div>
-  {:else if bench && language}
+  {:else if bench && language && (!benchSource || benchSource.languageId === language.id)}
     <!-- 译文工作台：先写译文、挑词拼原文，完成后填进这一句（或者新加一句） -->
-    <Workbench
-      languageId={language.id}
-      initial={bench.initial}
-      glossLang={benchGloss}
-      kind="sentence"
-      saved={memo.bench?.saved ?? null}
-      onsave={(s) => memo.bench && (memo.bench.saved = s)}
-      ondone={benchDone}
-      oncancel={closeBench}
-    />
+    {#key `${language.id}:${bench.targetId ?? ''}`}<Workbench
+        languageId={language.id}
+        initial={bench.initial}
+        sourceText={benchSource?.text ?? ''}
+        sourceTokens={benchSource?.tokens ?? []}
+        glossLang={benchGloss}
+        kind="sentence"
+        saved={memo.bench?.saved ?? null}
+        onsave={(s) => memo.bench && (memo.bench.saved = s)}
+        ondone={benchDone}
+        oncancel={closeBench}
+      />{/key}
   {:else if !language}
     <p class="muted">{t('lexicon.noLanguage')}</p>
   {:else if mode === 'stats'}

@@ -12,11 +12,17 @@ function edges(letters = ''): { punct: RegExp; lead: RegExp; trail: RegExp } {
   const hit = edgeCache.get(letters)
   if (hit) return hit
   const keep = new Set(Array.from(letters))
-  const cls = classOf(PUNCT_CHARS.filter((c) => !keep.has(c)))
+  const cls =
+    classOf(PUNCT_CHARS.filter((c) => !keep.has(c))) +
+    '\\p{Ps}\\p{Pe}\\p{Pi}\\p{Pf}\\p{Sentence_Terminal}،؛·'
+  const escape = Array.from(keep)
+    .map((c) => c.replace(/[\\\]^-]/gu, '\\$&'))
+    .join('')
+  const one = `${escape ? `(?![${escape}])` : ''}[${cls}]`
   const made = {
-    punct: new RegExp(`^[${cls}]+|[${cls}]+$`, 'gu'),
-    lead: new RegExp(`^[${cls}]+`, 'u'),
-    trail: new RegExp(`[${cls}]+$`, 'u')
+    punct: new RegExp(`^(?:${one})+|(?:${one})+$`, 'gu'),
+    lead: new RegExp(`^(?:${one})+`, 'u'),
+    trail: new RegExp(`(?:${one})+$`, 'u')
   }
   edgeCache.set(letters, made)
   return made

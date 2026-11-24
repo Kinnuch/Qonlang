@@ -50,10 +50,16 @@ describe('候选词', () => {
     expect(lemmas).toContain('kaso')
     expect(lemmas.indexOf('tovar')).toBeLessThan(lemmas.indexOf('kaso'))
   })
-  it('没对上的部分：示例里「在…里」是位格表达的，词库里没有对应的词', () => {
-    expect(composeGaps(p, L.id, '我知道你的朋友在房子里', ['zh', 'en']).map((g) => g.text)).toEqual(
-      ['在', '里']
-    )
+  it('没有登记带槽释义时，工作台仍会指出未匹配的在和里', () => {
+    const withoutFrame = {
+      ...p,
+      morphemes: p.morphemes.map((m) =>
+        m.gloss === 'LOC' ? { ...m, meaning: { ...m.meaning, zh: '位格' } } : m
+      )
+    }
+    expect(
+      composeGaps(withoutFrame, L.id, '我知道你的朋友在房子里', ['zh', 'en']).map((g) => g.text)
+    ).toEqual(['在', '里'])
   })
   it('英文译文也行', () => {
     const c = composeCandidates(p, L.id, 'The child sees the bird', ['en', 'zh'])

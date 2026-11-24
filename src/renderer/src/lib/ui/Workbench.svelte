@@ -1,12 +1,14 @@
 <script lang="ts" module>
   import type { WordSpec } from '$lib/engine/attach'
-  import type { Analysis } from '$lib/core/model'
+  import type { Analysis, Token } from '$lib/core/model'
+  import type { ComposeWordMetadata } from '$lib/engine/composeInput'
+  import type { ComposeLayout, ComposeFormatOptions } from '$lib/engine/composeFormat'
 
   /**
    * 工作台拼好的一个词：挂着哪个词条 / 语素，挑了哪一格构形，加了哪些词缀、动词头，过了哪个词首音变。
    * 单独成词挂在别的词上的小品词记着挂在谁身上（hostId）、是哪个标记（markerKey）
    */
-  export interface BenchWord extends WordSpec {
+  export interface BenchWord extends WordSpec, ComposeWordMetadata {
     id: string
     hostId?: string
     markerKey?: string
@@ -18,6 +20,7 @@
     form: string
     slotKey: string | null
     morphs?: Analysis['morphs']
+    analysis?: Analysis
   }
   export interface BenchResult {
     text: string
@@ -32,6 +35,13 @@
     selectedId: string | null
     /** 附着台收起了没有 */
     deckOpen?: boolean
+    sourceLayout?: ComposeLayout | null
+    layout?: ComposeLayout | null
+    format?: ComposeFormatOptions
+    punctuationSource?: 'original' | 'translation' | 'none'
+    outputDraft?: string | null
+    draftAligned?: boolean
+    formatOpen?: boolean
   }
 </script>
 
@@ -42,14 +52,13 @@
    * 拼出这句话的原文，一键加进语料或短语。
    * 候选怎么来的见 lib/engine/compose.ts；能加什么、怎么拼见 lib/engine/attach.ts；这里只管摆、拖、点。
    */
-  import { untrack } from 'svelte'
+  import { onDestroy, untrack } from 'svelte'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import {
-    composeCandidates,
-    composeGaps,
-    joinForms,
+    composeSuggestionsFrom,
+    prepareComposeIndex,
     type ComposeCandidate
   } from '$lib/engine/compose'
   import {
@@ -82,12 +91,25 @@
   import { Check, X, Plus, GripVertical, CircleAlert, BookPlus } from '@lucide/svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import BenchDeck, { hueTable, type DeckActions } from '$lib/ui/BenchDeck.svelte'
+  import { loadComposeInput } from '$lib/engine/composeInput'
+  import {
+    emptyLayout,
+    formatComposedText,
+    layoutFromTranslation,
+    parseComposedText,
+    unplacedPunctuationMissing,
+    type FormatWord
+  } from '$lib/engine/composeFormat'
+  import { tokenize, wordCharsFor } from '$lib/engine/gloss'
+  import { canonicalG } from '$lib/ipa/equivalence'
 
   let {
     languageId,
     initial = '',
     glossLang,
     kind,
+    sourceText = '',
+    sourceTokens = [],
     saved = null,
     onsave,
     ondone,
@@ -99,6 +121,8 @@
     /** 译文按哪种释义语言写（反查时它排最前） */
     glossLang: string
     kind: 'sentence' | 'phrase'
+    sourceText?: string
+    sourceTokens?: readonly Token[]
     /** 上回离开时的样子（从词库回来）：有就照它摆回去 */
     saved?: BenchSaved | null
     /** 每改一下都报上来，页面记住（见 ui.memo） */
@@ -110,20 +134,52 @@
   const project = $derived(projectState.project!)
   // 进来时的译文只取一次：之后在工作台里改，不跟着检视器变；从词库回来的接着上回的
   const start = untrack(() => saved)
+  const owner = untrack(() => projectState.project!)
+  const ownerLanguage = untrack(() => languageId)
+  let active = true
+  onDestroy(() => {
+    active = false
+  })
+  const loaded = untrack(() =>
+    start ? null : loadComposeInput(owner, languageId, sourceText, sourceTokens)
+  )
+  const sourceLayout = untrack(() => start?.sourceLayout ?? loaded?.layout ?? null)
+  const initialKind = untrack(() => kind)
   let translation = $state(start?.translation ?? untrack(() => initial))
-  let words = $state<BenchWord[]>(start?.words ?? [])
+  let words = $state<BenchWord[]>(start?.words ?? loaded?.words ?? [])
   let free = $state(start?.free ?? '')
   /** 正在编辑的词（附着台给它摆） */
   let selectedId = $state<string | null>(start?.selectedId ?? null)
   /** 附着台展开着（收起后换词、离开再回来都还收着） */
   let deckOpen = $state(start?.deckOpen ?? true)
+  let manualLayout = $state<ComposeLayout | null>(start?.layout ?? null)
+  let formatting = $state<ComposeFormatOptions>(
+    start?.format ?? {
+      capitalize: initialKind === 'sentence',
+      punctuation: sourceLayout ? 'preserve' : 'auto',
+      defaultPeriod: initialKind === 'sentence'
+    }
+  )
+  let punctuationSource = $state<'original' | 'translation' | 'none'>(
+    start?.punctuationSource ?? (sourceLayout ? 'original' : 'translation')
+  )
+  let outputDraft = $state<string | null>(start?.outputDraft ?? null)
+  let draftAligned = $state(start?.draftAligned ?? false)
+  let formatOpen = $state(start?.formatOpen ?? false)
   $effect(() => {
     const s: BenchSaved = {
       translation,
       words: $state.snapshot(words),
       free,
       selectedId,
-      deckOpen
+      deckOpen,
+      sourceLayout,
+      layout: manualLayout,
+      format: formatting,
+      punctuationSource,
+      outputDraft,
+      draftAligned,
+      formatOpen
     }
     untrack(() => onsave?.(s))
   })
@@ -139,9 +195,11 @@
     glossLang,
     ...project.settings.glossLanguages.filter((l) => l !== glossLang)
   ])
-  const candidates = $derived(composeCandidates(project, languageId, query, langs))
+  const glossIndex = $derived(prepareComposeIndex(project, languageId, langs))
+  const suggestions = $derived(composeSuggestionsFrom(glossIndex, query))
+  const candidates = $derived(suggestions.candidates)
   /** 译文里在词库、语素表里都没对上的部分 */
-  const gaps = $derived(composeGaps(project, languageId, query, langs))
+  const gaps = $derived(suggestions.gaps)
   /** 没对上的那一段：跳到词库新建一个词条，释义先填好；工作台的样子页面记着，「返回上一页」回来接着拼 */
   function createFor(text: string): void {
     ui.lexemeDraft = { definition: { [glossLang]: text } }
@@ -195,7 +253,77 @@
       ...(env?.catalog.markers.map((m) => m.group.id) ?? [])
     ])
   )
-  const text = $derived(joinForms(words.map(formOf), project.settings.tokenizer))
+  const tokenOptions = $derived({
+    mode: project.settings.tokenizer,
+    pattern: project.settings.tokenizerPattern,
+    letters: wordCharsFor(project, languageId) + (project.settings.tokenizerLetters ?? '')
+  })
+  const formattingWords = $derived(
+    words.map((word): FormatWord => ({
+      id: word.id,
+      form: formOf(word),
+      hostId: word.hostId,
+      ...(word.sourceTranslation === translation
+        ? { sourceAt: word.sourceAt, sourceEnd: word.sourceEnd }
+        : {})
+    }))
+  )
+  const baseLayout = $derived(
+    punctuationSource === 'original'
+      ? (sourceLayout ?? emptyLayout())
+      : punctuationSource === 'translation'
+        ? layoutFromTranslation(translation, formattingWords, project.settings.tokenizer)
+        : emptyLayout()
+  )
+  const layout = $derived(manualLayout ?? baseLayout)
+  const formatted = $derived(
+    formatComposedText(formattingWords, layout, formatting, project.settings.tokenizer)
+  )
+  const parsedDraft = $derived(
+    outputDraft === null
+      ? null
+      : parseComposedText(outputDraft, formatted.words, tokenOptions.letters)
+  )
+  const text = $derived(outputDraft ?? formatted.text)
+  const meaningfulWords = $derived(
+    formatted.words.some((word) => tokenize(word.form, tokenOptions).length > 0)
+  )
+  const validOutput = $derived(meaningfulWords && (outputDraft === null || !!parsedDraft?.valid))
+  let previousStructure = ''
+  $effect(() => {
+    const structure = JSON.stringify(
+      formattingWords.map((word) => [word.id, word.form, word.hostId])
+    )
+    const first = !previousStructure
+    if (structure === previousStructure) return
+    previousStructure = structure
+    if (!first)
+      untrack(() => {
+        if (draftAligned) outputDraft = null
+      })
+  })
+  function editOutput(value: string): void {
+    outputDraft = value
+    const parsed = parseComposedText(value, formatted.words, tokenOptions.letters)
+    draftAligned = parsed.valid
+    if (!parsed.valid) return
+    const changedCase = parsed.words.some(
+      (word, index) =>
+        word.form.replace(/\s+/gu, ' ') !== formatted.words[index]?.form.replace(/\s+/gu, ' ')
+    )
+    manualLayout = parsed.layout
+    if (changedCase) formatting.capitalize = false
+    formatting.punctuation = 'preserve'
+    formatting.defaultPeriod = false
+  }
+  function refreshFormat(): void {
+    outputDraft = null
+    draftAligned = false
+    manualLayout = null
+  }
+  function applyFormat(): void {
+    if (outputDraft !== null && draftAligned) outputDraft = null
+  }
 
   const selected = $derived(words.find((w) => w.id === selectedId) ?? null)
   /** 单独成词挂在这个词上的小品词 */
@@ -243,7 +371,14 @@
     ...over
   })
   function toWord(c: ComposeCandidate): BenchWord {
-    return blank({ lexemeId: c.lexemeId, morphemeId: c.morphemeId, base: bare(c.surface) })
+    return blank({
+      lexemeId: c.lexemeId,
+      morphemeId: c.morphemeId,
+      base: bare(c.surface),
+      sourceAt: c.at,
+      sourceEnd: c.end,
+      sourceTranslation: query
+    })
   }
   /** 贴进词里的语素（前缀、后缀……）拖上来时，接到哪个词上：选中的那个，没有就前面最近的一个词 */
   function hostFor(at: number): BenchWord | null {
@@ -289,7 +424,11 @@
 
   // ───── 附着台的操作 ─────
   function update(id: string, fn: (w: BenchWord) => BenchWord): void {
-    words = words.map((w) => (w.id === id ? fn(w) : w))
+    words = words.map((w) => {
+      if (w.id !== id) return w
+      const next = fn(w)
+      return next === w ? w : { ...next, loadedAnalysis: undefined, loadedForm: undefined }
+    })
   }
   const nextSeq = (w: BenchWord): number =>
     w.pieces.length ? Math.max(...w.pieces.map((p) => p.seq)) + 1 : 0
@@ -358,7 +497,8 @@
         return { ...w, own: { lpKey, picks: { ...base, [dimId]: valueId } } }
       })
     },
-    clearOwn: () => selected && update(selected.id, (w) => ({ ...w, own: null })),
+    clearOwn: () =>
+      selected && update(selected.id, (w) => ({ ...w, own: null, surface: undefined })),
     pickCompanion: (key, dimId, valueId) => {
       if (!selected) return
       const c = companionOf(selected, key)
@@ -510,22 +650,71 @@
     return `--dy:${dy}px;--dur:${dur}s;--delay:${delay}s`
   }
 
-  function done(): void {
-    if (!text.trim()) return
-    ondone({
+  async function done(): Promise<void> {
+    if (
+      !text.trim() ||
+      !words.length ||
+      !validOutput ||
+      projectState.readOnly ||
+      projectState.project !== owner ||
+      !active ||
+      projectState.currentLanguageId !== ownerLanguage
+    )
+      return
+    const surfaces = new Map(
+      (parsedDraft?.valid ? parsedDraft.words : formatted.words).map((word) => [word.id, word.form])
+    )
+    const result: BenchResult = {
       text,
       translation: translation.trim(),
-      words: words.map((w) => {
-        const b = built.get(w.id)
-        return {
-          lexemeId: w.lexemeId,
-          morphemeId: w.morphemeId,
-          form: formOf(w),
-          slotKey: b?.slotKey ?? null,
-          morphs: b ? morphsOf(b) : undefined
-        }
-      })
-    })
+      words: words
+        .map((w) => {
+          const b = built.get(w.id)
+          const form = tokenize(surfaces.get(w.id) ?? formOf(w), tokenOptions).join(' ')
+          const unchanged =
+            w.loadedAnalysis &&
+            canonicalG(formOf(w)).normalize('NFC').toUpperCase() ===
+              canonicalG(w.loadedForm ?? '')
+                .normalize('NFC')
+                .toUpperCase()
+          return {
+            lexemeId: w.lexemeId,
+            morphemeId: w.morphemeId,
+            form,
+            slotKey: unchanged ? w.loadedAnalysis!.slot : (b?.slotKey ?? null),
+            morphs: unchanged ? w.loadedAnalysis!.morphs : b ? morphsOf(b) : undefined,
+            analysis: unchanged ? w.loadedAnalysis : undefined
+          }
+        })
+        .filter((word) => word.form)
+    }
+    const pending = unplacedPunctuationMissing(
+      formatComposedText(formattingWords, baseLayout, formatting, project.settings.tokenizer).text,
+      baseLayout.unplaced ?? '',
+      result.text
+    )
+    if (pending) {
+      const snapshot = JSON.stringify($state.snapshot(words))
+      if (
+        !(await ui.confirm(
+          t('bench.unplacedConfirmTitle'),
+          t('bench.unplacedConfirmBody', { marks: pending }),
+          t('bench.saveCurrentText')
+        ))
+      )
+        return
+      if (
+        projectState.project !== owner ||
+        !active ||
+        projectState.currentLanguageId !== ownerLanguage ||
+        projectState.readOnly ||
+        text !== result.text ||
+        translation.trim() !== result.translation ||
+        JSON.stringify($state.snapshot(words)) !== snapshot
+      )
+        return
+    }
+    ondone(result)
   }
   const glossOf = (c: ComposeCandidate): string => c.matched
 </script>
@@ -536,7 +725,10 @@
     <span class="badge">{kind === 'sentence' ? t('bench.forSentence') : t('bench.forPhrase')}</span>
     <div class="grow"></div>
     <button class="btn sm" onclick={oncancel}><X size={13} />{t('common.cancel')}</button>
-    <button class="btn sm primary" disabled={!text.trim()} onclick={done}
+    <button
+      class="btn sm primary"
+      disabled={!text.trim() || !words.length || !validOutput || projectState.readOnly}
+      onclick={done}
       ><Check size={13} />{kind === 'sentence'
         ? t('bench.addSentence')
         : t('bench.addPhrase')}</button
@@ -592,7 +784,67 @@
         onkeydown={(e) => e.key === 'Enter' && addFree()}
       />
     </div>
-    <div class="preview data" class:muted={!text}>{text || '—'}</div>
+    <details class="format-options" bind:open={formatOpen}>
+      <summary>{t('bench.formatOptions')}</summary>
+      <div class="row format-controls">
+        <label class="small"
+          ><input type="checkbox" bind:checked={formatting.capitalize} onchange={applyFormat} />{t(
+            'bench.capitalize'
+          )}</label
+        >
+        <select
+          class="select sm"
+          aria-label={t('bench.punctuationSource')}
+          bind:value={punctuationSource}
+          onchange={refreshFormat}
+        >
+          {#if sourceLayout}<option value="original">{t('bench.punctuationOriginal')}</option
+            >{/if}<option value="translation">{t('bench.punctuationTranslation')}</option><option
+            value="none">{t('bench.punctuationNone')}</option
+          >
+        </select>
+        <select
+          class="select sm"
+          aria-label={t('bench.punctuationStyle')}
+          bind:value={formatting.punctuation}
+          onchange={applyFormat}
+        >
+          <option value="auto">{t('bench.styleAuto')}</option><option value="preserve"
+            >{t('bench.styleKeep')}</option
+          ><option value="latin">{t('bench.styleLatin')}</option><option value="fullwidth"
+            >{t('bench.styleFull')}</option
+          >
+        </select>
+        <label class="small"
+          ><input
+            type="checkbox"
+            bind:checked={formatting.defaultPeriod}
+            onchange={applyFormat}
+          />{t('bench.endPeriod')}</label
+        >
+      </div>
+    </details>
+    <label class="small muted" for="bench-final"
+      >{t('bench.finalText')}<HelpDot tip={t('bench.finalHint')} /></label
+    >
+    <textarea
+      id="bench-final"
+      class="preview textarea data"
+      data-bench-output
+      rows="2"
+      value={text}
+      oninput={(e) => editOutput(e.currentTarget.value)}
+    ></textarea>
+    <div class="row">
+      <button class="btn ghost sm" onclick={refreshFormat}>{t('bench.resetFormat')}</button
+      >{#if !validOutput && text.trim()}<span class="small bad" role="alert"
+          >{t('bench.finalMismatch')}</span
+        >{:else if layout.unplaced}<span class="small muted"
+          >{t('bench.unplacedPunctuation', { marks: layout.unplaced })}</span
+        >{:else if formatted.review && text.trim()}<span class="small muted"
+          >{t('bench.reviewPunctuation')}</span
+        >{/if}
+    </div>
     {#if deck && selected}
       <BenchDeck
         model={deck}

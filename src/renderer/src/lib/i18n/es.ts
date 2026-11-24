@@ -323,7 +323,7 @@ export default {
     galleryNext: 'Siguiente',
     exampleDesc: {
       aelith:
-        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura.',
+        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura. El taller reconoce una expresión con un hueco y la palabra que lo ocupa.',
       tsahun:
         'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura. Las clases temporales relacionan los números de tono de varias cifras con secuencias completas de letras tonales. Un paradigma opcional usa las ranuras de morfemas de cada entrada para reproducir combinaciones de partículas del corpus.'
     },
@@ -2830,6 +2830,31 @@ export default {
       'El cambio no afecta a esta traducción: quitar la marca «Original cambiado» sin tocar la traducción'
   },
   bench: {
+    unplacedConfirmTitle: 'Hay signos de la traducción sin colocar',
+    unplacedConfirmBody:
+      'El texto final no incluye los signos «{marks}» de la traducción. Guardarlo así los omite. Puede cancelar para volver y ajustarlos.',
+    saveCurrentText: 'Guardar el texto final actual',
+    capitalize: 'Mayúscula al inicio de oración',
+    punctuationSource: 'Origen de puntuación',
+    punctuationOriginal: 'Mantener la del original',
+    punctuationTranslation: 'Usar la de la traducción',
+    punctuationNone: 'Sin puntuación automática',
+    punctuationStyle: 'Estilo de puntuación',
+    styleAuto: 'Adaptar a la escritura de salida',
+    styleKeep: 'Conservar tal cual',
+    styleLatin: 'Puntuación latina común',
+    styleFull: 'Puntuación de ancho completo',
+    endPeriod: 'Añadir punto si no hay signo final',
+    finalText: 'Texto final (puntuación y mayúsculas editables)',
+    finalHint:
+      'Se guarda exactamente lo mostrado. Edite aquí puntuación, espacios y mayúsculas; cambie palabras y orden en los bloques. La puntuación manual se conserva al reordenar: compruebe su posición. El estilo automático usa puntuación latina para escrituras con mayúsculas y conserva las demás.',
+    finalMismatch:
+      'El texto final no coincide con los bloques. Ajústelos o restaure el formato automático para conservar los análisis elegidos.',
+    resetFormat: 'Restaurar formato automático',
+    reviewPunctuation: 'Cambió el orden o la posición; revise la puntuación final.',
+    formatOptions: 'Opciones de formato',
+    unplacedPunctuation:
+      'La puntuación «{marks}» necesita una posición: ajústela en el texto final.',
     title: 'Mesa de traducción',
     hint: 'Escriba primero la traducción: el programa busca en el léxico las palabras que probablemente necesite y las hace flotar abajo como burbujas. Arrastre las que quiera a la fila de arriba (o haga clic para añadirlas al final); haga clic en una palabra de la fila para elegir su forma y añadirle afijos, partículas y otras piezas, y el texto original se compone solo.',
     forSentence: 'Oración nueva',
