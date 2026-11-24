@@ -322,4 +322,30 @@ describe('loading existing workbench words without dictionary writes', () => {
     expect(sentence.tokens[0].confirmed).toBe(true)
     expect(sentence.tokens[0].analyses[sentence.tokens[0].chosen]).toEqual(analysis)
   })
+  it('pins a selected multi-character uncased word to character tokens without changing its headword', () => {
+    const { project, language } = setup()
+    project.settings.tokenizer = 'character'
+    const lexeme = createLexeme(language.id, '红花')
+    project.lexemes.push(lexeme)
+    const sentence = createSentence(language.id)
+    sentence.text = '红花。'
+    analyzeSentence(project, sentence)
+    expect(
+      pinChoices(
+        sentence.tokens,
+        [{ lexemeId: lexeme.id, form: '红 花', slotKey: null }],
+        () => 'flower'
+      )
+    ).toBe(2)
+    expect(sentence.tokens.map((token) => token.analyses[token.chosen].lexemeId)).toEqual([
+      lexeme.id,
+      lexeme.id
+    ])
+    expect(sentence.tokens.map((token) => token.analyses[token.chosen].part)).toEqual([
+      { i: 0, n: 2 },
+      { i: 1, n: 2 }
+    ])
+    expect(sentence.tokens.every((token) => token.confirmed)).toBe(true)
+    expect(lexeme.lemma).toBe('红花')
+  })
 })

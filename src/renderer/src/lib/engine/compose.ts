@@ -369,7 +369,47 @@ export function pinChoices(
     a.normalize('NFC').toLowerCase() === b.normalize('NFC').toLowerCase()
   for (const w of words) {
     const k = tokens.findIndex((tk, i) => i >= j && same(tk.surface, w.form))
-    if (k < 0) continue
+    if (k < 0) {
+      // 逐字／自定义分词可能把一个已选词块切成多个 token；仍按顺序确认同一身份。
+      const compact = (text: string): string =>
+        text.normalize('NFC').toLowerCase().replace(/\s+/gu, '')
+      const wanted = compact(w.form)
+      let range: { start: number; end: number } | null = null
+      for (let start = j; start < tokens.length && !range; start++) {
+        let joined = ''
+        for (let end = start; end < tokens.length; end++) {
+          joined += compact(tokens[end].surface)
+          if (joined === wanted) {
+            if (end > start) range = { start, end: end + 1 }
+            break
+          }
+          if (joined.length >= wanted.length) break
+        }
+      }
+      if (!range) continue
+      j = range.end
+      if (!w.lexemeId && !w.morphemeId) continue
+      const group = tokens.slice(range.start, range.end),
+        parts: PinnedWord[] = group.map((token, i) => ({
+          ...w,
+          form: token.surface,
+          analysis: {
+            lexemeId: w.lexemeId ?? null,
+            slot: w.slotKey,
+            part: { i, n: group.length },
+            morphs: [
+              {
+                form: token.surface,
+                gloss: glossOf(w) || '?',
+                morphemeId: w.morphemeId ?? null,
+                ...(w.lexemeId ? { lexemeId: w.lexemeId } : {})
+              }
+            ]
+          }
+        }))
+      pinned += pinChoices(group, parts, glossOf)
+      continue
+    }
     j = k + 1
     if (!w.lexemeId && !w.morphemeId && !w.analysis) continue
     const tk = tokens[k]
