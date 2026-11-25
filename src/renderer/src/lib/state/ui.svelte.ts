@@ -92,7 +92,10 @@ class UiState {
   /** 右侧检视器里正开着规则语法说明；syntaxAnchor 是要滚到的那一节 */
   syntaxOpen = $state(false)
   syntaxAnchor = $state('')
+  /** 本次启动已查看规则语法；关闭项目或面板后仍然有效。 */
+  syntaxSeenThisSession = $state(false)
   openSyntax(anchor = ''): void {
+    this.syntaxSeenThisSession = true
     this.syntaxAnchor = anchor
     this.syntaxOpen = true
     this.inspectorOpen = true

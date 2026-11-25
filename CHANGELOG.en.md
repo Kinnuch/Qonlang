@@ -1,6 +1,8 @@
 # Changelog
 
-## 1.1.0 · unreleased
+## 1.1.0 · 2026-11-25
+
+- Each time the app starts, the Rule Syntax button pulses gold until the panel is first opened. With reduced motion enabled, a static gold outline serves as the reminder.
 
 - Reference search results and inline creation forms float beside their input. The drawing pad’s grid and guides, project presets, and component panels open over the canvas without moving or resizing it.
 - The Characters / Components switch fits its two buttons. In the full-screen word graph, the left toolbar and Escape provide the exit controls.
