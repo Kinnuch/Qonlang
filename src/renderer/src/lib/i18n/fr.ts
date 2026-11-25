@@ -327,7 +327,7 @@ export default {
     galleryNext: 'Suivante',
     exampleDesc: {
       aelith:
-        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète. Le graphe propose un parcours à quatre niveaux, des nœuds fixés par déplacement et des réglages indépendants de forces et de couleurs. Essayez les sauts par lettre et le tri depuis la fin des mots. L’atelier range les alternatives d’un même emplacement dans la traduction ; glissez-les à nouveau pour changer de choix. Essayez les composants dessinés, la grille prédéfinie et les dossiers du corpus.',
+        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète. Le graphe propose un parcours à quatre niveaux, des nœuds fixés par déplacement et des réglages indépendants de forces et de couleurs. Essayez les sauts par lettre et le tri depuis la fin des mots. L’atelier range les alternatives d’un même emplacement dans la traduction ; glissez-les à nouveau pour changer de choix. Essayez les composants dessinés, la grille prédéfinie et les dossiers imbriqués du corpus et des documents.',
       tsahun:
         'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation suivant la graphie et correspondances graphème–phonème modifiables), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture. Les classes temporaires associent les numéros de ton à plusieurs chiffres à des séquences complètes de lettres de ton. Un paradigme facultatif utilise les emplacements de morphèmes de chaque entrée pour reproduire des combinaisons de particules du corpus.'
     },
@@ -1978,6 +1978,25 @@ export default {
     variantText: 'Graphie de la variante',
     variantNote: 'Note sur la variante (registre, situation)'
   },
+  docFolders: {
+    title: 'Dossiers',
+    create: 'Nouveau dossier',
+    createChild: 'Nouveau sous-dossier',
+    rename: 'Renommer le dossier',
+    remove: 'Supprimer le dossier',
+    removeBody:
+      'La suppression de « {name} » déplace ses documents et sous-dossiers directs vers son parent ou Default. Le contenu et les identifiants des documents sont conservés. Les noms en conflit reçoivent un numéro ; Annuler rétablit leurs noms et emplacements.',
+    removed: 'Dossier supprimé ; documents conservés.',
+    untitled: 'Nouveau dossier',
+    invalid: 'Le nom ou la destination est invalide, dupliqué ou créerait un cycle.',
+    movePage: 'Déplacer le document',
+    moveFolder: 'Déplacer le dossier',
+    destination: 'Dossier de destination',
+    move: 'Déplacer',
+    actions: 'Actions du dossier',
+    expand: 'Développer le dossier',
+    collapse: 'Réduire le dossier'
+  },
   docs: {
     format: 'Format du contenu',
     formatHint:
@@ -2467,19 +2486,30 @@ export default {
       'Pour la syntaxe précise des ajustements, reportez-vous à l’aide-mémoire « Syntaxe des règles », en haut à droite de la fenêtre.'
   },
   corpus: {
+    selectedN: '{n} phrases sélectionnées',
+    selectedDeleted: '{n} phrases supprimées',
+    clearSelection: 'Effacer la sélection multiple',
     folders: {
+      path: 'Chemin du dossier',
+      parent: 'Dossier parent',
+      openSentences: 'Ouvrir les phrases de ce dossier',
+      moveFolder: 'Déplacer le dossier',
+      includeChildren: 'Inclure les phrases des sous-dossiers',
+      invalidMove:
+        'Un dossier ne peut pas aller dans lui-même ou ses descendants, ni porter le nom d’un voisin.',
       title: 'Dossiers du corpus',
       create: 'Nouveau dossier',
       rename: 'Renommer le dossier',
       remove: 'Supprimer le dossier',
       back: 'Retour aux dossiers',
       count: '{n} phrases',
-      hint: 'Le clic droit ouvre les actions d’importation, d’exportation et de dossier. Faites glisser les dossiers pour réordonner la grille.',
+      hint: 'Le clic droit crée des sous-dossiers ou importe/exporte. Déposez au centre pour déplacer, au bord gauche d’un voisin pour réordonner.',
       exportAll: 'Exporter tous les dossiers de cette langue',
       exportFolder: 'Exporter ce dossier',
       invalidName: 'Saisissez un nom non vide et unique. Default est réservé.',
-      removeHint: 'Les phrases retourneront dans Default sans être supprimées.',
-      removed: 'Dossier supprimé ; ses phrases sont retournées dans Default.',
+      removeHint:
+        'Les phrases et sous-dossiers directs remontent au parent. Le contenu est conservé ; les noms en conflit reçoivent un numéro.',
+      removed: 'Dossier supprimé ; son contenu a remonté d’un niveau.',
       moved: 'Phrases déplacées.',
       move: 'Déplacer vers un dossier'
     },
@@ -2958,6 +2988,7 @@ export default {
     untitled: 'Traduction sans titre',
     groups: {
       glyphEditor: 'Éditeur de dessin',
+      docFolders: 'Dossiers de documents',
       displayLanguages: 'Langues affichées',
       graph: 'Réglages du graphe',
       app: 'L’application',

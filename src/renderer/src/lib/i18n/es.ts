@@ -323,7 +323,7 @@ export default {
     galleryNext: 'Siguiente',
     exampleDesc: {
       aelith:
-        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura. El taller reconoce una expresión con un hueco y la palabra que lo ocupa. El grafo incluye un recorrido de cuatro niveles, nodos fijados al arrastrar y controles independientes de fuerzas y colores. Pruebe los saltos por letras y el orden desde el final de las palabras. El banco de traducción guarda alternativas de la misma posición; arrástrelas de vuelta para elegir de nuevo. Prueba los componentes dibujados, la cuadrícula predefinida y las carpetas del corpus.',
+        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura. El taller reconoce una expresión con un hueco y la palabra que lo ocupa. El grafo incluye un recorrido de cuatro niveles, nodos fijados al arrastrar y controles independientes de fuerzas y colores. Pruebe los saltos por letras y el orden desde el final de las palabras. El banco de traducción guarda alternativas de la misma posición; arrástrelas de vuelta para elegir de nuevo. Prueba los componentes dibujados, la cuadrícula predefinida y las carpetas anidadas para el corpus y los documentos.',
       tsahun:
         'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura. Las clases temporales relacionan los números de tono de varias cifras con secuencias completas de letras tonales. Un paradigma opcional usa las ranuras de morfemas de cada entrada para reproducir combinaciones de partículas del corpus.'
     },
@@ -1975,6 +1975,25 @@ export default {
     variantText: 'Forma de la variante',
     variantNote: 'Nota de la variante (registro, situación)'
   },
+  docFolders: {
+    title: 'Carpetas',
+    create: 'Nueva carpeta',
+    createChild: 'Nueva subcarpeta',
+    rename: 'Renombrar carpeta',
+    remove: 'Eliminar carpeta',
+    removeBody:
+      'Al eliminar «{name}», sus documentos y subcarpetas directas pasan a la carpeta superior o a Default. Se conservan el contenido y los ID de los documentos. Los nombres repetidos reciben un número; Deshacer restaura sus nombres y ubicaciones.',
+    removed: 'Carpeta eliminada; documentos conservados.',
+    untitled: 'Nueva carpeta',
+    invalid: 'El nombre o destino es inválido, está duplicado o crearía un ciclo.',
+    movePage: 'Mover documento',
+    moveFolder: 'Mover carpeta',
+    destination: 'Carpeta de destino',
+    move: 'Mover',
+    actions: 'Acciones de carpeta',
+    expand: 'Expandir carpeta',
+    collapse: 'Contraer carpeta'
+  },
   docs: {
     format: 'Formato del contenido',
     formatHint:
@@ -2462,19 +2481,30 @@ export default {
       'Para la sintaxis exacta de los ajustes, consulte la sintaxis de las reglas, en la esquina superior derecha de la aplicación.'
   },
   corpus: {
+    selectedN: '{n} oraciones seleccionadas',
+    selectedDeleted: '{n} oraciones eliminadas',
+    clearSelection: 'Quitar selección múltiple',
     folders: {
+      path: 'Ruta de la carpeta',
+      parent: 'Carpeta superior',
+      openSentences: 'Abrir las oraciones de esta carpeta',
+      moveFolder: 'Mover carpeta',
+      includeChildren: 'Incluir oraciones de subcarpetas',
+      invalidMove:
+        'Una carpeta no puede moverse dentro de sí misma o sus descendientes ni repetir un nombre del mismo nivel.',
       title: 'Carpetas del corpus',
       create: 'Nueva carpeta',
       rename: 'Renombrar carpeta',
       remove: 'Eliminar carpeta',
       back: 'Volver a las carpetas',
       count: '{n} oraciones',
-      hint: 'Haga clic derecho para importar, exportar y gestionar carpetas. Arrastre las carpetas para ordenar la cuadrícula.',
+      hint: 'El clic derecho permite crear subcarpetas e importar/exportar. Suelte en el centro para mover o en el borde izquierdo de una carpeta del mismo nivel para ordenar.',
       exportAll: 'Exportar todas las carpetas de este idioma',
       exportFolder: 'Exportar esta carpeta',
       invalidName: 'Escriba un nombre no vacío y único. Default está reservado.',
-      removeHint: 'Las oraciones volverán a Default sin eliminarse.',
-      removed: 'Carpeta eliminada; sus oraciones volvieron a Default.',
+      removeHint:
+        'Las oraciones y subcarpetas directas pasan al nivel superior. Se conserva el contenido y se numeran los nombres en conflicto.',
+      removed: 'Carpeta eliminada; su contenido subió un nivel.',
       moved: 'Oraciones movidas.',
       move: 'Mover a carpeta'
     },
@@ -2950,6 +2980,7 @@ export default {
     untitled: 'Traducción sin título',
     groups: {
       glyphEditor: 'Editor de dibujo',
+      docFolders: 'Carpetas de documentos',
       displayLanguages: 'Idiomas visibles',
       graph: 'Ajustes del grafo',
       app: 'El programa',

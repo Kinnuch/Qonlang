@@ -7,14 +7,15 @@
     type GlyphComponent
   } from '$lib/script/glyphEditor'
   import { newId } from '$lib/core/factory'
-  import HelpDot from './HelpDot.svelte'
+  import GlyphEditorPopover from './GlyphEditorPopover.svelte'
   let {
     settings,
     onchange,
     library,
     onlibrary,
     components,
-    oninsert
+    oninsert,
+    owner
   }: {
     settings: GlyphEditorSettings
     onchange: (value: GlyphEditorSettings) => void
@@ -22,12 +23,19 @@
     onlibrary: (value: GlyphEditorProject) => void
     components: GlyphComponent[]
     oninsert: (component: GlyphComponent) => void
+    owner: string
   } = $props()
   let presetName = $state('')
   let presetId = $state('')
+  let openPanel = $state<'grid' | 'presets' | 'components' | null>(null)
+  let bar = $state<HTMLDivElement>()
   const chosen = $derived(library.presets.find((p) => p.id === presetId))
   function update(key: keyof GlyphEditorSettings, value: unknown): void {
     onchange(normalizeEditorSettings({ ...settings, [key]: value }))
+  }
+  function finishAction(): void {
+    bar?.querySelector<HTMLButtonElement>(`[data-editor-panel-trigger="${openPanel}"]`)?.focus()
+    openPanel = null
   }
   function savePreset(): void {
     const name = presetName.trim()
@@ -39,9 +47,15 @@
   }
 </script>
 
-<div class="editor-panels">
-  <details data-editor-settings>
-    <summary>{t('glyphEditor.gridGuides')} <HelpDot tip={t('glyphEditor.snapHint')} /></summary>
+<div class="editor-panels" bind:this={bar}>
+  <GlyphEditorPopover
+    name="grid"
+    {owner}
+    label={t('glyphEditor.gridGuides')}
+    hint={t('glyphEditor.snapHint')}
+    open={openPanel === 'grid'}
+    onchange={(value) => (openPanel = value ? 'grid' : null)}
+  >
     <div class="settings-grid">
       <label
         ><input
@@ -146,9 +160,15 @@
         >
       </div>
     {/each}
-  </details>
-  <details data-editor-presets>
-    <summary>{t('glyphEditor.presets')} <HelpDot tip={t('glyphEditor.presetHint')} /></summary>
+  </GlyphEditorPopover>
+  <GlyphEditorPopover
+    name="presets"
+    {owner}
+    label={t('glyphEditor.presets')}
+    hint={t('glyphEditor.presetHint')}
+    open={openPanel === 'presets'}
+    onchange={(value) => (openPanel = value ? 'presets' : null)}
+  >
     <div class="preset-row">
       <select
         class="input sm"
@@ -165,8 +185,12 @@
         class="btn sm"
         disabled={!chosen}
         data-apply-preset
-        onclick={() => chosen && onchange(normalizeEditorSettings(chosen.settings))}
-        >{t('glyphEditor.applyPreset')}</button
+        onclick={() => {
+          if (chosen) {
+            onchange(normalizeEditorSettings(chosen.settings))
+            finishAction()
+          }
+        }}>{t('glyphEditor.applyPreset')}</button
       >
       <button
         class="btn sm"
@@ -208,18 +232,25 @@
         >{t('glyphEditor.resetSettings')}</button
       >
     </div>
-  </details>
-  <details data-component-library>
-    <summary>{t('glyphEditor.insertComponent')} ({components.length})</summary>
+  </GlyphEditorPopover>
+  <GlyphEditorPopover
+    name="components"
+    {owner}
+    label={t('glyphEditor.insertComponent') + ' (' + components.length + ')'}
+    open={openPanel === 'components'}
+    onchange={(value) => (openPanel = value ? 'components' : null)}
+  >
     <div class="component-list">
       {#each components as component (component.id)}<button
           class="btn sm"
           data-insert-component={component.id}
-          onclick={() => oninsert(component)}
-          >{component.name || t('glyphEditor.unnamedComponent')}</button
+          onclick={() => {
+            oninsert(component)
+            finishAction()
+          }}>{component.name || t('glyphEditor.unnamedComponent')}</button
         >{:else}<span class="small muted">{t('glyphEditor.noComponents')}</span>{/each}
     </div>
-  </details>
+  </GlyphEditorPopover>
 </div>
 
 <style>
@@ -227,22 +258,7 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
-    max-height: 210px;
-    overflow: auto;
     flex-shrink: 0;
-  }
-  details {
-    flex: 1 1 240px;
-    min-width: 0;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 5px 8px;
-    background: var(--bg-elev);
-  }
-  summary {
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
   }
   .settings-grid,
   .preset-row,

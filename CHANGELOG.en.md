@@ -2,6 +2,9 @@
 
 ## 1.1.0 · unreleased
 
+- Reference search results and inline creation forms float beside their input. The drawing pad’s grid and guides, project presets, and component panels open over the canvas without moving or resizing it.
+- The Characters / Components switch fits its two buttons. In the full-screen word graph, the left toolbar and Escape provide the exit controls.
+- Corpus and documents support nested folders. Existing unfiled items open in Default. Move folders and items between levels; removing a folder preserves its contents. Shift-click a range of sentences or Ctrl/Command-click individual ones to delete them together and undo the deletion.
 - Choose display languages separately for lexicon definitions and corpus translations. Each can show one language, two languages or all translations. The other translations remain available for editing.
 - Search bindings, etymology sources and relation targets directly in their fields. Whole forms rank first. Morpheme slots keep their type filter and alphabetic ordering. Create and link a missing lexeme or morpheme inline.
 - Document excerpts under entries preserve Markdown and HTML table cells and inline formatting, and highlight matches in the rendered text.

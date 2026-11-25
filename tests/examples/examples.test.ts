@@ -45,6 +45,13 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
       ).toBe(true)
       expect(p.glyphEditor?.presets[0].settings.snap).toBe(true)
       expect(p.corpusFolders?.some((f) => f.languageId === language.id)).toBe(true)
+      expect(p.corpusFolders?.find((f) => f.id === 'example-review')?.parentId).toBe(
+        'example-excerpts'
+      )
+      expect(p.docFolders?.find((f) => f.id === 'example-doc-examples')?.parentId).toBe(
+        'example-notes'
+      )
+      expect(p.docs.every((d) => !d.folderId)).toBe(true)
       expect(p.sentences.every((s) => !s.folderId)).toBe(true)
     }
   )

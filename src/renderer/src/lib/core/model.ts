@@ -36,6 +36,8 @@ export interface Project {
   phrasebook: Phrase[]
   abbreviations: Abbreviation[]
   docs: DocPage[]
+  /** 文档的项目级目录树；文档语言筛选独立于目录归属，旧文档位于Default。 */
+  docFolders?: DocFolder[]
   /** 词条检视器里用户自己加的模块（异体字、文化注释……），在「词类与维度」里定义 */
   customFields: CustomField[]
   settings: ProjectSettings
@@ -841,6 +843,8 @@ export interface CorpusFolder {
   id: Id
   languageId: Id
   name: string
+  /** 缺省为 Default 根层，兼容旧单层文件夹。 */
+  parentId?: Id | null
 }
 
 export interface Sentence {
@@ -914,10 +918,17 @@ export interface Abbreviation {
 
 export interface DocPage {
   id: Id
+  folderId?: Id
   languageId: Id | null
   title: string
   /** 缺失时仍按 Markdown 读取；正文沿用 markdown 字段，避免改旧工程结构。 */
   format?: 'markdown' | 'html'
   markdown: string
   updatedAt: string
+}
+
+export interface DocFolder {
+  id: Id
+  name: string
+  parentId?: Id
 }

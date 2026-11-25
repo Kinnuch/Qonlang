@@ -8,7 +8,7 @@
   import { ui, type Section } from '$lib/state/ui.svelte'
   import { platform } from '$lib/platform'
   import { t } from '$lib/i18n/index.svelte'
-  import { createDoc, now } from '$lib/core/factory'
+  import { createDoc, now, newId } from '$lib/core/factory'
   import type { MdLink } from '$lib/core/markdown'
   import {
     documentFormat,
@@ -20,7 +20,19 @@
   import { flashOn } from '$lib/ui/flash'
   import { hasSentenceTextMention } from '$lib/core/docReferences'
   import { docLink, DOC_LINK_TARGET, type DocLinkKind } from '$lib/core/docLinks'
-  import type { DocPage, Id } from '$lib/core/model'
+  import type { DocPage, Id, Project, DocFolder } from '$lib/core/model'
+  import {
+    docFolderOf,
+    docFoldersFor,
+    validDocFolder,
+    createDocFolder,
+    renameDocFolder,
+    moveDocFolder,
+    removeDocFolder,
+    moveDocs,
+    docFolderMoveTargets
+  } from '$lib/core/docFolders'
+  import DocFolders, { DOC_PAGE_DRAG } from '$lib/ui/DocFolders.svelte'
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
@@ -37,17 +49,25 @@
     lang: Id | null
     selectedId: Id | null
     view: 'edit' | 'split' | 'preview'
+    folderId: Id
   }>('docs')
   let selectedId = $state<Id | null>(
     memo.lang === projectState.currentLanguageId ? (memo.selectedId ?? null) : null
   )
   // 打开文档页默认看预览；新建文档时自动切到编辑
   let view = $state<'edit' | 'split' | 'preview'>(memo.view ?? 'preview')
+  let folderId = $state<Id>(memo.folderId ?? '')
+  const folders = $derived(docFoldersFor(project, langId))
+  const folderPaths = $derived(new Map(folders.map((folder) => [folder.id, folder.path])))
+  const folderIds = $derived(new Set(folders.map((folder) => folder.id)))
+  const folderOf = (doc: Pick<DocPage, 'folderId'>): Id =>
+    doc.folderId && folderIds.has(doc.folderId) ? doc.folderId : ''
 
   const list = $derived.by(() => {
     const pq = parseQuery(ui.search, SEARCH_FIELDS.docs)
     return project.docs.filter(
       (d) =>
+        (ui.search.trim() || folderOf(d) === folderId) &&
         (!langId || d.languageId === langId || d.languageId === null) &&
         matchQuery(pq, (f) =>
           f === 'title' ? [d.title] : f === 'body' ? [d.markdown] : [d.title, d.markdown]
@@ -55,6 +75,21 @@
     )
   })
   const selected = $derived(project.docs.find((d) => d.id === selectedId) ?? null)
+  $effect(() => {
+    if (!validDocFolder(project, folderId)) folderId = ''
+    if (selected && langId && selected.languageId && selected.languageId !== langId)
+      selectedId = null
+  })
+  function pick(d: DocPage): void {
+    folderId = folderOf(d)
+    selectedId = d.id
+  }
+  function openFolder(id: Id): void {
+    if (!validDocFolder(project, id)) return
+    folderId = id
+    ui.search = ''
+    if (selected && folderOf(selected) !== id) selectedId = null
+  }
   /** 这几类用数据字体（词头、语素形式这些） */
   const DATA_KINDS = new Set<DocLinkKind>(['lexeme', 'morpheme', 'sentence', 'phrase'])
   /** `[[…]]`：找得到就画成能点的链接，找不到画成「没找到」的样子，悬浮说清楚缺的是哪一类 */
@@ -85,7 +120,13 @@
   $effect(() => {
     const id = ui.takePending('doc')
     if (id) {
-      selectedId = id
+      const target = project.docs.find((doc) => doc.id === id)
+      if (!target) return
+      if (target.languageId && langId && target.languageId !== langId)
+        projectState.currentLanguageId = target.languageId
+      ui.search = ''
+      pick(target)
+      ui.cancelScrollRestore('docs')
       reference = ui.takePendingSub()
       if (reference) view = 'preview'
     }
@@ -127,7 +168,8 @@
       kind: 'doc',
       lang: projectState.currentLanguageId,
       id: selectedId,
-      docView: view
+      docView: view,
+      docFolder: folderId
     })
   })
   $effect(() => {
@@ -135,18 +177,27 @@
     if (!r) return
     const v: PageView = r.view ?? {}
     selectedId = v.id ?? null
+    folderId = selectedId
+      ? docFolderOf(
+          project,
+          project.docs.find((doc) => doc.id === selectedId) ?? ({ folderId: undefined } as DocPage)
+        )
+      : (v.docFolder ?? '')
     if (v.docView === 'edit' || v.docView === 'split' || v.docView === 'preview') view = v.docView
   })
   $effect(() => {
-    Object.assign(memo, { lang: projectState.currentLanguageId, selectedId, view })
+    Object.assign(memo, { lang: projectState.currentLanguageId, selectedId, view, folderId })
   })
 
   function touch(d?: DocPage): void {
+    if (projectState.readOnly) return
     if (d) d.updatedAt = now()
     projectState.touch()
   }
   function add(): void {
+    if (projectState.readOnly) return
     const d = createDoc(langId, t('docs.untitled'))
+    if (folderId && validDocFolder(project, folderId)) d.folderId = folderId
     if (ui.prefs.defaultDocFormat === 'html') d.format = 'html'
     project.docs.unshift(d)
     selectedId = d.id
@@ -155,6 +206,8 @@
     queueMicrotask(() => document.getElementById('doc-title')?.focus())
   }
   function remove(d: DocPage): void {
+    if (projectState.readOnly) return
+    const owner = project
     const idx = project.docs.indexOf(d)
     if (idx < 0) return
     const snap = $state.snapshot(d) as DocPage
@@ -165,12 +218,152 @@
       action: {
         label: t('common.undo'),
         run: () => {
+          if (
+            projectState.project !== owner ||
+            projectState.readOnly ||
+            owner.docs.some((doc) => doc.id === snap.id)
+          )
+            return
           project.docs.splice(Math.min(idx, project.docs.length), 0, snap)
-          selectedId = snap.id
+          pick(snap)
           touch()
         }
       }
     })
+  }
+  let moving = $state<{ kind: 'doc' | 'folder'; ids: Id[]; target: Id } | null>(null)
+  let movingOwner: Project | null = null
+  const moveOptions = $derived.by(() => {
+    if (!moving) return []
+    if (moving.kind === 'doc') return folders
+    const targets = docFolderMoveTargets(project, moving.ids[0])
+    return folders.filter((folder) => targets.has(folder.id))
+  })
+  async function createFolder(parent: Id): Promise<void> {
+    if (projectState.readOnly) return
+    const owner = project,
+      name = await ui.prompt(t('docFolders.create'), t('docFolders.untitled'))
+    if (name === null || projectState.project !== owner || projectState.readOnly) return
+    const folder = createDocFolder(owner, name, newId(), parent)
+    if (!folder) {
+      ui.toast(t('docFolders.invalid'))
+      return
+    }
+    openFolder(folder.id)
+    touch()
+  }
+  async function renameFolder(id: Id): Promise<void> {
+    const folder = project.docFolders?.find((folder) => folder.id === id)
+    if (!folder || projectState.readOnly) return
+    const owner = project,
+      name = await ui.prompt(t('docFolders.rename'), folder.name)
+    if (name === null || projectState.project !== owner || projectState.readOnly) return
+    if (renameDocFolder(owner, id, name)) touch()
+    else ui.toast(t('docFolders.invalid'))
+  }
+  async function removeFolder(id: Id): Promise<void> {
+    const folder = project.docFolders?.find((folder) => folder.id === id)
+    if (!folder || projectState.readOnly) return
+    const owner = project,
+      at = owner.docFolders!.indexOf(folder),
+      snapshot = $state.snapshot(folder) as DocFolder,
+      parent = folders.find((item) => item.id === id)?.parentId ?? ''
+    if (
+      !(await ui.confirm(
+        t('docFolders.remove'),
+        t('docFolders.removeBody', { name: folder.name }),
+        t('docFolders.remove')
+      ))
+    )
+      return
+    if (projectState.project !== owner || projectState.readOnly) return
+    const children = (owner.docFolders ?? [])
+        .filter((child) => child.parentId === id)
+        .map((child) => ({ id: child.id, name: child.name })),
+      pages = new Set(owner.docs.filter((doc) => doc.folderId === id).map((doc) => doc.id))
+    if (!removeDocFolder(owner, id)) return
+    const childNames = new Map(
+      children.map((child) => [
+        child.id,
+        {
+          before: child.name,
+          after: owner.docFolders?.find((folder) => folder.id === child.id)?.name
+        }
+      ])
+    )
+    if (folderId === id) folderId = parent
+    touch()
+    ui.toast(t('docFolders.removed'), {
+      action: {
+        label: t('common.undo'),
+        run: () => {
+          if (
+            projectState.project !== owner ||
+            projectState.readOnly ||
+            owner.docFolders?.some((folder) => folder.id === id)
+          )
+            return
+          const folders = [...(owner.docFolders ?? [])]
+          folders.splice(Math.min(at, folders.length), 0, snapshot)
+          owner.docFolders = folders
+          for (const child of owner.docFolders)
+            if (childNames.has(child.id) && (child.parentId ?? '') === parent) {
+              child.parentId = id
+              const name = childNames.get(child.id)!
+              if (child.name === name.after) child.name = name.before
+            }
+          for (const page of owner.docs)
+            if (pages.has(page.id) && docFolderOf(owner, page) === parent) page.folderId = id
+          folderId = id
+          touch()
+        }
+      }
+    })
+  }
+  function movePages(ids: Id[], target?: Id): void {
+    if (projectState.readOnly) return
+    if (target === undefined) {
+      movingOwner = project
+      moving = { kind: 'doc', ids, target: folderId }
+      return
+    }
+    if (moveDocs(project, ids, target)) {
+      folderId = target
+      touch()
+    }
+  }
+  function moveFolder(id: Id, parent?: Id): void {
+    if (projectState.readOnly) return
+    if (parent === undefined) {
+      movingOwner = project
+      moving = {
+        kind: 'folder',
+        ids: [id],
+        target: project.docFolders?.find((folder) => folder.id === id)?.parentId ?? ''
+      }
+      return
+    }
+    if (moveDocFolder(project, id, parent)) touch()
+    else ui.toast(t('docFolders.invalid'))
+  }
+  function applyMove(): void {
+    if (!moving || movingOwner !== project || projectState.readOnly) return
+    const choice = moving
+    moving = null
+    if (choice.kind === 'doc') movePages(choice.ids, choice.target)
+    else moveFolder(choice.ids[0], choice.target)
+  }
+  function pageDrag(event: DragEvent, id: Id): void {
+    if (projectState.readOnly || !event.dataTransfer) {
+      event.preventDefault()
+      return
+    }
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData(DOC_PAGE_DRAG, JSON.stringify({ projectId: project.meta.id, id }))
+  }
+  function changeLanguage(d: DocPage): void {
+    if (langId && d.languageId) projectState.currentLanguageId = d.languageId
+    touch(d)
   }
   async function exportMd(d: DocPage): Promise<void> {
     await platform.saveTextFile(`${d.title || 'doc'}.md`, `# ${d.title}\n\n${documentMarkdown(d)}`)
@@ -210,6 +403,7 @@
   /** 插入链接的选择器开着没有 */
   let pickerOpen = $state(false)
   function insertAtCursor(text: string): void {
+    if (projectState.readOnly) return
     const ta = document.getElementById('doc-md') as HTMLTextAreaElement | null
     if (!ta || !selected) return
     const s = ta.selectionStart
@@ -241,7 +435,7 @@
         >
       </div>
     {/if}
-    <button class="btn primary" data-tour="docs-add" onclick={add}
+    <button class="btn primary" data-tour="docs-add" disabled={projectState.readOnly} onclick={add}
       ><Plus size={16} />{t('docs.add')}</button
     >
   </div>
@@ -249,21 +443,51 @@
 
   <div class="body">
     <aside class="pages" data-tour="docs-list">
+      <DocFolders
+        projectId={project.meta.id}
+        {folders}
+        current={folderId}
+        readOnly={projectState.readOnly}
+        onopen={openFolder}
+        oncreate={(parent) => void createFolder(parent)}
+        onrename={(id) => void renameFolder(id)}
+        onremove={(id) => void removeFolder(id)}
+        onmoveFolder={moveFolder}
+        onmovePages={movePages}
+      />
+      <div class="small muted folder-path" data-doc-folder-path>
+        {folderPaths.get(folderId) ?? 'Default'}
+      </div>
       {#each list as d (d.id)}
         <button
           class="pg"
           class:active={selectedId === d.id}
-          onclick={() => (selectedId = d.id)}
+          onclick={() => pick(d)}
+          data-doc-page={d.id}
+          draggable={!projectState.readOnly}
+          ondragstart={(event) => pageDrag(event, d.id)}
           use:deletable={{
             selected: selectedId === d.id,
             select: () => {
-              selectedId = d.id
+              pick(d)
             },
+            actions: [
+              {
+                label: t('docFolders.movePage'),
+                disabled: projectState.readOnly,
+                run: () => movePages([d.id])
+              }
+            ],
             remove: () => remove(d)
           }}
         >
           <FileText size={14} />
           <span class="grow ellip">{d.title || t('docs.untitled')}</span>
+          {#if ui.search.trim()}<span
+              class="tiny muted"
+              title={folderPaths.get(folderOf(d)) ?? 'Default'}
+              >{folderPaths.get(folderOf(d)) ?? 'Default'}</span
+            >{/if}
           {#if d.languageId}<span class="tiny muted"
               >{project.languages.find((l) => l.id === d.languageId)?.abbr || ''}</span
             >{/if}
@@ -295,6 +519,7 @@
               id="doc-md"
               class="textarea md"
               bind:value={d.markdown}
+              readonly={projectState.readOnly}
               oninput={() => touch(d)}
               data-document-source={documentFormat(d)}
               placeholder={t(
@@ -321,6 +546,32 @@
   </div>
 </div>
 
+{#if moving}<div class="overlay" role="dialog" aria-modal="true" tabindex="-1" data-doc-move-dialog>
+    <div class="move-dialog card">
+      <h3>{t(moving.kind === 'doc' ? 'docFolders.movePage' : 'docFolders.moveFolder')}</h3>
+      <label
+        >{t('docFolders.destination')}<select
+          class="select"
+          data-doc-move-target
+          bind:value={moving.target}
+          >{#each moveOptions as folder (folder.id)}<option value={folder.id}>{folder.path}</option
+            >{/each}</select
+        ></label
+      >
+      <div class="row">
+        <span class="grow"></span><button class="btn" onclick={() => (moving = null)}
+          >{t('common.cancel')}</button
+        ><button
+          class="btn primary"
+          data-doc-move-confirm
+          disabled={projectState.readOnly ||
+            !moveOptions.some((folder) => folder.id === moving?.target)}
+          onclick={applyMove}>{t('docFolders.move')}</button
+        >
+      </div>
+    </div>
+  </div>{/if}
+
 {#if pickerOpen && selected}
   <DocLinkPicker onpick={(text) => insertAtCursor(text)} onclose={() => (pickerOpen = false)} />
 {/if}
@@ -333,15 +584,34 @@
         id="doc-title"
         class="input"
         bind:value={d.title}
+        readonly={projectState.readOnly}
         oninput={() => touch(d)}
       />
     </div>
     <div class="field">
       <label for="doc-lang">{t('docs.language')}</label>
-      <select id="doc-lang" class="select" bind:value={d.languageId} onchange={() => touch(d)}>
+      <select
+        id="doc-lang"
+        class="select"
+        bind:value={d.languageId}
+        disabled={projectState.readOnly}
+        onchange={() => changeLanguage(d)}
+      >
         <option value={null}>{t('docs.projectWide')}</option>
         {#each project.languages as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
       </select>
+    </div>
+    <div class="field">
+      <label for="doc-folder">{t('docFolders.title')}</label><select
+        id="doc-folder"
+        class="select"
+        data-doc-page-folder
+        value={folderOf(d)}
+        disabled={projectState.readOnly}
+        onchange={(event) => movePages([d.id], event.currentTarget.value)}
+        >{#each folders as folder (folder.id)}<option value={folder.id}>{folder.path}</option
+          >{/each}</select
+      >
     </div>
     <p class="small muted">{t('docs.updated')}: {d.updatedAt.slice(0, 16).replace('T', ' ')}</p>
     <div class="field">
@@ -368,7 +638,7 @@
       <button class="btn sm" onclick={() => exportPdf(d)}><Upload size={14} />PDF</button>
     </div>
     <p class="small muted">{t(documentFormat(d) === 'html' ? 'docs.htmlSyntax' : 'docs.syntax')}</p>
-    <button class="btn sm danger" onclick={() => remove(d)}
+    <button class="btn sm danger" disabled={projectState.readOnly} onclick={() => remove(d)}
       ><Trash2 size={14} />{t('common.delete')}</button
     >
   </Portal>
@@ -392,12 +662,28 @@
     gap: 14px;
   }
   .pages {
-    width: 200px;
+    width: 250px;
     flex: none;
     display: flex;
     flex-direction: column;
     gap: 2px;
     overflow: auto;
+  }
+  .folder-path {
+    padding: 4px 8px;
+    overflow-wrap: anywhere;
+  }
+  .move-dialog {
+    width: min(420px, 90vw);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+  }
+  .move-dialog label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
   .pg {
     display: flex;

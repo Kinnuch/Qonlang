@@ -101,6 +101,18 @@
     moveCorpusSentences,
     validCorpusFolder
   } from '$lib/core/corpusFolders'
+  import {
+    corpusFolderTree,
+    corpusFolderPath,
+    moveCorpusFolder,
+    corpusFolderMoveTargets
+  } from '$lib/core/corpusFolders'
+  import { folderParent } from '$lib/core/folderTree'
+  import {
+    selectCorpusSentence,
+    removeCorpusSentences,
+    restoreCorpusSentences
+  } from '$lib/core/corpusSelection'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -131,10 +143,13 @@
   const sameLang = memo.lang === projectState.currentLanguageId
   let mode = $state<'entries' | 'stats' | 'abbr'>(memo.mode ?? 'entries')
   let selectedId = $state<Id | null>(sameLang ? (memo.selectedId ?? null) : null)
+  let multiIds = $state<Id[]>([]),
+    selectionAnchor = $state<Id | null>(null)
   let folderId = $state<Id>(sameLang ? (memo.folderId ?? '') : '')
   let folderView = $state(sameLang && memo.folderView === true)
   let movingSentence = $state(false)
   const folders = $derived(langId ? corpusFoldersFor(project, langId) : [])
+  const knownFolderIds = $derived(new Set(folders.map((folder) => folder.id)))
   const currentFolder = $derived(folders.find((folder) => folder.id === folderId) ?? folders[0])
   $effect(() => {
     if (langId && !validCorpusFolder(project, langId, folderId)) folderId = ''
@@ -164,9 +179,25 @@
     return project.sentences.filter(
       (s) =>
         (!langId || s.languageId === langId) &&
-        corpusFolderOf(project, s) === folderId &&
+        (s.folderId && knownFolderIds.has(s.folderId) ? s.folderId : '') === folderId &&
         (!pq.terms.length || matchQuery(pq, (f) => sentenceFieldValues(s, f)))
     )
+  })
+  const visibleIds = $derived(list.map((sentence) => sentence.id))
+  const selectedIds = $derived(new Set(multiIds))
+  const selectedVisibleIds = $derived(visibleIds.filter((id) => selectedIds.has(id)))
+  const selectedVisibleSet = $derived(new Set(selectedVisibleIds))
+  const selectionScope = $derived(JSON.stringify([langId, folderId, query, folderView]))
+  let previousSelectionScope = ''
+  $effect(() => {
+    const scope = selectionScope,
+      allowed = new Set(visibleIds)
+    if (scope !== previousSelectionScope) {
+      previousSelectionScope = scope
+      multiIds = []
+      selectionAnchor = null
+    } else if (multiIds.some((id) => !allowed.has(id)))
+      multiIds = multiIds.filter((id) => allowed.has(id))
   })
   /** 搜索用：例句在某个字段里的文字；gloss 与切分既按语素给，也按整词连起来给 */
   function sentenceFieldValues(s: Sentence, field: string | null): string[] {
@@ -333,6 +364,7 @@
   }
   function openFolder(id: Id): void {
     if (!langId || !validCorpusFolder(project, langId, id)) return
+    wordHover.hide(true)
     folderId = id
     folderView = false
     selectedId = null
@@ -341,19 +373,24 @@
     importOpen = false
     mode = 'entries'
   }
+  function browseFolder(id: Id): void {
+    openFolder(id)
+    folderView = true
+  }
   function showFolders(): void {
+    wordHover.hide(true)
     folderView = true
     bench = null
     importOpen = false
     mode = 'entries'
   }
-  async function newFolder(): Promise<void> {
+  async function newFolder(parentId: Id = folderId): Promise<void> {
     if (projectState.readOnly || !langId) return
     const owner = project,
       lid = langId,
       name = await ui.prompt(t('corpus.folders.create'), '')
     if (!name || projectState.readOnly || projectState.project !== owner || langId !== lid) return
-    if (createCorpusFolder(project, lid, name, newId())) touch()
+    if (createCorpusFolder(project, lid, name, newId(), parentId)) touch()
     else ui.toast(t('corpus.folders.invalidName'))
   }
   async function renameFolder(id: Id): Promise<void> {
@@ -380,13 +417,21 @@
     )
       return
     if (projectState.project !== owner || projectState.readOnly || langId !== lid) return
+    const tree = corpusFolderTree(project, lid),
+      parentId = folderParent(tree, id),
+      children = tree
+        .filter((item) => item.parentId === id)
+        .map((item) => ({ id: item.id, name: item.name }))
     const old = $state.snapshot(folder),
       position = project.corpusFolders!.findIndex((folder) => folder.id === id),
       members = project.sentences
         .filter((s) => s.folderId === id && s.languageId === lid)
         .map((s) => s.id)
     if (removeCorpusFolder(project, id)) {
-      if (folderId === id) folderId = ''
+      const afterChildNames = new Map(
+        (project.corpusFolders ?? []).map((item) => [item.id, item.name])
+      )
+      if (folderId === id) folderId = parentId
       touch()
       ui.toast(t('corpus.folders.removed'), {
         action: {
@@ -398,11 +443,18 @@
               folders.splice(Math.min(position, folders.length), 0, old)
               project.corpusFolders = folders
             }
+            for (const child of project.corpusFolders ?? []) {
+              const before = children.find((item) => item.id === child.id)
+              if (before && folderParent(corpusFolderTree(project, lid), child.id) === parentId) {
+                child.parentId = id
+                if (child.name === afterChildNames.get(child.id)) child.name = before.name
+              }
+            }
             moveCorpusSentences(
               project,
               members.filter((id) => {
                 const s = project.sentences.find((s) => s.id === id)
-                return s && corpusFolderOf(project, s) === ''
+                return s && corpusFolderOf(project, s) === parentId
               }),
               lid,
               id
@@ -415,6 +467,41 @@
   }
   function reorderFolder(from: Id, to: Id): void {
     if (!projectState.readOnly && langId && reorderCorpusFolder(project, langId, from, to)) touch()
+  }
+  function moveFolderInto(id: Id, parentId: Id): void {
+    if (projectState.readOnly || !langId) return
+    if (moveCorpusFolder(project, langId, id, parentId)) touch()
+    else if (
+      !corpusFolderTree(project, langId).some(
+        (folder) =>
+          folder.id === id && folderParent(corpusFolderTree(project, langId), id) === parentId
+      )
+    )
+      ui.toast(t('corpus.folders.invalidMove'))
+  }
+  async function chooseMoveFolder(id: Id): Promise<void> {
+    if (projectState.readOnly || !langId) return
+    const owner = project,
+      lid = langId,
+      targets = corpusFolderMoveTargets(project, lid, id)
+    const choices = [
+      { value: '', label: 'Default' },
+      ...folders
+        .filter((folder) => !folder.default && targets.has(folder.id))
+        .map((folder) => ({
+          value: folder.id,
+          label: folder.path
+        }))
+    ]
+    const parentId = await ui.choose(t('corpus.folders.moveFolder'), '', choices)
+    if (
+      parentId === null ||
+      projectState.project !== owner ||
+      projectState.readOnly ||
+      langId !== lid
+    )
+      return
+    moveFolderInto(id, parentId)
   }
   function moveSentences(ids: Id[], target: Id): void {
     if (projectState.readOnly || !langId) return
@@ -431,11 +518,11 @@
   async function chooseFolder(sentence: Sentence): Promise<void> {
     if (projectState.readOnly) return
     const owner = project,
-      lid = sentence.languageId,
-      id = sentence.id
+      lid = sentence.languageId
+    const ids = selectedVisibleSet.has(sentence.id) ? [...selectedVisibleIds] : [sentence.id]
     const choices = corpusFoldersFor(project, lid).map((folder) => ({
       value: folder.id,
-      label: folder.name
+      label: folder.path
     }))
     const target = await ui.choose(t('corpus.folders.move'), '', choices)
     if (
@@ -445,7 +532,7 @@
       langId !== lid
     )
       return
-    moveSentences([id], target)
+    moveSentences(ids, target)
   }
   function sentenceDrag(sentence: Sentence, index: number): ReturnType<typeof sortable> {
     const props = sortable('sentences', index, (from, to) => {
@@ -470,7 +557,8 @@
           JSON.stringify({
             projectId: project.meta.id,
             languageId: sentence.languageId,
-            id: sentence.id
+            id: sentence.id,
+            ids: selectedVisibleSet.has(sentence.id) ? selectedVisibleIds : [sentence.id]
           })
         )
         movingSentence = true
@@ -547,23 +635,44 @@
     touch()
     queueMicrotask(() => document.getElementById('st-text')?.focus())
   }
-  function remove(s: Sentence): void {
-    const idx = project.sentences.indexOf(s)
-    if (idx < 0) return
-    const snap = $state.snapshot(s) as Sentence
-    project.sentences.splice(idx, 1)
-    if (selectedId === s.id) selectedId = null
+  function removeBatch(ids: readonly Id[]): void {
+    if (projectState.readOnly) return
+    const owner = project,
+      visible = [...visibleIds],
+      visibleSet = new Set(visible),
+      allowed = new Set(ids.filter((id) => visibleSet.has(id)))
+    const { removed, remaining } = removeCorpusSentences(project.sentences, [...allowed], visible)
+    if (!removed.length) return
+    const saved = removed.map((row) => ({
+      ...row,
+      sentence: $state.snapshot(row.sentence) as Sentence
+    }))
+    project.sentences = remaining
+    if (selectedId && allowed.has(selectedId)) selectedId = null
+    multiIds = []
+    selectionAnchor = null
     touch()
-    ui.toast(t('corpus.deleted'), {
-      action: {
-        label: t('common.undo'),
-        run: () => {
-          project.sentences.splice(Math.min(idx, project.sentences.length), 0, snap)
-          selectedId = snap.id
-          touch()
+    ui.toast(
+      removed.length === 1
+        ? t('corpus.deleted')
+        : t('corpus.selectedDeleted', { n: removed.length }),
+      {
+        action: {
+          label: t('common.undo'),
+          run: () => {
+            if (projectState.project !== owner || projectState.readOnly) return
+            project.sentences = restoreCorpusSentences(project.sentences, saved)
+            selectedId = saved[0]?.sentence.id ?? null
+            touch()
+          }
         }
       }
-    })
+    )
+  }
+  function remove(s: Sentence): void {
+    removeBatch(
+      selectedVisibleSet.has(s.id) && selectedVisibleIds.length > 1 ? selectedVisibleIds : [s.id]
+    )
   }
   function analyze(force = false): void {
     if (!selected) return
@@ -594,20 +703,34 @@
     }, 420)
   }
   /** 点例句卡片：选中它；已经选中但编辑器收起了，就重新展开 */
-  function pick(id: Id): void {
+  function pick(id: Id, e?: MouseEvent | KeyboardEvent): void {
+    if (e && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+      e.preventDefault()
+      window.getSelection()?.removeAllRanges()
+    }
+    const next = selectCorpusSentence(
+      visibleIds,
+      multiIds.length ? multiIds : selectedId ? [selectedId] : [],
+      selectionAnchor,
+      id,
+      { shift: !!e?.shiftKey, toggle: !!(e?.ctrlKey || e?.metaKey) }
+    )
+    multiIds = next.ids
+    selectionAnchor = next.anchor
     collapsedId = null
-    selectedId = id
+    selectedId = next.ids.includes(id) ? id : (next.ids.at(-1) ?? null)
   }
   /** 导出当前列表里的例句（跟着当前语言与搜索走） */
   async function exportSentences(
     kind: CorpusExportKind,
-    target: Id | null = folderId
+    target: Id | null = folderId,
+    recursive = false
   ): Promise<void> {
     if (projectState.readOnly || !langId) return
     const entries =
       target === null
         ? project.sentences.filter((s) => s.languageId === langId)
-        : corpusFolderSentences(project, langId, target)
+        : corpusFolderSentences(project, langId, target, recursive)
     const name =
       target === null
         ? 'corpus'
@@ -1019,16 +1142,20 @@
       projectId={project.meta.id}
       languageId={langId}
       {folders}
+      currentId={folderId}
       readOnly={projectState.readOnly}
       {compact}
       onopen={openFolder}
+      onbrowse={browseFolder}
       oncreate={newFolder}
       onrename={renameFolder}
       onremove={removeFolder}
       onreorder={reorderFolder}
+      onfoldermove={moveFolderInto}
+      onchoosemove={chooseMoveFolder}
       onmove={moveSentences}
       onimport={(target, json) => openImport(json, target)}
-      onexport={(target, kind) => exportSentences(kind, target)}
+      onexport={(target, kind, recursive) => exportSentences(kind, target, recursive)}
     />{/if}
 {/snippet}
 <div class="page" style:--corpus-text-scale={textSize / 100}>
@@ -1064,6 +1191,37 @@
       >
     {/if}
   </div>
+
+  {#if mode === 'entries' && !folderView && langId}<nav
+      class="row small"
+      data-corpus-list-breadcrumbs
+      aria-label={t('corpus.folders.path')}
+    >
+      <button class="btn ghost sm" onclick={() => openFolder('')}>Default</button
+      >{#each corpusFolderPath(project, langId, folderId) as part (part.id)}<span aria-hidden="true"
+          >/</span
+        ><button class="btn ghost sm" onclick={() => openFolder(part.id)}>{part.name}</button
+        >{/each}
+    </nav>{/if}
+  {#if mode === 'entries' && !folderView && selectedVisibleIds.length > 1}<div
+      class="row corpus-bulk"
+      data-corpus-bulk
+    >
+      <span class="small">{t('corpus.selectedN', { n: selectedVisibleIds.length })}</span><button
+        class="btn danger sm"
+        data-corpus-bulk-delete
+        disabled={projectState.readOnly}
+        onclick={() => removeBatch(selectedVisibleIds)}
+        ><Trash2 size={14} />{t('common.delete')}</button
+      ><button
+        class="btn ghost sm"
+        data-corpus-clear-selection
+        onclick={() => {
+          multiIds = []
+          selectionAnchor = null
+        }}>{t('corpus.clearSelection')}</button
+      >
+    </div>{/if}
 
   {#if importOpen && language}
     <div class="scroll">
@@ -1238,7 +1396,7 @@
     </div>
   {:else}
     <div class="scroll" use:navScroll={'corpus'}>
-      {#if movingSentence}{@render folderPanel(true)}{/if}
+      {#if movingSentence}<div class="corpus-drop-targets">{@render folderPanel(true)}</div>{/if}
       <Hint id="corpus" text={t('corpus.hint')} />
       {#snippet editorPanel(s: Sentence)}
         <div class="card editor" class:fading>
@@ -1368,7 +1526,8 @@
               class="card item"
               data-id={s.id}
               use:deletable={{
-                selected: selectedId === s.id,
+                identity: JSON.stringify([project.meta.id, langId, folderId, s.id]),
+                selected: selectedId === s.id || selectedVisibleSet.has(s.id),
                 actions: [
                   {
                     label: t('corpus.folders.move'),
@@ -1377,18 +1536,30 @@
                   }
                 ],
                 select: () => {
+                  if (!selectedVisibleSet.has(s.id)) {
+                    multiIds = [s.id]
+                    selectionAnchor = s.id
+                  }
                   selectedId = s.id
                 },
                 remove: () => remove(s)
               }}
-              class:sel={selectedId === s.id}
+              class:sel={selectedId === s.id || selectedVisibleSet.has(s.id)}
+              aria-pressed={selectedVisibleSet.has(s.id)}
+              data-corpus-selected={selectedVisibleSet.has(s.id)}
               class:flash={flashId === s.id}
               use:flashOn={justConfirmed === s.id}
               role="button"
               tabindex="0"
               {...sentenceDrag(s, si)}
-              onclick={() => pick(s.id)}
-              onkeydown={(e) => e.key === 'Enter' && pick(s.id)}
+              onclickcapture={(e) => {
+                if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                  e.stopPropagation()
+                  pick(s.id, e)
+                }
+              }}
+              onclick={(e) => pick(s.id, e)}
+              onkeydown={(e) => e.key === 'Enter' && pick(s.id, e)}
             >
               {#each language.scripts as sc (sc.id)}
                 {@const st = sentenceScriptText(project, language, sc, s, lookupWord)}
@@ -1657,6 +1828,20 @@
 {/if}
 
 <style>
+  .page {
+    position: relative;
+  }
+  .corpus-drop-targets {
+    position: absolute;
+    inset-inline: 8px;
+    inset-block-end: 8px;
+    max-height: 40%;
+    overflow: auto;
+    z-index: 50;
+    box-shadow: var(--shadow-lg);
+    background: var(--bg-elev);
+    border-radius: var(--radius);
+  }
   .item.flash {
     animation: jump-flash 1.8s ease-out;
   }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte'
+  import { anchoredFloating } from './anchoredFloating'
   import { Plus, X } from '@lucide/svelte'
   import { createLexeme, createMorpheme, MORPHEME_TYPES } from '$lib/core/factory'
   import type { Id, Project, MorphemeType } from '$lib/core/model'
@@ -43,9 +44,10 @@
     newType = $state<MorphemeType>('root'),
     newLanguage = $state<Id>(''),
     active = $state(-1)
-  let input: HTMLInputElement,
+  let input = $state<HTMLInputElement>(),
     formInput = $state<HTMLInputElement>(),
     box: HTMLDivElement
+  let panel = $state<HTMLDivElement>()
   const uid = $props.id()
   const languageNames = $derived(new Map(project.languages.map((l) => [l.id, l.abbr || l.name])))
   const options = $derived(
@@ -82,7 +84,7 @@
     if (!editable) return
     onpick(id)
     close()
-    input.blur()
+    input?.blur()
   }
   function begin(): void {
     form = query.trim()
@@ -116,10 +118,19 @@
   }
   function keys(e: KeyboardEvent): void {
     if (e.isComposing) return
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape' && open) {
       e.preventDefault()
+      e.stopPropagation()
       close()
-      input.blur()
+      input?.blur()
+      return
+    }
+    if (e.key === 'Tab' && !e.shiftKey && open && !creating && allowCreate) {
+      const create = panel?.querySelector<HTMLButtonElement>('.create')
+      if (create) {
+        e.preventDefault()
+        create.focus({ preventScroll: true })
+      }
       return
     }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -138,21 +149,42 @@
   }
   $effect(() => {
     if (!open) return
-    const outside = (e: PointerEvent): void => {
-      if (e.target instanceof Node && !box.contains(e.target)) close()
+    const outside = (e: Event): void => {
+      if (e.target instanceof Node && !box.contains(e.target) && !panel?.contains(e.target)) close()
+    }
+    const panelKey = (e: KeyboardEvent): void => {
+      if (e.isComposing || !panel?.contains(e.target as Node)) return
+      const first = creating ? formInput : panel.querySelector('.create')
+      if (e.key === 'Escape' || (e.key === 'Tab' && e.shiftKey && e.target === first)) {
+        e.preventDefault()
+        if (e.key === 'Escape') e.stopPropagation()
+        input?.focus({ preventScroll: true })
+        close()
+      } else if (
+        e.key === 'Tab' &&
+        !e.shiftKey &&
+        e.target ===
+          (creating
+            ? panel.querySelector('.create-actions button:last-child')
+            : panel.querySelector('.create'))
+      ) {
+        // 将键盘交回原表单，浏览器按输入框原有的顺序继续 Tab。
+        input?.focus({ preventScroll: true })
+        close()
+      }
     }
     window.addEventListener('pointerdown', outside, true)
-    return () => window.removeEventListener('pointerdown', outside, true)
+    window.addEventListener('focusin', outside)
+    window.addEventListener('keydown', panelKey)
+    return () => {
+      window.removeEventListener('pointerdown', outside, true)
+      window.removeEventListener('focusin', outside)
+      window.removeEventListener('keydown', panelKey)
+    }
   })
 </script>
 
-<div
-  class="ref-picker"
-  bind:this={box}
-  onfocusout={(e) => {
-    if (e.relatedTarget instanceof Node && !box.contains(e.relatedTarget)) close()
-  }}
->
+<div class="ref-picker" bind:this={box}>
   <div class="row">
     <input
       class="input data grow"
@@ -161,7 +193,7 @@
       aria-label={placeholder}
       aria-autocomplete="list"
       aria-expanded={open && !creating}
-      aria-controls={uid + '-list'}
+      aria-controls={open && !creating ? uid + '-list' : undefined}
       aria-activedescendant={open && active >= 0 ? uid + '-' + active : undefined}
       disabled={!editable}
       {placeholder}
@@ -186,7 +218,12 @@
       >{/if}
   </div>
   {#if open}
-    <div class="menu card">
+    <div
+      class="menu card"
+      data-reference-popup
+      bind:this={panel}
+      use:anchoredFloating={{ anchor: input, onAnchorHidden: close }}
+    >
       {#if !creating}
         <div
           class="hits"
@@ -206,6 +243,7 @@
               class="hit"
               id={uid + '-' + i}
               role="option"
+              tabindex="-1"
               aria-selected={i === active}
               data-ref-id={h.id}
               onmousedown={(e) => e.preventDefault()}
@@ -262,7 +300,7 @@
             if (e.key === 'Enter' && !e.isComposing) save()
           }}
         />
-        <div class="row">
+        <div class="row create-actions">
           <button type="button" class="btn primary sm" disabled={!form.trim()} onclick={save}
             >{t('common.ok')}</button
           ><button
@@ -270,7 +308,7 @@
             class="btn ghost sm"
             onclick={() => {
               creating = false
-              void tick().then(() => input.focus())
+              void tick().then(() => input?.focus())
             }}>{t('common.cancel')}</button
           >
         </div>
@@ -292,7 +330,11 @@
     flex-direction: column;
     gap: 5px;
     padding: 6px;
-    margin-block-start: 3px;
+    z-index: 400;
+    background: var(--bg-elev);
+    box-shadow: var(--shadow-lg);
+    overflow: auto;
+    overscroll-behavior: contain;
   }
   .hits {
     max-height: 200px;

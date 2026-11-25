@@ -15,6 +15,7 @@ import {
 import { createDoc, createEtymology, createProject, newId } from './factory'
 import { splitRegisters } from './register'
 import { normalizeDisplayLanguages } from './displayLanguages'
+import { normalizeDocFolders } from './docFolders'
 
 export const PROJECT_EXTENSION = '.laim.json'
 
@@ -123,6 +124,7 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
     if (selection) merged.settings[key] = selection
     else delete merged.settings[key]
   }
+  if (merged.docFolders !== undefined) merged.docFolders = normalizeDocFolders(merged.docFolders)
   if (merged.corpusFolders !== undefined) {
     const seen = new Set<string>()
     merged.corpusFolders = Array.isArray(merged.corpusFolders)
@@ -246,7 +248,8 @@ export function projectToFolder(p: Project): Record<string, string> {
       settings: p.settings,
       ...(p.glyphEditor ? { glyphEditor: p.glyphEditor } : {}),
       ...(p.morphemeSlots ? { morphemeSlots: p.morphemeSlots } : {}),
-      ...(p.corpusFolders ? { corpusFolders: p.corpusFolders } : {})
+      ...(p.corpusFolders ? { corpusFolders: p.corpusFolders } : {}),
+      ...(p.docFolders ? { docFolders: p.docFolders } : {})
     }),
     'languages.json': j(p.languages),
     'rule-sets.json': j(p.ruleSets.map((r) => ({ ...r, text: undefined }))),
@@ -310,6 +313,7 @@ export function projectFromFolder(files: Record<string, string>): Project {
     glyphEditor?: Project['glyphEditor']
     morphemeSlots?: Project['morphemeSlots']
     corpusFolders?: Project['corpusFolders']
+    docFolders?: Project['docFolders']
   }>('project.json', {
     schemaVersion: SCHEMA_VERSION,
     meta: undefined as never,
@@ -332,6 +336,7 @@ export function projectFromFolder(files: Record<string, string>): Project {
     ...(head.glyphEditor ? { glyphEditor: head.glyphEditor } : {}),
     ...(head.morphemeSlots ? { morphemeSlots: head.morphemeSlots } : {}),
     ...(head.corpusFolders ? { corpusFolders: head.corpusFolders } : {}),
+    ...(head.docFolders ? { docFolders: head.docFolders } : {}),
     languages: read('languages.json', []),
     ruleSets,
     categories: read('categories.json', []),

@@ -487,11 +487,6 @@
   use:fullscreenSurface={fullscreen}
   data-graph-fullscreen={fullscreen}
 >
-  {#if fullscreen}<button
-      class="btn sm fullscreen-exit"
-      data-graph-exit-fullscreen
-      onclick={() => (fullscreen = false)}><Minimize size={15} />{t('graph.exitFullscreen')}</button
-    >{/if}
   <div class="small muted" data-graph-counts>
     {t('graph.size', {
       n: layout.nodes.length,
@@ -774,10 +769,6 @@
     box-sizing: border-box;
     height: 100%;
     min-height: 0;
-  }
-  .fullscreen-exit {
-    align-self: flex-end;
-    flex: none;
   }
   .legend {
     display: flex;

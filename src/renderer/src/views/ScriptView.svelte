@@ -913,7 +913,7 @@
             : t('script.addGlyph')}</button
         >
       </div>
-      <div class="seg" data-script-item-modes>
+      <div class="seg item-modes" data-script-item-modes>
         <button
           class:active={!componentMode}
           data-script-mode="characters"
@@ -1505,6 +1505,12 @@
 {/if}
 
 <style>
+  .item-modes {
+    align-self: flex-start;
+    width: fit-content;
+    max-width: 100%;
+    flex-shrink: 0;
+  }
   .component-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));

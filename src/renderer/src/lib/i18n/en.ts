@@ -320,7 +320,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again. Try drawing components, a grid preset and corpus folders.',
+        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again. Try drawing components, a grid preset, and nested folders for documents and corpus examples.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font. Temporary classes map multi-character tone numbers to complete tone-letter sequences. An optional paradigm uses per-entry morpheme slots to reproduce corpus particle combinations.'
     },
@@ -1951,6 +1951,25 @@ const en: Dict = {
     variantText: 'Variant text',
     variantNote: 'Note (register, situation)'
   },
+  docFolders: {
+    title: 'Folders',
+    create: 'New folder',
+    createChild: 'New subfolder',
+    rename: 'Rename folder',
+    remove: 'Delete folder',
+    removeBody:
+      'Deleting “{name}” moves its documents and immediate subfolders to its parent or Default. Document content and IDs are preserved. Conflicting sibling names receive a number; Undo restores their original names and locations.',
+    removed: 'Folder deleted; documents preserved.',
+    untitled: 'New folder',
+    invalid: 'The name or destination is invalid, duplicated, or would create a cycle.',
+    movePage: 'Move document',
+    moveFolder: 'Move folder',
+    destination: 'Destination folder',
+    move: 'Move',
+    actions: 'Folder actions',
+    expand: 'Expand folder',
+    collapse: 'Collapse folder'
+  },
   docs: {
     format: 'Body format',
     formatHint:
@@ -2434,19 +2453,30 @@ const en: Dict = {
       'One adjustment per line, applied in order: -at strips final at; +u appends u; ^-e strips initial e; ^+a prepends a; lines containing > run as rules (e.g. at > / _#, V > / _C#). The upper box runs after affixation and before sound changes (or on the stem); the lower box on the final form.'
   },
   corpus: {
+    selectedN: '{n} sentences selected',
+    selectedDeleted: '{n} sentences deleted',
+    clearSelection: 'Clear multi-selection',
     folders: {
+      path: 'Folder path',
+      parent: 'Parent folder',
+      openSentences: 'Open this folder’s sentences',
+      moveFolder: 'Move folder',
+      includeChildren: 'Include sentences in subfolders',
+      invalidMove:
+        'A folder cannot move into itself or its descendants, or share a name with a sibling.',
       title: 'Corpus folders',
       create: 'New folder',
       rename: 'Rename folder',
       remove: 'Delete folder',
       back: 'Back to folders',
       count: '{n} sentences',
-      hint: 'Right-click for import, export and folder actions. Drag folders to reorder the grid.',
+      hint: 'Right-click to create subfolders or import/export. Drop at a folder’s center to move into it, or at a sibling’s left edge to reorder.',
       exportAll: 'Export all folders in this language',
       exportFolder: 'Export this folder',
       invalidName: 'Enter a non-empty, unique name. Default is reserved.',
-      removeHint: 'The sentences will move back to Default; no sentences will be deleted.',
-      removed: 'Folder deleted; its sentences moved back to Default.',
+      removeHint:
+        'Direct sentences and child folders move to the parent; content is kept. Conflicting folder names receive a number.',
+      removed: 'Folder deleted; its contents moved up one level.',
       moved: 'Sentences moved.',
       move: 'Move to folder'
     },
@@ -2913,6 +2943,7 @@ const en: Dict = {
     untitled: 'Untitled translation',
     groups: {
       glyphEditor: 'Drawing editor',
+      docFolders: 'Document folders',
       displayLanguages: 'Display languages',
       graph: 'Graph settings',
       app: 'The app itself',

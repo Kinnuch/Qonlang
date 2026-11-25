@@ -1072,6 +1072,13 @@
   }
 
   function onKey(e: KeyboardEvent): void {
+    // 锚定浮层挂在 body 下，优先让它处理 Escape、Tab 和文本编辑快捷键。
+    if (
+      Array.from(document.querySelectorAll<HTMLElement>('[data-glyph-popover]')).some(
+        (el) => el.dataset.glyphPopoverOwner === gridId
+      )
+    )
+      return
     if (e.key === 'Tab') {
       const dialog = svg?.closest('[role="dialog"]')
       const focusable = Array.from(
@@ -1356,6 +1363,7 @@
     >
   </div>
   <GlyphEditorPanel
+    owner={gridId}
     settings={currentSettings()}
     onchange={changeEditor}
     {library}
