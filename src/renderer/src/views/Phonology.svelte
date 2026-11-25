@@ -1338,7 +1338,10 @@
   {:else if tab === 'syllable'}
     <div class="scroll form" data-tour="phonology-syllable">
       <section class="block">
-        <h3>{t('phonology.syllable')} <HelpDot tip={t('phonology.syllableHint')} /></h3>
+        <h3>
+          {t('phonology.syllable')}
+          <HelpDot tip={t('phonology.syllableHint') + ' ' + t('phonology.hiatusHint')} />
+        </h3>
         <label class="row check"
           ><input type="checkbox" bind:checked={lang.syllable.enabled} onchange={touch} />{t(
             'phonology.syllableEnabled'

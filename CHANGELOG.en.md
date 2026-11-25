@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.0 · unreleased
+
+- Choose display languages separately for lexicon definitions and corpus translations. Each can show one language, two languages or all translations. The other translations remain available for editing.
+- Search bindings, etymology sources and relation targets directly in their fields. Whole forms rank first. Morpheme slots keep their type filter and alphabetic ordering. Create and link a missing lexeme or morpheme inline.
+- Document excerpts under entries preserve Markdown and HTML table cells and inline formatting, and highlight matches in the rendered text.
+- Filter the word graph by its actual relationships, such as cognates, cross-references and compounds. Set each relation’s width, pattern and colour. Fullscreen, adjustable graph limits and adaptive labels are available.
+- Draw and edit Bézier curves, custom guides and a snapping grid with a configurable origin and spacing. Save drawing components and place copies in characters. Named drawing presets and the default preset are shared across scripts in the project.
+- The corpus opens in Default. Return to the folder view to create, import or export using its context menu, arrange folders and move examples between them. A project setting controls spaces in rendered constructed scripts.
+- Explicitly separated sound classes keep multigraph members intact. Gloss analysis retains initial-mutation readings alongside homographic roots. Syllabification distinguishes adjacent independent vowels from explicitly declared complex nuclei.
+- Right-clicking a multiselection exposes that page’s bulk actions, including lexicon tags, glyph categories, deletion and clearing the selection.
+
 ## 1.0.5 · 2026-11-24
 
 - Choosing a word in the translation workbench sends the other candidates for the same part of the translation into the bin at the upper right of the candidate area. Open the bin and drag a word back to use it again.

@@ -38,8 +38,11 @@ describe('syllabify', () => {
     const t = syllabify(['k', 'a', 's', 't', 'r', 'a'], { nuclei: V, maxOnset: 1 })
     expect(renderSyllables(t)).toBe('kast.ra')
   })
-  it('merges adjacent nuclei into diphthongs and handles no-nucleus words', () => {
-    expect(renderSyllables(syllabify(['k', 'a', 'i', 'n'], { nuclei: V }))).toBe('kain')
+  it('keeps independent adjacent nuclei separate and handles no-nucleus words', () => {
+    expect(renderSyllables(syllabify(['k', 'a', 'i', 'n'], { nuclei: V }))).toBe('ka.in')
+    expect(renderSyllables(syllabify(['k', 'ai', 'n'], { nuclei: new Set([...V, 'ai']) }))).toBe(
+      'kain'
+    )
     expect(syllabify(['s', 't'], { nuclei: V })).toHaveLength(1)
   })
   it('parses templates', () => {

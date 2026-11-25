@@ -6,7 +6,10 @@ import {
   collectLexemeGraph,
   createLexemeGraph,
   externalGraphKey,
-  graphLabelText
+  graphLabelText,
+  graphEdgeSemantic,
+  GRAPH_MAX_NODES,
+  GRAPH_MAX_EDGES
 } from '$lib/core/lexemeGraph'
 
 const project = (): Project =>
@@ -272,10 +275,97 @@ describe('词关系纯拓扑与遍历', () => {
       maxNodes: 100000,
       maxEdges: 100000
     })
-    expect(graph.nodes).toHaveLength(1500)
-    expect(graph.edges).toHaveLength(6000)
+    expect(graph.nodes).toHaveLength(GRAPH_MAX_NODES)
+    expect(graph.edges).toHaveLength(GRAPH_MAX_EDGES)
     expect(graph.truncated).toBe(true)
     expect(graph.legend.find((g) => g.key === 'cognates')?.n).toBe(9999)
+  })
+
+  it('过滤在遍历前生效，关闭桥接关系不再越过深度到达另一节点', () => {
+    const p = project(),
+      a = lex(p, 'a'),
+      b = lex(p, 'b'),
+      c = lex(p, 'c')
+    a.relations = [{ kind: 'see', lexemeId: b.id }]
+    b.relations = [{ kind: 'custom', lexemeId: c.id }]
+    const g = model(p),
+      see = graphEdgeSemantic({ type: 'relation', label: { kind: 'relation', value: 'see' } })
+    expect(keys(collectLexemeGraph(g, 'l:a', { depth: 2 }))).toEqual(['l:a', 'l:b', 'l:c'])
+    const filtered = collectLexemeGraph(g, 'l:a', { depth: 2, disabledSemantics: new Set([see]) })
+    expect(keys(filtered)).toEqual(['l:a'])
+    expect(filtered.legend).toEqual([])
+  })
+
+  it('默认全开并分别列出自定义、参见、复合、派生、同源与同义语义', () => {
+    const p = project(),
+      a = lex(p, 'a'),
+      b = lex(p, 'b', [a]),
+      c = lex(p, 'c', [a]),
+      d = lex(p, 'd', [a])
+    b.etymology.type = 'compound'
+    c.relations = [
+      { kind: 'see', lexemeId: d.id },
+      { kind: 'my relation', lexemeId: a.id }
+    ]
+    b.senses[0].definition = { en: 'same' }
+    c.senses[0].definition = { en: 'same' }
+    const g = model(p),
+      labels = [...g.semantics!.values()]
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        { kind: 'relation', value: 'my relation' },
+        { kind: 'relation', value: 'see' },
+        { kind: 'cognate' },
+        { kind: 'synonym' }
+      ])
+    )
+    expect(labels.some((label) => label.kind === 'etymology' && label.value === 'compound')).toBe(
+      true
+    )
+    expect(labels.some((label) => label.kind === 'etymology' && label.value === 'derived')).toBe(
+      true
+    )
+    expect(collectLexemeGraph(g, 'l:a', { depth: 2, disabledSemantics: new Set() }).edges).toEqual(
+      collectLexemeGraph(g, 'l:a', { depth: 2 }).edges
+    )
+  })
+
+  it('只过滤指定语义，平行关系与另一路径仍可到达共享节点', () => {
+    const p = project(),
+      a = lex(p, 'a'),
+      b = lex(p, 'b', [a]),
+      c = lex(p, 'c', [a])
+    a.relations = [{ kind: 'see', lexemeId: b.id }]
+    const g = model(p),
+      derived = graphEdgeSemantic({
+        type: 'source',
+        label: { kind: 'etymology', value: 'derived' }
+      })
+    const graph = collectLexemeGraph(g, 'l:a', { depth: 1, disabledSemantics: new Set([derived]) })
+    expect(keys(graph)).toEqual(['l:a', 'l:b'])
+    expect(graph.edges.every((edge) => edge.type === 'relation')).toBe(true)
+    expect(graph.byKey.get('l:b')?.depth).toBe(1)
+    expect(c.id).toBe('c')
+  })
+
+  it('超过234和旧300节点可显示，边预算仍单独说明截断', () => {
+    const p = project(),
+      a = lex(p, 'a')
+    for (let i = 0; i < 1200; i++) {
+      const b = lex(p, 'child' + i)
+      a.relations.push({ kind: 'see', lexemeId: b.id })
+    }
+    const g = model(p),
+      usual = collectLexemeGraph(g, 'l:a', { depth: 1 }),
+      larger = collectLexemeGraph(g, 'l:a', { depth: 1, maxNodes: 1400, maxEdges: 2000 })
+    expect(usual.nodes).toHaveLength(1000)
+    expect(usual.nodeLimitReached).toBe(true)
+    expect(larger.nodes).toHaveLength(1201)
+    expect(larger.truncated).toBe(false)
+    const limited = collectLexemeGraph(g, 'l:a', { depth: 1, maxNodes: 1400, maxEdges: 234 })
+    expect(limited.nodes).toHaveLength(235)
+    expect(limited.edgeLimitReached).toBe(true)
+    expect(limited.nodeLimitReached).toBe(false)
   })
 
   it('标签由既有翻译与自定义标签工具转换', () => {

@@ -301,7 +301,7 @@ export default {
     galleryNext: '下一张',
     exampleDesc: {
       aelith:
-        '黏着先验语：语系节点与分组统计、语言内部的历时阶段与词条的历史形式链、祖语→现代语的语系与姊妹语（关系图里对比同源词的音变与意思）、满足 / 不满足环境两路的音变规则、特征与重音规则、音节边界 σ、自定义重音、元音和谐、流水线构形的九种步骤（含构形套构形）、变体与继承、槽位继承与影响发音的槽位、按维度取值挑异体形、一个词类几个构形、一个词条几个构形、按阴阳换字母、连读浊化反推、连写复合词自动切分、复合词类、检视器模块、词源链、从构形生成的词条、已 gloss 的语料、卢恩刻文与手写字形、收藏与记号、「微调」里现写的音类、两个音并成一个的音变、带标点的例句。临时音类按位置对应，并从词库寻找实际变化的规则示例。可以直接在规则之间添加说明。 例句可以跳回引用它的 HTML 文档。文字页可打开附标与 RIME 迁移入门。工作台能同时找出「在…里」与中间的词。关系图可沿公开数据查看四层网络，拖动固定节点，并分别调整力度和颜色组。 可练习字母跳转与词尾排序。 工作台可收纳同一译文位置的备选，并拖回重新选择。',
+        '黏着先验语：语系节点与分组统计、语言内部的历时阶段与词条的历史形式链、祖语→现代语的语系与姊妹语（关系图里对比同源词的音变与意思）、满足 / 不满足环境两路的音变规则、特征与重音规则、音节边界 σ、自定义重音、元音和谐、流水线构形的九种步骤（含构形套构形）、变体与继承、槽位继承与影响发音的槽位、按维度取值挑异体形、一个词类几个构形、一个词条几个构形、按阴阳换字母、连读浊化反推、连写复合词自动切分、复合词类、检视器模块、词源链、从构形生成的词条、已 gloss 的语料、卢恩刻文与手写字形、收藏与记号、「微调」里现写的音类、两个音并成一个的音变、带标点的例句。临时音类按位置对应，并从词库寻找实际变化的规则示例。可以直接在规则之间添加说明。 例句可以跳回引用它的 HTML 文档。文字页可打开附标与 RIME 迁移入门。工作台能同时找出「在…里」与中间的词。关系图可沿公开数据查看四层网络，拖动固定节点，并分别调整力度和颜色组。 可练习字母跳转与词尾排序。 工作台可收纳同一译文位置的备选，并拖回重新选择。 可试用手绘部件、网格预设和语料文件夹。',
       tsahun:
         '孤立声调语：五个声调与连读变调、罗马化与西里尔双正字法（按写法切音节、数音，可逐条调整音位对应）、音节文字的拼合与竖排、按字号逐词写的意音文字、重叠构形、带空格的屈折形、同形词候选、用文字字体显示的异体字模块。临时音类把多字符数字调对应到完整调符串。可选构形按词条语素槽重现语料中的小品词组合。'
     },
@@ -792,6 +792,52 @@ export default {
     done: '已生成词条「{lemma}」',
     show: '在词库中查看'
   },
+  glyphEditor: {
+    drawComponent: '手写部件',
+    addComponent: '新增部件',
+    gridGuides: '网格与参考线',
+    showGrid: '显示网格',
+    snap: '吸附网格',
+    step: '步长',
+    originX: '原点 X',
+    originY: '原点 Y',
+    showGuides: '显示参考线',
+    addGuide: '添加参考线',
+    guideName: '参考线名称',
+    guideAxis: '方向',
+    horizontal: '水平',
+    vertical: '垂直',
+    guidePosition: '位置',
+    snapHint: '按住 Alt 可暂时跳过吸附。原点只改变网格，不移动墨迹。',
+    presets: '项目预设',
+    choosePreset: '请选择预设',
+    applyPreset: '调用',
+    clearDefault: '取消默认',
+    makeDefault: '设为默认',
+    presetName: '预设名称',
+    savePreset: '保存当前参数',
+    resetSettings: '恢复初始参数',
+    presetHint: '预设在本项目各套文字间共用。默认预设用于下次打开画板；已有字形保留原字宽。',
+    insertComponent: '插入部件',
+    unnamedComponent: '未命名部件',
+    noComponents: '暂无部件，请在画板中保存部件。',
+    componentName: '部件名称',
+    saveComponent: '保存为部件',
+    componentSaved: '已保存部件，原画板保持打开。',
+    saveComponentChanges: '保存部件',
+    bezier: '贝塞尔',
+    bezierHint:
+      '点击添加锚点，拖动拉出控制柄；完成后可用节点工具调整。Enter 闭合，Escape 取消未完成路径。',
+    finishCurve: '闭合曲线',
+    segment: '所选线段',
+    segmentL: '直线',
+    segmentQ: '二次曲线',
+    segmentC: '三次曲线',
+    segmentsplit: '细分',
+    characters: '字符',
+    components: '部件',
+    componentsHint: '部件只用于字形拼合，不参与映射、转写或字体导出。'
+  },
   glyphPad: {
     title: '手写：{name}',
     pen: '画笔',
@@ -1158,7 +1204,7 @@ export default {
         '选中例句后，可以在此处自动分词并逐词注解。如果某个词有多个候选，将鼠标悬停在该词上，即可在弹出的卡片中改选正确的一项。',
         '语料模块包含例句、统计和缩写表三大版面。',
         '此处即为缩写表：注解里用到的缩写在这里登记，导出时会按它展开成完整名称。',
-        '点击此处导入或导出语料：导入支持表格与 JSON，导出则可选表格、逐词对照、Markdown、HTML、LaTeX 等格式。'
+        '点击「返回文件夹」查看语料文件夹，再右键空白处或某个文件夹进行新建、导入或导出；导入仍支持表格与 JSON，导出沿用原有格式。'
       ],
       phrasebook: [
         '点击此处新增一条短语。',
@@ -1922,6 +1968,8 @@ export default {
     exported: '已导出'
   },
   phonology: {
+    hiatusHint:
+      '独立相邻元音各成一个音节核，如 aa → a.a。双元音、长音拼写等复合单位请明确登记为音位、V 音类成员或配列音节核；模板只限制起首和尾音长度，不自动把相邻元音合并。',
     templateOnsets: '同时限制为 IPA 配列表中的起首',
     templateOnsetsHint:
       '模板默认只限制起首、尾音长度。勾选后再按「配列与造词 → IPA」的合法起首表限制，空表不另作限制；拼写表不会替代该表。模板过紧时保留所有音段并选允许的最长起首，尾音可能仍超过上限。',
@@ -2270,6 +2318,22 @@ export default {
     adjustHint: '微调的具体语法，请参考软件右上角的规则语法书。'
   },
   corpus: {
+    folders: {
+      title: '语料文件夹',
+      create: '新建文件夹',
+      rename: '重命名文件夹',
+      remove: '删除文件夹',
+      back: '返回文件夹',
+      count: '{n} 条例句',
+      hint: '右键打开导入、导出和文件夹操作；拖动文件夹可调整网格顺序。',
+      exportAll: '导出本语言全部文件夹',
+      exportFolder: '导出此文件夹',
+      invalidName: '请输入非空且不重复的名称；Default 是保留名称。',
+      removeHint: '其中的例句会移回 Default，不会删除例句。',
+      removed: '已删除文件夹，例句已移回 Default。',
+      moved: '已移动例句。',
+      move: '移动到文件夹'
+    },
     textSize: '例句文字大小',
     textSizeHint:
       '同时调整语料和词条附例中的文字写法、原文、语素切分、gloss 与译文；100% 为原来的字号，不改变导出结果。',
@@ -2378,6 +2442,25 @@ export default {
     sizeHint: '统一项目中配图的尺寸为 {w}×{h}。'
   },
   graph: {
+    adaptiveLabels: '大图标签随缩放简化',
+    adaptiveLabelsHint:
+      '超过400个节点且缩小时仅保留中心、已选和固定节点的标签；放大后显示全部。关闭可始终显示。',
+    size: '{n} 个节点 · {e} 条连线',
+    nodeLimitReached: '已达到节点上限（{n}）',
+    edgeLimitReached: '已达到连线上限（{n}）',
+    relations: '关系类别',
+    relationsHint: '仅沿启用的关系展开；样式和颜色只改变该类连线。',
+    allRelations: '全部启用',
+    noRelations: '全部关闭',
+    edgeStyle: '连线样式',
+    solid: '实线',
+    dashed: '虚线',
+    dotted: '点线',
+    maxNodes: '节点上限',
+    maxEdges: '连线上限',
+    budgetHint: '提高上限可显示更大网络；达到上限时会明确提示。密集网络也可能先达到连线上限。',
+    fullscreen: '全屏查看图谱',
+    exitFullscreen: '退出全屏',
     settings: '图谱设置',
     localHint: '图谱设置按项目保存在本机，不修改工程数据。',
     expandSettings: '展开图谱设置',
@@ -2696,6 +2779,8 @@ export default {
     importBad: '该文件不是界面翻译文件',
     untitled: '未命名翻译',
     groups: {
+      glyphEditor: '手绘编辑',
+      displayLanguages: '显示语言',
       graph: '图谱设置',
       app: '软件本身',
       common: '通用',
@@ -2853,7 +2938,20 @@ export default {
       valency: '及物性'
     }
   },
+  displayLanguages: {
+    definition: '词条释义显示语言',
+    translation: '语料译文显示语言',
+    hint: '只改变显示，不删除内容；检视器仍可编辑全部语言。默认保留词条原语言顺序与原列，语料显示一条首选译文。所选语言未填写时不显示该行。',
+    legacy: '沿用原显示',
+    one: '1 种语言',
+    two: '2 种语言',
+    all: '全部语言',
+    language: '语言 {n}',
+    columnsHint: '释义语言由「设置 → 词条释义显示语言」控制；沿用原显示可恢复原列选择。'
+  },
   settings: {
+    scriptShowSpaces: '自造文字保留空格',
+    scriptShowSpacesHint: '关闭后只去掉自造文字输出中的空格；原拼写、词条及实际分词不变。',
     search: '搜索设置项',
     title: '设置',
     app: '应用（本机）',

@@ -24,6 +24,8 @@
     ParenMode
   } from '$lib/core/model'
   import GlyphPad from '$lib/ui/GlyphPad.svelte'
+  import GlyphDrawingPreview from '$lib/ui/GlyphDrawingPreview.svelte'
+  import { copyEditorDrawing, type GlyphEditorProject } from '$lib/script/glyphEditor'
   import Menu from '$lib/ui/Menu.svelte'
   import { drawnGlyphs, freePrivateChar } from '$lib/script/drawnFont'
   import { buildScriptFont, dataUrlToBuffer } from '$lib/script/fontBuild'
@@ -46,6 +48,7 @@
   import { autoMappingRows, expandRules, lexemeScript, scriptSourceText } from '$lib/script/render'
   const scriptSampleOptions = { keepDots: true }
   import { sentenceScriptText } from '$lib/script/lexiconScript'
+  import { scriptSpacing } from '$lib/script/spacing'
   import { parseRuleText, runRules, type RuleProgram } from '$lib/engine/sca'
   import { canonicalG } from '$lib/ipa/equivalence'
   import { parseGlyphLines } from '$lib/importers/glyphLines'
@@ -116,6 +119,7 @@
     catFilter: string
     rulesView: 'list' | 'source'
     testText: string
+    componentMode: boolean
   }>('script')
   const sameLang = memo.lang === projectState.currentLanguageId
   let tab = $state<Tab>(memo.tab ?? 'glyphs')
@@ -151,6 +155,17 @@
   })
   /** Ctrl / Shift 多选出来的字形 */
   let multiGlyphs = $state<string[]>([])
+  function clearBulkGlyphs(): void {
+    multiGlyphs = []
+  }
+  const glyphSelectionActions = $derived([
+    {
+      label: t('script.bulkCategory'),
+      disabled: projectState.readOnly,
+      run: categorizeSelectedGlyphs
+    },
+    { label: t('lexicon.clearSel'), run: clearBulkGlyphs }
+  ])
   let anchorGlyph = $state<string | null>(null)
   let catFilter = $state<string>(sameLang ? (memo.catFilter ?? '') : '')
   let rulesView = $state<'list' | 'source'>(memo.rulesView ?? 'list')
@@ -177,7 +192,8 @@
       selectedGlyph,
       catFilter,
       rulesView,
-      testText
+      testText,
+      componentMode
     })
   })
   if (sameLang && !ui.restoring('script')) ui.restoreScroll('script', ui.lastScroll('script'))
@@ -346,8 +362,39 @@
   // ───── 手写板 ─────
   /** 正在手写板上画的字形 */
   let padGlyphId = $state<string | null>(null)
+  let padComponentId = $state<string | null>(null)
+  let componentMode = $state(memo.componentMode ?? false)
+  const editorLibrary = $derived(project.glyphEditor ?? { presets: [] })
+  function saveEditorLibrary(value: GlyphEditorProject): void {
+    if (projectState.readOnly) return
+    project.glyphEditor = value
+    touch()
+  }
+  function saveComponent(name: string, drawing: GlyphDrawing): void {
+    if (!script || projectState.readOnly || !hasDrawingContent(drawing)) return
+    script.components ??= []
+    script.components.push({ id: newId(), name, drawing: copyEditorDrawing(drawing) })
+    touch()
+  }
+  function saveComponentDrawing(id: string, drawing: GlyphDrawing, name?: string): void {
+    if (!script || projectState.readOnly) return
+    if (id === 'new') saveComponent(name || t('glyphEditor.unnamedComponent'), drawing)
+    else {
+      const component = script.components?.find((c) => c.id === id)
+      if (component) {
+        component.drawing = copyEditorDrawing(drawing)
+        if (name) component.name = name
+        touch()
+      }
+    }
+    padComponentId = null
+  }
   /** 手写一个新字形：先建一条空字形，再打开手写板 */
   function drawNewGlyph(): void {
+    if (componentMode) {
+      padComponentId = 'new'
+      return
+    }
     addGlyph()
     padGlyphId = selectedGlyph
   }
@@ -448,6 +495,7 @@
   }
   function pickGlyph(e: MouseEvent, g: Glyph, i: number): void {
     if (e.shiftKey || e.ctrlKey || e.metaKey) window.getSelection()?.removeAllRanges()
+    if (e.shiftKey || e.ctrlKey || e.metaKey) window.getSelection()?.removeAllRanges()
     const lastGlyphIndex = e.shiftKey
       ? shownGlyphs.findIndex((item) => item.id === anchorGlyph)
       : -1
@@ -455,10 +503,11 @@
       const [a, b] = [Math.min(lastGlyphIndex, i), Math.max(lastGlyphIndex, i)]
       multiGlyphs = shownGlyphs.slice(a, b + 1).map((x) => x.id)
     } else if (e.ctrlKey || e.metaKey) {
-      multiGlyphs = multiGlyphs.includes(g.id)
-        ? multiGlyphs.filter((x) => x !== g.id)
-        : [...multiGlyphs, g.id]
+      const ids = multiGlyphs.length ? multiGlyphs : selectedGlyph ? [selectedGlyph] : []
+      multiGlyphs = ids.includes(g.id) ? ids.filter((x) => x !== g.id) : [...ids, g.id]
       anchorGlyph = g.id
+      selectedGlyph = multiGlyphs.includes(g.id) ? g.id : (multiGlyphs.at(-1) ?? null)
+      return
     } else {
       multiGlyphs = []
       anchorGlyph = g.id
@@ -479,6 +528,8 @@
       !ui.confirmReq &&
       !ui.paletteOpen &&
       !padGlyphId &&
+      !padComponentId &&
+      !componentMode &&
       !window.getSelection()?.toString()
     )
   }
@@ -549,10 +600,19 @@
     })
   }
   async function categorizeSelectedGlyphs(): Promise<void> {
-    if (!script || !multiGlyphs.length) return
+    if (!script || !multiGlyphs.length || projectState.readOnly) return
+    const target = script,
+      ids = new Set(multiGlyphs)
     const cat = (await ui.prompt(t('script.bulkCategoryPrompt'), ''))?.trim()
-    if (cat === undefined || cat === null) return
-    for (const g of script.glyphs) if (multiGlyphs.includes(g.id)) g.category = cat
+    if (
+      cat === undefined ||
+      cat === null ||
+      script !== target ||
+      projectState.readOnly ||
+      projectState.project !== project
+    )
+      return
+    for (const g of target.glyphs) if (ids.has(g.id)) g.category = cat
     touch()
   }
   /** 改一项音节拼合设置；第一次改时补齐默认值 */
@@ -766,6 +826,7 @@
         >
           <button
             class="tab"
+            data-script-select={s.id}
             class:active={script?.id === s.id}
             use:deletable={{
               selected: script?.id === s.id,
@@ -809,17 +870,18 @@
   {:else if tab === 'glyphs'}
     <div class="scroll" use:navScroll={'script'}>
       <div class="row wrap tools" data-tour="script-glyph-tools">
-        <button class="btn sm" onclick={() => importFont(true)}
+        <button class="btn sm" disabled={componentMode} onclick={() => importFont(true)}
           ><FileType size={14} />{t('script.importFromFont')}</button
         >
         <button
           class="btn sm"
+          disabled={componentMode}
           onclick={() => {
             pasteOpen = !pasteOpen
             fontPending = null
           }}><ClipboardPaste size={14} />{t('script.importText')}</button
         >
-        <button class="btn ghost sm" onclick={autoCategorize}
+        <button class="btn ghost sm" disabled={componentMode} onclick={autoCategorize}
           ><Wand2 size={14} />{t('script.autoCategorize')}</button
         >
         <span class="grow"></span>
@@ -834,100 +896,167 @@
             >{t('script.writeBackFont')}</button
           >
         </Menu>
-        <button class="btn sm" title={t('script.drawGlyphHint')} onclick={drawNewGlyph}
-          ><PenTool size={14} />{t('script.drawGlyph')}</button
+        <button
+          class="btn sm"
+          data-draw-script-item
+          title={componentMode ? t('glyphEditor.componentsHint') : t('script.drawGlyphHint')}
+          onclick={drawNewGlyph}
+          ><PenTool size={14} />{componentMode
+            ? t('glyphEditor.drawComponent')
+            : t('script.drawGlyph')}</button
         >
-        <button class="btn primary sm" onclick={addGlyph}
-          ><Plus size={14} />{t('script.addGlyph')}</button
+        <button
+          class="btn primary sm"
+          onclick={() => (componentMode ? (padComponentId = 'new') : addGlyph())}
+          ><Plus size={14} />{componentMode
+            ? t('glyphEditor.addComponent')
+            : t('script.addGlyph')}</button
         >
       </div>
-      {#if pasteOpen}
-        <div class="card paste">
-          <p class="small muted">{t('script.importTextHint')}</p>
-          <textarea class="textarea data" rows="6" bind:value={pasteText}></textarea>
-          <div class="row">
-            <span class="grow"></span><button
-              class="btn ghost sm"
-              onclick={() => (pasteOpen = false)}>{t('common.cancel')}</button
-            ><button class="btn primary sm" onclick={importPaste}
-              >{t('script.importTextRun')}</button
-            >
-          </div>
+      <div class="seg" data-script-item-modes>
+        <button
+          class:active={!componentMode}
+          data-script-mode="characters"
+          onclick={() => (componentMode = false)}>{t('glyphEditor.characters')}</button
+        >
+        <button
+          class:active={componentMode}
+          data-script-mode="components"
+          onclick={() => (componentMode = true)}>{t('glyphEditor.components')}</button
+        >
+      </div>
+      {#if componentMode}
+        <p class="small muted">{t('glyphEditor.componentsHint')}</p>
+        <div class="component-grid">
+          {#each script.components ?? [] as component (component.id)}
+            <div class="card component-card" data-component={component.id}>
+              <button
+                class="component-preview"
+                aria-label={t('script.editDrawing')}
+                onclick={() => (padComponentId = component.id)}
+                ><GlyphDrawingPreview drawing={component.drawing} label={component.name} /></button
+              >
+              <input
+                class="input sm"
+                aria-label={t('glyphEditor.componentName')}
+                value={component.name}
+                onchange={(e) => {
+                  component.name = e.currentTarget.value
+                  touch()
+                }}
+              />
+              <div class="row">
+                <button
+                  class="btn sm"
+                  data-edit-component={component.id}
+                  onclick={() => (padComponentId = component.id)}>{t('script.editDrawing')}</button
+                ><button
+                  class="btn ghost sm danger"
+                  onclick={() => {
+                    if (script) {
+                      script.components = script.components?.filter((c) => c.id !== component.id)
+                      touch()
+                    }
+                  }}>{t('common.delete')}</button
+                >
+              </div>
+            </div>
+          {:else}<p class="muted">{t('glyphEditor.noComponents')}</p>{/each}
         </div>
-      {/if}
-      {#if fontPending}
-        <div class="card paste">
-          <p class="small">
-            {t('script.fontGlyphs', {
-              name: fontPending.name,
-              n: fontPending.glyphs.length,
-              skip: glyphSample?.skip ?? 0
-            })}
-          </p>
-          <div class="row">
-            <span class="grow"></span><button
-              class="btn ghost sm"
-              onclick={() => (fontPending = null)}>{t('common.cancel')}</button
-            ><button class="btn primary sm" onclick={applyFontPending}
-              >{t('script.importFontRun')}</button
-            >
-          </div>
-        </div>
-      {/if}
-      {#if categories.length > 1}
-        <div class="row wrap">
-          <button class="chip" class:active={catFilter === ''} onclick={() => (catFilter = '')}
-            >{t('script.allCategories')}</button
-          >
-          {#each categories as c (c)}<button
-              class="chip"
-              class:active={catFilter === c}
-              onclick={() => (catFilter = c)}>{catLabel(c)}</button
-            >{/each}
-        </div>
-      {/if}
-      {#if multiGlyphs.length > 1}
-        <div class="row bulk">
-          <span class="small">{t('lexicon.selectedN', { n: multiGlyphs.length })}</span>
-          <button class="btn ghost sm" onclick={categorizeSelectedGlyphs}
-            >{t('script.bulkCategory')}</button
-          >
-          <button class="btn ghost sm danger" onclick={removeSelectedGlyphs}
-            ><Trash2 size={14} />{t('common.delete')}</button
-          >
-          <button class="btn ghost sm" onclick={() => (multiGlyphs = [])}
-            >{t('lexicon.clearSel')}</button
-          >
-        </div>
-      {/if}
-      {#if script.glyphs.length === 0}
-        <p class="muted">{t('script.noGlyphs')}</p>
       {:else}
-        <div class="grid" use:flashOn={importedFlash}>
-          {#each shownGlyphs.slice(0, lzG.shown) as g, gi (g.id)}
-            <button
-              class="gcard"
-              class:sel={selectedGlyph === g.id || multiGlyphs.includes(g.id)}
-              use:deletable={{
-                selected: selectedGlyph === g.id || multiGlyphs.includes(g.id),
-                select: () => {
-                  if (!multiGlyphs.includes(g.id)) multiGlyphs = []
-                  selectedGlyph = g.id
-                },
-                remove: () => {
-                  if (multiGlyphs.includes(g.id) && multiGlyphs.length > 1) removeSelectedGlyphs()
-                  else removeGlyph(g)
-                }
-              }}
-              onclick={(e) => pickGlyph(e, g, gi)}
-              title={g.name}
+        {#if pasteOpen}
+          <div class="card paste">
+            <p class="small muted">{t('script.importTextHint')}</p>
+            <textarea class="textarea data" rows="6" bind:value={pasteText}></textarea>
+            <div class="row">
+              <span class="grow"></span><button
+                class="btn ghost sm"
+                onclick={() => (pasteOpen = false)}>{t('common.cancel')}</button
+              ><button class="btn primary sm" onclick={importPaste}
+                >{t('script.importTextRun')}</button
+              >
+            </div>
+          </div>
+        {/if}
+        {#if fontPending}
+          <div class="card paste">
+            <p class="small">
+              {t('script.fontGlyphs', {
+                name: fontPending.name,
+                n: fontPending.glyphs.length,
+                skip: glyphSample?.skip ?? 0
+              })}
+            </p>
+            <div class="row">
+              <span class="grow"></span><button
+                class="btn ghost sm"
+                onclick={() => (fontPending = null)}>{t('common.cancel')}</button
+              ><button class="btn primary sm" onclick={applyFontPending}
+                >{t('script.importFontRun')}</button
+              >
+            </div>
+          </div>
+        {/if}
+        {#if categories.length > 1}
+          <div class="row wrap">
+            <button class="chip" class:active={catFilter === ''} onclick={() => (catFilter = '')}
+              >{t('script.allCategories')}</button
             >
-              <span class="gchar" style={fontCss(script)}>{g.char || '·'}</span>
-              <span class="gval data">{g.value || ' '}</span>
-            </button>
-          {/each}
-        </div>
-        {#if shownGlyphs.length > lzG.shown}<div class="more-mark" use:lazyMore={lzG}></div>{/if}
+            {#each categories as c (c)}<button
+                class="chip"
+                class:active={catFilter === c}
+                onclick={() => (catFilter = c)}>{catLabel(c)}</button
+              >{/each}
+          </div>
+        {/if}
+        {#if multiGlyphs.length > 1}
+          <div class="row bulk">
+            <span class="small">{t('lexicon.selectedN', { n: multiGlyphs.length })}</span>
+            <button
+              class="btn ghost sm"
+              disabled={projectState.readOnly}
+              onclick={categorizeSelectedGlyphs}>{t('script.bulkCategory')}</button
+            >
+            <button class="btn ghost sm danger" onclick={removeSelectedGlyphs}
+              ><Trash2 size={14} />{t('common.delete')}</button
+            >
+            <button class="btn ghost sm" onclick={clearBulkGlyphs}>{t('lexicon.clearSel')}</button>
+          </div>
+        {/if}
+        {#if script.glyphs.length === 0}
+          <p class="muted">{t('script.noGlyphs')}</p>
+        {:else}
+          <div class="grid" use:flashOn={importedFlash}>
+            {#each shownGlyphs.slice(0, lzG.shown) as g, gi (g.id)}
+              <button
+                class="gcard"
+                class:sel={selectedGlyph === g.id || multiGlyphs.includes(g.id)}
+                use:deletable={{
+                  identity: g.id,
+                  actions:
+                    multiGlyphs.length > 1 && multiGlyphs.includes(g.id)
+                      ? glyphSelectionActions
+                      : undefined,
+                  selected: selectedGlyph === g.id || multiGlyphs.includes(g.id),
+                  select: () => {
+                    if (!multiGlyphs.includes(g.id)) multiGlyphs = []
+                    selectedGlyph = g.id
+                  },
+                  remove: () => {
+                    if (multiGlyphs.includes(g.id) && multiGlyphs.length > 1) removeSelectedGlyphs()
+                    else removeGlyph(g)
+                  }
+                }}
+                onclick={(e) => pickGlyph(e, g, gi)}
+                title={g.name}
+              >
+                <span class="gchar" style={fontCss(script)}>{g.char || '·'}</span>
+                <span class="gval data">{g.value || ' '}</span>
+              </button>
+            {/each}
+          </div>
+          {#if shownGlyphs.length > lzG.shown}<div class="more-mark" use:lazyMore={lzG}></div>{/if}
+        {/if}
       {/if}
     </div>
   {:else if tab === 'rules'}
@@ -1069,6 +1198,21 @@
     </div>
   {:else}
     <div class="scroll" data-tour="script-preview">
+      <label class="row small"
+        ><input
+          type="checkbox"
+          data-script-preview-spaces
+          disabled={projectState.readOnly}
+          checked={project.settings.scriptShowSpaces !== false}
+          onchange={(e) => {
+            if (projectState.readOnly) return
+            project.settings.scriptShowSpaces = e.currentTarget.checked
+            projectState.touch()
+          }}
+        />{t('settings.scriptShowSpaces')}<HelpDot
+          tip={t('settings.scriptShowSpacesHint')}
+        /></label
+      >
       {#if previewLexemes.length === 0 && previewSentences.length === 0}
         <p class="muted">{t('script.previewEmpty')}</p>
       {/if}
@@ -1083,7 +1227,7 @@
                   class="scr"
                   style={fontCss(script)}
                   dir={script.direction === 'rtl' ? 'rtl' : 'ltr'}
-                  >{lexemeScript(lang, script, l)}</td
+                  >{scriptSpacing(project, lexemeScript(lang, script, l))}</td
                 >
                 <td class="muted small"
                   >{l.senses
@@ -1135,7 +1279,7 @@
       {@const g = glyph}
       <div class="preview-glyph" style={fontCss(sc)}>{g.char || '·'}</div>
       <div class="row wrap draw-row">
-        <button class="btn sm" onclick={() => (padGlyphId = g.id)}
+        <button class="btn sm" data-edit-glyph={g.id} onclick={() => (padGlyphId = g.id)}
           ><PenTool size={14} />{g.drawing ? t('script.editDrawing') : t('script.drawThis')}</button
         >
         {#if g.drawing}
@@ -1333,6 +1477,10 @@
       drawing={pg.drawing}
       fontData={padFontData}
       char={pg.char}
+      library={editorLibrary}
+      components={script.components ?? []}
+      onlibrary={saveEditorLibrary}
+      onsavecomponent={saveComponent}
       title={t('glyphPad.title', { name: pg.name || pg.value || t('script.untitledGlyph') })}
       onsave={(d) => saveDrawing(pg, d)}
       oncancel={() => (padGlyphId = null)}
@@ -1340,7 +1488,43 @@
   {/if}
 {/if}
 
+{#if padComponentId && script}
+  {@const pc = script.components?.find((c) => c.id === padComponentId)}
+  <GlyphPad
+    drawing={pc?.drawing}
+    componentMode
+    componentName={pc?.name ?? ''}
+    title={pc?.name || t('glyphEditor.unnamedComponent')}
+    library={editorLibrary}
+    components={script.components ?? []}
+    onlibrary={saveEditorLibrary}
+    onsavecomponent={saveComponent}
+    onsave={(d, name) => saveComponentDrawing(padComponentId!, d, name)}
+    oncancel={() => (padComponentId = null)}
+  />
+{/if}
+
 <style>
+  .component-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 8px;
+    margin-block: 10px;
+  }
+  .component-card {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .component-preview {
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
   .field.check {
     flex-direction: row;
     align-items: center;

@@ -143,7 +143,11 @@ export const TOUR_STEPS: Record<string, TourStep[]> = {
     },
     { selector: '[data-tour="corpus-tabs"]', go: 'corpus', view: { mode: 'entries' } },
     { selector: '[data-tour="corpus-abbr"]', go: 'corpus', view: { mode: 'abbr' } },
-    { selector: '[data-tour="corpus-io"]', all: true, go: 'corpus', view: { mode: 'entries' } }
+    {
+      selector: '[data-tour="corpus-io"]',
+      go: 'corpus',
+      view: { mode: 'entries', folders: '', folder: '' }
+    }
   ],
   phrasebook: [
     { selector: '[data-tour="phrasebook-add"]', go: 'phrasebook' },

@@ -35,6 +35,19 @@ const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
 
 describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', () => {
+  it.each(['Aelith', 'Tsahun'])(
+    '%s includes reusable drawing exercises and a corpus folder',
+    (name) => {
+      const p = load(name + '.laim.json')
+      const language = p.languages.find((l) => l.id === p.settings.defaultLanguageId)!
+      expect(
+        language.scripts[0].components?.[0].drawing.contours?.[0].cmds.some((cmd) => cmd[0] === 'C')
+      ).toBe(true)
+      expect(p.glyphEditor?.presets[0].settings.snap).toBe(true)
+      expect(p.corpusFolders?.some((f) => f.languageId === language.id)).toBe(true)
+      expect(p.sentences.every((s) => !s.folderId)).toBe(true)
+    }
+  )
   it.each([
     ['Aelith', 've', '和', 'and'],
     ['Tsahun', 'mo35', '否定', 'negation']

@@ -161,12 +161,14 @@ export interface SyllableSpan {
 
 /**
  * 最大起首原则：每个核之前尽可能多地把辅音划给起首，受 onsets 表（若给）和 maxOnset 限制，
- * 其余留给上一个音节的尾音。相邻的核合并成一个（双元音）；一个核都没有时整串算一个音节。
+ * 其余留给上一个音节的尾音。独立元音各成核，只有明确声明的复合核才最长匹配合并；没有核时保留整串。
  */
 export function syllableSpans(
   segs: string[],
   isNucleus: (s: string) => boolean,
-  opts: Pick<SyllableOptions, 'onsets' | 'maxOnset' | 'maxCoda' | 'respectOnsetLimits'> = {}
+  opts: Pick<SyllableOptions, 'onsets' | 'maxOnset' | 'maxCoda' | 'respectOnsetLimits'> & {
+    nuclei?: ReadonlySet<string>
+  } = {}
 ): SyllableSpan[] {
   const nucleusIdx: number[] = []
   segs.forEach((s, i) => {
@@ -175,10 +177,21 @@ export function syllableSpans(
   if (!nucleusIdx.length)
     return [{ start: 0, nucleusStart: segs.length, nucleusEnd: segs.length, end: segs.length }]
   const groups: [number, number][] = []
-  for (const i of nucleusIdx) {
-    const last = groups[groups.length - 1]
-    if (last && last[1] === i - 1) last[1] = i
-    else groups.push([i, i])
+  let maxNucleusLength = 1
+  for (const nucleus of opts.nuclei ?? [])
+    maxNucleusLength = Math.max(maxNucleusLength, nucleus.length)
+  for (let at = 0; at < nucleusIdx.length;) {
+    const start = nucleusIdx[at]
+    let end = at,
+      text = segs[start]
+    for (let next = at + 1; next < nucleusIdx.length && text.length < maxNucleusLength; next++) {
+      if (nucleusIdx[next] !== nucleusIdx[next - 1] + 1) break
+      text += segs[nucleusIdx[next]]
+      if (text.length > maxNucleusLength) break
+      if (opts.nuclei && hasEquivalentG(opts.nuclei, text)) end = next
+    }
+    groups.push([start, nucleusIdx[end]])
+    at = end + 1
   }
   const spans: SyllableSpan[] = []
   let prevEnd = -1
@@ -451,7 +464,7 @@ export function syllableOnsets(lang: Language): readonly string[] {
 function syllableScheme(lang: Language, replacements: [string, string][]): SyllableScheme {
   const nuclei = nucleusSet(lang)
   const consonants = consonantSet(lang)
-  const units = new Set<string>(lang.phonemes.map((p) => p.symbol))
+  const units = new Set<string>([...lang.phonemes.map((p) => p.symbol), ...nuclei])
   for (const [, to] of replacements) units.add(to)
   for (const c of lang.classes)
     for (const m of c.members) if (Array.from(m).length > 1) units.add(m)
@@ -481,7 +494,7 @@ export function spellingUnits(lang: Language): {
 } {
   const ortho = lang.orthographies.find((o) => o.isPrimary) ?? lang.orthographies[0]
   const nuclei = nucleusSet(lang)
-  const units = new Set<string>(lang.phonemes.map((p) => p.symbol))
+  const units = new Set<string>([...lang.phonemes.map((p) => p.symbol), ...nuclei])
   const vowels = new Set<string>()
   const managed = ortho && hasPhonemeRules(ortho, 'toIpa')
   const legacyUnits = new Set(
@@ -596,8 +609,8 @@ export function analyzeWord(
   lang: Language,
   ipa: string
 ): { segments: string[]; syllables: Syllable[]; stress: number; text: string } {
-  const inventory = new Set(lang.phonemes.map((p) => p.symbol))
   const nuclei = nucleusSet(lang)
+  const inventory = new Set([...lang.phonemes.map((p) => p.symbol), ...nuclei])
   const consonants = consonantSet(lang)
   const isN = (s: string): boolean => syllableNucleusMatch(s, nuclei, consonants) === true
   const tpl =
@@ -605,6 +618,7 @@ export function analyzeWord(
       ? parseTemplate(lang.syllable.template)
       : { maxOnset: Infinity, maxCoda: Infinity }
   const opts = {
+    nuclei,
     onsets: syllableOnsets(lang).length ? new Set(syllableOnsets(lang)) : undefined,
     maxOnset: tpl.maxOnset,
     maxCoda: tpl.maxCoda,

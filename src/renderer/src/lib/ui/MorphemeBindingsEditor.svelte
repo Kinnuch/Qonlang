@@ -7,6 +7,8 @@
   import { ui } from '$lib/state/ui.svelte'
   import { t } from '$lib/i18n/index.svelte'
   import { Plus, Scissors, X } from '@lucide/svelte'
+  import ReferencePicker from './ReferencePicker.svelte'
+  import { morphemeLabel } from '$lib/core/etymology'
   import HelpDot from './HelpDot.svelte'
   import { canonicalG } from '$lib/ipa/equivalence'
 
@@ -133,30 +135,23 @@
     {@const hit = boundMorpheme(project, lexeme, slot.id)}
     {@const selected = lexeme.morphemeBindings?.[slot.id] ?? ''}
     <div class="slot card" data-binding-row={slot.id}>
-      <label class="small" title={slot.description}
-        >{slot.name}
-        <select
-          class="select"
-          data-binding-slot={slot.id}
-          disabled={projectState.readOnly}
-          value={selected}
-          onchange={(e) => bind(slot.id, e.currentTarget.value)}
-        >
-          <option value="">{t('morphemeSlots.unbound')}</option>
-          {#if selected && !local.some((m) => m.id === selected)}<option value={selected}
-              >{t('morphemeSlots.invalidBinding')}</option
-            >{/if}
-          {#each MORPHEME_TYPES as type (type)}
-            {#if !filters[slot.id] || filters[slot.id] === type || local.some((m) => m.id === selected && m.type === type)}
-              <optgroup label={t(`morphemes.types.${type}`)}>
-                {#each local.filter((m) => m.type === type) as m (m.id)}<option value={m.id}
-                    >{m.form || '∅'}{m.gloss ? ` — ${m.gloss}` : ''}</option
-                  >{/each}
-              </optgroup>
-            {/if}
-          {/each}
-        </select>
-      </label>
+      <div class="small" title={slot.description}>{slot.name}</div>
+      <ReferencePicker
+        {project}
+        kind="morpheme"
+        languageId={lexeme.languageId}
+        localOnly
+        type={filters[slot.id]}
+        glossLangs={project.settings.glossLanguages}
+        selected={hit.morpheme
+          ? [morphemeLabel(hit.morpheme) || '∅', hit.morpheme.gloss].filter(Boolean).join(' — ')
+          : selected
+            ? t('morphemeSlots.invalidBinding')
+            : ''}
+        placeholder={t('morphemeSlots.unbound') + ' · ' + t('lexicon.pickMorpheme')}
+        allowClear
+        onpick={(id) => bind(slot.id, id)}
+      />
       <div class="row controls">
         <select
           class="select small-filter"

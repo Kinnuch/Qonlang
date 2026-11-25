@@ -26,6 +26,7 @@
     formatRule,
     formatMarker,
     formatClassLine,
+    formatClassMembers,
     formatReplacementLine,
     formatFeatureLine,
     formatStressLine,
@@ -533,11 +534,7 @@
       const p = parseClassLine(lines()[line - 1])
       classDraft = {
         name: p?.name ?? '',
-        members: p
-          ? p.members.some((m) => Array.from(m).length > 1)
-            ? p.members.join(' ')
-            : p.members.join('')
-          : ''
+        members: p ? formatClassMembers(p.members) : ''
       }
     }
   }

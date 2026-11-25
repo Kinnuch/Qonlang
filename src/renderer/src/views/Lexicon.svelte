@@ -18,6 +18,7 @@
   import { i18n, t, pickText } from '$lib/i18n/index.svelte'
   import { createLexeme, createSense, now } from '$lib/core/factory'
   import { makeCollator, makeLexiconLetters } from '$lib/core/collate'
+  import { availableDisplayLanguages, definitionColumnKeys } from '$lib/core/displayLanguages'
   import { toCsv } from '$lib/core/csv'
   import { lexemesToRows, morphemesToRows } from '$lib/importers/csvImport'
   import { parseLexc, mergeLexicanter, type LexcFile } from '$lib/importers/lexicanter'
@@ -81,6 +82,7 @@
   import ImageCropper from '$lib/ui/ImageCropper.svelte'
   import { prepareImage } from '$lib/core/images'
   import { newId } from '$lib/core/factory'
+  import ReferencePicker from '$lib/ui/ReferencePicker.svelte'
   import EtymologyEditor from '$lib/ui/EtymologyEditor.svelte'
   import LexemeCard from '$lib/ui/LexemeCard.svelte'
   import LexemeGraph from '$lib/ui/LexemeGraph.svelte'
@@ -128,6 +130,11 @@
   const langId = $derived(projectState.currentLanguageId)
   const language = $derived(projectState.currentLanguage)
   const glossLangs = $derived(project.settings.glossLanguages)
+  const definitionLanguages = $derived(
+    project.settings.definitionDisplay
+      ? availableDisplayLanguages(project, 'definition')
+      : glossLangs
+  )
 
   /** 回到这一页时接着用上次的筛选、排序、子页与选中项；换了语言就不恢复选中与滚动 */
   const memo = ui.memo<{
@@ -407,6 +414,19 @@
         return (c || collator(lemmas[i], lemmas[j])) * dir
       })
     }
+    // 普通的单词搜索先列出完整词头；并列结果保留表头选择的顺序。
+    const term = pq.terms.length === 1 ? pq.terms[0] : null
+    if (term?.needle && !term.field && !term.regex) {
+      const needle = canonicalG(term.needle.normalize('NFC').toLowerCase())
+      const exact: Lexeme[] = [],
+        other: Lexeme[] = []
+      for (const index of order) {
+        const target =
+          canonicalG(lemmas[index].normalize('NFC').toLowerCase()) === needle ? exact : other
+        target.push(arr[index])
+      }
+      return [...exact, ...other]
+    }
     return order.map((i) => arr[i])
   })
   /** 表格只画看得见的那些行（几千条也不卡），滚动位置照旧 */
@@ -618,7 +638,7 @@
   }
   const availableColumns = $derived.by((): Col[] => {
     const cols: Col[] = [{ key: 'pos', label: t('lexicon.colPos') }]
-    for (const g of glossLangs)
+    for (const g of definitionLanguages)
       cols.push({ key: `def:${g}`, label: `${t('lexicon.colDefinition')} (${g})` })
     cols.push(
       { key: 'tags', label: t('lexicon.colTags') },
@@ -663,9 +683,14 @@
     return [...count].filter(([, n]) => n > 1).map(([label]) => label)
   })
   const activeColumns = $derived.by((): Col[] => {
-    const keys = project.settings.lexiconColumns.length
+    const oldKeys = project.settings.lexiconColumns.length
       ? project.settings.lexiconColumns
       : ['pos', `def:${glossLangs[0] ?? 'zh'}`, 'tags']
+    const keys = definitionColumnKeys(
+      oldKeys,
+      project.settings.definitionDisplay,
+      definitionLanguages
+    )
     const cols = keys
       .map((k) => availableColumns.find((c) => c.key === k))
       .filter((c): c is Col => !!c)
@@ -1188,12 +1213,16 @@
     ui.syntaxOpen = false
   }
   function rowClick(e: MouseEvent, l: Lexeme, i: number): void {
+    if (e.shiftKey || e.ctrlKey || e.metaKey) window.getSelection()?.removeAllRanges()
     if (e.shiftKey && lastIndex >= 0) {
       const [a, b] = [Math.min(lastIndex, i), Math.max(lastIndex, i)]
       multiIds = list.slice(a, b + 1).map((x) => x.id)
     } else if (e.ctrlKey || e.metaKey) {
-      multiIds = multiIds.includes(l.id) ? multiIds.filter((x) => x !== l.id) : [...multiIds, l.id]
+      const ids = multiIds.length ? multiIds : selectedId ? [selectedId] : []
+      multiIds = ids.includes(l.id) ? ids.filter((x) => x !== l.id) : [...ids, l.id]
       lastIndex = i
+      selectedId = multiIds.includes(l.id) ? l.id : (multiIds.at(-1) ?? null)
+      return
     } else {
       multiIds = []
       lastIndex = i
@@ -1219,6 +1248,21 @@
   }
   // ── 批量标签：选中几条之后一起加、一起去掉、一起改名 ──
   let tagBoxOpen = $state(false)
+  function clearBulkSelection(): void {
+    multiIds = []
+    tagBoxOpen = false
+  }
+  const selectionActions = $derived([
+    {
+      label: t('lexicon.bulkTag'),
+      disabled: projectState.readOnly,
+      run: () => {
+        tagBoxOpen = true
+        queueMicrotask(() => document.querySelector<HTMLInputElement>('.tagbox input')?.focus())
+      }
+    },
+    { label: t('lexicon.clearSel'), run: clearBulkSelection }
+  ])
   let newTag = $state('')
   const selectedLexemes = $derived(project.lexemes.filter((l) => multiIds.includes(l.id)))
   /** 选中的这些词条上出现过的标签：标签 → 有几条带着它 */
@@ -1312,6 +1356,10 @@
           <label data-keep-open
             ><input
               type="checkbox"
+              disabled={!!project.settings.definitionDisplay && c.key.startsWith('def:')}
+              title={project.settings.definitionDisplay && c.key.startsWith('def:')
+                ? t('displayLanguages.columnsHint')
+                : undefined}
               checked={activeColumns.some((a) => a.key === c.key)}
               onchange={() => toggleColumn(c.key)}
             />{c.label}</label
@@ -1512,14 +1560,16 @@
     {#if multiIds.length > 1}
       <div class="row bulk">
         <span class="small">{t('lexicon.selectedN', { n: multiIds.length })}</span>
-        <button class="btn ghost sm" onclick={() => (tagBoxOpen = !tagBoxOpen)}
+        <button
+          class="btn ghost sm"
+          disabled={projectState.readOnly}
+          onclick={() => (tagBoxOpen = !tagBoxOpen)}
           ><Tags size={14} />{t('lexicon.bulkTag')}</button
         >
         <button class="btn ghost sm danger" onclick={removeSelected}
           ><Trash2 size={14} />{t('common.delete')}</button
         >
-        <button class="btn ghost sm" onclick={() => (multiIds = [])}>{t('lexicon.clearSel')}</button
-        >
+        <button class="btn ghost sm" onclick={clearBulkSelection}>{t('lexicon.clearSel')}</button>
       </div>
       {#if tagBoxOpen}
         <div class="card tagbox">
@@ -1670,6 +1720,9 @@
               use:rows.row
               data-id={l.id}
               use:deletable={{
+                identity: l.id,
+                actions:
+                  multiIds.length > 1 && multiIds.includes(l.id) ? selectionActions : undefined,
                 selected: selectedId === l.id || multiIds.includes(l.id),
                 select: () => {
                   if (!multiIds.includes(l.id)) multiIds = []
@@ -2092,6 +2145,7 @@
         bind:etymology={l.etymology}
         {project}
         ownerId={l.id}
+        languageId={l.languageId}
         ownerForm={l.lemma}
         {glossLangs}
         onchange={() => touch(l)}
@@ -2153,20 +2207,19 @@
               onblur={() => commitKind(l, r, i)}
             />
           {/if}
-          <input
-            class="input data grow"
-            list="dl-lexemes"
-            value={project.lexemes.find((x) => x.id === r.lexemeId)?.lemma ?? ''}
+          <ReferencePicker
+            {project}
+            languageId={l.languageId}
+            kind="lexeme"
+            excludeId={l.id}
+            {glossLangs}
+            selected={project.lexemes.find((x) => x.id === r.lexemeId)?.lemma ?? ''}
             placeholder={t('lexicon.relationTarget')}
-            onchange={(e) => {
-              r.lexemeId =
-                project.lexemes.find(
-                  (x) =>
-                    gEquivalent(x.lemma, (e.currentTarget as HTMLInputElement).value) &&
-                    x.id !== l.id
-                )?.id ?? ''
+            onpick={(id) => {
+              r.lexemeId = id
               touch(l)
             }}
+            allowClear
           />
           <button
             class="btn ghost icon sm"

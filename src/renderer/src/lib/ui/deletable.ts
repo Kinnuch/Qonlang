@@ -6,7 +6,7 @@ export interface DeleteOptions {
   label?: string
   /** 行号等会复用的节点可提供逻辑身份；重解析后不沿用旧菜单。 */
   identity?: unknown
-  actions?: { label: string; run: () => unknown }[]
+  actions?: { label: string; run: () => unknown; disabled?: boolean }[]
   select?: () => void
   remove: () => unknown | Promise<unknown>
 }

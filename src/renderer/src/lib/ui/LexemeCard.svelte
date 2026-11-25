@@ -26,6 +26,7 @@
   import { registerShort } from '$lib/core/register'
   import { posStemSlotList, posText, sensePos } from '$lib/core/pos'
   import { pronunciationOf } from '$lib/core/pronounce'
+  import { displayTextRows } from '$lib/core/displayLanguages'
 
   /** 显示模式下屈折形那一块收没收起（录入模式那边另记，见 Lexicon 的 FORMS_FOLD_EDIT） */
   const FORMS_FOLD_ID = 'lex.forms:show'
@@ -257,7 +258,8 @@
 
   {#snippet blockSenses()}
     {#snippet senseBody(s: Sense, firstLang: string | undefined, sp: PartOfSpeech | undefined)}
-      {#each glossLangs as g (g)}
+      {#each displayTextRows(s.definition, project.settings.definitionDisplay, glossLangs, 'preferred') as definition (definition.language)}
+        {@const g = definition.language}
         {#if s.definition[g]}<p class="def" lang={g}>
             {#if g === firstLang}{#if sp}<span class="spos" title={pickText(sp.name, glossLangs)}
                   >{posText(sp, glossLangs)}</span
@@ -278,7 +280,12 @@
 
     <ol class="senses">
       {#each l.senses as s, si (s.id)}
-        {@const firstLang = glossLangs.find((g) => s.definition[g])}
+        {@const firstLang = displayTextRows(
+          s.definition,
+          project.settings.definitionDisplay,
+          glossLangs,
+          'preferred'
+        )[0]?.language}
         {@const sp = sensePos(project, l, s)}
         <li>
           {#if onpicksense}

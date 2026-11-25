@@ -64,6 +64,11 @@
   const sameLang = memo.lang === projectState.currentLanguageId
   let selectedId = $state<Id | null>(sameLang ? (memo.selectedId ?? null) : null)
   let multiIds = $state<Id[]>([])
+  function clearBulkSelection(): void {
+    multiIds = []
+    selectedId = null
+  }
+  const selectionActions = $derived([{ label: t('lexicon.clearSel'), run: clearBulkSelection }])
   let anchorId = $state<Id | null>(null)
   let mode = $state<'entries' | 'stats' | 'csv'>(memo.mode ?? 'entries')
   const mStats = $derived(mode === 'stats' ? morphemeStats(project, langId) : null)
@@ -527,13 +532,7 @@
           disabled={projectState.readOnly}
           onclick={removeSelected}><Trash2 size={14} />{t('common.delete')}</button
         >
-        <button
-          class="btn ghost sm"
-          onclick={() => {
-            multiIds = []
-            selectedId = null
-          }}>{t('lexicon.clearSel')}</button
-        >
+        <button class="btn ghost sm" onclick={clearBulkSelection}>{t('lexicon.clearSel')}</button>
       </div>
     {/if}
     <div class="table-wrap" use:navScroll={'morphemes'}>
@@ -589,6 +588,9 @@
             <tr
               data-id={m.id}
               use:deletable={{
+                identity: m.id,
+                actions:
+                  multiIds.length > 1 && multiIds.includes(m.id) ? selectionActions : undefined,
                 selected: multiIds.length ? multiIds.includes(m.id) : selectedId === m.id,
                 select: () => {
                   if (!multiIds.includes(m.id)) multiIds = []
@@ -866,6 +868,7 @@
         bind:etymology={m.etymology}
         {project}
         ownerId={m.id}
+        languageId={m.languageId}
         ownerForm={m.form}
         {glossLangs}
         onchange={() => projectState.touch()}

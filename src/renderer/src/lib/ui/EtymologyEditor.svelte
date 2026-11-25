@@ -3,8 +3,8 @@
    * 词源编辑器：词条与语素共用。
    * 链条读作「来源 > 中间态… > 本身」，选定类别后来源框会给出对应的选择器。
    */
-  import { t, pickText } from '$lib/i18n/index.svelte'
-  import { morphemeLabel, looseKey } from '$lib/core/etymology'
+  import { t } from '$lib/i18n/index.svelte'
+  import { morphemeLabel } from '$lib/core/etymology'
   import { newId } from '$lib/core/factory'
   import {
     ETYMOLOGY_TYPES,
@@ -13,6 +13,7 @@
     type Id,
     type Project
   } from '$lib/core/model'
+  import ReferencePicker from './ReferencePicker.svelte'
   import { Plus, X, ArrowRight } from '@lucide/svelte'
 
   let {
@@ -20,6 +21,7 @@
     project,
     ownerId,
     ownerForm,
+    languageId,
     glossLangs = [],
     onchange
   }: {
@@ -27,6 +29,7 @@
     project: Project
     ownerId: Id
     ownerForm: string
+    languageId: Id
     glossLangs?: string[]
     onchange: () => void
   } = $props()
@@ -43,75 +46,10 @@
     if (s.kind === 'lexeme') return project.lexemes.find((m) => m.id === s.id)?.lemma ?? ''
     return s.form
   }
-  /** 正在挑来源的那一条（按序号），以及搜索词 */
-  let picking = $state<number | null>(null)
-  let query = $state('')
-  const matches = $derived.by(() => {
-    if (picking === null) return []
-    const src = etymology.sources[picking]
-    if (!src || src.kind === 'external') return []
-    const q = query.trim().toLowerCase()
-    const ignores = new Map(project.languages.map((l) => [l.id, l.matchIgnore ?? '']))
-    const queryKeys = new Map<string, string>()
-    /** 忽略大小写、附加符和那门语言设置的忽略字符再比；查询全是被忽略的字符时不算命中 */
-    const looseHit = (text: string, languageId: string): boolean => {
-      let k = queryKeys.get(languageId)
-      if (k === undefined) {
-        k = looseKey(q, ignores.get(languageId) ?? '')
-        queryKeys.set(languageId, k)
-      }
-      return k.length > 0 && looseKey(text, ignores.get(languageId) ?? '').includes(k)
-    }
-    if (src.kind === 'morpheme') {
-      const all = project.morphemes.filter((m) => m.id !== ownerId)
-      const hit = q
-        ? all.filter(
-            (m) =>
-              morphemeLabel(m).toLowerCase().includes(q) ||
-              // 模糊：H1ANG 用 hang 也能搜到，长音符、成音节符号不用打
-              looseHit(morphemeLabel(m), m.languageId) ||
-              m.form2.toLowerCase().includes(q) ||
-              m.gloss.toLowerCase().includes(q) ||
-              // 也能按「环缀」「后缀」这类类型名搜
-              t(`morphemes.types.${m.type}`).includes(q) ||
-              m.tags.some((x) => x.toLowerCase().includes(q)) ||
-              Object.values(m.meaning).some((v) => v.toLowerCase().includes(q))
-          )
-        : all
-      return hit.slice(0, 30).map((m) => ({
-        id: m.id,
-        label: morphemeLabel(m),
-        tag: t(`morphemes.types.${m.type}`),
-        note: m.gloss || pickText(m.meaning, glossLangs)
-      }))
-    }
-    const all = project.lexemes.filter((l) => l.id !== ownerId)
-    const hit = q
-      ? all.filter(
-          (l) =>
-            l.lemma.toLowerCase().includes(q) ||
-            looseHit(l.lemma, l.languageId) ||
-            l.senses.some((se) =>
-              Object.values(se.definition).some((d) => d.toLowerCase().includes(q))
-            )
-        )
-      : all
-    return hit.slice(0, 30).map((l) => ({
-      id: l.id,
-      label: l.lemma,
-      tag: '',
-      note: pickText(l.senses[0]?.definition, glossLangs)
-    }))
-  })
-  function startPick(i: number): void {
-    picking = picking === i ? null : i
-    query = ''
-  }
   function choose(i: number, id: Id): void {
     const src = etymology.sources[i]
     if (!src || src.kind === 'external') return
     src.id = id
-    picking = null
     syncRelations()
     onchange()
   }
@@ -215,37 +153,19 @@
       {:else}
         <span class="badge">{t(`lexicon.sourceKinds.${s.kind}`)}</span>
         {#if s.kind === 'morpheme' && star}<span class="star">*</span>{/if}
-        <button
-          class="input data grow pick"
-          class:empty={!sourceText(s)}
-          onclick={() => startPick(i)}
-          >{sourceText(s) ||
-            (s.kind === 'morpheme' ? t('lexicon.pickMorpheme') : t('lexicon.pickLexeme'))}</button
-        >
+        <ReferencePicker
+          {project}
+          {languageId}
+          kind={s.kind}
+          excludeId={ownerId}
+          {glossLangs}
+          selected={sourceText(s)}
+          placeholder={s.kind === 'morpheme' ? t('lexicon.pickMorpheme') : t('lexicon.pickLexeme')}
+          onpick={(id) => choose(i, id)}
+        />
       {/if}
       <button class="btn ghost icon sm" onclick={() => removeSource(i)}><X size={14} /></button>
     </div>
-    {#if picking === i}
-      <div class="picker card">
-        <input
-          class="input"
-          placeholder={t('lexicon.searchSource')}
-          bind:value={query}
-          onkeydown={(e) => e.key === 'Escape' && (picking = null)}
-        />
-        <div class="hits">
-          {#each matches as m (m.id)}
-            <button class="hit" onclick={() => choose(i, m.id)}>
-              <span class="data">{m.label}</span>
-              {#if m.tag}<span class="badge">{m.tag}</span>{/if}
-              <span class="small muted grow note">{m.note}</span>
-            </button>
-          {:else}
-            <span class="small muted pad">{t('common.noResults')}</span>
-          {/each}
-        </div>
-      </div>
-    {/if}
   {/each}
 
   <div class="row wrap">
@@ -344,49 +264,6 @@
   }
   .star {
     color: var(--text-3);
-  }
-  .pick {
-    text-align: start;
-    cursor: pointer;
-  }
-  .pick.empty {
-    color: var(--text-3);
-  }
-  .picker {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 6px;
-    margin: -2px 0 4px;
-  }
-  .hits {
-    display: flex;
-    flex-direction: column;
-    max-height: 200px;
-    overflow: auto;
-  }
-  .hit {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    padding: 3px 6px;
-    border: 0;
-    background: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    text-align: start;
-    color: inherit;
-  }
-  .hit:hover {
-    background: var(--bg-hover);
-  }
-  .hit .note {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .pad {
-    padding: 4px 6px;
   }
   .wrap {
     flex-wrap: wrap;

@@ -6,7 +6,7 @@
  * 命中的同时把它在原文里的位置也算出来（界面标出来用）；位置定不下来时宁可不给，也不瞎标。
  */
 import type { Analysis, Id, LocalizedText, Lexeme, Project, Sentence } from './model'
-import { documentTextLines } from './documentFormat'
+import { documentExcerpts, highlightedExcerpt } from './documentExcerpts'
 import { canonicalG } from '$lib/ipa/equivalence'
 
 /** 默认按释义语言的顺序挑译文；界面里传 i18n 的 pickText（界面语言优先） */
@@ -29,10 +29,14 @@ export interface ExampleHit {
   text: string
   /** 译文或说明 */
   translation: string
+  /** 完整译文供可选多语言显示；translation保留原单行搜索／旧调用方。 */
+  translations?: LocalizedText
   /** 出处：文档标题、短语分类等 */
   where: string
   /** 这个词在 text 里的位置，可能有好几处；定不下来时是空的 */
   spans: ExampleSpan[]
+  /** 已处理过标记和高亮的安全文档摘录。 */
+  excerptHtml?: string
 }
 
 const PUNCT =
@@ -180,6 +184,7 @@ export function findExamples(
       id: s.id,
       text: s.text,
       translation: pickText(s.translation, glossLangs),
+      translations: s.translation,
       where: s.source,
       spans
     })
@@ -195,6 +200,7 @@ export function findExamples(
       id: p.id,
       text: p.text,
       translation: pickText(p.translation, glossLangs),
+      translations: p.translation,
       where: p.category,
       spans: spans ?? []
     })
@@ -202,11 +208,19 @@ export function findExamples(
   }
   for (const d of project.docs) {
     if (d.languageId && d.languageId !== lexeme.languageId) continue
-    for (const raw of documentTextLines(d)) {
-      const line = raw.trim()
+    for (const block of documentExcerpts(d)) {
+      const line = block.text
       const spans = textSpans(line, forms)
       if (!spans) continue
-      push({ kind: 'doc', id: d.id, text: line, translation: '', where: d.title, spans })
+      push({
+        kind: 'doc',
+        id: d.id,
+        text: line,
+        translation: '',
+        where: d.title,
+        spans,
+        excerptHtml: highlightedExcerpt(block, spans)
+      })
       if (done()) return out
     }
   }

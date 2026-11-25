@@ -14,6 +14,7 @@ import {
 } from './model'
 import { createDoc, createEtymology, createProject, newId } from './factory'
 import { splitRegisters } from './register'
+import { normalizeDisplayLanguages } from './displayLanguages'
 
 export const PROJECT_EXTENSION = '.laim.json'
 
@@ -116,6 +117,30 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
     if (!Array.isArray(merged[key])) (merged as unknown as Record<string, unknown>)[key] = []
   }
   if (!merged.settings.imageSize) merged.settings.imageSize = { width: 320, height: 240 }
+  for (const key of ['definitionDisplay', 'translationDisplay'] as const) {
+    if (merged.settings[key] === undefined) continue
+    const selection = normalizeDisplayLanguages(merged.settings[key])
+    if (selection) merged.settings[key] = selection
+    else delete merged.settings[key]
+  }
+  if (merged.corpusFolders !== undefined) {
+    const seen = new Set<string>()
+    merged.corpusFolders = Array.isArray(merged.corpusFolders)
+      ? merged.corpusFolders.filter((folder) => {
+          if (
+            !folder ||
+            typeof folder.id !== 'string' ||
+            !folder.id ||
+            seen.has(folder.id) ||
+            typeof folder.languageId !== 'string' ||
+            typeof folder.name !== 'string'
+          )
+            return false
+          seen.add(folder.id)
+          return true
+        })
+      : []
+  }
   // 检视器模块（0.7.3 起）：缺的设置补上默认值
   for (const f of merged.customFields) {
     if (!f.name || typeof f.name !== 'object') f.name = {}
@@ -219,7 +244,9 @@ export function projectToFolder(p: Project): Record<string, string> {
       schemaVersion: p.schemaVersion,
       meta: p.meta,
       settings: p.settings,
-      ...(p.morphemeSlots ? { morphemeSlots: p.morphemeSlots } : {})
+      ...(p.glyphEditor ? { glyphEditor: p.glyphEditor } : {}),
+      ...(p.morphemeSlots ? { morphemeSlots: p.morphemeSlots } : {}),
+      ...(p.corpusFolders ? { corpusFolders: p.corpusFolders } : {})
     }),
     'languages.json': j(p.languages),
     'rule-sets.json': j(p.ruleSets.map((r) => ({ ...r, text: undefined }))),
@@ -280,7 +307,9 @@ export function projectFromFolder(files: Record<string, string>): Project {
     schemaVersion: number
     meta: Project['meta']
     settings: Project['settings']
+    glyphEditor?: Project['glyphEditor']
     morphemeSlots?: Project['morphemeSlots']
+    corpusFolders?: Project['corpusFolders']
   }>('project.json', {
     schemaVersion: SCHEMA_VERSION,
     meta: undefined as never,
@@ -300,7 +329,9 @@ export function projectFromFolder(files: Record<string, string>): Project {
     schemaVersion: head.schemaVersion,
     meta: head.meta,
     settings: head.settings,
+    ...(head.glyphEditor ? { glyphEditor: head.glyphEditor } : {}),
     ...(head.morphemeSlots ? { morphemeSlots: head.morphemeSlots } : {}),
+    ...(head.corpusFolders ? { corpusFolders: head.corpusFolders } : {}),
     languages: read('languages.json', []),
     ruleSets,
     categories: read('categories.json', []),

@@ -12,6 +12,18 @@
   import { GUIDES } from '$lib/script/drawnFont'
   import { drawingFromFont } from '$lib/script/fontBuild'
   import { eraseDrawing } from '$lib/script/glyphEraser'
+  import GlyphEditorPanel from './GlyphEditorPanel.svelte'
+  import {
+    convertEditorSegment,
+    copyEditorDrawing,
+    editorBezierContour,
+    normalizeEditorSettings,
+    snapEditorPoint,
+    splitEditorSegment,
+    type GlyphComponent,
+    type GlyphEditorProject,
+    type GlyphEditorSettings
+  } from '$lib/script/glyphEditor'
   import {
     contourOutline,
     contourSvg,
@@ -80,7 +92,7 @@
     s: number[]
     c: number[]
   }
-  type Tool = 'pen' | 'shape' | 'select' | 'node' | 'erase'
+  type Tool = 'pen' | 'bezier' | 'shape' | 'select' | 'node' | 'erase'
   type ShapeKind = 'rect' | 'ellipse' | 'polygon' | 'line'
   /** 节点：轮廓第 cmd 条命令的第 slot 个点（0 终点、1 第一个控制点、2 第二个控制点），或笔画的第 pt 个点 */
   type NodeRef =
@@ -91,6 +103,12 @@
     title,
     fontData = null,
     char = '',
+    library = { presets: [] },
+    components = [],
+    componentMode = false,
+    componentName = '',
+    onlibrary = () => {},
+    onsavecomponent = () => {},
     onsave,
     oncancel
   }: {
@@ -100,7 +118,13 @@
     fontData?: ArrayBuffer | null
     /** 这个字形的字符，从字体里按它找字 */
     char?: string
-    onsave: (d: GlyphDrawing) => void
+    library?: GlyphEditorProject
+    components?: GlyphComponent[]
+    componentMode?: boolean
+    componentName?: string
+    onlibrary?: (library: GlyphEditorProject) => void
+    onsavecomponent?: (name: string, drawing: GlyphDrawing) => void
+    onsave: (d: GlyphDrawing, name?: string) => void
     oncancel: () => void
   } = $props()
 
@@ -108,6 +132,12 @@
   const STAB_KEY = 'qianyuji.glyphPad.stabilizer'
   /** 打开时的样子：画板里改的是一份拷贝，点「保存」才写回字形 */
   const initial = untrack(() => drawing)
+  const preset = untrack(() => library.presets.find((p) => p.id === library.defaultPresetId))
+  const initialSettings = normalizeEditorSettings(preset?.settings)
+  let editor = $state(initialSettings)
+  let partName = $state(untrack(() => componentName))
+  let curveNodes = $state<{ point: Pt; handle: Pt }[]>([])
+  const gridId = $props.id()
   let strokes = $state<Stroke[]>(
     (initial?.strokes ?? []).map((s) => ({
       width: s.width,
@@ -117,13 +147,15 @@
   let contours = $state<GlyphContour[]>(
     (initial?.contours ?? []).map((c) => ({ cmds: c.cmds.map((x) => [...x] as PathCmd) }))
   )
-  let advance = $state(initial?.advance ?? 1000)
-  let width = $state(initial?.strokes.at(-1)?.width ?? 60)
+  let advance = $state(initial?.advance ?? initialSettings.advance)
+  let width = $state(
+    preset ? initialSettings.width : (initial?.strokes.at(-1)?.width ?? initialSettings.width)
+  )
   let eraserSize = $state(60)
   let eraserCursor = $state.raw<Pt | null>(null)
   let inkLayer: SVGGElement
   let eraserTrail = $state.raw<SVGPolylineElement>()
-  const eraseMaskId = $props.id()
+  const eraseMaskId = `${gridId}-erase`
   let tool = $state<Tool>('pen')
   let shapeKind = $state<ShapeKind>('rect')
   let sides = $state(6)
@@ -180,6 +212,65 @@
     selC = []
     nodeTarget = null
     selNode = null
+  }
+  function changeEditor(next: GlyphEditorSettings): void {
+    if (advance !== next.advance) {
+      remember()
+      advance = next.advance
+    }
+    width = next.width
+    editor = normalizeEditorSettings(next)
+  }
+  function currentSettings(): GlyphEditorSettings {
+    return { ...editor, advance, width }
+  }
+  function componentDrawing(): GlyphDrawing {
+    const idx = hasSel
+      ? { s: selS, c: selC }
+      : { s: strokes.map((_, i) => i), c: contours.map((_, i) => i) }
+    return copyEditorDrawing({
+      advance,
+      strokes: idx.s.map((i) => strokes[i]),
+      contours: idx.c.map((i) => contours[i])
+    })
+  }
+  function saveComponent(): void {
+    if (empty || !partName.trim()) return
+    onsavecomponent(partName.trim(), componentDrawing())
+    msg = t('glyphEditor.componentSaved')
+  }
+  function insertComponent(part: GlyphComponent): void {
+    const d = copyEditorDrawing(part.drawing)
+    if (!d.strokes.length && !d.contours?.length) return
+    remember()
+    selS = d.strokes.map((_, i) => strokes.length + i)
+    selC = (d.contours ?? []).map((_, i) => contours.length + i)
+    strokes = [...strokes, ...d.strokes]
+    contours = [...contours, ...(d.contours ?? [])]
+    tool = 'select'
+    nodeTarget = null
+    selNode = null
+  }
+  function editSegment(kind: 'L' | 'Q' | 'C' | 'split'): void {
+    if (selNode?.kind !== 'c') return
+    const { i, cmd } = selNode
+    const c = contours[i]
+    const next = kind === 'split' ? splitEditorSegment(c, cmd) : convertEditorSegment(c, cmd, kind)
+    if (next === c) return
+    remember()
+    contours = contours.map((c, k) => (k === i ? next : c))
+    selNode = { kind: 'c', i, cmd, slot: 0 }
+  }
+  function finishCurve(): void {
+    const c = editorBezierContour($state.snapshot(curveNodes))
+    if (!c) return
+    remember()
+    const i = contours.length
+    contours = [...contours, c]
+    curveNodes = []
+    tool = 'node'
+    nodeTarget = { kind: 'c', i }
+    selNode = { kind: 'c', i, cmd: 1, slot: 0 }
   }
   function restore(s: Snap): void {
     strokes = s.strokes
@@ -243,6 +334,7 @@
   )
   /** 一个屏幕像素合多少字体单位（手柄大小、命中范围、防抖绳长都按它算） */
   let upp = $state(1.4)
+  const gridStep = $derived(editor.step * Math.max(1, Math.ceil((12 * upp) / editor.step)))
   function measure(): void {
     const m = svg?.getScreenCTM()
     if (m && m.a) upp = 1 / m.a
@@ -263,6 +355,9 @@
   function toFont(e: { clientX: number; clientY: number }): Pt {
     const [x, y] = svgPoint(e.clientX, e.clientY)
     return [Math.round(x * 10) / 10, Math.round(-y * 10) / 10]
+  }
+  function editPoint(e: PointerEvent): Pt {
+    return snapEditorPoint(toFont(e), editor, e.altKey)
   }
   function onWheel(e: WheelEvent): void {
     e.preventDefault()
@@ -507,11 +602,12 @@
   // ───── 指针 ─────
   type Drag =
     | { kind: 'pen' }
+    | { kind: 'bezier'; index: number }
     | { kind: 'shape'; a: Pt; b: Pt; shift: boolean }
     | { kind: 'band'; a: Pt; b: Pt; keep: Idx }
     | { kind: 'move'; from: Pt; base: Snap; idx: Idx }
     | { kind: 'scale'; base: Snap; idx: Idx; ink: Box; geom: Box }
-    | { kind: 'node'; from: Pt; base: Snap; ref: NodeRef }
+    | { kind: 'node'; from: Pt; point: Pt; base: Snap; ref: NodeRef }
     | { kind: 'advance' }
     | { kind: 'pan'; from: Pt; center: Pt }
     | {
@@ -603,10 +699,14 @@
       return
     }
     if (e.button !== 0) return
-    const p = toFont(e)
+    const p = tool === 'erase' ? toFont(e) : editPoint(e)
     msg = ''
     grab(e)
-    if (tool === 'pen') {
+    if (tool === 'bezier') {
+      const index = curveNodes.length
+      curveNodes = [...curveNodes, { point: p, handle: p }]
+      drag = { kind: 'bezier', index }
+    } else if (tool === 'pen') {
       pointer = p
       ink = p
       stab = createStabilizer(strength, p, upp)
@@ -636,14 +736,16 @@
         }
       }
     } else if (tool === 'node') {
-      const n = hitNode(p)
+      const raw = toFont(e)
+      const n = hitNode(raw)
       if (n) {
         selNode = n
         pending = snap()
-        drag = { kind: 'node', from: p, base: snap(), ref: n }
+        const node = nodes.find((v) => sameRef(n, v.ref))!
+        drag = { kind: 'node', from: raw, point: [node.x, node.y], base: snap(), ref: n }
         return
       }
-      nodeTarget = hitItem(p)
+      nodeTarget = hitItem(raw)
       selNode = null
     } else {
       const hit = hitItem(p)
@@ -715,12 +817,14 @@
       ]
       return
     }
-    const p = toFont(e)
-    if (d.kind === 'pen') {
+    const p = d.kind === 'erase' ? toFont(e) : editPoint(e)
+    if (d.kind === 'bezier') {
+      curveNodes = curveNodes.map((n, i) => (i === d.index ? { ...n, handle: p } : n))
+    } else if (d.kind === 'pen') {
       // 回报率高的笔一帧里有好几个点，一个个喂给防抖器
       const evs = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : []
       for (const ev of evs.length ? evs : [e]) {
-        pointer = toFont(ev)
+        pointer = snapEditorPoint(toFont(ev), editor, e.altKey)
         feed(pointer)
       }
     } else if (d.kind === 'advance') {
@@ -753,8 +857,14 @@
       changed()
       mapped(d.base, d.idx, scaleAbout(d.geom.x0, d.geom.y0, sx, sy))
     } else if (d.kind === 'node') {
-      const dx = p[0] - d.from[0]
-      const dy = p[1] - d.from[1]
+      const raw = toFont(e)
+      const next = snapEditorPoint(
+        [d.point[0] + raw[0] - d.from[0], d.point[1] + raw[1] - d.from[1]],
+        editor,
+        e.altKey
+      )
+      const dx = next[0] - d.point[0]
+      const dy = next[1] - d.point[1]
       if (!dx && !dy) return
       changed()
       dragNode(d.base, d.ref, dx, dy)
@@ -821,7 +931,9 @@
       cancelAnimationFrame(raf)
       // 抬笔：笔尖收绳追到指针，再平滑、抽稀
       for (const q of stab.finish(pointer)) current.points.push(q)
-      let done = finishStroke($state.snapshot(current.points) as Pt[], strength)
+      let done = finishStroke($state.snapshot(current.points) as Pt[], strength).map((p) =>
+        snapEditorPoint(p, editor, e.altKey)
+      )
       const [x0, y0] = done[0]
       if (done.every((q) => Math.hypot(q[0] - x0, q[1] - y0) < 1)) done = [done[0]]
       remember()
@@ -960,6 +1072,24 @@
   }
 
   function onKey(e: KeyboardEvent): void {
+    if (e.key === 'Tab') {
+      const dialog = svg?.closest('[role="dialog"]')
+      const focusable = Array.from(
+        dialog?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled),input:not(:disabled),select:not(:disabled),summary,[tabindex="0"]'
+        ) ?? []
+      ).filter((el) => el.getClientRects().length)
+      const at = focusable.indexOf(document.activeElement as HTMLElement)
+      if (
+        focusable.length &&
+        ((e.shiftKey && at <= 0) || (!e.shiftKey && (at < 0 || at === focusable.length - 1)))
+      ) {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        focusable[e.shiftKey ? focusable.length - 1 : 0].focus()
+      }
+      return
+    }
     const el = e.target as HTMLElement | null
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT'))
       return
@@ -980,10 +1110,20 @@
     }
     const mod = e.ctrlKey || e.metaKey
     const key = e.key.toLowerCase()
-    if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (curveNodes.length && (e.key === 'Escape' || e.key === 'Enter')) {
+      stop()
+      if (e.key === 'Enter') finishCurve()
+      else {
+        curveNodes = []
+        drag = null
+      }
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
       stop()
       if (tool === 'node' && selNode) deleteNode(selNode)
       else deleteSel()
+    } else if (mod && key === 'z' && curveNodes.length) {
+      stop()
+      curveNodes = curveNodes.slice(0, -1)
     } else if (mod && key === 'z') {
       stop()
       if (e.shiftKey) redo()
@@ -1011,6 +1151,8 @@
   }
   // 键盘在捕获阶段先接：Ctrl+Z 撤销的是画板里的东西，不能让它漏到整个项目的撤销上
   onMount(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    ;(svg?.closest('[role="dialog"]') as HTMLElement | null)?.focus()
     window.addEventListener('keydown', onKey, true)
     // 还没画过、内嵌字体里有这个字：打开就把字体里的样子载进来
     if (!initial && canLoad) loadFromFont(true)
@@ -1018,6 +1160,7 @@
     return () => {
       window.removeEventListener('keydown', onKey, true)
       cancelAnimationFrame(raf)
+      if (opener?.isConnected) opener.focus()
     }
   })
   function save(): void {
@@ -1035,7 +1178,7 @@
       .filter((c) => c.cmds.length > 2)
       .map((c) => roundContour(c))
     if (cs.length) out.contours = cs
-    onsave(out)
+    onsave(out, partName.trim())
   }
 
   const pts = (s: Stroke): string => s.points.map((p) => `${p[0]},${-p[1]}`).join(' ')
@@ -1049,6 +1192,7 @@
   ]
   const TOOLS: { id: Tool; icon: typeof PenLine }[] = [
     { id: 'pen', icon: PenLine },
+    { id: 'bezier', icon: Spline },
     { id: 'shape', icon: Shapes },
     { id: 'select', icon: MousePointer2 },
     { id: 'node', icon: Spline },
@@ -1060,6 +1204,12 @@
     { id: 'polygon', icon: Hexagon },
     { id: 'line', icon: Slash }
   ]
+  const segments = $derived([
+    { kind: 'L' as const, label: t('glyphEditor.segmentL') },
+    { kind: 'Q' as const, label: t('glyphEditor.segmentQ') },
+    { kind: 'C' as const, label: t('glyphEditor.segmentC') },
+    { kind: 'split' as const, label: t('glyphEditor.segmentsplit') }
+  ])
   const boxW = $derived(targetBox ? Math.round(targetBox.x1 - targetBox.x0) : 0)
   const boxH = $derived(targetBox ? Math.round(targetBox.y1 - targetBox.y0) : 0)
   const empty = $derived(!strokes.length && !contours.length)
@@ -1087,12 +1237,17 @@
       {#each TOOLS as tl (tl.id)}
         <button
           class:active={tool === tl.id}
-          title={t(`glyphPad.${tl.id}Hint`)}
+          data-glyph-tool={tl.id}
+          title={tl.id === 'bezier' ? t('glyphEditor.bezierHint') : t(`glyphPad.${tl.id}Hint`)}
           onclick={() => {
             tool = tl.id
             eraserCursor = null
             selNode = null
-          }}><tl.icon size={14} />{t(`glyphPad.${tl.id}`)}</button
+            curveNodes = []
+          }}
+          ><tl.icon size={14} />{tl.id === 'bezier'
+            ? t('glyphEditor.bezier')
+            : t(`glyphPad.${tl.id}`)}</button
         >
       {/each}
     </div>
@@ -1138,7 +1293,15 @@
     {:else}
       <label class="row small" title={t('glyphPad.widthHint')}
         >{t('glyphPad.width')}
-        <input type="range" min="10" max="220" step="5" bind:value={width} use:rangeFill={width} />
+        <input
+          data-pen-width
+          type="range"
+          min="10"
+          max="220"
+          step="5"
+          bind:value={width}
+          use:rangeFill={width}
+        />
         <span class="num">{width}</span></label
       >
     {/if}
@@ -1159,6 +1322,7 @@
     <label class="row small"
       >{t('glyphPad.advance')}
       <input
+        data-glyph-advance
         class="input sm num-in"
         type="number"
         min="100"
@@ -1191,6 +1355,38 @@
       ><Trash2 size={14} /></button
     >
   </div>
+  <GlyphEditorPanel
+    settings={currentSettings()}
+    onchange={changeEditor}
+    {library}
+    {onlibrary}
+    {components}
+    oninsert={insertComponent}
+  />
+  {#if tool === 'bezier'}
+    <div class="row wrap small">
+      <span class="grow muted">{t('glyphEditor.bezierHint')}</span>
+      <button
+        class="btn sm"
+        data-finish-curve
+        disabled={curveNodes.length < 2}
+        onclick={finishCurve}>{t('glyphEditor.finishCurve')}</button
+      >
+      <button class="btn ghost sm" disabled={!curveNodes.length} onclick={() => (curveNodes = [])}
+        >{t('common.cancel')}</button
+      >
+    </div>
+  {:else if tool === 'node'}
+    <div class="row wrap small">
+      <span class="muted">{t('glyphEditor.segment')}</span>
+      {#each segments as segment (segment.kind)}<button
+          class="btn sm"
+          disabled={selNode?.kind !== 'c' || selNode.cmd === 0}
+          data-segment={segment.kind}
+          onclick={() => editSegment(segment.kind)}>{segment.label}</button
+        >{/each}
+    </div>
+  {/if}
   <div class="row actions">
     <span class="small muted target"
       >{hasSel
@@ -1276,7 +1472,7 @@
   <svg
     bind:this={svg}
     class="canvas"
-    class:pen={tool === 'pen' || tool === 'shape'}
+    class:pen={tool === 'pen' || tool === 'bezier' || tool === 'shape'}
     class:erase={tool === 'erase'}
     class:panning={drag?.kind === 'pan'}
     {viewBox}
@@ -1292,6 +1488,23 @@
     onauxclick={(e) => e.preventDefault()}
     ondragstart={noDrag}
   >
+    <defs>
+      <pattern
+        id={gridId}
+        patternUnits="userSpaceOnUse"
+        x={editor.originX}
+        y={-editor.originY}
+        width={gridStep}
+        height={gridStep}
+      >
+        <path
+          d={`M ${gridStep} 0 H 0 V ${gridStep}`}
+          fill="none"
+          stroke="var(--border)"
+          stroke-width={upp}
+        />
+      </pattern>
+    </defs>
     <!-- 字身框、参考线 -->
     <rect
       class="body"
@@ -1300,18 +1513,52 @@
       width={advance}
       height={GUIDES.ascender - GUIDES.descender}
     />
-    {#each guideLines as g (g.key)}
-      <line
-        class="guide"
-        class:base={g.key === 'baseline'}
-        x1={-MARGIN * 6}
-        x2={advance + MARGIN * 6}
-        y1={-g.y}
-        y2={-g.y}
-        vector-effect="non-scaling-stroke"
-      />
-      <text class="guide-label" x={-MARGIN + 8} y={-g.y - 8}>{t(`glyphPad.guides.${g.key}`)}</text>
-    {/each}
+    {#if editor.showGrid}<rect
+        data-glyph-grid
+        x={-5000}
+        y={-5000}
+        width="10000"
+        height="10000"
+        fill={`url(#${gridId})`}
+        pointer-events="none"
+      />{/if}
+    {#if editor.showGuides}
+      {#each guideLines as g (g.key)}
+        <line
+          class="guide"
+          class:base={g.key === 'baseline'}
+          x1={-MARGIN * 6}
+          x2={advance + MARGIN * 6}
+          y1={-g.y}
+          y2={-g.y}
+          vector-effect="non-scaling-stroke"
+        />
+        <text class="guide-label" x={-MARGIN + 8} y={-g.y - 8}>{t(`glyphPad.guides.${g.key}`)}</text
+        >
+      {/each}
+      {#each editor.guides as g (g.id)}
+        <line
+          data-custom-guide={g.id}
+          class="custom-guide"
+          x1={g.axis === 'x' ? g.position : -5000}
+          x2={g.axis === 'x' ? g.position : 5000}
+          y1={g.axis === 'y' ? -g.position : -5000}
+          y2={g.axis === 'y' ? -g.position : 5000}
+          vector-effect="non-scaling-stroke"
+        />
+        <text
+          class="guide-label"
+          x={g.axis === 'x' ? g.position + 8 : -MARGIN + 8}
+          y={g.axis === 'y' ? -g.position - 8 : -top + 45}>{g.name || g.position}</text
+        >
+      {/each}
+    {/if}
+    {#if editor.showGrid || editor.snap}<g class="grid-origin" pointer-events="none"
+        ><path
+          d={`M ${editor.originX - 12 * upp} ${-editor.originY} h ${24 * upp} M ${editor.originX} ${-editor.originY - 12 * upp} v ${24 * upp}`}
+          vector-effect="non-scaling-stroke"
+        /></g
+      >{/if}
     {#each [0, advance] as sx (sx)}
       <line
         class="side"
@@ -1500,6 +1747,39 @@
         {/if}
       {/each}
     {/if}
+    {#if curveNodes.length}
+      {@const preview = editorBezierContour(curveNodes)}
+      {#if preview}<path
+          data-bezier-preview
+          d={contourSvg(preview)}
+          class="preview"
+          vector-effect="non-scaling-stroke"
+        />{/if}
+      {#each curveNodes as node, i (i)}
+        <line
+          class="handle-line"
+          x1={2 * node.point[0] - node.handle[0]}
+          y1={-(2 * node.point[1] - node.handle[1])}
+          x2={node.handle[0]}
+          y2={-node.handle[1]}
+          vector-effect="non-scaling-stroke"
+        />
+        <circle
+          class="node"
+          cx={node.point[0]}
+          cy={-node.point[1]}
+          r={hs * 0.8}
+          vector-effect="non-scaling-stroke"
+        />
+        <circle
+          class="node ctl"
+          cx={node.handle[0]}
+          cy={-node.handle[1]}
+          r={hs * 0.6}
+          vector-effect="non-scaling-stroke"
+        />
+      {/each}
+    {/if}
     {#if tool === 'erase' && eraserCursor && drag?.kind !== 'pan'}
       <g data-eraser-cursor pointer-events="none" fill="none">
         <circle
@@ -1525,9 +1805,24 @@
     {#if msg}<span class="msg">{msg}</span>{/if}{t('glyphPad.hint')}
   </p>
   <div class="row foot">
+    <input
+      class="input sm component-name"
+      placeholder={t('glyphEditor.componentName')}
+      aria-label={t('glyphEditor.componentName')}
+      bind:value={partName}
+      data-component-name
+    />
+    <button
+      class="btn sm"
+      data-save-component
+      disabled={empty || !partName.trim() || curveNodes.length > 0}
+      onclick={saveComponent}>{t('glyphEditor.saveComponent')}</button
+    >
     <span class="grow"></span>
     <button class="btn sm" onclick={oncancel}>{t('common.cancel')}</button>
-    <button class="btn sm primary" onclick={save}>{t('glyphPad.save')}</button>
+    <button class="btn sm primary" data-save-drawing disabled={curveNodes.length > 0} onclick={save}
+      >{componentMode ? t('glyphEditor.saveComponentChanges') : t('glyphPad.save')}</button
+    >
   </div>
 </div>
 
@@ -1548,6 +1843,7 @@
     max-height: 96vh;
     display: flex;
     flex-direction: column;
+    overflow: auto;
     gap: 8px;
     padding: 14px 16px;
     box-shadow: var(--shadow-lg);
@@ -1734,5 +2030,20 @@
   }
   .foot {
     gap: 6px;
+    flex-wrap: wrap;
+  }
+  .component-name {
+    width: 160px;
+    min-width: 80px;
+  }
+  .custom-guide {
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    stroke-dasharray: 3 5;
+    pointer-events: none;
+  }
+  .grid-origin {
+    stroke: var(--accent);
+    stroke-width: 2;
   }
 </style>

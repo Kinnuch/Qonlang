@@ -39,7 +39,18 @@ export interface LexemeGraphModel {
   nodes: ReadonlyMap<string, GNode>
   linksOf: (key: string) => GraphLink[]
   /** 遍历器按需生成同源 / 同义边，避免预先构建大群的完全图。 */
-  neighborsOf: (key: string) => Iterable<GraphLink>
+  neighborsOf: (key: string, disabledSemantics?: ReadonlySet<string>) => Iterable<GraphLink>
+  semantics?: ReadonlyMap<string, GraphLabel>
+}
+export const GRAPH_MAX_NODES = 5000
+export const GRAPH_MAX_EDGES = 20000
+/** 正反方向共用同一语义，来源的复合／派生类型与自定义标注分别保留。 */
+export function graphEdgeSemantic(edge: Pick<GraphEdge, 'type' | 'label'>): string {
+  return JSON.stringify([
+    edge.type,
+    edge.label.kind,
+    edge.type === 'stage' ? '' : (edge.label.value ?? '')
+  ])
 }
 export interface GraphCollectOptions {
   depth?: number
@@ -47,6 +58,7 @@ export interface GraphCollectOptions {
   collapsed?: ReadonlySet<string>
   maxNodes?: number
   maxEdges?: number
+  disabledSemantics?: ReadonlySet<string>
 }
 export interface CollectedGraphNode {
   node: GNode
@@ -213,9 +225,11 @@ export function createLexemeGraph(project: Project, glossLangs: string[]): Lexem
   const resolver = formResolver(project)
   const adjacency = new Map<string, GraphEdge[]>()
   const edges = new Map<string, GraphEdge>()
+  const semantics = new Map<string, GraphLabel>()
   const addEdge = (edge: GraphEdge): void => {
     if (!nodes.has(edge.from) || !nodes.has(edge.to) || edges.has(edge.key)) return
     edges.set(edge.key, edge)
+    semantics.set(graphEdgeSemantic(edge), edge.label)
     for (const key of new Set([edge.from, edge.to])) {
       if (!adjacency.has(key)) adjacency.set(key, [])
       adjacency.get(key)!.push(edge)
@@ -374,9 +388,23 @@ export function createLexemeGraph(project: Project, glossLangs: string[]): Lexem
         yield { key: tuple(type, from, to), from, to, type, directed: false, label: { kind: type } }
       }
   }
-  const neighborsOf = function* (key: string): Iterable<GraphLink> {
+  if ([...origins.values()].some((members) => members.size > 1))
+    semantics.set(graphEdgeSemantic({ type: 'cognate', label: { kind: 'cognate' } }), {
+      kind: 'cognate'
+    })
+  if ([...definitions.values()].some((members) => members.size > 1))
+    semantics.set(graphEdgeSemantic({ type: 'synonym', label: { kind: 'synonym' } }), {
+      kind: 'synonym'
+    })
+  const neighborsOf = function* (key: string, disabled?: ReadonlySet<string>): Iterable<GraphLink> {
     if (!nodes.has(key)) return
     for (const group of GROUPS) {
+      const virtualType = group === 'cognates' ? 'cognate' : group === 'synonyms' ? 'synonym' : null
+      if (
+        virtualType &&
+        disabled?.has(graphEdgeSemantic({ type: virtualType, label: { kind: virtualType } }))
+      )
+        continue
       const list =
         group === 'cognates'
           ? virtual(key, 'cognate')
@@ -384,13 +412,14 @@ export function createLexemeGraph(project: Project, glossLangs: string[]): Lexem
             ? virtual(key, 'synonym')
             : (adjacency.get(key) ?? [])
       for (const edge of list) {
+        if (disabled?.has(graphEdgeSemantic(edge))) continue
         if (groupOf(edge, key) !== group) continue
         const node = nodes.get(edge.from === key ? edge.to : edge.from)!
         yield { node, edge, group, reversed: edge.directed && edge.to === key }
       }
     }
   }
-  return { nodes, neighborsOf, linksOf: (key) => [...neighborsOf(key)] }
+  return { nodes, semantics, neighborsOf, linksOf: (key) => [...neighborsOf(key)] }
 }
 
 /** 真正按最短距离分层；折叠只阻断该分支，其他父节点仍可到达共享节点。 */
@@ -403,9 +432,12 @@ export function collectLexemeGraph(
     value === undefined || !Number.isFinite(value)
       ? fallback
       : Math.max(min, Math.min(max, Math.floor(value)))
-  const maxNodes = budget(options.maxNodes, 300, 1, 1500),
-    maxEdges = budget(options.maxEdges, 1200, 0, 6000),
-    depth = options.depth === Infinity ? 1500 : budget(options.depth, 1, 0, 1500)
+  const maxNodes = budget(options.maxNodes, 1000, 1, GRAPH_MAX_NODES),
+    maxEdges = budget(options.maxEdges, 5000, 0, GRAPH_MAX_EDGES),
+    depth =
+      options.depth === Infinity ? GRAPH_MAX_NODES : budget(options.depth, 1, 0, GRAPH_MAX_NODES)
+  const allowed = (edge: GraphEdge): boolean =>
+    !options.disabledSemantics?.has(graphEdgeSemantic(edge))
   const root = model.nodes.get(centerKey),
     nodes: CollectedGraphNode[] = root ? [{ node: root, depth: 0, parent: null, group: null }] : []
   const byKey = new Map(nodes.map((n) => [n.node.key, n])),
@@ -419,7 +451,8 @@ export function collectLexemeGraph(
       key = current.node.key
     if (options.collapsed?.has(key) || !(current.depth < depth || options.expanded?.has(key)))
       continue
-    for (const link of model.neighborsOf(key)) {
+    for (const link of model.neighborsOf(key, options.disabledSemantics)) {
+      if (!allowed(link.edge)) continue
       if (byKey.has(link.node.key)) continue
       if (nodes.length >= maxNodes || treeEdges.size >= maxEdges) {
         omitted.add(link.node.key)
@@ -441,8 +474,9 @@ export function collectLexemeGraph(
     })),
     edgeKeys = new Set(treeEdgeKeys)
   outer: for (const current of nodes)
-    for (const link of model.neighborsOf(current.node.key)) {
+    for (const link of model.neighborsOf(current.node.key, options.disabledSemantics)) {
       const edge = link.edge
+      if (!allowed(edge)) continue
       if (!byKey.has(link.node.key) || edgeKeys.has(edge.key)) continue
       if (edges.length >= maxEdges) {
         edgeLimitReached = true
@@ -454,7 +488,8 @@ export function collectLexemeGraph(
   const legend: CollectedLexemeGraph['legend'] = []
   if (root) {
     const seen = new Map<GraphGroup, Set<string>>()
-    for (const link of model.neighborsOf(centerKey)) {
+    for (const link of model.neighborsOf(centerKey, options.disabledSemantics)) {
+      if (!allowed(link.edge)) continue
       if (!seen.has(link.group)) seen.set(link.group, new Set())
       seen.get(link.group)!.add(link.node.key)
     }

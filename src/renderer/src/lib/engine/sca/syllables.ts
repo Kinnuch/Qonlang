@@ -19,6 +19,7 @@ import type { WordStress } from './apply'
 
 interface Syllabifier {
   units: Set<string>
+  nuclei: ReadonlySet<string>
   isNucleus: (s: string) => boolean
   onsets: Set<string> | undefined
   maxOnset: number
@@ -72,7 +73,8 @@ function syllabifierOf(program: RuleProgram, caseInsensitive = false): Syllabifi
     return v
   }
   const sy: Syllabifier = {
-    units: matchingSet(sc.units, caseInsensitive),
+    units: matchingSet([...sc.units, ...sc.nuclei], caseInsensitive),
+    nuclei: foldedNuclei,
     isNucleus,
     onsets: sc.onsets.length ? matchingSet(sc.onsets, caseInsensitive) : undefined,
     maxOnset: sc.maxOnset ?? Infinity,

@@ -21,6 +21,8 @@
     GRAPH_GROUP_LIMIT,
     GRAPH_COLOR_FIELDS,
     GRAPH_NODE_KINDS,
+    defaultGraphRelationStyle,
+    type GraphRelationStyle,
     type GraphColorGroup,
     type GraphSettings,
     type GraphColorField,
@@ -32,13 +34,15 @@
     settings,
     onchange,
     collapsed = false,
-    oncollapsed
+    oncollapsed,
+    relations = []
   }: {
     project: Project
     settings: GraphSettings
     onchange: (settings: GraphSettings) => void
     collapsed?: boolean
     oncollapsed: (collapsed: boolean) => void
+    relations?: { key: string; label: string }[]
   } = $props()
   const bodyId = `graph-settings-${newId()}`
   const tags = $derived(
@@ -93,6 +97,15 @@
   }
   function force(key: keyof GraphSettings['forces'], value: number): void {
     emit({ ...settings, forces: { ...settings.forces, [key]: value } })
+  }
+  function relation(key: string, patch: Partial<GraphRelationStyle>): void {
+    emit({
+      ...settings,
+      relations: {
+        ...settings.relations,
+        [key]: { ...defaultGraphRelationStyle(), ...settings.relations[key], ...patch }
+      }
+    })
   }
   function group(id: string, patch: Partial<GraphColorGroup>): void {
     emit({
@@ -230,10 +243,131 @@
             onchange={(e) => emit({ ...settings, crossLinks: e.currentTarget.checked })}
           />{t('graph.crossLinks')}</label
         >
+        {@render slider(
+          'maxNodes',
+          t('graph.maxNodes'),
+          settings.maxNodes,
+          GRAPH_RANGES.maxNodes,
+          (value) => emit({ ...settings, maxNodes: value })
+        )}
+        {@render slider(
+          'maxEdges',
+          t('graph.maxEdges'),
+          settings.maxEdges,
+          GRAPH_RANGES.maxEdges,
+          (value) => emit({ ...settings, maxEdges: value })
+        )}
+        <HelpDot tip={t('graph.budgetHint')} />
       </fieldset>
+      <details data-graph-relations>
+        <summary>{t('graph.relations')}</summary>
+        <fieldset>
+          <div class="row wrap">
+            <button
+              class="btn ghost sm"
+              data-graph-relations-all
+              onclick={() =>
+                emit({
+                  ...settings,
+                  relations: Object.fromEntries(
+                    Object.entries(settings.relations).map(([key, style]) => [
+                      key,
+                      { ...style, enabled: true }
+                    ])
+                  )
+                })}>{t('graph.allRelations')}</button
+            >
+            <button
+              class="btn ghost sm"
+              data-graph-relations-none
+              onclick={() =>
+                emit({
+                  ...settings,
+                  relations: {
+                    ...settings.relations,
+                    ...Object.fromEntries(
+                      relations.map(({ key }) => [
+                        key,
+                        {
+                          ...defaultGraphRelationStyle(),
+                          ...settings.relations[key],
+                          enabled: false
+                        }
+                      ])
+                    )
+                  }
+                })}>{t('graph.noRelations')}</button
+            >
+          </div>
+          <HelpDot tip={t('graph.relationsHint')} />
+          {#each relations as item (item.key)}
+            {@const style = settings.relations[item.key] ?? defaultGraphRelationStyle()}
+            <div class="relation-style" data-graph-relation={item.key}>
+              <label class="check"
+                ><input
+                  type="checkbox"
+                  checked={style.enabled}
+                  data-graph-relation-enabled={item.key}
+                  onchange={(e) => relation(item.key, { enabled: e.currentTarget.checked })}
+                />{item.label}</label
+              >
+              <div class="row">
+                <input
+                  type="number"
+                  class="input relation-width"
+                  min="0.25"
+                  max="5"
+                  step="0.25"
+                  value={style.width}
+                  title={t('graph.edgeWidth')}
+                  aria-label={`${item.label} · ${t('graph.edgeWidth')}`}
+                  data-graph-relation-width={item.key}
+                  onchange={(e) => relation(item.key, { width: e.currentTarget.valueAsNumber })}
+                />
+                <select
+                  class="select"
+                  value={style.style}
+                  aria-label={`${item.label} · ${t('graph.edgeStyle')}`}
+                  data-graph-relation-style={item.key}
+                  onchange={(e) =>
+                    relation(item.key, {
+                      style: e.currentTarget.value as GraphRelationStyle['style']
+                    })}
+                  ><option value="solid">{t('graph.solid')}</option><option value="dashed"
+                    >{t('graph.dashed')}</option
+                  ><option value="dotted">{t('graph.dotted')}</option></select
+                >
+                <input
+                  type="color"
+                  value={style.color ?? themeTextColor}
+                  title={t('graph.color')}
+                  aria-label={`${item.label} · ${t('graph.color')}`}
+                  data-graph-relation-color={item.key}
+                  oninput={(e) => relation(item.key, { color: e.currentTarget.value })}
+                />
+                <button
+                  class="btn ghost icon sm"
+                  title={t('graph.useThemeColor')}
+                  aria-label={`${item.label} · ${t('graph.useThemeColor')}`}
+                  onclick={() => relation(item.key, { color: undefined })}
+                  ><RotateCcw size={13} /></button
+                >
+              </div>
+            </div>
+          {/each}
+        </fieldset>
+      </details>
       <details>
         <summary>{t('graph.appearance')}</summary>
         <fieldset>
+          <label class="check"
+            ><input
+              type="checkbox"
+              data-graph-setting="adaptiveLabels"
+              checked={settings.appearance.adaptiveLabels}
+              onchange={(e) => appearance('adaptiveLabels', e.currentTarget.checked)}
+            />{t('graph.adaptiveLabels')}<HelpDot tip={t('graph.adaptiveLabelsHint')} /></label
+          >
           <label class="field-label"
             >{t('graph.shape')}<select
               class="select"
@@ -462,6 +596,27 @@
 </section>
 
 <style>
+  .relation-style {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 7px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .relation-width {
+    width: 60px;
+  }
+  .relation-style select {
+    min-width: 0;
+    flex: 1;
+  }
+  .relation-style input[type='color'] {
+    width: 30px;
+    height: 28px;
+    padding: 1px;
+    flex: none;
+  }
   .graph-settings {
     position: absolute;
     inset-block-start: 8px;

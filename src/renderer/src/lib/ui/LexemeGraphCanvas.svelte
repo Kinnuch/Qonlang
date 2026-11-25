@@ -1,8 +1,21 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte'
-  import { ZoomIn, ZoomOut, LocateFixed, Maximize, GitCompareArrows } from '@lucide/svelte'
+  import {
+    ZoomIn,
+    ZoomOut,
+    LocateFixed,
+    Maximize,
+    Minimize,
+    Expand,
+    GitCompareArrows
+  } from '@lucide/svelte'
   import type { Id, Lexeme, Project } from '$lib/core/model'
-  import { collectLexemeGraph, graphLabelText, type LexemeGraphModel } from '$lib/core/lexemeGraph'
+  import {
+    collectLexemeGraph,
+    graphLabelText,
+    graphEdgeSemantic,
+    type LexemeGraphModel
+  } from '$lib/core/lexemeGraph'
   import { createForceLayout, type ForcePosition } from '$lib/graph/forceLayout'
   import { t } from '$lib/i18n/index.svelte'
   import { ui } from '$lib/state/ui.svelte'
@@ -15,7 +28,11 @@
     readGraphPanelCollapsed,
     saveGraphPanelCollapsed
   } from '$lib/state/graphSettings.svelte'
-  import { createGraphColorResolver, type GraphSettings } from './graphSettings'
+  import {
+    createGraphColorResolver,
+    defaultGraphRelationStyle,
+    type GraphSettings
+  } from './graphSettings'
   import { graphPinStorage } from './graphPins'
   import GraphSettingsPanel from './GraphSettingsPanel.svelte'
 
@@ -46,8 +63,28 @@
     collapsed = $state.raw(new Set<string>())
   let selection = $state.raw(new Set<string>())
   const depth = $derived(settings.depth)
+  const disabledSemantics = $derived(
+    new Set(
+      Object.entries(settings.relations)
+        .filter(([, style]) => !style.enabled)
+        .map(([key]) => key)
+    )
+  )
+  const relationOptions = $derived(
+    [...(model.semantics ?? [])].map(([key, label]) => ({
+      key,
+      label: graphLabelText(label, { t, etymology: etymologyTypeLabel, relation: relationLabel })
+    }))
+  )
   const layout = $derived(
-    collectLexemeGraph(model, scope.centerKey, { depth, expanded, collapsed })
+    collectLexemeGraph(model, scope.centerKey, {
+      depth,
+      expanded,
+      collapsed,
+      disabledSemantics,
+      maxNodes: settings.maxNodes,
+      maxEdges: settings.maxEdges
+    })
   )
   const crossLinks = $derived(settings.crossLinks)
   const visibleEdges = $derived(crossLinks ? layout.edges : layout.edges.filter((e) => e.tree))
@@ -90,6 +127,7 @@
       seen.set(pair, i + 1)
       return {
         edge,
+        style: settings.relations[graphEdgeSemantic(edge)] ?? defaultGraphRelationStyle(),
         label: graphLabelText(edge.label, {
           t,
           etymology: etymologyTypeLabel,
@@ -106,14 +144,15 @@
     autoFit = true
   // 在整图视角仍可读出词头；放大时标签继续跟随节点。
   const dotTextScale = $derived(a.labelScale * Math.min(3.5, Math.max(1, 0.85 / view.k)))
-  const simulation = createForceLayout([], [])
+  const detailedLabels = $derived(!a.adaptiveLabels || layout.nodes.length <= 400 || view.k >= 0.65)
+  const simulation = createForceLayout([], [], { maxNodes: 5000, maxEdges: 20000 })
   let positions = $state.raw<Map<string, ForcePosition>>(new Map()),
     frame = 0
   function animate(): void {
     if (frame) return
     frame = requestAnimationFrame(() => {
       frame = 0
-      const result = simulation.step(2)
+      const result = simulation.step(layout.nodes.length > 500 ? 1 : 2)
       positions = result.positions
       if (autoFit && positions.size && (result.iteration % 8 === 0 || result.stable)) fitView()
       if (!result.stable) animate()
@@ -160,6 +199,8 @@
       next.groups = settings.groups
     if (JSON.stringify(next.nodeColors) === JSON.stringify(settings.nodeColors))
       next.nodeColors = settings.nodeColors
+    if (JSON.stringify(next.relations) === JSON.stringify(settings.relations))
+      next.relations = settings.relations
     settings = next
     saveGraphSettings(scope.projectId, next)
   }
@@ -347,7 +388,7 @@
       x: Math.max(4, Math.min(e.clientX, window.innerWidth - 234)),
       y: Math.max(4, Math.min(e.clientY, window.innerHeight - (key ? 280 : 125))),
       key,
-      links: !!key && !model.neighborsOf(key)[Symbol.iterator]().next().done
+      links: !!key && !model.neighborsOf(key, disabledSemantics)[Symbol.iterator]().next().done
     }
   }
   $effect(() => {
@@ -406,18 +447,65 @@
     fn()
     menu = null
   }
+  let fullscreen = $state(false)
+  function fullscreenSurface(
+    node: HTMLElement,
+    value: boolean
+  ): { update(value: boolean): void; destroy(): void } {
+    const anchor = document.createComment('graph location')
+    node.before(anchor)
+    const update = (value: boolean): void => {
+      if (value) document.body.append(node)
+      else anchor.after(node)
+    }
+    update(value)
+    return {
+      update,
+      destroy() {
+        anchor.remove()
+      }
+    }
+  }
+  $effect(() => {
+    if (!fullscreen) return
+    const escape = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
+        menu = null
+        fullscreen = false
+      }
+    }
+    window.addEventListener('keydown', escape, true)
+    return () => window.removeEventListener('keydown', escape, true)
+  })
 </script>
 
-<div class="lg">
+<div
+  class="lg"
+  class:fullscreen
+  use:fullscreenSurface={fullscreen}
+  data-graph-fullscreen={fullscreen}
+>
+  {#if fullscreen}<button
+      class="btn sm fullscreen-exit"
+      data-graph-exit-fullscreen
+      onclick={() => (fullscreen = false)}><Minimize size={15} />{t('graph.exitFullscreen')}</button
+    >{/if}
+  <div class="small muted" data-graph-counts>
+    {t('graph.size', {
+      n: layout.nodes.length,
+      e: visibleEdges.length
+    })}{#if layout.nodeLimitReached}
+      · {t('graph.nodeLimitReached', { n: settings.maxNodes })}{/if}{#if layout.edgeLimitReached}
+      · {t('graph.edgeLimitReached', { n: settings.maxEdges })}{/if}
+  </div>
   {#if !layout.legend.length}<div class="small muted">{t('lexicon.noGraph')}</div>
   {:else if layout.legend.length || layout.truncated}
     <div class="legend">
       {#each layout.legend as g (g.key)}<span class="badge"
           >{t(`lexicon.groups.${g.key}`)} {g.n}</span
         >{/each}
-      {#if layout.truncated}<span class="small muted"
-          >{t('graph.truncated', { n: layout.nodes.length })}</span
-        >{/if}
     </div>
   {/if}
   <div class="gwrap">
@@ -455,10 +543,19 @@
               {@const loopSize = (card ? 58 * frameScale : 24) * nodeScale + Math.abs(s.bend) / 2}
               <path
                 class="edge"
+                data-edge-semantic={graphEdgeSemantic(s.edge)}
+                style:--edge-color={s.style.color}
                 d={loop
                   ? `M ${p.x} ${p.y} c ${-loopSize * 1.8} ${-loopSize * 2} ${loopSize * 1.8} ${-loopSize * 2} 0 0`
                   : `M ${p.x} ${p.y} Q ${cx} ${cy} ${q.x} ${q.y}`}
-                stroke-width={a.edgeWidth * 1.25}><title>{s.label}</title></path
+                stroke-width={a.edgeWidth * s.style.width * 1.25}
+                stroke-dasharray={s.style.style === 'dashed'
+                  ? '8 5'
+                  : s.style.style === 'dotted'
+                    ? '1 5'
+                    : undefined}
+                stroke-linecap={s.style.style === 'dotted' ? 'round' : undefined}
+                ><title>{s.label}</title></path
               >
               {#if a.showEdgeLabels}<text
                   x={(p.x + q.x) / 4 + cx / 2}
@@ -514,7 +611,7 @@
                     height={s.height}
                     rx={Math.min(10, s.height / 4)}
                   />
-                  {#if a.showLabels}<foreignObject
+                  {#if a.showLabels && (detailedLabels || s.primary || selection.has(n.key) || p.pinned)}<foreignObject
                       x={-s.width / 2 + 4}
                       y={-s.height / 2}
                       width={Math.max(1, s.width - 8)}
@@ -527,7 +624,7 @@
                 {:else}
                   <circle r={Math.max(10, s.radius)} fill="transparent" />
                   <circle class="dot" r={s.radius} />
-                  {#if a.showLabels}
+                  {#if a.showLabels && (detailedLabels || s.primary || selection.has(n.key) || p.pinned)}
                     <foreignObject
                       x={-105 * dotTextScale}
                       y={s.radius + 3}
@@ -551,6 +648,13 @@
         </g>
       </svg>
       <div class="tools">
+        <button
+          class="btn ghost icon sm"
+          data-graph-fullscreen-toggle
+          title={t(fullscreen ? 'graph.exitFullscreen' : 'graph.fullscreen')}
+          onclick={() => (fullscreen = !fullscreen)}
+          >{#if fullscreen}<Minimize size={15} />{:else}<Expand size={15} />{/if}</button
+        >
         <button
           class="btn ghost icon sm"
           title={t('lexicon.graphZoomIn')}
@@ -582,6 +686,7 @@
     <GraphSettingsPanel
       {project}
       {settings}
+      relations={relationOptions}
       onchange={changeSettings}
       collapsed={panelCollapsed}
       oncollapsed={setPanel}
@@ -660,6 +765,20 @@
     min-height: 360px;
     min-width: 0;
   }
+  .lg.fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 450;
+    background: var(--bg);
+    padding: 12px;
+    box-sizing: border-box;
+    height: 100%;
+    min-height: 0;
+  }
+  .fullscreen-exit {
+    align-self: flex-end;
+    flex: none;
+  }
   .legend {
     display: flex;
     gap: 6px;
@@ -722,7 +841,7 @@
     cursor: grabbing;
   }
   .edge {
-    stroke: var(--border-strong);
+    stroke: var(--edge-color, var(--border-strong));
     fill: none;
   }
   .elabel {

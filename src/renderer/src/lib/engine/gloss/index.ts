@@ -520,17 +520,17 @@ function segmentSource(idx: GlossIndex, ctxOf: () => MorphContext | null): Segme
       let out = exact(sub, whole)
       // 作用于所有词的构形（词首音变）：换回原形能对上词条的也当词干
       if (
-        !out.some((p) => p.role === 'stem') &&
+        (whole || !out.some((p) => p.role === 'stem' && p.lexemeId)) &&
         Array.from(sub).length >= 2 &&
         idx.mutations.length
       )
         for (const a of demutate(idx, sub))
-          if (a.lexemeId && a.morphs.length === 1)
+          if (a.morphs.length === 1 && (a.lexemeId || a.morphs[0].morphemeId))
             out.push({
               form: sub,
               role: 'stem',
               gloss: a.morphs[0].gloss,
-              morphemeId: null,
+              morphemeId: a.morphs[0].morphemeId,
               lexemeId: a.lexemeId,
               slot: a.slot,
               cost: 1.3
@@ -677,13 +677,21 @@ function demutate(idx: GlossIndex, w: string): Analysis[] {
       const found = lookupWord(idx, base)
       // 对照表只记了开头换了什么，丢了上下文（t>d 碰上 th 就不成立）：正着推回来得是这个词才算
       if (!found.length || norm(tb.apply(base)) !== w) continue
-      for (const a of found)
+      for (const a of found) {
+        if (
+          !a.lexemeId &&
+          !idx.morphemes
+            .get(canonicalG(base))
+            ?.some((m) => m.type === 'root' && m.id === a.morphs[0]?.morphemeId)
+        )
+          continue
         out.push({
           ...a,
           morphs: a.morphs.map((m, i) =>
             i === 0 ? { ...m, form: w, gloss: tag ? `${m.gloss}.${tag}` : m.gloss } : m
           )
         })
+      }
     }
   }
   return out

@@ -64,6 +64,9 @@ describe('音节与韵律按正字法', () => {
   it('th 不再被切成 t、h；分隔符两边各自划音节', () => {
     const L = lang()
     const ipa = transcribe(L, L.orthographies[0], 'ce·theurian') ?? ''
+    // i、a各自登记时是独立核；要保留原例的rian一节，明确登记ia。
+    expect(analyzeWord(L, ipa).text).toBe('ke·θɛʊ̯.ˈri.an')
+    L.phonotactics.nuclei = ['ia']
     expect(analyzeWord(L, ipa).text).toBe('ke·ˈθɛʊ̯.rian')
   })
   it('音标里已经带的重音记号优先', () => {

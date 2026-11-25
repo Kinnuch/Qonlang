@@ -323,7 +323,7 @@ export default {
     galleryNext: 'Siguiente',
     exampleDesc: {
       aelith:
-        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura. El taller reconoce una expresión con un hueco y la palabra que lo ocupa. El grafo incluye un recorrido de cuatro niveles, nodos fijados al arrastrar y controles independientes de fuerzas y colores. Pruebe los saltos por letras y el orden desde el final de las palabras. El banco de traducción guarda alternativas de la misma posición; arrástrelas de vuelta para elegir de nuevo.',
+        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura. El taller reconoce una expresión con un hueco y la palabra que lo ocupa. El grafo incluye un recorrido de cuatro niveles, nodos fijados al arrastrar y controles independientes de fuerzas y colores. Pruebe los saltos por letras y el orden desde el final de las palabras. El banco de traducción guarda alternativas de la misma posición; arrástrelas de vuelta para elegir de nuevo. Prueba los componentes dibujados, la cuadrícula predefinida y las carpetas del corpus.',
       tsahun:
         'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura. Las clases temporales relacionan los números de tono de varias cifras con secuencias completas de letras tonales. Un paradigma opcional usa las ranuras de morfemas de cada entrada para reproducir combinaciones de partículas del corpus.'
     },
@@ -840,6 +840,54 @@ export default {
     done: 'Se ha generado la entrada «{lemma}»',
     show: 'Ver en el léxico'
   },
+  glyphEditor: {
+    drawComponent: 'Dibujar componente',
+    addComponent: 'Añadir componente',
+    gridGuides: 'Cuadrícula y guías',
+    showGrid: 'Mostrar cuadrícula',
+    snap: 'Ajustar a cuadrícula',
+    step: 'Paso',
+    originX: 'Origen X',
+    originY: 'Origen Y',
+    showGuides: 'Mostrar guías',
+    addGuide: 'Añadir guía',
+    guideName: 'Nombre de guía',
+    guideAxis: 'Dirección',
+    horizontal: 'Horizontal',
+    vertical: 'Vertical',
+    guidePosition: 'Posición',
+    snapHint: 'Mantén Alt para omitir el ajuste. Cambiar el origen no mueve el dibujo.',
+    presets: 'Preajustes del proyecto',
+    choosePreset: 'Elegir preajuste',
+    applyPreset: 'Aplicar',
+    clearDefault: 'Quitar predeterminado',
+    makeDefault: 'Usar por defecto',
+    presetName: 'Nombre del preajuste',
+    savePreset: 'Guardar ajustes actuales',
+    resetSettings: 'Restablecer ajustes',
+    presetHint:
+      'Se comparten entre las escrituras del proyecto. El predeterminado se aplica al abrir de nuevo; los glifos existentes conservan su ancho.',
+    insertComponent: 'Insertar componente',
+    unnamedComponent: 'Componente sin nombre',
+    noComponents: 'No hay componentes. Guarda uno desde el panel de dibujo.',
+    componentName: 'Nombre del componente',
+    saveComponent: 'Guardar como componente',
+    componentSaved: 'Componente guardado. El panel sigue abierto.',
+    saveComponentChanges: 'Guardar componente',
+    bezier: 'Bézier',
+    bezierHint:
+      'Haz clic para añadir anclajes y arrastra para crear controles. Después puedes editar los nodos. Intro cierra; Escape cancela el trazado sin terminar.',
+    finishCurve: 'Cerrar curva',
+    segment: 'Segmento seleccionado',
+    segmentL: 'Recta',
+    segmentQ: 'Cuadrática',
+    segmentC: 'Cúbica',
+    segmentsplit: 'Dividir',
+    characters: 'Caracteres',
+    components: 'Componentes',
+    componentsHint:
+      'Los componentes solo sirven para ensamblar glifos. No participan en correspondencias, transliteración ni exportación de fuentes.'
+  },
   glyphPad: {
     title: 'Dibujar: {name}',
     pen: 'Pincel',
@@ -1219,7 +1267,7 @@ export default {
         'Con una oración seleccionada, aquí puede segmentarla automáticamente y glosarla palabra por palabra; si una palabra tiene varios candidatos, pase el ratón por encima y elija el correcto en la ficha que aparece.',
         'El módulo «Corpus» tiene tres paneles: oraciones de ejemplo, estadísticas y tabla de abreviaturas.',
         'Esta es la tabla de abreviaturas: aquí se registran las abreviaturas usadas en las glosas, y al exportar se desarrollan en su nombre completo.',
-        'Pulse aquí para importar o exportar el corpus: se puede importar desde una tabla o desde JSON, y exportar como tabla, texto interlineal, Markdown, HTML, LaTeX, etc.'
+        'Haga clic en Volver a las carpetas y luego haga clic derecho en el fondo o una carpeta para crear, importar o exportar. Se conservan la importación de tablas y JSON y los formatos de exportación existentes.'
       ],
       phrasebook: [
         'Pulse aquí para añadir una frase.',
@@ -2032,6 +2080,8 @@ export default {
     exported: 'Exportado'
   },
   phonology: {
+    hiatusHint:
+      'Las vocales adyacentes independientes tienen núcleos distintos: aa → a.a. Declare los diptongos o vocales largas multiletra como fonemas, miembros de V o núcleos fonotácticos. La plantilla limita ataques y codas sin fusionar vocales.',
     templateOnsets: 'Limitar también a los inicios permitidos de la fonotáctica AFI',
     templateOnsetsHint:
       'Por defecto, la plantilla solo limita las longitudes del inicio y la coda. Marque para usar también los inicios permitidos en Fonotáctica y generación → AFI. Una lista vacía no añade límites; la lista de grafías es independiente. Si las restricciones son incompatibles, se conservan todos los segmentos con el inicio permitido más largo, por lo que la coda puede superar su límite.',
@@ -2412,6 +2462,22 @@ export default {
       'Para la sintaxis exacta de los ajustes, consulte la sintaxis de las reglas, en la esquina superior derecha de la aplicación.'
   },
   corpus: {
+    folders: {
+      title: 'Carpetas del corpus',
+      create: 'Nueva carpeta',
+      rename: 'Renombrar carpeta',
+      remove: 'Eliminar carpeta',
+      back: 'Volver a las carpetas',
+      count: '{n} oraciones',
+      hint: 'Haga clic derecho para importar, exportar y gestionar carpetas. Arrastre las carpetas para ordenar la cuadrícula.',
+      exportAll: 'Exportar todas las carpetas de este idioma',
+      exportFolder: 'Exportar esta carpeta',
+      invalidName: 'Escriba un nombre no vacío y único. Default está reservado.',
+      removeHint: 'Las oraciones volverán a Default sin eliminarse.',
+      removed: 'Carpeta eliminada; sus oraciones volvieron a Default.',
+      moved: 'Oraciones movidas.',
+      move: 'Mover a carpeta'
+    },
     textSize: 'Tamaño del texto de los ejemplos',
     textSizeHint:
       'Ajusta las escrituras, el texto original, los morfemas, las glosas y las traducciones de los ejemplos del corpus y del léxico. El 100 % conserva los tamaños originales; las exportaciones no cambian.',
@@ -2529,6 +2595,27 @@ export default {
     sizeHint: 'Unifica el tamaño de las imágenes del proyecto en {w}×{h}.'
   },
   graph: {
+    adaptiveLabels: 'Simplificar etiquetas de grafos grandes al alejar',
+    adaptiveLabelsHint:
+      'Con más de 400 nodos, al alejar se conservan las etiquetas del centro y los nodos seleccionados o fijados. Acerque o desactive esta opción para mostrarlas todas.',
+    size: '{n} nodos · {e} enlaces',
+    nodeLimitReached: 'Límite de nodos alcanzado ({n})',
+    edgeLimitReached: 'Límite de enlaces alcanzado ({n})',
+    relations: 'Tipos de relación',
+    relationsHint:
+      'Solo se expanden las relaciones activadas. El estilo y el color se aplican a ese tipo de enlace.',
+    allRelations: 'Activar todas',
+    noRelations: 'Desactivar todas',
+    edgeStyle: 'Estilo del enlace',
+    solid: 'Continuo',
+    dashed: 'Guiones',
+    dotted: 'Puntos',
+    maxNodes: 'Límite de nodos',
+    maxEdges: 'Límite de enlaces',
+    budgetHint:
+      'Aumente los límites para mostrar una red mayor. Se avisa al alcanzar un límite; las redes densas pueden alcanzar primero el de enlaces.',
+    fullscreen: 'Ver grafo a pantalla completa',
+    exitFullscreen: 'Salir de pantalla completa',
     settings: 'Ajustes del grafo',
     localHint: 'Se guardan localmente por proyecto sin cambiar los datos del proyecto.',
     expandSettings: 'Abrir ajustes del grafo',
@@ -2862,6 +2949,8 @@ export default {
     importBad: 'Esto no es un archivo de traducción de la interfaz',
     untitled: 'Traducción sin título',
     groups: {
+      glyphEditor: 'Editor de dibujo',
+      displayLanguages: 'Idiomas visibles',
       graph: 'Ajustes del grafo',
       app: 'El programa',
       common: 'General',
@@ -3025,7 +3114,22 @@ export default {
       valency: 'Transitividad'
     }
   },
+  displayLanguages: {
+    definition: 'Idiomas de definición visibles',
+    translation: 'Idiomas de traducción del corpus',
+    hint: 'Solo cambia la vista. Todos los idiomas siguen editables en el inspector. El modo anterior conserva el orden y las columnas de definición y una traducción preferida. Se omiten los idiomas vacíos.',
+    legacy: 'Conservar vista anterior',
+    one: '1 idioma',
+    two: '2 idiomas',
+    all: 'Todos los idiomas',
+    language: 'Idioma {n}',
+    columnsHint:
+      'Los idiomas de definición se eligen en Ajustes. La vista anterior restaura las columnas previas.'
+  },
   settings: {
+    scriptShowSpaces: 'Conservar espacios en la escritura creada',
+    scriptShowSpacesHint:
+      'Al desactivar, solo se quitan los espacios de la escritura creada. La ortografía, el diccionario y la segmentación no cambian.',
     search: 'Buscar en la configuración',
     title: 'Configuración',
     app: 'Aplicación (este equipo)',

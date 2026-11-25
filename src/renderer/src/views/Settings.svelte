@@ -7,6 +7,8 @@
   import { ui } from '$lib/state/ui.svelte'
   import { i18n, t } from '$lib/i18n/index.svelte'
   import { TOKENIZER_MODES } from '$lib/core/model'
+  import { availableDisplayLanguages } from '$lib/core/displayLanguages'
+  import DisplayLanguagePicker from '$lib/ui/DisplayLanguagePicker.svelte'
   import {
     Eye,
     FileSpreadsheet,
@@ -42,6 +44,8 @@
   })
 
   const project = $derived(projectState.project!)
+  const definitionLanguages = $derived(availableDisplayLanguages(project, 'definition'))
+  const translationLanguages = $derived(availableDisplayLanguages(project, 'translation'))
   let info = $state<AppInfo | null>(null)
   /** 在这一页点过「立即检查」才显示结果（后台自动检查的结果不在这里出） */
   let checkedNow = $state(false)
@@ -452,6 +456,32 @@
             placeholder="Gentium Plus"
           />
         </div>
+        <DisplayLanguagePicker
+          kind="definition"
+          label={t('displayLanguages.definition')}
+          value={project.settings.definitionDisplay}
+          options={definitionLanguages}
+          disabled={projectState.readOnly}
+          onchange={(value) => {
+            if (projectState.readOnly) return
+            if (value) project.settings.definitionDisplay = value
+            else delete project.settings.definitionDisplay
+            projectState.touch()
+          }}
+        />
+        <DisplayLanguagePicker
+          kind="translation"
+          label={t('displayLanguages.translation')}
+          value={project.settings.translationDisplay}
+          options={translationLanguages}
+          disabled={projectState.readOnly}
+          onchange={(value) => {
+            if (projectState.readOnly) return
+            if (value) project.settings.translationDisplay = value
+            else delete project.settings.translationDisplay
+            projectState.touch()
+          }}
+        />
         <div class="field">
           <label for="p-imgw">{t('settings.imageSize')}</label>
           <div class="row">
@@ -480,6 +510,23 @@
     <section class="card group" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>
       <h3><Scissors size={15} />{t('settings.groups.words')}</h3>
       <div class="grid">
+        <label class="field check"
+          ><span
+            ><input
+              type="checkbox"
+              data-script-show-spaces
+              disabled={projectState.readOnly}
+              checked={project.settings.scriptShowSpaces !== false}
+              onchange={(e) => {
+                if (projectState.readOnly) return
+                project.settings.scriptShowSpaces = e.currentTarget.checked
+                projectState.touch()
+              }}
+            />{t('settings.scriptShowSpaces')}<HelpDot
+              tip={t('settings.scriptShowSpacesHint')}
+            /></span
+          ></label
+        >
         <div class="field">
           <label for="p-bound">{t('settings.morphemeBoundaries')}</label>
           <input

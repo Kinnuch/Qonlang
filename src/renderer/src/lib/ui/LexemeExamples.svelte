@@ -1,6 +1,7 @@
 <script lang="ts">
   /** 词条下方的例句：默认只列几条，「全部」打开后滚动到底再加载下一批 */
-  import { t, pickText } from '$lib/i18n/index.svelte'
+  import { t, pickText, i18n } from '$lib/i18n/index.svelte'
+  import { displayTextRows } from '$lib/core/displayLanguages'
   import { ui } from '$lib/state/ui.svelte'
   import { findExamples, markParts, type ExampleHit } from '$lib/core/examples'
   import { ensureScriptFont, fontCss } from '$lib/script/fonts'
@@ -30,7 +31,9 @@
     const q = query.trim().toLowerCase()
     if (!q) return found
     return found.filter((h) =>
-      [h.text, h.translation, h.where].some((v) => v?.toLowerCase().includes(q))
+      [h.text, h.translation, h.where, ...Object.values(h.translations ?? {})].some((v) =>
+        v?.toLowerCase().includes(q)
+      )
     )
   })
 
@@ -80,7 +83,19 @@
 </script>
 
 {#snippet row(h: ExampleHit, withWhere: boolean)}
-  <button class="ex" style:--corpus-text-scale={textScale} onclick={() => jump(h)}>
+  <div
+    class="ex"
+    role="button"
+    tabindex="0"
+    style:--corpus-text-scale={textScale}
+    onclick={() => jump(h)}
+    onkeydown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        jump(h)
+      }
+    }}
+  >
     <span class="badge">{t(`lexicon.exampleKinds.${h.kind}`)}</span>
     {#each scripts as sc (sc.id)}
       {@const st = scriptLine(h, sc)}
@@ -91,13 +106,21 @@
           title={sc.name}>{st}</span
         >{/if}
     {/each}
-    <span class="text data"
-      >{#each markParts(h.text, h.spans) as p, i (i)}{#if p.mark}<mark>{p.text}</mark
-          >{:else}{p.text}{/if}{/each}</span
-    >
-    {#if h.translation}<span class="tr small muted">{h.translation}</span>{/if}
+    {#if h.excerptHtml}<div class="excerpt text data">{@html h.excerptHtml}</div>{:else}
+      <span class="text data"
+        >{#each markParts(h.text, h.spans) as p, i (i)}{#if p.mark}<mark>{p.text}</mark
+            >{:else}{p.text}{/if}{/each}</span
+      >
+    {/if}
+    {#if h.translations}
+      {#each displayTextRows( h.translations, project.settings.translationDisplay, [i18n.locale, i18n.custom?.base ?? '', ...glossLangs] ) as row (row.language)}<span
+          class="tr small muted"
+          lang={row.language}
+          data-example-translation={row.language}>{row.text}</span
+        >{/each}
+    {:else if h.translation}<span class="tr small muted">{h.translation}</span>{/if}
     {#if h.where && (withWhere || showScript)}<span class="tiny muted">{h.where}</span>{/if}
-  </button>
+  </div>
 {/snippet}
 
 {#if preview.length}
@@ -139,6 +162,22 @@
 {/if}
 
 <style>
+  .excerpt {
+    max-width: 100%;
+    overflow: auto;
+    white-space: pre-wrap;
+  }
+  .excerpt :global(table) {
+    border-collapse: collapse;
+  }
+  .excerpt :global(td),
+  .excerpt :global(th) {
+    padding: 3px 7px;
+    border: 1px solid var(--border);
+  }
+  .ex:focus-visible {
+    outline: 2px solid var(--accent);
+  }
   .examples {
     display: flex;
     flex-direction: column;
@@ -177,7 +216,7 @@
     font-size: calc(12px * var(--corpus-text-scale, 1));
   }
   /* 命中的词：跟别处标匹配一个样子 */
-  .ex mark {
+  .ex :global(mark) {
     background: var(--accent-soft);
     color: inherit;
     border-radius: 3px;

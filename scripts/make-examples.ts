@@ -8,6 +8,7 @@
  * 运行：npm run examples。瑟乌丝林语见 scripts/make-theusrin.ts。
  */
 import { mkdirSync, writeFileSync } from 'fs'
+import { addEditorExamples } from './exampleDrawingTools'
 import { join } from 'path'
 import {
   createProject,
@@ -154,6 +155,7 @@ function deriveAll(p: Project, lang: Language): number {
   return n
 }
 function save(name: string, p: Project): void {
+  addEditorExamples(p)
   canonicalizeSlotKeys(p)
   const file = join(outDir, name)
   writeFileSync(file, serializeProject(p), 'utf8')

@@ -42,6 +42,7 @@ describe('graph settings validation', () => {
       labelScale: 1,
       edgeWidth: 5,
       showLabels: false,
+      adaptiveLabels: true,
       showEdgeLabels: true
     })
     expect(got.forces).toEqual({ center: 0, repel: 1, link: 0, length: 600 })
@@ -59,6 +60,32 @@ describe('graph settings validation', () => {
     })
     expect(got.nodeColors).toEqual({ morpheme: '#abcdef' })
     expect(got.groups.map((g) => g.id)).toEqual(['same'])
+  })
+  it('old settings keep every relationship enabled and relation styles normalize independently of node colors', () => {
+    const old = normalizeGraphSettings({ groups: [{ id: 'x', field: 'all', color: '#123456' }] })
+    expect(old.relations).toEqual({})
+    expect(old.maxNodes).toBe(1000)
+    const got = normalizeGraphSettings({
+      maxNodes: 999999,
+      maxEdges: -1,
+      relations: {
+        custom: { enabled: false, width: 99, style: 'dotted', color: '#ABCDEF' },
+        bad: { style: 'url(x)', color: 'url(x)', width: NaN }
+      },
+      groups: old.groups,
+      nodeColors: { lexeme: '#654321' }
+    })
+    expect(got.maxNodes).toBe(5000)
+    expect(got.maxEdges).toBe(100)
+    expect(got.relations.custom).toEqual({
+      enabled: false,
+      width: 5,
+      style: 'dotted',
+      color: '#abcdef'
+    })
+    expect(got.relations.bad).toEqual({ enabled: true, width: 1, style: 'solid' })
+    expect(got.groups).toEqual(old.groups)
+    expect(got.nodeColors.lexeme).toBe('#654321')
   })
   it('bounds group count and stored user text without mutating the input', () => {
     const input = {

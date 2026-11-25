@@ -7,6 +7,8 @@
  * 所有集合都用有序数组而不是对象映射：顺序本身是用户数据，且 diff 友好。
  */
 
+import type { GlyphComponent, GlyphEditorProject } from '../script/glyphEditor'
+
 export const SCHEMA_VERSION = 1
 
 export type Id = string
@@ -29,6 +31,8 @@ export interface Project {
   lexemes: Lexeme[]
   paradigms: Paradigm[]
   sentences: Sentence[]
+  /** 语料的单层文件夹；没有归属的旧例句显示在 Default。 */
+  corpusFolders?: CorpusFolder[]
   phrasebook: Phrase[]
   abbreviations: Abbreviation[]
   docs: DocPage[]
@@ -37,6 +41,8 @@ export interface Project {
   settings: ProjectSettings
   /** 语言页上的语系 / 语族 / 语支节点（0.9.4 起；旧文件没有） */
   languageGroups?: LanguageGroup[]
+  /** 手绘预设属于项目，可在不同文字之间复用；旧工程可不填。 */
+  glyphEditor?: GlyphEditorProject
 }
 
 /** 语言分类节点的层级：语系 / 语族 / 语支 */
@@ -75,6 +81,10 @@ export type ProjectTemplate = 'blank' | 'family' | 'lexicanter' | 'csv'
 export type TokenizerMode = 'whitespace' | 'character' | 'custom'
 export const TOKENIZER_MODES: TokenizerMode[] = ['whitespace', 'character', 'custom']
 
+/** 只控制显示；未设置时保留各入口原有行为，所有语言内容仍完整保存／编辑。 */
+export type DisplayLanguageSelection =
+  { mode: 'one' | 'two'; languages: string[] } | { mode: 'all' }
+
 export interface ProjectSettings {
   /** 主界面默认显示的语言 */
   defaultLanguageId: Id | null
@@ -85,6 +95,8 @@ export interface ProjectSettings {
    * 不写（或空）就只给当前界面语言一个框；已经有内容的语言不管在不在这里都照样显示
    */
   glossInputs?: string[]
+  definitionDisplay?: DisplayLanguageSelection
+  translationDisplay?: DisplayLanguageSelection
   /** 例句分词时视为语素边界的符号 */
   morphemeBoundaries: string[]
   /**
@@ -97,6 +109,8 @@ export interface ProjectSettings {
   tokenizerPattern: string
   /** 算作字母、不当标点剥掉的符号（阿拉伯语转写里的 `'` 这类）；词库里以它开头结尾的词自动算上 */
   tokenizerLetters?: string
+  /** 自造文字输出保留词间空格；不写与 true 相同，不影响原拼写或实际分词。 */
+  scriptShowSpaces?: boolean
   /** gloss 缩写风格：leipzig = 大写英文缩写；native = 缩写表里的本地名 */
   abbreviationStyle: 'leipzig' | 'native'
   /** 用户自定义导出模板 */
@@ -221,6 +235,8 @@ export interface Script {
   /** 字体：family 为系统字体名；dataUrl 非空时为内嵌字体文件（注册为 FontFace） */
   font: { family: string; dataUrl: string | null; fileName: string }
   glyphs: Glyph[]
+  /** 部件只供画板拼合，不参与字符映射、转写或字体导出。 */
+  components?: GlyphComponent[]
   /**
    * 转写 → 文字 的规则文本（与音变共用规则语言）。
    * 其中一行 `@glyphs` 会展开为由字形表自动生成的映射（按转写值长度降序）。
@@ -821,9 +837,17 @@ export type SlotGenerator =
 
 // ───────────────────────── 例句 ─────────────────────────
 
+export interface CorpusFolder {
+  id: Id
+  languageId: Id
+  name: string
+}
+
 export interface Sentence {
   id: Id
   languageId: Id
+  /** 同语言语料文件夹；缺省或失效的引用属于 Default。 */
+  folderId?: Id
   text: string
   /** orthographyId → 文本 */
   orthoTexts: Record<Id, string>

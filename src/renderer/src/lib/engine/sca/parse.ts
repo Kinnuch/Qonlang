@@ -266,8 +266,13 @@ export function formatMarker(name: string, comment = ''): string {
 
 export function formatClassLine(name: string, members: string[]): string {
   const key = name.length === 1 ? name : `{${name.replace(/^\{|\}$/g, '')}}`
+  return `${key}=${formatClassMembers(members)}`
+}
+
+export function formatClassMembers(members: string[]): string {
   const multi = members.some((m) => Array.from(m).length > 1)
-  return `${key}=${multi ? members.join(' ') : members.join('')}`
+  if (multi && members.length === 1) return members[0] + ','
+  return multi ? members.join(' ') : members.join('')
 }
 
 export function formatReplacementLine(from: string, to: string): string {
@@ -305,13 +310,12 @@ function commentOf(raw: string): string {
 }
 
 /**
- * 音类声明的成员：单字母音类按字符拆，长名音类按空白 / 逗号拆；转义过的字符是字面成员。
+ * 音类声明有空白 / 逗号分隔时按完整成员读；未分隔的旧紧凑语法仍按字符拆。
  * **重复的成员不去掉**：音类放在替换一侧时按位置一一对应，并音（t、d 都变 r）就得写两个 r，
  * 去重会让后面的成员整体往前串一位（音变姬、SCA² 里这种写法都合法）；拿来匹配时重复的不碍事
  */
-function classMembers(key: string, value: string): string[] {
-  const parts = key.length === 1 ? Array.from(value.replace(/\s+/g, '')) : splitMembers(value)
-  return parts.map(literalEscapes)
+function classMembers(_key: string, value: string): string[] {
+  return splitMembers(value).map(literalEscapes)
 }
 
 export type ParsedLine =
@@ -427,7 +431,8 @@ export function escapeRuleText(s: string, classNames?: ReadonlySet<string>): str
     .join('')
 }
 
-const CLASS_LINE = /^(\{[^}]+\}|[A-Z])\s*=(.*)$/
+// 冒号后需有空白，且不能是替换/音变规则，例如 P: > R。
+const CLASS_LINE = /^(\{[^}]+\}|[A-Z])\s*(?:=|[:：](?=\s)(?![^\n]*[>|→]))(.*)$/
 const REPL_LINE = /^(\S+)\s*\|\s*(\S+)$/
 /** 重音规则行：ˈ = …（打不出 ˈ 可以写 '），次重音 ˌ = … */
 const STRESS_LINE = /^([ˈˌ'])\s*=(.*)$/su

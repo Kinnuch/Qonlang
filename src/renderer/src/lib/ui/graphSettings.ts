@@ -12,15 +12,30 @@ export interface GraphColorGroup {
   field: GraphColorField
   value: string
 }
+export interface GraphRelationStyle {
+  enabled: boolean
+  width: number
+  style: 'solid' | 'dashed' | 'dotted'
+  color?: string
+}
+export const defaultGraphRelationStyle = (): GraphRelationStyle => ({
+  enabled: true,
+  width: 1,
+  style: 'solid'
+})
 export interface GraphSettings {
   depth: number
   crossLinks: boolean
+  maxNodes: number
+  maxEdges: number
+  relations: Record<string, GraphRelationStyle>
   appearance: {
     shape: 'dots' | 'cards'
     nodeScale: number
     frameScale: number
     labelScale: number
     showLabels: boolean
+    adaptiveLabels: boolean
     showEdgeLabels: boolean
     edgeWidth: number
   }
@@ -40,6 +55,8 @@ export const GRAPH_NODE_KINDS: readonly GraphNodeKind[] = ['lexeme', 'morpheme',
 export const GRAPH_COLOR_FIELDS: readonly GraphColorField[] = ['all', 'pos', 'tag', 'language']
 export const GRAPH_GROUP_LIMIT = 32
 export const GRAPH_RANGES = {
+  maxNodes: { min: 100, max: 5000, step: 100 },
+  maxEdges: { min: 100, max: 20000, step: 100 },
   depth: { min: 0, max: 6, step: 1 },
   nodeScale: { min: 0.5, max: 2.5, step: 0.05 },
   frameScale: { min: 0.5, max: 2.5, step: 0.05 },
@@ -53,12 +70,16 @@ export const GRAPH_RANGES = {
 export const DEFAULT_GRAPH_SETTINGS: GraphSettings = {
   depth: 1,
   crossLinks: true,
+  maxNodes: 1000,
+  maxEdges: 5000,
+  relations: {},
   appearance: {
     shape: 'dots',
     nodeScale: 1,
     frameScale: 1,
     labelScale: 1,
     showLabels: true,
+    adaptiveLabels: true,
     showEdgeLabels: false,
     edgeWidth: 1
   },
@@ -88,10 +109,23 @@ export function normalizeGraphSettings(value: unknown): GraphSettings {
       : fallback
   out.depth = Math.round(n(raw.depth, GRAPH_RANGES.depth, out.depth))
   if (typeof raw.crossLinks === 'boolean') out.crossLinks = raw.crossLinks
+  out.maxNodes = Math.round(n(raw.maxNodes, GRAPH_RANGES.maxNodes, out.maxNodes))
+  out.maxEdges = Math.round(n(raw.maxEdges, GRAPH_RANGES.maxEdges, out.maxEdges))
+  for (const [key, value] of Object.entries(record(raw.relations)).slice(0, 200)) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue
+    const relation = record(value),
+      style = defaultGraphRelationStyle(),
+      color = graphColor(relation.color)
+    style.enabled = relation.enabled !== false
+    style.width = n(relation.width, GRAPH_RANGES.edgeWidth, 1)
+    if (relation.style === 'dashed' || relation.style === 'dotted') style.style = relation.style
+    if (color) style.color = color
+    out.relations[key] = style
+  }
   if (a.shape === 'cards' || a.shape === 'dots') out.appearance.shape = a.shape
   for (const key of ['nodeScale', 'frameScale', 'labelScale', 'edgeWidth'] as const)
     out.appearance[key] = n(a[key], GRAPH_RANGES[key], out.appearance[key])
-  for (const key of ['showLabels', 'showEdgeLabels'] as const)
+  for (const key of ['showLabels', 'showEdgeLabels', 'adaptiveLabels'] as const)
     if (typeof a[key] === 'boolean') out.appearance[key] = a[key]
   for (const key of ['center', 'repel', 'link', 'length'] as const)
     out.forces[key] = n(f[key], GRAPH_RANGES[key], out.forces[key])

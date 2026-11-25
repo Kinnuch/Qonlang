@@ -98,6 +98,88 @@ function project() {
 }
 
 describe('词库、语素的「对重音影响」', () => {
+  it.each(['aa', 'aːa', 'ãa'])('独立元音词缀%s按两个核传递原重音', (form) => {
+    for (const side of ['prefix', 'suffix'] as const) {
+      const { p, L } = project()
+      p.categories.push({
+        id: 'x',
+        name: { en: 'X' },
+        values: [{ id: 'one', name: { en: 'One' }, abbr: 'ONE' }]
+      })
+      const rs = createRuleSet('stress', `${V}\nˈ = @ , 1\na > o / ˈ(C)_`)
+      p.ruleSets.push(rs)
+      const morpheme = createMorpheme(L.id, side)
+      morpheme.form = form
+      morpheme.gloss = 'QA'
+      p.morphemes.push(morpheme)
+      const para: Paradigm = {
+        id: 'qa',
+        name: {},
+        dimensionIds: ['x'],
+        disabledSlots: [],
+        generators: {
+          one: {
+            kind: 'pipeline',
+            stem: '',
+            steps: [
+              { id: newId(), kind: side, text: '@QA' },
+              { id: newId(), kind: 'sca', ruleSetId: rs.id, fromStage: '', toStage: '' }
+            ]
+          }
+        },
+        inheritsFrom: null
+      }
+      const lexeme = createLexeme(L.id, 'kata')
+      lexeme.stress = {
+        affects: true,
+        passPos: false,
+        passSpecial: true,
+        special: side === 'prefix' ? 1 : -1
+      }
+      expect(
+        generateForm(makeContext(p, L), lexeme, para, paradigmSlots(para, p.categories, ['en'])[0])
+          ?.surface
+      ).toBe(side === 'prefix' ? form + 'kota' : 'kato' + form)
+    }
+  })
+  it('明确aa复合核的词缀仍只计一个音节', () => {
+    const { p, L } = project()
+    L.phonotactics.nuclei = ['aa']
+    p.categories.push({
+      id: 'x',
+      name: { en: 'X' },
+      values: [{ id: 'one', name: { en: 'One' }, abbr: 'ONE' }]
+    })
+    const rs = createRuleSet('stress', `${V}\nˈ = @ , 1\na > o / ˈ(C)_`)
+    p.ruleSets.push(rs)
+    const morpheme = createMorpheme(L.id, 'prefix')
+    morpheme.form = 'aa'
+    morpheme.gloss = 'QA'
+    p.morphemes.push(morpheme)
+    const para: Paradigm = {
+      id: 'qa',
+      name: {},
+      dimensionIds: ['x'],
+      disabledSlots: [],
+      generators: {
+        one: {
+          kind: 'pipeline',
+          stem: '',
+          steps: [
+            { id: newId(), kind: 'prefix', text: '@QA' },
+            { id: newId(), kind: 'sca', ruleSetId: rs.id, fromStage: '', toStage: '' }
+          ]
+        }
+      },
+      inheritsFrom: null
+    }
+    const lexeme = createLexeme(L.id, 'kata')
+    lexeme.stress = { affects: true, passPos: false, passSpecial: true, special: 1 }
+    expect(
+      generateForm(makeContext(p, L), lexeme, para, paradigmSlots(para, p.categories, ['en'])[0])
+        ?.surface
+    ).toBe('aakota')
+  })
   it('没勾不传；勾了按两个小勾传词类、特殊重音', () => {
     const { p, L, verb } = project()
     const l = createLexeme(L.id, 'katana')

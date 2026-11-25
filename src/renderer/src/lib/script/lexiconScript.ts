@@ -17,6 +17,7 @@ import type {
 import { lexemeMatchesGloss } from '$lib/core/glossMatch'
 import { tokenSpans } from '$lib/engine/gloss/tokens'
 import { canonicalG } from '$lib/ipa/equivalence'
+import { scriptSpacing } from './spacing'
 import {
   lexemeScript,
   readsInspectorField,
@@ -278,9 +279,10 @@ export function textScript(
   lookup?: WordLookup
 ): string {
   if (!text) return ''
-  return writesFromLexicon(script)
+  const output = writesFromLexicon(script)
     ? viaLexicon(project, lang, script, text, tokens, lookup)
     : renderScript(lang, script, text)
+  return scriptSpacing(project, output)
 }
 
 /** 例句的文字写法：手填的优先，其次自动 */
@@ -292,6 +294,7 @@ export function sentenceScriptText(
   lookup?: WordLookup
 ): string {
   const o = s.scriptForms?.[script.id]
-  if (o) return writesFromLexicon(script) ? renderScript(lang, script, o) : o
+  if (o)
+    return scriptSpacing(project, writesFromLexicon(script) ? renderScript(lang, script, o) : o)
   return textScript(project, lang, script, s.text, s.tokens, lookup)
 }

@@ -182,11 +182,19 @@
   >
     {#each current.target.options.actions ?? [] as action (action.label)}
       <button
+        disabled={action.disabled}
         role="menuitem"
         onclick={() => {
+          const snapshot = current
+          const command = action
           menu = null
-          if (current.project === projectState.project && current.target.node.isConnected)
-            action.run()
+          if (
+            !command.disabled &&
+            snapshot.project === projectState.project &&
+            snapshot.target.node.isConnected &&
+            snapshot.identity === snapshot.target.options.identity
+          )
+            command.run()
         }}>{action.label}</button
       >
     {/each}

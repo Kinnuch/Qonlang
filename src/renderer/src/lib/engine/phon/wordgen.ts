@@ -359,7 +359,7 @@ export function generateNaturalWords(lang: Language, opts: WordGenOptions): Gene
     // 同一个音段连着三次
     if (segs.some((s, i) => i >= 2 && gEquivalent(s, segs[i - 1]) && gEquivalent(s, segs[i - 2])))
       continue
-    // 拼起来重新划音节再查一遍配列（ka + a 会并成 kaa，核就不合规了）——跟「配列检查」同一套标准
+    // 拼起来重新划音节再查配列；只有明确声明的复合核合并，采用与「配列检查」相同的标准。
     const again = syllabify(segs, { nuclei, onsets: onsetSet, ignore: SUPRASEGMENTAL_IGNORE })
     if (checkWord(segs, again, pt).length) continue
     const score = scoreOf(segs, sylls)

@@ -30,6 +30,7 @@
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { i18n, t, pickText } from '$lib/i18n/index.svelte'
+  import { displayTextRows } from '$lib/core/displayLanguages'
   import { createPhrase } from '$lib/core/factory'
   import type { Id, Phrase, Token } from '$lib/core/model'
   import { transcribe } from '$lib/core/pronounce'
@@ -711,7 +712,12 @@
                       /{p.pronunciations[o.id].ipa}/
                     </div>{/if}
                 {/each}
-                <div class="small tr">{pickText(p.translation, glossLangs)}</div>
+                {#each displayTextRows( p.translation, project.settings.translationDisplay, [i18n.locale, i18n.custom?.base ?? '', ...glossLangs] ) as row (row.language)}<div
+                    class="small tr"
+                    lang={row.language}
+                  >
+                    {row.text}
+                  </div>{/each}
                 {#if p.variants.length}<div class="tiny muted">
                     {p.variants.map((v) => v.text).join(' · ')}
                   </div>{/if}

@@ -327,7 +327,7 @@ export default {
     galleryNext: 'Suivante',
     exampleDesc: {
       aelith:
-        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète. Le graphe propose un parcours à quatre niveaux, des nœuds fixés par déplacement et des réglages indépendants de forces et de couleurs. Essayez les sauts par lettre et le tri depuis la fin des mots. L’atelier range les alternatives d’un même emplacement dans la traduction ; glissez-les à nouveau pour changer de choix.',
+        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète. Le graphe propose un parcours à quatre niveaux, des nœuds fixés par déplacement et des réglages indépendants de forces et de couleurs. Essayez les sauts par lettre et le tri depuis la fin des mots. L’atelier range les alternatives d’un même emplacement dans la traduction ; glissez-les à nouveau pour changer de choix. Essayez les composants dessinés, la grille prédéfinie et les dossiers du corpus.',
       tsahun:
         'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation suivant la graphie et correspondances graphème–phonème modifiables), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture. Les classes temporaires associent les numéros de ton à plusieurs chiffres à des séquences complètes de lettres de ton. Un paradigme facultatif utilise les emplacements de morphèmes de chaque entrée pour reproduire des combinaisons de particules du corpus.'
     },
@@ -847,6 +847,54 @@ export default {
     done: 'Entrée « {lemma} » créée',
     show: 'Voir dans le lexique'
   },
+  glyphEditor: {
+    drawComponent: 'Dessiner un composant',
+    addComponent: 'Ajouter un composant',
+    gridGuides: 'Grille et repères',
+    showGrid: 'Afficher la grille',
+    snap: 'Aligner sur la grille',
+    step: 'Pas',
+    originX: 'Origine X',
+    originY: 'Origine Y',
+    showGuides: 'Afficher les repères',
+    addGuide: 'Ajouter un repère',
+    guideName: 'Nom du repère',
+    guideAxis: 'Direction',
+    horizontal: 'Horizontal',
+    vertical: 'Vertical',
+    guidePosition: 'Position',
+    snapHint: 'Maintenez Alt pour ignorer la grille. Changer son origine ne déplace pas le dessin.',
+    presets: 'Préréglages du projet',
+    choosePreset: 'Choisir un préréglage',
+    applyPreset: 'Appliquer',
+    clearDefault: 'Retirer le défaut',
+    makeDefault: 'Définir par défaut',
+    presetName: 'Nom du préréglage',
+    savePreset: 'Enregistrer les réglages',
+    resetSettings: 'Réinitialiser',
+    presetHint:
+      'Les préréglages sont partagés entre les écritures du projet. Le défaut agit à la prochaine ouverture ; les glyphes existants gardent leur chasse.',
+    insertComponent: 'Insérer un composant',
+    unnamedComponent: 'Composant sans nom',
+    noComponents: 'Aucun composant. Enregistrez-en un depuis le dessin.',
+    componentName: 'Nom du composant',
+    saveComponent: 'Enregistrer comme composant',
+    componentSaved: 'Composant enregistré. Le dessin reste ouvert.',
+    saveComponentChanges: 'Enregistrer le composant',
+    bezier: 'Bézier',
+    bezierHint:
+      'Cliquez pour ajouter des points ; faites glisser pour créer des poignées. Modifiez ensuite les nœuds. Entrée ferme ; Échap annule le tracé inachevé.',
+    finishCurve: 'Fermer la courbe',
+    segment: 'Segment sélectionné',
+    segmentL: 'Droite',
+    segmentQ: 'Quadratique',
+    segmentC: 'Cubique',
+    segmentsplit: 'Diviser',
+    characters: 'Caractères',
+    components: 'Composants',
+    componentsHint:
+      'Les composants servent uniquement à assembler les glyphes. Ils sont exclus des correspondances, de la translittération et des polices exportées.'
+  },
   glyphPad: {
     title: 'Tracé : {name}',
     pen: 'Pinceau',
@@ -1226,7 +1274,7 @@ export default {
         'Une phrase d’exemple étant sélectionnée, cette barre la segmente automatiquement et la glose mot à mot ; si un mot a plusieurs candidats, survolez-le et choisissez le bon dans la fiche qui apparaît.',
         'Le module « Corpus » comporte trois grands panneaux : les phrases d’exemple, les statistiques et la liste d’abréviations.',
         'Voici la liste d’abréviations : les abréviations employées dans les gloses s’y enregistrent, et l’export les développe en noms complets.',
-        'Cliquez ici pour importer ou exporter le corpus : import depuis un tableau ou du JSON, export en tableau, en glose interlinéaire, en Markdown, en HTML, en LaTeX, etc.'
+        'Cliquez sur Retour aux dossiers, puis faites un clic droit sur le fond ou un dossier pour créer, importer ou exporter. L’importation de tables et JSON et les formats d’exportation existants sont conservés.'
       ],
       phrasebook: [
         'Cliquez ici pour ajouter une expression.',
@@ -2035,6 +2083,8 @@ export default {
     exported: 'Exporté'
   },
   phonology: {
+    hiatusHint:
+      'Les voyelles adjacentes indépendantes ont des noyaux distincts : aa → a.a. Déclarez les diphtongues ou voyelles longues multilettres comme phonèmes, membres de V ou noyaux phonotactiques. Le gabarit limite les attaques et codas sans fusionner les voyelles.',
     templateOnsets: 'Limiter aussi aux attaques autorisées de la phonotactique API',
     templateOnsetsHint:
       'Par défaut, le modèle ne limite que les longueurs des attaques et des codas. Cochez pour utiliser aussi les attaques autorisées dans Phonotactique et génération → API. Une liste vide n’ajoute aucune limite ; la liste en graphie est distincte. Si les contraintes sont incompatibles, tous les segments sont conservés avec la plus longue attaque autorisée, et la coda peut dépasser sa limite.',
@@ -2417,6 +2467,22 @@ export default {
       'Pour la syntaxe précise des ajustements, reportez-vous à l’aide-mémoire « Syntaxe des règles », en haut à droite de la fenêtre.'
   },
   corpus: {
+    folders: {
+      title: 'Dossiers du corpus',
+      create: 'Nouveau dossier',
+      rename: 'Renommer le dossier',
+      remove: 'Supprimer le dossier',
+      back: 'Retour aux dossiers',
+      count: '{n} phrases',
+      hint: 'Le clic droit ouvre les actions d’importation, d’exportation et de dossier. Faites glisser les dossiers pour réordonner la grille.',
+      exportAll: 'Exporter tous les dossiers de cette langue',
+      exportFolder: 'Exporter ce dossier',
+      invalidName: 'Saisissez un nom non vide et unique. Default est réservé.',
+      removeHint: 'Les phrases retourneront dans Default sans être supprimées.',
+      removed: 'Dossier supprimé ; ses phrases sont retournées dans Default.',
+      moved: 'Phrases déplacées.',
+      move: 'Déplacer vers un dossier'
+    },
     textSize: 'Taille du texte des exemples',
     textSizeHint:
       'Ajuste les écritures, le texte original, les morphèmes, les gloses et les traductions des exemples du corpus et du lexique. 100 % conserve les tailles initiales, sans modifier les exports.',
@@ -2537,6 +2603,27 @@ export default {
     sizeHint: 'Uniformise à {w}×{h} la taille des illustrations du projet.'
   },
   graph: {
+    adaptiveLabels: 'Simplifier les étiquettes des grands graphes au dézoom',
+    adaptiveLabelsHint:
+      'Au-delà de 400 nœuds, le dézoom garde les étiquettes du centre et des nœuds sélectionnés ou épinglés. Zoomez ou désactivez cette option pour tout afficher.',
+    size: '{n} nœuds · {e} liens',
+    nodeLimitReached: 'Limite de nœuds atteinte ({n})',
+    edgeLimitReached: 'Limite de liens atteinte ({n})',
+    relations: 'Types de relations',
+    relationsHint:
+      'Développe uniquement les relations activées. Le style et la couleur concernent ce type de lien.',
+    allRelations: 'Tout activer',
+    noRelations: 'Tout désactiver',
+    edgeStyle: 'Style des liens',
+    solid: 'Continu',
+    dashed: 'Tirets',
+    dotted: 'Pointillés',
+    maxNodes: 'Limite de nœuds',
+    maxEdges: 'Limite de liens',
+    budgetHint:
+      'Augmentez les limites pour afficher un réseau plus grand. Toute limite atteinte est signalée ; un réseau dense peut atteindre celle des liens en premier.',
+    fullscreen: 'Afficher le graphe en plein écran',
+    exitFullscreen: 'Quitter le plein écran',
     settings: 'Réglages du graphe',
     localHint: 'Réglages locaux propres à chaque projet, sans modification des données du projet.',
     expandSettings: 'Déplier les réglages',
@@ -2870,6 +2957,8 @@ export default {
     importBad: 'Ce n’est pas un fichier de traduction de l’interface',
     untitled: 'Traduction sans titre',
     groups: {
+      glyphEditor: 'Éditeur de dessin',
+      displayLanguages: 'Langues affichées',
       graph: 'Réglages du graphe',
       app: 'L’application',
       common: 'Général',
@@ -3032,7 +3121,22 @@ export default {
       valency: 'Transitivité'
     }
   },
+  displayLanguages: {
+    definition: 'Langues des définitions affichées',
+    translation: 'Langues des traductions du corpus',
+    hint: 'Modifie seulement l’affichage. Toutes les langues restent modifiables dans l’inspecteur. Le mode précédent conserve l’ordre et les colonnes des définitions et une traduction préférée. Les langues vides sont omises.',
+    legacy: 'Conserver l’affichage précédent',
+    one: '1 langue',
+    two: '2 langues',
+    all: 'Toutes les langues',
+    language: 'Langue {n}',
+    columnsHint:
+      'Les langues des définitions se règlent dans Paramètres. Le mode précédent rétablit vos colonnes.'
+  },
   settings: {
+    scriptShowSpaces: 'Conserver les espaces dans l’écriture créée',
+    scriptShowSpacesHint:
+      'Désactivez pour supprimer les espaces uniquement dans l’écriture créée. L’orthographe, le dictionnaire et la segmentation restent inchangés.',
     search: 'Rechercher un paramètre',
     title: 'Paramètres',
     app: 'Application (cet ordinateur)',

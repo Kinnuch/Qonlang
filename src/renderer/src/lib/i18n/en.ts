@@ -320,7 +320,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again.',
+        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again. Try drawing components, a grid preset and corpus folders.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font. Temporary classes map multi-character tone numbers to complete tone-letter sequences. An optional paradigm uses per-entry morpheme slots to reproduce corpus particle combinations.'
     },
@@ -829,6 +829,54 @@ const en: Dict = {
     done: 'Created entry “{lemma}”',
     show: 'Open in lexicon'
   },
+  glyphEditor: {
+    drawComponent: 'Draw a component',
+    addComponent: 'Add component',
+    gridGuides: 'Grid and guides',
+    showGrid: 'Show grid',
+    snap: 'Snap to grid',
+    step: 'Step',
+    originX: 'Origin X',
+    originY: 'Origin Y',
+    showGuides: 'Show guides',
+    addGuide: 'Add guide',
+    guideName: 'Guide name',
+    guideAxis: 'Direction',
+    horizontal: 'Horizontal',
+    vertical: 'Vertical',
+    guidePosition: 'Position',
+    snapHint: 'Hold Alt to bypass snapping. The origin changes the grid without moving ink.',
+    presets: 'Project presets',
+    choosePreset: 'Choose a preset',
+    applyPreset: 'Apply',
+    clearDefault: 'Clear default',
+    makeDefault: 'Set as default',
+    presetName: 'Preset name',
+    savePreset: 'Save current settings',
+    resetSettings: 'Reset settings',
+    presetHint:
+      'Presets are shared across scripts in this project. The default applies next time the pad opens; existing glyphs keep their advance.',
+    insertComponent: 'Insert component',
+    unnamedComponent: 'Unnamed component',
+    noComponents: 'No components yet. Save one from the drawing pad.',
+    componentName: 'Component name',
+    saveComponent: 'Save as component',
+    componentSaved: 'Component saved. The drawing pad stays open.',
+    saveComponentChanges: 'Save component',
+    bezier: 'Bézier',
+    bezierHint:
+      'Click to add anchors; drag to pull out handles. Edit with the node tool afterwards. Enter closes; Escape cancels the unfinished path.',
+    finishCurve: 'Close curve',
+    segment: 'Selected segment',
+    segmentL: 'Line',
+    segmentQ: 'Quadratic',
+    segmentC: 'Cubic',
+    segmentsplit: 'Split',
+    characters: 'Characters',
+    components: 'Components',
+    componentsHint:
+      'Components are only for assembling glyphs. They do not enter mappings, transliteration or font exports.'
+  },
   glyphPad: {
     title: 'Draw: {name}',
     pen: 'Pen',
@@ -1211,7 +1259,7 @@ const en: Dict = {
         'With a sentence selected, this bar splits it into words and glosses them automatically; where a word has several candidates, hover it and pick the right one in the card.',
         'Sentences / statistics / abbreviations.',
         'This is the abbreviation table: the abbreviations used in glosses are registered here and spelled out on export.',
-        'Click here to import or export the corpus: import from a table or JSON, export as a table, interlinear text, Markdown, HTML or LaTeX.'
+        'Click Back to folders, then right-click the background or a folder to create, import or export. Table and JSON import and the existing export formats are retained.'
       ],
       phrasebook: [
         'Add a phrase.',
@@ -2008,6 +2056,8 @@ const en: Dict = {
     exported: 'Exported'
   },
   phonology: {
+    hiatusHint:
+      'Independent adjacent vowels have separate nuclei: aa → a.a. Explicitly list diphthongs or multiletter long vowels as phonemes, V-class members or phonotactic nuclei. Templates limit onset and coda lengths; they do not merge vowels automatically.',
     templateOnsets: 'Also restrict onsets to the IPA phonotactics list',
     templateOnsetsHint:
       'Templates limit onset and coda lengths by default. Tick to also use the allowed onsets under Phonotactics & generator → IPA; an empty list adds no restriction. The spelling list is separate. If the template is too tight, all segments are kept and the longest allowed onset is used, so the coda may still exceed its limit.',
@@ -2384,6 +2434,22 @@ const en: Dict = {
       'One adjustment per line, applied in order: -at strips final at; +u appends u; ^-e strips initial e; ^+a prepends a; lines containing > run as rules (e.g. at > / _#, V > / _C#). The upper box runs after affixation and before sound changes (or on the stem); the lower box on the final form.'
   },
   corpus: {
+    folders: {
+      title: 'Corpus folders',
+      create: 'New folder',
+      rename: 'Rename folder',
+      remove: 'Delete folder',
+      back: 'Back to folders',
+      count: '{n} sentences',
+      hint: 'Right-click for import, export and folder actions. Drag folders to reorder the grid.',
+      exportAll: 'Export all folders in this language',
+      exportFolder: 'Export this folder',
+      invalidName: 'Enter a non-empty, unique name. Default is reserved.',
+      removeHint: 'The sentences will move back to Default; no sentences will be deleted.',
+      removed: 'Folder deleted; its sentences moved back to Default.',
+      moved: 'Sentences moved.',
+      move: 'Move to folder'
+    },
     textSize: 'Example text size',
     textSizeHint:
       'Scale scripts, original text, morphemes, glosses and translations in corpus and lexicon examples. 100% keeps the original sizes; exports are unchanged.',
@@ -2498,6 +2564,27 @@ const en: Dict = {
       'Uniform size {w}×{h}; matching images are stored as-is, same-ratio images are scaled, others open the cropper. PNG / GIF stay lossless; JPEG / WebP keep their format at high quality.'
   },
   graph: {
+    adaptiveLabels: 'Simplify large-graph labels when zoomed out',
+    adaptiveLabelsHint:
+      'Above 400 nodes, zooming out keeps labels for the center, selected and pinned nodes. Zoom in to show all, or disable this option.',
+    size: '{n} nodes · {e} links',
+    nodeLimitReached: 'Node limit reached ({n})',
+    edgeLimitReached: 'Link limit reached ({n})',
+    relations: 'Relationship types',
+    relationsHint:
+      'Expand through enabled relationships only. Style and color affect only that type of link.',
+    allRelations: 'Enable all',
+    noRelations: 'Disable all',
+    edgeStyle: 'Link style',
+    solid: 'Solid',
+    dashed: 'Dashed',
+    dotted: 'Dotted',
+    maxNodes: 'Node limit',
+    maxEdges: 'Link limit',
+    budgetHint:
+      'Raise the limits to display a larger network. Reaching either limit is reported; dense networks may reach the link limit first.',
+    fullscreen: 'View graph full screen',
+    exitFullscreen: 'Exit full screen',
     settings: 'Graph settings',
     localHint: 'Graph settings are saved locally per project and do not change project data.',
     expandSettings: 'Expand graph settings',
@@ -2825,6 +2912,8 @@ const en: Dict = {
     importBad: 'Not an interface translation file',
     untitled: 'Untitled translation',
     groups: {
+      glyphEditor: 'Drawing editor',
+      displayLanguages: 'Display languages',
       graph: 'Graph settings',
       app: 'The app itself',
       common: 'Common',
@@ -2988,7 +3077,22 @@ const en: Dict = {
       valency: 'Transitivity'
     }
   },
+  displayLanguages: {
+    definition: 'Entry definition display languages',
+    translation: 'Corpus translation display languages',
+    hint: 'Changes display only. All languages remain editable in the inspector. Legacy mode keeps entry ordering and columns and shows one preferred translation. Empty selected languages add no row.',
+    legacy: 'Keep legacy display',
+    one: '1 language',
+    two: '2 languages',
+    all: 'All languages',
+    language: 'Language {n}',
+    columnsHint:
+      'Definition languages follow Settings → Entry definition display languages. Legacy mode restores previous column choices.'
+  },
   settings: {
+    scriptShowSpaces: 'Keep spaces in constructed-script output',
+    scriptShowSpacesHint:
+      'When disabled, spaces are removed only from constructed-script output. Original spelling, dictionary data and tokenization stay unchanged.',
     search: 'Search settings',
     title: 'Settings',
     app: 'Application (this computer)',

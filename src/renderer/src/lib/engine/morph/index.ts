@@ -19,7 +19,13 @@ import type {
 } from '$lib/core/model'
 import { parseRuleText, runRules, stripStress, type RuleProgram, type WordStress } from '../sca'
 import { lexemeStress, morphemeStress, posNames } from '$lib/core/stressInfo'
-import { languageParseOptions, segment, spellingUnits } from '../phon'
+import {
+  languageParseOptions,
+  segment,
+  spellingUnits,
+  syllableNucleusMatch,
+  syllableSpans
+} from '../phon'
 import { transcribe, hasOrthographyRules, orthographySignature } from '$lib/core/pronounce'
 import { posParadigmId } from '$lib/core/pos'
 import { activeValues, conditionVariants, resolveConditions } from './conditions'
@@ -464,16 +470,15 @@ function resolveSlotAffix(
   }
 }
 
-/** 拼写里有几个音节：按拼写单位数元音，挨着的元音算一个 */
+/** 与音系／SCA共用核边界；独立元音分别计数，显式复合单位与长度／组合附标保留。 */
 function syllableCount(text: string, units: string[], isVowel: (s: string) => boolean): number {
-  let n = 0
-  let prev = false
-  for (const s of segment(text, units)) {
-    const v = isVowel(s)
-    if (v && !prev) n++
-    prev = v
-  }
-  return n
+  const nuclei = new Set(units.filter(isVowel)),
+    consonants = new Set(units.filter((unit) => !isVowel(unit)))
+  return syllableSpans(
+    segment(text, units),
+    (s) => syllableNucleusMatch(s, nuclei, consonants) === true,
+    { nuclei }
+  ).filter((span) => span.nucleusEnd > span.nucleusStart).length
 }
 
 /**

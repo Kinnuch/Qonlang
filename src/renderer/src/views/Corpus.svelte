@@ -7,7 +7,6 @@
   import type { PageView } from '$lib/state/ui.svelte'
   import { tick, untrack } from 'svelte'
   import { platform } from '$lib/platform'
-  import Menu from '$lib/ui/Menu.svelte'
   import TableImportDialog from '$lib/ui/TableImportDialog.svelte'
   import { guideUrl } from '$lib/core/guide'
   import { toCsv } from '$lib/core/csv'
@@ -26,6 +25,7 @@
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { i18n, t, pickText } from '$lib/i18n/index.svelte'
+  import { displayTextRows } from '$lib/core/displayLanguages'
   import { createSentence, createLexeme, newId } from '$lib/core/factory'
   import { buildSentenceDocReferences } from '$lib/core/docReferences'
   import type { Analysis, Id, Sentence, Token } from '$lib/core/model'
@@ -77,8 +77,7 @@
     Check,
     Sparkles,
     Merge,
-    Upload,
-    Download,
+    FolderOpen,
     PencilRuler
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
@@ -87,11 +86,27 @@
   import { moveById } from '$lib/core/move'
   import { fiveRows } from '$lib/ui/fiveRows'
   import { corpusTextSize } from '$lib/ui/corpusTextSize'
+  import CorpusFolders, {
+    CORPUS_SENTENCE_DRAG,
+    type CorpusExportKind
+  } from '$lib/ui/CorpusFolders.svelte'
+  import {
+    corpusFolderOf,
+    corpusFoldersFor,
+    corpusFolderSentences,
+    createCorpusFolder,
+    renameCorpusFolder,
+    removeCorpusFolder,
+    reorderCorpusFolder,
+    moveCorpusSentences,
+    validCorpusFolder
+  } from '$lib/core/corpusFolders'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
   const project = $derived(projectState.project!)
   const glossLangs = $derived(project.settings.glossLanguages)
+  const translationOrder = $derived([i18n.locale, i18n.custom?.base ?? '', ...glossLangs])
   const langId = $derived(
     projectState.currentLanguageId ??
       project.settings.defaultLanguageId ??
@@ -106,6 +121,8 @@
     mode: 'entries' | 'stats' | 'abbr'
     selectedId: Id | null
     collapsedId: Id | null
+    folderId: Id
+    folderView: boolean
     exportFormat: 'leipzig' | 'markdown' | 'html' | 'latex' | 'template'
     templateId: string
     /** 开着的工作台：填回哪一句、拼到哪儿了（跳去词库新建词条再回来，照原样摆回去） */
@@ -114,6 +131,15 @@
   const sameLang = memo.lang === projectState.currentLanguageId
   let mode = $state<'entries' | 'stats' | 'abbr'>(memo.mode ?? 'entries')
   let selectedId = $state<Id | null>(sameLang ? (memo.selectedId ?? null) : null)
+  let folderId = $state<Id>(sameLang ? (memo.folderId ?? '') : '')
+  let folderView = $state(sameLang && memo.folderView === true)
+  let movingSentence = $state(false)
+  const folders = $derived(langId ? corpusFoldersFor(project, langId) : [])
+  const currentFolder = $derived(folders.find((folder) => folder.id === folderId) ?? folders[0])
+  $effect(() => {
+    if (langId && !validCorpusFolder(project, langId, folderId)) folderId = ''
+  })
+  let importTarget = $state<{ projectId: Id; languageId: Id; folderId: Id } | null>(null)
   const query = $derived(ui.search)
   let exportFormat = $state<'leipzig' | 'markdown' | 'html' | 'latex' | 'template'>(
     memo.exportFormat ?? 'leipzig'
@@ -138,6 +164,7 @@
     return project.sentences.filter(
       (s) =>
         (!langId || s.languageId === langId) &&
+        corpusFolderOf(project, s) === folderId &&
         (!pq.terms.length || matchQuery(pq, (f) => sentenceFieldValues(s, f)))
     )
   })
@@ -169,6 +196,13 @@
     }
   }
   const selected = $derived(project.sentences.find((s) => s.id === selectedId) ?? null)
+  const lexemeHeadwords = $derived(
+    new Map(
+      project.lexemes
+        .filter((lexeme) => lexeme.languageId === langId)
+        .map((lexeme) => [lexeme.id, lexeme.lemma])
+    )
+  )
   const documentReferences = $derived(buildSentenceDocReferences(project))
   const allTags = $derived([...new Set(project.sentences.flatMap((s) => s.tags))].sort())
   const abbrMap = $derived(
@@ -180,6 +214,7 @@
   function filterFromStats(q: string): void {
     ui.search = q
     mode = 'entries'
+    folderView = false
   }
   const templates = $derived(project.settings.exportTemplates.filter((x) => x.kind === 'gloss'))
 
@@ -205,6 +240,8 @@
       lang: projectState.currentLanguageId,
       id: selectedId,
       mode,
+      folder: folderId,
+      folders: folderView ? '1' : '',
       bench: bench ? '1' : '',
       collapsed: collapsedId && collapsedId === selectedId ? '1' : ''
     })
@@ -215,6 +252,8 @@
     const v: PageView = r.view ?? {}
     selectedId = v.id ?? null
     collapsedId = v.collapsed === '1' ? selectedId : null
+    folderId = v.folder ?? ''
+    folderView = v.folders === '1'
     mode = v.mode === 'stats' || v.mode === 'abbr' ? v.mode : 'entries'
     bench =
       v.bench === '1' && memo.bench
@@ -228,6 +267,8 @@
       mode,
       selectedId,
       collapsedId,
+      folderId,
+      folderView,
       exportFormat,
       templateId
     })
@@ -240,6 +281,8 @@
     if (!s) return
     if (langId && s.languageId !== langId) projectState.currentLanguageId = s.languageId
     ui.search = ''
+    folderId = corpusFolderOf(project, s)
+    folderView = false
     // 定位例句时暂收工作台和导入页；工作台草稿仍留在memo，返回原位置时可继续。
     bench = null
     importOpen = false
@@ -288,6 +331,156 @@
   function touch(): void {
     projectState.touch()
   }
+  function openFolder(id: Id): void {
+    if (!langId || !validCorpusFolder(project, langId, id)) return
+    folderId = id
+    folderView = false
+    selectedId = null
+    collapsedId = null
+    bench = null
+    importOpen = false
+    mode = 'entries'
+  }
+  function showFolders(): void {
+    folderView = true
+    bench = null
+    importOpen = false
+    mode = 'entries'
+  }
+  async function newFolder(): Promise<void> {
+    if (projectState.readOnly || !langId) return
+    const owner = project,
+      lid = langId,
+      name = await ui.prompt(t('corpus.folders.create'), '')
+    if (!name || projectState.readOnly || projectState.project !== owner || langId !== lid) return
+    if (createCorpusFolder(project, lid, name, newId())) touch()
+    else ui.toast(t('corpus.folders.invalidName'))
+  }
+  async function renameFolder(id: Id): Promise<void> {
+    const folder = project.corpusFolders?.find((folder) => folder.id === id)
+    if (!folder || projectState.readOnly) return
+    const owner = project,
+      lid = folder.languageId,
+      name = await ui.prompt(t('corpus.folders.rename'), folder.name)
+    if (!name || projectState.readOnly || projectState.project !== owner || langId !== lid) return
+    if (renameCorpusFolder(project, id, name)) touch()
+    else ui.toast(t('corpus.folders.invalidName'))
+  }
+  async function removeFolder(id: Id): Promise<void> {
+    const folder = project.corpusFolders?.find((folder) => folder.id === id)
+    if (!folder || projectState.readOnly) return
+    const owner = project,
+      lid = folder.languageId
+    if (
+      !(await ui.confirm(
+        t('corpus.folders.remove'),
+        t('corpus.folders.removeHint'),
+        t('common.delete')
+      ))
+    )
+      return
+    if (projectState.project !== owner || projectState.readOnly || langId !== lid) return
+    const old = $state.snapshot(folder),
+      position = project.corpusFolders!.findIndex((folder) => folder.id === id),
+      members = project.sentences
+        .filter((s) => s.folderId === id && s.languageId === lid)
+        .map((s) => s.id)
+    if (removeCorpusFolder(project, id)) {
+      if (folderId === id) folderId = ''
+      touch()
+      ui.toast(t('corpus.folders.removed'), {
+        action: {
+          label: t('common.undo'),
+          run: () => {
+            if (projectState.project !== owner || projectState.readOnly) return
+            if (!project.corpusFolders?.some((folder) => folder.id === id)) {
+              const folders = [...(project.corpusFolders ?? [])]
+              folders.splice(Math.min(position, folders.length), 0, old)
+              project.corpusFolders = folders
+            }
+            moveCorpusSentences(
+              project,
+              members.filter((id) => {
+                const s = project.sentences.find((s) => s.id === id)
+                return s && corpusFolderOf(project, s) === ''
+              }),
+              lid,
+              id
+            )
+            touch()
+          }
+        }
+      })
+    }
+  }
+  function reorderFolder(from: Id, to: Id): void {
+    if (!projectState.readOnly && langId && reorderCorpusFolder(project, langId, from, to)) touch()
+  }
+  function moveSentences(ids: Id[], target: Id): void {
+    if (projectState.readOnly || !langId) return
+    if (moveCorpusSentences(project, ids, langId, target)) {
+      if (selectedId && ids.includes(selectedId)) {
+        selectedId = null
+        collapsedId = null
+      }
+      touch()
+      ui.toast(t('corpus.folders.moved'))
+    }
+    movingSentence = false
+  }
+  async function chooseFolder(sentence: Sentence): Promise<void> {
+    if (projectState.readOnly) return
+    const owner = project,
+      lid = sentence.languageId,
+      id = sentence.id
+    const choices = corpusFoldersFor(project, lid).map((folder) => ({
+      value: folder.id,
+      label: folder.name
+    }))
+    const target = await ui.choose(t('corpus.folders.move'), '', choices)
+    if (
+      target === null ||
+      projectState.project !== owner ||
+      projectState.readOnly ||
+      langId !== lid
+    )
+      return
+    moveSentences([id], target)
+  }
+  function sentenceDrag(sentence: Sentence, index: number): ReturnType<typeof sortable> {
+    const props = sortable('sentences', index, (from, to) => {
+      if (
+        !projectState.readOnly &&
+        list[from] &&
+        list[to] &&
+        moveById(project.sentences, list[from].id, list[to].id)
+      )
+        touch()
+    })
+    return {
+      ...props,
+      ondragstart: (e) => {
+        if (projectState.readOnly) {
+          e.preventDefault()
+          return
+        }
+        props.ondragstart(e)
+        e.dataTransfer?.setData(
+          CORPUS_SENTENCE_DRAG,
+          JSON.stringify({
+            projectId: project.meta.id,
+            languageId: sentence.languageId,
+            id: sentence.id
+          })
+        )
+        movingSentence = true
+      },
+      ondragend: () => {
+        props.ondragend()
+        movingSentence = false
+      }
+    }
+  }
   // ───── 译文工作台 ─────
   /** 开着工作台：填回哪一句（原文还空着的那句；原文已经写了就另加一句） */
   let bench = $state<{ targetId: Id | null; initial: string } | null>(
@@ -304,6 +497,8 @@
   /** 工作台里的译文按界面语言写（跟释义输入框默认给的那种一致） */
   const benchGloss = $derived(uiGlossCode(i18n.locale, i18n.custom?.base))
   function openBench(s: Sentence): void {
+    folderId = corpusFolderOf(project, s)
+    folderView = false
     if (memo.bench?.targetId === s.id) bench = { targetId: s.id, initial: memo.bench.initial }
     else {
       bench = { targetId: s.id, initial: s.translation[benchGloss] ?? '' }
@@ -324,6 +519,7 @@
     if (!s || s.text.trim()) {
       project.sentences.unshift(createSentence(langId))
       s = project.sentences[0]
+      if (folderId) s.folderId = folderId
     }
     s.text = r.text
     if (r.translation) s.translation[benchGloss] = r.translation
@@ -342,10 +538,12 @@
   function add(): void {
     if (!langId) return
     const s = createSentence(langId)
+    if (folderId) s.folderId = folderId
     project.sentences.unshift(s)
     collapsedId = null
     selectedId = s.id
     mode = 'entries'
+    folderView = false
     touch()
     queueMicrotask(() => document.getElementById('st-text')?.focus())
   }
@@ -373,6 +571,7 @@
     touch()
   }
   async function runDedup(): Promise<void> {
+    if (projectState.readOnly) return
     if (!langId) return
     const n = await dedupeSentences(project, { languageId: langId })
     if (n) {
@@ -401,38 +600,62 @@
   }
   /** 导出当前列表里的例句（跟着当前语言与搜索走） */
   async function exportSentences(
-    kind: 'csv' | 'json' | 'leipzig' | 'markdown' | 'html' | 'latex'
+    kind: CorpusExportKind,
+    target: Id | null = folderId
   ): Promise<void> {
-    const base = `${language?.name ?? project.meta.name}-corpus`
+    if (projectState.readOnly || !langId) return
+    const entries =
+      target === null
+        ? project.sentences.filter((s) => s.languageId === langId)
+        : corpusFolderSentences(project, langId, target)
+    const name =
+      target === null
+        ? 'corpus'
+        : (folders.find((folder) => folder.id === target)?.name ?? 'Default')
+    const base = `${language?.name ?? project.meta.name}-${name}`
     if (kind === 'csv')
       await platform.saveTextFile(
         `${base}.csv`,
-        '\ufeff' + toCsv(sentencesToRows(project, list, glossLangs))
+        '\ufeff' + toCsv(sentencesToRows(project, entries, glossLangs))
       )
-    else if (kind === 'json') await platform.saveTextFile(`${base}.json`, sentencesToJson(list))
+    else if (kind === 'json') await platform.saveTextFile(`${base}.json`, sentencesToJson(entries))
     else {
       const ext = { leipzig: 'txt', markdown: 'md', html: 'html', latex: 'tex' }[kind]
       await platform.saveTextFile(
         `${base}.${ext}`,
-        sentencesToText(project, list, kind, i18n.locale)
+        sentencesToText(project, entries, kind, i18n.locale)
       )
     }
   }
-  function openImport(jsonFirst: boolean): void {
+  function openImport(jsonFirst: boolean, target: Id = folderId): void {
+    if (projectState.readOnly || !langId || !validCorpusFolder(project, langId, target)) return
+    importTarget = { projectId: project.meta.id, languageId: langId, folderId: target }
+    folderId = target
+    folderView = false
     importJson = jsonFirst
     importNonce++
     importOpen = true
   }
   /** 导入面板里选了千语集导出的 JSON */
   function runSentencesJson(content: string): void {
-    if (!langId) return
-    const lid = langId
+    const target = importTarget
+    if (
+      !target ||
+      projectState.readOnly ||
+      project.meta.id !== target.projectId ||
+      langId !== target.languageId ||
+      !validCorpusFolder(project, target.languageId, target.folderId)
+    )
+      return
+    const lid = target.languageId
     const r = importSentencesJson(project, lid, content)
     if (!r) {
       ui.error(t('io.badJson'))
       return
     }
     importOpen = false
+    moveCorpusSentences(project, r.ids, lid, target.folderId)
+    folderId = target.folderId
     afterImport(lid, r)
   }
   /** 这门语言里已经有的原文（规范化后）：导入样例拿它标「会跳过」 */
@@ -442,9 +665,20 @@
     )
   )
   function importSentenceTable(records: Record<string, string>[]): void {
-    if (!langId) return
+    const target = importTarget
+    if (
+      !target ||
+      projectState.readOnly ||
+      project.meta.id !== target.projectId ||
+      langId !== target.languageId ||
+      !validCorpusFolder(project, target.languageId, target.folderId)
+    )
+      return
     importOpen = false
-    afterImport(langId, importSentenceRecords(project, langId, records))
+    const result = importSentenceRecords(project, target.languageId, records)
+    moveCorpusSentences(project, result.ids, target.languageId, target.folderId)
+    folderId = target.folderId
+    afterImport(target.languageId, result)
   }
   /** 导入完：提示条数，再在新导入的句子里查一遍相近的（只差出处的直接合并，其余问一下） */
   function afterImport(lid: Id, r: { created: number; skipped: number; ids: Id[] }): void {
@@ -628,7 +862,12 @@
     return a.morphs.map((m, i) => (i ? morphJoiner(project, a, i) : '') + pick(m)).join('')
   }
   function analysisLabel(a: Analysis): string {
-    return joinMorphs(a, (m) => m.form) + ' → ' + joinMorphs(a, (m) => m.gloss)
+    const surface = joinMorphs(a, (m) => m.form),
+      gloss = joinMorphs(a, (m) => m.gloss),
+      headword = a.lexemeId ? lexemeHeadwords.get(a.lexemeId) : ''
+    return headword && headword.normalize('NFC') !== surface.normalize('NFC')
+      ? `${surface} → ${headword} · ${gloss}`
+      : `${surface} → ${gloss}`
   }
   /** 手工修改语素切分 / gloss：写成自定义分析放到首位并选中 */
   function customize(tk: Token, morphsText: string, glossText: string): void {
@@ -775,6 +1014,23 @@
   }
 </script>
 
+{#snippet folderPanel(compact: boolean)}
+  {#if langId}<CorpusFolders
+      projectId={project.meta.id}
+      languageId={langId}
+      {folders}
+      readOnly={projectState.readOnly}
+      {compact}
+      onopen={openFolder}
+      oncreate={newFolder}
+      onrename={renameFolder}
+      onremove={removeFolder}
+      onreorder={reorderFolder}
+      onmove={moveSentences}
+      onimport={(target, json) => openImport(json, target)}
+      onexport={(target, kind) => exportSentences(kind, target)}
+    />{/if}
+{/snippet}
 <div class="page" style:--corpus-text-scale={textSize / 100}>
   <div class="page-head row">
     <h1>{t('corpus.title')}</h1>
@@ -792,20 +1048,14 @@
     </div>
     <span class="grow"></span>
     {#if mode === 'entries' && language}
-      <Menu label={t('lexicon.import')} icon={Download} tour="corpus-io">
-        <button onclick={() => openImport(false)}>{t('io.importTable')}</button>
-        <button onclick={() => openImport(true)}>{t('io.importJson')}</button>
-      </Menu>
-      <Menu label={t('common.export')} icon={Upload} tour="corpus-io">
-        <button onclick={() => exportSentences('csv')}>{t('io.exportCsv')}</button>
-        <button onclick={() => exportSentences('json')}>{t('io.exportJson')}</button>
-        <button onclick={() => exportSentences('leipzig')}>{t('corpus.formats.leipzig')}</button>
-        <button onclick={() => exportSentences('markdown')}>{t('corpus.formats.markdown')}</button>
-        <button onclick={() => exportSentences('html')}>{t('corpus.formats.html')}</button>
-        <button onclick={() => exportSentences('latex')}>{t('corpus.formats.latex')}</button>
-      </Menu>
+      {#if !folderView}<span class="badge">{currentFolder?.name ?? 'Default'}</span><button
+          class="btn"
+          data-tour="corpus-io"
+          data-corpus-show-folders
+          onclick={showFolders}><FolderOpen size={16} />{t('corpus.folders.back')}</button
+        >{/if}
     {/if}
-    {#if mode === 'entries'}
+    {#if mode === 'entries' && !folderView}
       <button class="btn ghost" title={t('corpus.dedup.hintBtn')} onclick={runDedup}
         ><Merge size={16} />{t('corpus.dedup.button')}</button
       >
@@ -849,6 +1099,8 @@
       />{/key}
   {:else if !language}
     <p class="muted">{t('lexicon.noLanguage')}</p>
+  {:else if folderView && mode === 'entries'}
+    <div class="scroll">{@render folderPanel(false)}</div>
   {:else if mode === 'stats'}
     <div class="scroll stats">
       {#if stats}
@@ -986,6 +1238,7 @@
     </div>
   {:else}
     <div class="scroll" use:navScroll={'corpus'}>
+      {#if movingSentence}{@render folderPanel(true)}{/if}
       <Hint id="corpus" text={t('corpus.hint')} />
       {#snippet editorPanel(s: Sentence)}
         <div class="card editor" class:fading>
@@ -1088,7 +1341,12 @@
                 </div>
               {/each}
             </div>
-            <p class="tr">{interlinear(project, s, i18n.locale).translation}</p>
+            {#each displayTextRows(s.translation, project.settings.translationDisplay, translationOrder) as row (row.language)}<p
+                class="tr"
+                lang={row.language}
+              >
+                {row.text}
+              </p>{/each}
           {/if}
         </div>
       {/snippet}
@@ -1111,6 +1369,13 @@
               data-id={s.id}
               use:deletable={{
                 selected: selectedId === s.id,
+                actions: [
+                  {
+                    label: t('corpus.folders.move'),
+                    disabled: projectState.readOnly,
+                    run: () => chooseFolder(s)
+                  }
+                ],
                 select: () => {
                   selectedId = s.id
                 },
@@ -1121,9 +1386,7 @@
               use:flashOn={justConfirmed === s.id}
               role="button"
               tabindex="0"
-              {...sortable('sentences', si, (from, to) => {
-                if (moveById(project.sentences, list[from].id, list[to].id)) touch()
-              })}
+              {...sentenceDrag(s, si)}
               onclick={() => pick(s.id)}
               onkeydown={(e) => e.key === 'Enter' && pick(s.id)}
             >
@@ -1181,7 +1444,13 @@
                     >{/each}
                 </div>
               {/if}
-              <div class="tr-line">{pickText(s.translation, glossLangs)}</div>
+              {#each displayTextRows(s.translation, project.settings.translationDisplay, translationOrder) as row (row.language)}<div
+                  class="tr-line"
+                  lang={row.language}
+                  data-corpus-translation={row.language}
+                >
+                  {row.text}
+                </div>{/each}
               {#if s.tags.length || s.source}<div class="small muted">
                   {[s.source, ...s.tags].filter(Boolean).join(' · ')}
                 </div>{/if}
