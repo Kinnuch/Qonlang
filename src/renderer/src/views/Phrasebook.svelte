@@ -5,7 +5,7 @@
 </script>
 
 <script lang="ts">
-  import { deletable } from '$lib/ui/deletable'
+  import { deletable, type DeleteOptions } from '$lib/ui/deletable'
   import { orthoIpaLabel } from '$lib/ui/labels'
   import { navScroll } from '$lib/ui/navScroll'
   import { scrollToItem } from '$lib/ui/reveal'
@@ -31,6 +31,18 @@
   import { ui } from '$lib/state/ui.svelte'
   import { i18n, t, pickText } from '$lib/i18n/index.svelte'
   import { displayTextRows } from '$lib/core/displayLanguages'
+  import { createFolderIndex } from '$lib/core/folderTree'
+  import { createScriptScopeResolver } from '$lib/core/scriptScope'
+  import RecordClipboardTools from '$lib/ui/RecordClipboardTools.svelte'
+  import ProjectDirectory from '$lib/ui/ProjectDirectory.svelte'
+  import {
+    projectFolderOf,
+    projectFolderRecords,
+    validProjectFolder,
+    moveProjectRecords,
+    projectFolders
+  } from '$lib/core/projectFolders'
+  import { copyProjectRecords, pasteProjectRecords } from '$lib/state/recordClipboard.svelte'
   import { createPhrase } from '$lib/core/factory'
   import type { Id, Phrase, Token } from '$lib/core/model'
   import { transcribe } from '$lib/core/pronounce'
@@ -55,10 +67,10 @@
   import Workbench, { type BenchResult, type BenchSaved } from '$lib/ui/Workbench.svelte'
   import { pinChoices } from '$lib/engine/compose'
   import { uiGlossCode } from '$lib/core/glossInputs'
-  import { Plus, Trash2, X, Wand2, Upload, Download, PencilRuler } from '@lucide/svelte'
+  import { Plus, Trash2, X, Wand2, Upload, Download, PencilRuler, FolderOpen } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
-  import { sortable } from '$lib/ui/sortable.svelte'
+  import { sortable, type SortableProps } from '$lib/ui/sortable.svelte'
   import { moveById } from '$lib/core/move'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
 
@@ -73,18 +85,109 @@
       null
   )
   const language = $derived(project.languages.find((l) => l.id === langId) ?? null)
+  const scriptScope = $derived(createScriptScopeResolver(project, language))
 
   /** 回到这一页时接着用上次的分类与选中的短语；换了语言就不恢复 */
   const memo = ui.memo<{
     lang: Id | null
     selectedId: Id | null
     category: string
+    folderId: Id
+    folderView: boolean
     /** 开着的工作台：填回哪一条、拼到哪儿了（跳去词库新建词条再回来，照原样摆回去） */
     bench: { targetId: Id | null; initial: string; saved?: BenchSaved } | null
   }>('phrasebook')
   const sameLang = memo.lang === projectState.currentLanguageId
   let selectedId = $state<Id | null>(sameLang ? (memo.selectedId ?? null) : null)
   let category = $state<string>(sameLang ? (memo.category ?? '') : '')
+  let folderId = $state<Id>(memo.folderId ?? '')
+  let folderView = $state(memo.folderView ?? false)
+  let importTarget = $state<{ projectId: Id; languageId: Id; folderId: Id } | null>(null)
+  function openFolder(id: Id): void {
+    if (!validProjectFolder(project, id)) return
+    wordHover.hide(true)
+    folderId = id
+    folderView = false
+    selectedId = null
+    category = ''
+    ui.search = ''
+    importOpen = false
+    bench = null
+  }
+  function browseFolder(id: Id): void {
+    openFolder(id)
+    folderView = true
+  }
+  function recordActions(p: Phrase): NonNullable<DeleteOptions['actions']> {
+    return [
+      {
+        label: t('sharedFolders.copy'),
+        run: () => copyProjectRecords(project, [{ kind: 'phrase' as const, id: p.id }], 'copy')
+      },
+      {
+        label: t('sharedFolders.cut'),
+        disabled: projectState.readOnly,
+        run: () => copyProjectRecords(project, [{ kind: 'phrase' as const, id: p.id }], 'cut')
+      },
+      {
+        label: t('sharedFolders.paste'),
+        disabled: projectState.readOnly,
+        run: pasteHere
+      },
+      {
+        label: t('sharedFolders.move'),
+        disabled: projectState.readOnly,
+        run: () => chooseMovePhrase(p)
+      }
+    ]
+  }
+  async function chooseMovePhrase(p: Phrase): Promise<void> {
+    if (projectState.readOnly) return
+    const owner = project,
+      folderIndex = createFolderIndex(projectFolders(owner)),
+      target = await ui.choose(t('sharedFolders.move'), folderId, [
+        { value: '', label: 'Default' },
+        ...[...folderIndex.nodes.values()].map((folder) => ({
+          value: folder.id,
+          label: folderIndex
+            .path(folder.id)
+            .map((item) => item.name)
+            .join(' / ')
+        }))
+      ])
+    if (target === null || owner !== projectState.project || projectState.readOnly) return
+    if (moveProjectRecords(owner, [{ kind: 'phrase', id: p.id }], target)) {
+      folderId = target
+      touch()
+    }
+  }
+  function phraseDrag(event: DragEvent, id: Id): void {
+    if (projectState.readOnly || !event.dataTransfer) {
+      event.preventDefault()
+      return
+    }
+    event.dataTransfer.setData(
+      'text/x-qonlang-phrase',
+      JSON.stringify({ projectId: project.meta.id, id })
+    )
+    event.dataTransfer.effectAllowed = 'move'
+  }
+  function phraseSortable(at: number, p: Phrase): SortableProps {
+    const props = sortable('phrases', at, (from, to) => {
+      if (!projectState.readOnly && moveById(project.phrasebook, list[from].id, list[to].id))
+        touch()
+    })
+    return {
+      ...props,
+      ondragstart: (event: DragEvent) => {
+        props.ondragstart(event)
+        phraseDrag(event, p.id)
+      }
+    }
+  }
+  $effect(() => {
+    if (!validProjectFolder(project, folderId)) folderId = ''
+  })
   /** 表格导入对话框 */
   let importOpen = $state(false)
   /** 导入面板一打开先去选 JSON（菜单里点的是「从 JSON 导入」）；每点一次菜单都重开一次面板 */
@@ -94,10 +197,18 @@
 
   const inLang = $derived(project.phrasebook.filter((p) => !langId || p.languageId === langId))
   const categories = $derived([...new Set(inLang.map((p) => p.category).filter(Boolean))].sort())
+  const sharedFolderIds = $derived(new Set(projectFolders(project).map((folder) => folder.id)))
+  const phraseFolderOf = (phrase: Phrase): Id =>
+    project.folders !== undefined
+      ? phrase.folderId && sharedFolderIds.has(phrase.folderId)
+        ? phrase.folderId
+        : ''
+      : projectFolderOf(project, phrase)
   const list = $derived.by(() => {
     const pq = parseQuery(query, SEARCH_FIELDS.phrasebook)
     return inLang.filter(
       (p) =>
+        phraseFolderOf(p) === folderId &&
         (!category || p.category === category) &&
         (!pq.terms.length || matchQuery(pq, (f) => phraseFieldValues(p, f)))
     )
@@ -371,7 +482,8 @@
       kind: 'phrase',
       lang: projectState.currentLanguageId,
       id: selectedId,
-      category
+      category,
+      docFolder: folderId
     })
   })
   $effect(() => {
@@ -380,10 +492,20 @@
     const v: PageView = r.view ?? {}
     selectedId = v.id ?? null
     category = v.category ?? ''
+    folderId = selectedId
+      ? projectFolderOf(project, project.phrasebook.find((item) => item.id === selectedId) ?? {})
+      : (v.docFolder ?? '')
+    folderView = false
     ui.restoreScroll('phrasebook', r.scroll)
   })
   $effect(() => {
-    Object.assign(memo, { lang: projectState.currentLanguageId, selectedId, category })
+    Object.assign(memo, {
+      lang: projectState.currentLanguageId,
+      selectedId,
+      category,
+      folderId,
+      folderView
+    })
   })
   if (sameLang && !ui.restoring('phrasebook'))
     ui.restoreScroll('phrasebook', ui.lastScroll('phrasebook'))
@@ -396,6 +518,8 @@
     category = ''
     ui.search = ''
     selectedId = id
+    folderId = projectFolderOf(project, ph)
+    folderView = false
     void scrollToItem('phrasebook', `.item[data-id="${id}"]`, () => {
       const i = list.findIndex((x) => x.id === id)
       if (i >= 0) lz.ensure(i + 1)
@@ -418,6 +542,16 @@
     }, 1800)
   }
 
+  function pasteHere(): void {
+    const owner = project,
+      target = folderId
+    void pasteProjectRecords(
+      owner,
+      target,
+      undefined,
+      () => projectState.project === owner && folderId === target && !folderView
+    )
+  }
   function touch(): void {
     projectState.touch()
   }
@@ -456,6 +590,7 @@
     if (!p || p.text.trim()) {
       project.phrasebook.unshift(createPhrase(langId, category))
       p = project.phrasebook[0]
+      if (folderId) p.folderId = folderId
     }
     p.text = r.text
     if (r.translation) p.translation[benchGloss] = r.translation
@@ -474,18 +609,22 @@
     derivePron(p)
     closeBench()
     selectedId = p.id
+    folderView = false
     touch()
     ui.toast(t('bench.added'))
   }
   function add(): void {
-    if (!langId) return
+    if (!langId || projectState.readOnly) return
     const p = createPhrase(langId, category)
+    if (folderId) p.folderId = folderId
+    folderView = false
     project.phrasebook.unshift(p)
     selectedId = p.id
     touch()
     queueMicrotask(() => document.getElementById('ph-text')?.focus())
   }
   function remove(p: Phrase): void {
+    if (projectState.readOnly) return
     const idx = project.phrasebook.indexOf(p)
     if (idx < 0) return
     const snap = $state.snapshot(p) as Phrase
@@ -536,25 +675,62 @@
     touch()
   }
   /** 导出当前列表里的短语（跟着当前语言、分类与搜索走） */
-  async function exportPhrases(kind: 'csv' | 'json'): Promise<void> {
+  async function exportPhrases(
+    kind: 'csv' | 'json',
+    target: Id | null | undefined = undefined,
+    recursive = false
+  ): Promise<void> {
+    if (projectState.readOnly) return
+    const ids =
+      target === undefined
+        ? null
+        : new Set(
+            (target === null
+              ? project.phrasebook.map((p) => ({ kind: 'phrase', id: p.id }))
+              : projectFolderRecords(project, target, recursive)
+            )
+              .filter((ref) => ref.kind === 'phrase')
+              .map((ref) => ref.id)
+          )
+    const exporting = ids ? inLang.filter((p) => ids.has(p.id)) : list
     const base = `${language?.name ?? project.meta.name}-phrasebook`
     if (kind === 'csv')
-      await platform.saveTextFile(`${base}.csv`, '\ufeff' + toCsv(phrasesToRows(list, glossLangs)))
-    else await platform.saveTextFile(`${base}.json`, phrasesToJson(list))
+      await platform.saveTextFile(
+        `${base}.csv`,
+        '\ufeff' + toCsv(phrasesToRows(exporting, glossLangs))
+      )
+    else await platform.saveTextFile(`${base}.json`, phrasesToJson(exporting))
   }
-  function openImport(jsonFirst: boolean): void {
+  function openImport(jsonFirst: boolean, target: Id = folderId): void {
+    if (projectState.readOnly || !langId) return
+    importTarget = { projectId: project.meta.id, languageId: langId, folderId: target }
+    folderId = target
+    folderView = false
     importJson = jsonFirst
     importNonce++
     importOpen = true
   }
   /** 导入面板里选了千语集导出的 JSON */
   function runPhrasesJson(content: string): void {
-    if (!langId) return
+    if (
+      !langId ||
+      projectState.readOnly ||
+      !importTarget ||
+      importTarget.projectId !== project.meta.id ||
+      importTarget.languageId !== langId ||
+      !validProjectFolder(project, importTarget.folderId)
+    )
+      return
     const r = importPhrasesJson(project, langId, content)
     if (!r) {
       ui.error(t('io.badJson'))
       return
     }
+    moveProjectRecords(
+      project,
+      r.ids.map((id) => ({ kind: 'phrase', id })),
+      importTarget!.folderId
+    )
     importOpen = false
     touch()
     ui.toast(t('io.imported', { n: r.created, skipped: r.skipped }))
@@ -568,8 +744,21 @@
     )
   )
   function importPhraseTable(records: Record<string, string>[]): void {
-    if (!langId) return
+    if (
+      !langId ||
+      projectState.readOnly ||
+      !importTarget ||
+      importTarget.projectId !== project.meta.id ||
+      importTarget.languageId !== langId ||
+      !validProjectFolder(project, importTarget.folderId)
+    )
+      return
     const r = importPhraseRecords(project, langId, records)
+    moveProjectRecords(
+      project,
+      r.ids.map((id) => ({ kind: 'phrase', id })),
+      importTarget!.folderId
+    )
     importOpen = false
     touch()
     ui.toast(t('io.imported', { n: r.created, skipped: r.skipped }))
@@ -589,7 +778,13 @@
     <h1>{t('phrasebook.title')}</h1>
     <GuideLink section="phrasebook" />
     <span class="grow"></span>
-    {#if language}
+    {#if !folderView}<button
+        class="btn"
+        data-phrase-show-folders
+        onclick={() => browseFolder(folderId)}
+        ><FolderOpen size={16} />{t('sharedFolders.back')}</button
+      >{/if}
+    {#if language && !folderView}
       <Menu label={t('lexicon.import')} icon={Download} tour="phrasebook-io">
         <button onclick={() => openImport(false)}>{t('io.importTable')}</button>
         <button onclick={() => openImport(true)}>{t('io.importJson')}</button>
@@ -599,11 +794,25 @@
         <button onclick={() => exportPhrases('json')}>{t('io.exportJsonPlain')}</button>
       </Menu>
     {/if}
-    <button class="btn primary" data-tour="phrasebook-add" onclick={add}
-      ><Plus size={16} />{t('phrasebook.add')}</button
+    <button
+      class="btn primary"
+      data-tour="phrasebook-add"
+      disabled={projectState.readOnly}
+      onclick={add}><Plus size={16} />{t('phrasebook.add')}</button
     >
   </div>
   <Hint id="phrasebook" text={t('phrasebook.hint')} />
+  {#if !folderView}<RecordClipboardTools
+      {project}
+      kind="phrase"
+      ids={selectedId ? [selectedId] : []}
+      {folderId}
+      enabled={!bench && !importOpen}
+      onpasted={(ids) => {
+        selectedId = ids[0] ?? null
+      }}
+    />{/if}
+
   {#if importOpen && language}
     <div class="scroll">
       {#key importNonce}
@@ -638,9 +847,28 @@
       />{/key}
   {:else if !language}
     <p class="muted">{t('lexicon.noLanguage')}</p>
+  {:else if folderView}
+    <div class="scroll">
+      <ProjectDirectory
+        kind="phrase"
+        currentId={folderId}
+        onopen={openFolder}
+        onbrowse={browseFolder}
+        onimport={(target, json) => openImport(json, target)}
+        onexport={(target, format, recursive) =>
+          exportPhrases(format as 'csv' | 'json', target, recursive)}
+      />
+    </div>
   {:else}
     <div class="body">
       <aside class="cats" data-tour="phrasebook-cats">
+        <ProjectDirectory
+          kind="phrase"
+          currentId={folderId}
+          compact
+          onopen={openFolder}
+          onbrowse={browseFolder}
+        />
         <button class="cat" class:active={category === ''} onclick={() => (category = '')}
           >{t('phrasebook.allCategories')}<span class="n">{inLang.length}</span></button
         >
@@ -670,19 +898,18 @@
                   select: () => {
                     selectedId = p.id
                   },
+                  actions: recordActions(p),
                   remove: () => remove(p)
                 }}
                 class:sel={selectedId === p.id}
                 class:flash={flashId === p.id}
                 role="button"
                 tabindex="0"
-                {...sortable('phrases', pi, (from, to) => {
-                  if (moveById(project.phrasebook, list[from].id, list[to].id)) touch()
-                })}
+                {...phraseSortable(pi, p)}
                 onclick={() => (selectedId = p.id)}
                 onkeydown={(e) => e.key === 'Enter' && (selectedId = p.id)}
               >
-                {#each language.scripts as sc (sc.id)}
+                {#each scriptScope.applicable(p) as sc (sc.id)}
                   {@const st = textScript(project, language, sc, p.text)}
                   {#if st}<div
                       class="scr"

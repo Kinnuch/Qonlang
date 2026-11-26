@@ -18,6 +18,7 @@ import { lexemeMatchesGloss } from '$lib/core/glossMatch'
 import { tokenSpans } from '$lib/engine/gloss/tokens'
 import { canonicalG } from '$lib/ipa/equivalence'
 import { scriptSpacing } from './spacing'
+import { createScriptScopeResolver, type ScriptScopeResolver } from '$lib/core/scriptScope'
 import {
   lexemeScript,
   readsInspectorField,
@@ -291,8 +292,19 @@ export function sentenceScriptText(
   lang: Language,
   script: Script,
   s: Sentence,
-  lookup?: WordLookup
+  lookup?: WordLookup,
+  scope?: ScriptScopeResolver
 ): string {
+  // 映射测试等旧调用允许传尚未加入语言的文字；仍按该文字自身的范围判断。
+  const resolved =
+    scope ??
+    createScriptScopeResolver(
+      project,
+      lang.scripts.some((candidate) => candidate.id === script.id)
+        ? lang
+        : { ...lang, scripts: [script] }
+    )
+  if (!resolved.visible(s).some((candidate) => candidate.id === script.id)) return ''
   const o = s.scriptForms?.[script.id]
   if (o)
     return scriptSpacing(project, writesFromLexicon(script) ? renderScript(lang, script, o) : o)

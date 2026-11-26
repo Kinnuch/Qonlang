@@ -1,5 +1,7 @@
 <script lang="ts">
   import { canonicalG, gEquivalent } from '$lib/ipa/equivalence'
+  import RecordClipboardTools from '$lib/ui/RecordClipboardTools.svelte'
+  import { copyRecords, pasteRecords } from '$lib/state/recordClipboard.svelte'
   import { deletable } from '$lib/ui/deletable'
   import MorphemeBindingsEditor from '$lib/ui/MorphemeBindingsEditor.svelte'
   import { traceLine } from '$lib/ui/engineText'
@@ -1306,6 +1308,35 @@
     }
     touch()
   }
+  const clipboardIds = $derived(
+    list
+      .filter((row) => (multiIds.length ? multiIds.includes(row.id) : selectedId === row.id))
+      .map((row) => row.id)
+  )
+  async function pasteClipboard(): Promise<void> {
+    const result = await pasteRecords(project, 'lexeme', langId)
+    if (result?.ok) {
+      multiIds = result.ids
+      selectedId = result.ids[0] ?? null
+    }
+  }
+  const clipboardActions = $derived([
+    {
+      label: t('clipboard.copy'),
+      disabled: projectState.readOnly,
+      run: () => void copyRecords(project, 'lexeme', clipboardIds, 'copy')
+    },
+    {
+      label: t('clipboard.cut'),
+      disabled: projectState.readOnly,
+      run: () => void copyRecords(project, 'lexeme', clipboardIds, 'cut')
+    },
+    {
+      label: t('clipboard.paste'),
+      disabled: projectState.readOnly,
+      run: () => void pasteClipboard()
+    }
+  ])
 </script>
 
 <div class="page">
@@ -1388,6 +1419,17 @@
     {/if}
   </div>
   <Hint id="lexicon" text={t('lexicon.hint')} />
+  <RecordClipboardTools
+    {project}
+    kind="lexeme"
+    ids={clipboardIds}
+    targetLanguageId={langId}
+    enabled={mode === 'entries'}
+    onpasted={(ids) => {
+      multiIds = ids
+      selectedId = ids[0] ?? null
+    }}
+  />
 
   {#if mode === 'stats' && lexStats}
     {@const st = lexStats}
@@ -1721,8 +1763,10 @@
               data-id={l.id}
               use:deletable={{
                 identity: l.id,
-                actions:
-                  multiIds.length > 1 && multiIds.includes(l.id) ? selectionActions : undefined,
+                actions: [
+                  ...clipboardActions,
+                  ...(multiIds.length > 1 && multiIds.includes(l.id) ? selectionActions : [])
+                ],
                 selected: selectedId === l.id || multiIds.includes(l.id),
                 select: () => {
                   if (!multiIds.includes(l.id)) multiIds = []

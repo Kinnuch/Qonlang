@@ -189,6 +189,7 @@ export function createMorpheme(languageId: Id, type: MorphemeType = 'root'): Mor
 export function createPhrase(languageId: Id, category = ''): Phrase {
   return {
     id: newId(),
+    createdAt: now(),
     languageId,
     category,
     text: '',
@@ -200,12 +201,21 @@ export function createPhrase(languageId: Id, category = ''): Phrase {
 }
 
 export function createDoc(languageId: Id | null, title = ''): DocPage {
-  return { id: newId(), languageId, title, markdown: '', updatedAt: now() }
+  const timestamp = now()
+  return {
+    id: newId(),
+    createdAt: timestamp,
+    languageId,
+    title,
+    markdown: '',
+    updatedAt: timestamp
+  }
 }
 
 export function createSentence(languageId: Id): Sentence {
   return {
     id: newId(),
+    createdAt: now(),
     languageId,
     text: '',
     orthoTexts: {},

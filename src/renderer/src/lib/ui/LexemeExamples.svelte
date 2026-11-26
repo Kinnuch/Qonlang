@@ -9,6 +9,7 @@
   import type { Id, Lexeme, Project, Script, Sentence } from '$lib/core/model'
   import { X, Quote } from '@lucide/svelte'
   import { corpusTextSize } from './corpusTextSize'
+  import { createScriptScopeResolver } from '$lib/core/scriptScope'
 
   let {
     lexeme,
@@ -41,6 +42,8 @@
   const showScript = $derived(ui.prefs.examplesShowScript === true)
   const lang = $derived(project.languages.find((l) => l.id === lexeme.languageId))
   const scripts = $derived(showScript && lang ? lang.scripts : [])
+  const scope = $derived(createScriptScopeResolver(project, lang))
+  const phrases = $derived(new Map(project.phrasebook.map((phrase) => [phrase.id, phrase])))
   /** 文字行要拿整条例句现写：开着的时候才建这张表 */
   const sentences = $derived.by(() => {
     if (!scripts.length) return null
@@ -58,9 +61,12 @@
     if (!l) return ''
     if (h.kind === 'sentence') {
       const s = sentences?.get(h.id)
-      return s ? sentenceScriptText(project, l, sc, s) : ''
+      return s ? sentenceScriptText(project, l, sc, s, undefined, scope) : ''
     }
-    if (h.kind === 'phrase') return textScript(project, l, sc, h.text)
+    if (h.kind === 'phrase') {
+      const phrase = phrases.get(h.id)
+      return phrase && scope.includes(sc, phrase) ? textScript(project, l, sc, h.text) : ''
+    }
     return ''
   }
 

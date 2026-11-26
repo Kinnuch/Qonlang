@@ -12,6 +12,7 @@ export type PathCmd = GlyphContour['cmds'][number]
 export interface GlyphStroke {
   points: Pt[]
   width: number
+  nodes?: import('./glyphStrokeNodes').StrokeNode[]
 }
 export interface Box {
   x0: number
@@ -259,24 +260,31 @@ export const contourArea = (c: GlyphContour): number => signedArea(flattenContou
  * 二次曲线控制点不变，三次曲线两个控制点对调；原来隐含的闭合线段变成开头的一条直线。
  */
 export function reverseContour(c: GlyphContour): GlyphContour {
-  const segs: { from: Pt; cmd: PathCmd }[] = []
+  const segs: { from: Pt; cmd: PathCmd; fromIndex: number }[] = []
   let start: Pt | null = null
   let cur: Pt = [0, 0]
-  for (const cmd of c.cmds) {
+  let curIndex = 0
+  for (const [index, cmd] of c.cmds.entries()) {
     if (cmd[0] === 'M') {
       if (start) break // 一条轮廓只认第一个 M
       start = [cmd[1], cmd[2]]
       cur = start
     } else if (cmd[0] !== 'Z') {
-      segs.push({ from: cur, cmd })
+      segs.push({ from: cur, cmd, fromIndex: curIndex })
       cur = cmdEnd(cmd)!
+      curIndex = index
     }
   }
   if (!start) return { cmds: [] }
   const out: PathCmd[] = [['M', start[0], start[1]]]
-  if (cur[0] !== start[0] || cur[1] !== start[1]) out.push(['L', cur[0], cur[1]])
+  const mapping = new Map<number, number>([[0, 0]])
+  if (cur[0] !== start[0] || cur[1] !== start[1]) {
+    out.push(['L', cur[0], cur[1]])
+    mapping.set(curIndex, out.length - 1)
+  }
   for (let i = segs.length - 1; i >= 0; i--) {
-    const { from, cmd } = segs[i]
+    const { from, cmd, fromIndex } = segs[i]
+    mapping.set(fromIndex, out.length)
     if (cmd[0] === 'L') out.push(['L', from[0], from[1]])
     else if (cmd[0] === 'Q') out.push(['Q', cmd[1], cmd[2], from[0], from[1]])
     else if (cmd[0] === 'C') out.push(['C', cmd[3], cmd[4], cmd[1], cmd[2], from[0], from[1]])
@@ -285,7 +293,20 @@ export function reverseContour(c: GlyphContour): GlyphContour {
   const last = out[out.length - 1]
   if (out.length > 2 && last[0] === 'L' && last[1] === start[0] && last[2] === start[1]) out.pop()
   out.push(['Z'])
-  return { cmds: out }
+  return {
+    cmds: out,
+    ...(c.smooth
+      ? {
+          smooth: [
+            ...new Set(
+              c.smooth
+                .map((index) => mapping.get(index) ?? 0)
+                .map((index) => (index >= out.length - 1 ? 0 : index))
+            )
+          ]
+        }
+      : {})
+  }
 }
 
 /** 一个字的轮廓统一绕向：面积最大的那条（外轮廓）是顺时针，就整组反过来，内洞跟着保持相反 */
@@ -426,6 +447,7 @@ export type PointMap = (p: Pt) => Pt
 /** 把轮廓里每个坐标（控制点也算）过一遍 f */
 export function mapContour(c: GlyphContour, f: PointMap): GlyphContour {
   return {
+    ...c,
     cmds: c.cmds.map((cmd): PathCmd => {
       switch (cmd[0]) {
         case 'M':
@@ -451,7 +473,13 @@ export function mapContour(c: GlyphContour, f: PointMap): GlyphContour {
   }
 }
 export function mapStroke(s: GlyphStroke, f: PointMap): GlyphStroke {
-  return { width: s.width, points: s.points.map((p) => f(p)) }
+  return {
+    ...s,
+    points: s.points.map((p) => f(p)),
+    ...(s.nodes
+      ? { nodes: s.nodes.map((n) => ({ ...n, point: f(n.point), in: f(n.in), out: f(n.out) })) }
+      : {})
+  }
 }
 
 export const translate =

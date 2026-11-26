@@ -1,4 +1,61 @@
 export default {
+  scriptScope: {
+    title: 'Dossiers du corpus',
+    hint: 'Tous inclut chaque phrase et expression. Personnalisé inclut les dossiers choisis et leurs descendants, puis retire les sous-arbres exclus. Default désigne uniquement les entrées non classées. Les graphies manuelles et les analyses sont conservées.',
+    all: 'Tous les dossiers',
+    none: 'Masquer dans le corpus',
+    selected: 'Dossiers personnalisés',
+    folder: 'Dossier',
+    include: 'Inclure le sous-arbre',
+    exclude: 'Exclure le sous-arbre',
+    missing: 'Dossier inexistant : {id}',
+    forget: 'Retirer la référence',
+    sentenceTitle: 'Écritures visibles',
+    sentenceHint:
+      'Si plusieurs écritures sont applicables, choisissez celles à afficher pour cette phrase. Une seule écriture applicable est toujours affichée ; les choix précédents sont conservés.'
+  },
+  sharedFolders: {
+    count: 'Nombre',
+    title: 'Dossiers partagés',
+    create: 'Nouveau dossier',
+    rename: 'Renommer',
+    move: 'Déplacer vers un dossier',
+    remove: 'Supprimer le dossier',
+    removeHint:
+      'Les sous-dossiers, phrases et documents remontent au parent sans perte de contenu. Les noms identiques sont numérotés. Action annulable.',
+    removed: 'Dossier supprimé, contenu préservé.',
+    invalid: 'Nom existant, destination invalide ou déplacement créant un cycle.',
+    path: 'Chemin du dossier',
+    parent: 'Dossier parent',
+    back: 'Retour aux dossiers',
+    browse: 'Voir les sous-dossiers',
+    icons: 'Icônes',
+    details: 'Détails',
+    view: 'Affichage des dossiers',
+    folder: 'Dossier',
+    tags: 'Étiquettes',
+    createdAt: 'Création',
+    size: 'Taille',
+    sizeHint:
+      'Taille estimée des données UTF-8, hors pièces jointes séparées. Les anciennes données sans date affichent « — ».',
+    type: 'Type',
+    actions: 'Actions du dossier',
+    copy: 'Copier',
+    cut: 'Couper',
+    paste: 'Coller',
+    includeChildren: 'Inclure les sous-dossiers',
+    openFile: 'Ouvrir',
+    open: {
+      sentence: 'Voir les phrases du dossier',
+      phrase: 'Voir les expressions du dossier',
+      doc: 'Voir les documents du dossier'
+    },
+    kinds: {
+      sentence: 'Phrase',
+      phrase: 'Expression',
+      doc: 'Document'
+    }
+  },
   account: {
     support: {
       personalIntro: 'Scannez le code de paiement WeChat personnel pour soutenir Qonlang.',
@@ -327,7 +384,7 @@ export default {
     galleryNext: 'Suivante',
     exampleDesc: {
       aelith:
-        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète. Le graphe propose un parcours à quatre niveaux, des nœuds fixés par déplacement et des réglages indépendants de forces et de couleurs. Essayez les sauts par lettre et le tri depuis la fin des mots. L’atelier range les alternatives d’un même emplacement dans la traduction ; glissez-les à nouveau pour changer de choix. Essayez les composants dessinés, la grille prédéfinie et les dossiers imbriqués du corpus et des documents.',
+        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète. Le graphe propose un parcours à quatre niveaux, des nœuds fixés par déplacement et des réglages indépendants de forces et de couleurs. Essayez les sauts par lettre et le tri depuis la fin des mots. L’atelier range les alternatives d’un même emplacement dans la traduction ; glissez-les à nouveau pour changer de choix. Essayez les composants dessinés, la grille prédéfinie et les dossiers partagés entre corpus, locutions et documents.',
       tsahun:
         'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation suivant la graphie et correspondances graphème–phonème modifiables), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture. Les classes temporaires associent les numéros de ton à plusieurs chiffres à des séquences complètes de lettres de ton. Un paradigme facultatif utilise les emplacements de morphèmes de chaque entrée pour reproduire des combinaisons de particules du corpus.'
     },
@@ -847,7 +904,28 @@ export default {
     done: 'Entrée « {lemma} » créée',
     show: 'Voir dans le lexique'
   },
+  clipboard: {
+    copy: 'Copier',
+    cut: 'Couper',
+    paste: 'Coller',
+    copied: '{n} éléments copiés',
+    cutReady: 'Coupe préparée pour {n} éléments ; déplacement après collage réussi',
+    pasted: '{n} éléments collés',
+    failed: 'Accès au presse-papiers impossible. Réessayez avec le raccourci clavier.',
+    rejected:
+      'Collage impossible : utilisez des entrées valides de ce projet. Les données propres à une langue doivent pouvoir être conservées.',
+    scope:
+      'Projet actuel uniquement ; aucune dépendance linguistique non prise en charge ne sera supprimée.',
+    confirmSelected: 'Confirmer les phrases sélectionnées'
+  },
   glyphEditor: {
+    smoothNode: 'Nœud lisse',
+    cornerNode: 'Nœud anguleux',
+    insertNode: 'Insérer un nœud',
+    deleteNode: 'Supprimer le nœud',
+    insertNodeHint:
+      'Double-cliquez sur la courbe pour insérer à cet endroit ; le bouton utilise le milieu du segment choisi.',
+
     drawComponent: 'Dessiner un composant',
     addComponent: 'Ajouter un composant',
     gridGuides: 'Grille et repères',
@@ -2987,6 +3065,9 @@ export default {
     importBad: 'Ce n’est pas un fichier de traduction de l’interface',
     untitled: 'Traduction sans titre',
     groups: {
+      scriptScope: 'Dossiers du corpus',
+      sharedFolders: 'Dossiers partagés',
+      clipboard: 'Copier / Coller',
       glyphEditor: 'Éditeur de dessin',
       docFolders: 'Dossiers de documents',
       displayLanguages: 'Langues affichées',
@@ -3030,6 +3111,14 @@ export default {
       'La modification ne change rien à cette traduction : retirer la marque « Source modifiée » sans toucher à la traduction'
   },
   bench: {
+    approximateHint:
+      'Les suggestions approchées exigent une confirmation manuelle et peuvent être erronées. Elles sont exclues de Tout ajouter, ne rangent pas les alternatives et ne suppriment pas les indices non reconnus. La recherche est bornée ; scindez les textes longs.',
+    approximateSource: 'La traduction « {source} » est proche du sens « {matched} »',
+    approximateKinds: {
+      normalized: 'Forme normalisée',
+      partial: 'Fragment du sens',
+      typo: 'Orthographe proche'
+    },
     trashTitle: 'Candidats rangés ({n})',
     trashHint: 'Glissez vers la zone de candidats en dessous, ou choisissez Rétablir.',
     trashEmpty: 'Aucun candidat rangé pour le moment.',

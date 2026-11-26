@@ -7,6 +7,7 @@
 import type { Analysis, Id, Language, Phrase, Project, Sentence, Token } from '$lib/core/model'
 import { createPhrase, createSentence } from '$lib/core/factory'
 import { normalizeSentence } from '$lib/core/sentenceDedup'
+import { createProjectScriptScopes } from '$lib/core/scriptScope'
 import { interlinear, toHtml, toLatex, toLeipzig, toMarkdown } from '$lib/engine/gloss'
 
 /** 全是 ASCII 字符 */
@@ -245,6 +246,7 @@ export function sentencesToRows(
   sentences: Sentence[],
   glossLangs: string[]
 ): string[][] {
+  const scopes = createProjectScriptScopes(project)
   const rows: string[][] = [
     [
       'text',
@@ -257,7 +259,7 @@ export function sentencesToRows(
     ]
   ]
   for (const s of sentences) {
-    const il = interlinear(project, s)
+    const il = interlinear(project, s, undefined, scopes(s.languageId))
     rows.push([
       s.text,
       ...glossLangs.map((l) => s.translation[l] ?? ''),
@@ -297,8 +299,9 @@ export function sentencesToText(
   glossLang?: string
 ): string {
   const render = { leipzig: toLeipzig, markdown: toMarkdown, html: toHtml, latex: toLatex }[format]
+  const scopes = createProjectScriptScopes(project)
   return sentences
-    .map((s) => render(interlinear(project, s, glossLang)))
+    .map((s) => render(interlinear(project, s, glossLang, scopes(s.languageId))))
     .join(format === 'html' ? '\n' : '\n\n')
 }
 
@@ -400,6 +403,8 @@ export function importSentencesJson(
     s.text = str(raw.text).trim()
     s.orthoTexts = keepKnown(textMap(raw.orthoTexts), orthos)
     s.scriptForms = keepKnown(textMap(raw.scriptForms), scripts)
+    if (Array.isArray(raw.hiddenScriptIds))
+      s.hiddenScriptIds = [...new Set(strings(raw.hiddenScriptIds).filter((id) => scripts.has(id)))]
     s.translation = textMap(raw.translation)
     s.source = str(raw.source)
     s.tags = strings(raw.tags)

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import RecordClipboardTools from '$lib/ui/RecordClipboardTools.svelte'
+  import { copyRecords, pasteRecords } from '$lib/state/recordClipboard.svelte'
   import { deletable } from '$lib/ui/deletable'
   import { navScroll } from '$lib/ui/navScroll'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
@@ -407,6 +409,35 @@
     lastCount = n
     lz.reset()
   })
+  const clipboardIds = $derived(
+    list
+      .filter((row) => (multiIds.length ? multiIds.includes(row.id) : selectedId === row.id))
+      .map((row) => row.id)
+  )
+  async function pasteClipboard(): Promise<void> {
+    const result = await pasteRecords(project, 'morpheme', langId)
+    if (result?.ok) {
+      multiIds = result.ids
+      selectedId = result.ids[0] ?? null
+    }
+  }
+  const clipboardActions = $derived([
+    {
+      label: t('clipboard.copy'),
+      disabled: projectState.readOnly,
+      run: () => void copyRecords(project, 'morpheme', clipboardIds, 'copy')
+    },
+    {
+      label: t('clipboard.cut'),
+      disabled: projectState.readOnly,
+      run: () => void copyRecords(project, 'morpheme', clipboardIds, 'cut')
+    },
+    {
+      label: t('clipboard.paste'),
+      disabled: projectState.readOnly,
+      run: () => void pasteClipboard()
+    }
+  ])
 </script>
 
 <div class="page">
@@ -446,6 +477,17 @@
     >
   </div>
   <Hint id="morphemes" text={t('morphemes.hint')} />
+  <RecordClipboardTools
+    {project}
+    kind="morpheme"
+    ids={clipboardIds}
+    targetLanguageId={langId}
+    enabled={mode === 'entries'}
+    onpasted={(ids) => {
+      multiIds = ids
+      selectedId = ids[0] ?? null
+    }}
+  />
 
   {#if mode === 'csv'}
     <div class="scroll">
@@ -589,8 +631,10 @@
               data-id={m.id}
               use:deletable={{
                 identity: m.id,
-                actions:
-                  multiIds.length > 1 && multiIds.includes(m.id) ? selectionActions : undefined,
+                actions: [
+                  ...clipboardActions,
+                  ...(multiIds.length > 1 && multiIds.includes(m.id) ? selectionActions : [])
+                ],
                 selected: multiIds.length ? multiIds.includes(m.id) : selectedId === m.id,
                 select: () => {
                   if (!multiIds.includes(m.id)) multiIds = []

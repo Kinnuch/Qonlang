@@ -16,6 +16,8 @@ import { createDoc, createEtymology, createProject, newId } from './factory'
 import { splitRegisters } from './register'
 import { normalizeDisplayLanguages } from './displayLanguages'
 import { normalizeDocFolders } from './docFolders'
+import { normalizeScriptFolderScope, normalizeScriptIds } from './scriptScope'
+import { ensureProjectFolders } from './projectFolders'
 
 export const PROJECT_EXTENSION = '.laim.json'
 
@@ -118,12 +120,34 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
     if (!Array.isArray(merged[key])) (merged as unknown as Record<string, unknown>)[key] = []
   }
   if (!merged.settings.imageSize) merged.settings.imageSize = { width: 320, height: 240 }
+  if (
+    merged.settings.folderView !== undefined &&
+    !['icons', 'details'].includes(merged.settings.folderView)
+  )
+    delete merged.settings.folderView
+  if (merged.settings.folderMetadata !== undefined) {
+    if (!Array.isArray(merged.settings.folderMetadata)) delete merged.settings.folderMetadata
+    else
+      merged.settings.folderMetadata = [
+        ...new Set(
+          merged.settings.folderMetadata.filter((key) =>
+            ['tags', 'createdAt', 'size', 'type'].includes(key)
+          )
+        )
+      ]
+  }
   for (const key of ['definitionDisplay', 'translationDisplay'] as const) {
     if (merged.settings[key] === undefined) continue
     const selection = normalizeDisplayLanguages(merged.settings[key])
     if (selection) merged.settings[key] = selection
     else delete merged.settings[key]
   }
+  if (
+    merged.folders !== undefined ||
+    merged.corpusFolders !== undefined ||
+    merged.docFolders !== undefined
+  )
+    ensureProjectFolders(merged)
   if (merged.docFolders !== undefined) merged.docFolders = normalizeDocFolders(merged.docFolders)
   if (merged.corpusFolders !== undefined) {
     const seen = new Set<string>()
@@ -154,6 +178,9 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
   }
   for (const s of merged.sentences)
     if (!s.scriptForms || typeof s.scriptForms !== 'object') s.scriptForms = {}
+  for (const sentence of merged.sentences)
+    if (sentence.hiddenScriptIds !== undefined)
+      sentence.hiddenScriptIds = normalizeScriptIds(sentence.hiddenScriptIds).filter(Boolean)
   for (const l of merged.lexemes) {
     if (!Array.isArray(l.relations)) l.relations = []
     if (!l.scriptForms || typeof l.scriptForms !== 'object') l.scriptForms = {}
@@ -183,6 +210,12 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
     if (!Array.isArray(lang.classes)) lang.classes = []
     if (!Array.isArray(lang.digraphs)) lang.digraphs = []
     if (!Array.isArray(lang.scripts)) lang.scripts = []
+    for (const script of lang.scripts)
+      if (script.folderScope !== undefined) {
+        const scope = normalizeScriptFolderScope(script.folderScope)
+        if (scope) script.folderScope = scope
+        else delete script.folderScope
+      }
   }
   return merged
 }
@@ -248,6 +281,7 @@ export function projectToFolder(p: Project): Record<string, string> {
       settings: p.settings,
       ...(p.glyphEditor ? { glyphEditor: p.glyphEditor } : {}),
       ...(p.morphemeSlots ? { morphemeSlots: p.morphemeSlots } : {}),
+      ...(p.folders ? { folders: p.folders } : {}),
       ...(p.corpusFolders ? { corpusFolders: p.corpusFolders } : {}),
       ...(p.docFolders ? { docFolders: p.docFolders } : {})
     }),
@@ -312,6 +346,7 @@ export function projectFromFolder(files: Record<string, string>): Project {
     settings: Project['settings']
     glyphEditor?: Project['glyphEditor']
     morphemeSlots?: Project['morphemeSlots']
+    folders?: Project['folders']
     corpusFolders?: Project['corpusFolders']
     docFolders?: Project['docFolders']
   }>('project.json', {
@@ -335,6 +370,7 @@ export function projectFromFolder(files: Record<string, string>): Project {
     settings: head.settings,
     ...(head.glyphEditor ? { glyphEditor: head.glyphEditor } : {}),
     ...(head.morphemeSlots ? { morphemeSlots: head.morphemeSlots } : {}),
+    ...(head.folders ? { folders: head.folders } : {}),
     ...(head.corpusFolders ? { corpusFolders: head.corpusFolders } : {}),
     ...(head.docFolders ? { docFolders: head.docFolders } : {}),
     languages: read('languages.json', []),
@@ -367,11 +403,13 @@ export function projectFromFolder(files: Record<string, string>): Project {
   } else {
     obj.docs = Object.entries(files)
       .filter(([path]) => /^docs\/[^/\\]+\.(?:md|html?)$/i.test(path))
-      .map(([path, markdown]) => ({
-        ...createDoc(null, path.slice(5).replace(/\.(?:md|html?)$/i, '')),
-        ...(/\.html?$/i.test(path) ? { format: 'html' as const } : {}),
-        markdown
-      }))
+      .map(([path, markdown]) => {
+        const { createdAt: _unknownCreatedAt, ...doc } = createDoc(
+          null,
+          path.slice(5).replace(/\.(?:md|html?)$/i, '')
+        )
+        return { ...doc, ...(/\.html?$/i.test(path) ? { format: 'html' as const } : {}), markdown }
+      })
   }
   if (!obj.meta) throw new ProjectParseError('缺少 project.json', 'not-a-project')
   return migrate(obj)

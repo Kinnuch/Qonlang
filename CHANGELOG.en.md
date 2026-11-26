@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1 · unreleased
+
+- Corpus, Phrasebook and Documents share project folders. Collapse the folder sidebar or open the directory in icon or details view. Settings control the metadata shown, including tags, creation time and size.
+- Move, copy, cut and paste entries or subfolders within the project. Lexemes and morphemes support single and multiple selection. Selected sentences can be confirmed, copied, cut or deleted together. Close the sentence analysis panel with its × button.
+- The translation workbench offers labelled approximate suggestions for matches such as Chinese substrings in longer glosses and small spelling differences in longer words. Choose these manually; Add all in order still uses exact matches.
+- In the drawing pad, switch stroke and contour nodes between smooth and corner, insert nodes on the curve or delete them, and save the editable handles with the project.
+- Choose all, none or selected folders for each writing system. Sentences with several applicable scripts have individual visibility checkboxes. Glyphs explicitly mapped to an ASCII comma are now used in transcription.
+
 ## 1.1.0 · 2026-11-25
 
 - Each time the app starts, the Rule Syntax button pulses gold until the panel is first opened. With reduced motion enabled, a static gold outline serves as the reminder.

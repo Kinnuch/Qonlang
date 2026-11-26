@@ -107,7 +107,11 @@ export function convertEditorSegment(
   else if (cmd[0] === 'Q')
     next = ['C', ...mix(a, [cmd[1], cmd[2]], 2 / 3), ...mix(b, [cmd[1], cmd[2]], 2 / 3), ...b]
   else next = ['C', ...mix(a, b, 1 / 3), ...mix(a, b, 2 / 3), ...b]
-  return { cmds: c.cmds.map((x, i) => (i === index ? next : ([...x] as PathCmd))) }
+  return {
+    ...c,
+    cmds: c.cmds.map((x, i) => (i === index ? next : ([...x] as PathCmd))),
+    smooth: c.smooth?.filter((i) => i !== index && i !== index - 1)
+  }
 }
 
 /** De Casteljau 细分不改变曲线；一次细分作为一次撤销。 */
@@ -143,6 +147,8 @@ export function splitEditorSegment(c: GlyphContour, index: number, t = 0.5): Gly
     ]
   }
   return {
+    ...c,
+    smooth: c.smooth?.map((i) => (i >= index ? i + 1 : i)),
     cmds: [...c.cmds.slice(0, index), ...parts, ...c.cmds.slice(index + 1)].map(
       (x) => [...x] as PathCmd
     )
@@ -175,5 +181,12 @@ export function editorBezierContour(nodes: { point: Pt; handle: Pt }[]): GlyphCo
     ])
   }
   cmds.push(['Z'])
-  return { cmds }
+  return {
+    cmds,
+    smooth: nodes.flatMap((node, index) =>
+      Math.hypot(node.point[0] - node.handle[0], node.point[1] - node.handle[1]) > 0.001
+        ? [index]
+        : []
+    )
+  }
 }

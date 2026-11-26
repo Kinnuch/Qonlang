@@ -1,4 +1,61 @@
 export default {
+  scriptScope: {
+    title: 'Carpetas del corpus',
+    hint: 'Todas se aplica a cada oración y frase. Personalizadas incluye las carpetas elegidas y sus descendientes y después quita los subárboles excluidos. Default representa solo los registros sin carpeta. Se conservan las formas manuales y los análisis.',
+    all: 'Todas las carpetas',
+    none: 'Ocultar en el corpus',
+    selected: 'Carpetas personalizadas',
+    folder: 'Carpeta',
+    include: 'Incluir subárbol',
+    exclude: 'Excluir subárbol',
+    missing: 'La carpeta ya no existe: {id}',
+    forget: 'Quitar referencia',
+    sentenceTitle: 'Escrituras visibles',
+    sentenceHint:
+      'Si se aplican dos o más escrituras, elija cuáles mostrar en esta oración. Una única escritura aplicable siempre se muestra; se conservan las elecciones anteriores.'
+  },
+  sharedFolders: {
+    count: 'Cantidad',
+    title: 'Carpetas compartidas',
+    create: 'Nueva carpeta',
+    rename: 'Renombrar',
+    move: 'Mover a carpeta',
+    remove: 'Eliminar carpeta',
+    removeHint:
+      'Las subcarpetas, oraciones, frases y documentos pasan al nivel superior sin perder contenido. Los nombres repetidos se numeran. Se puede deshacer.',
+    removed: 'Carpeta eliminada; contenido conservado.',
+    invalid: 'El nombre ya existe, el destino no es válido o el movimiento crearía un ciclo.',
+    path: 'Ruta de carpeta',
+    parent: 'Carpeta superior',
+    back: 'Volver a carpetas',
+    browse: 'Ver subcarpetas',
+    icons: 'Iconos',
+    details: 'Detalles',
+    view: 'Vista de carpetas',
+    folder: 'Carpeta',
+    tags: 'Etiquetas',
+    createdAt: 'Creación',
+    size: 'Tamaño',
+    sizeHint:
+      'Tamaño estimado de los datos UTF-8, sin adjuntos separados. Los registros antiguos sin fecha muestran «—».',
+    type: 'Tipo',
+    actions: 'Acciones de carpeta',
+    copy: 'Copiar',
+    cut: 'Cortar',
+    paste: 'Pegar',
+    includeChildren: 'Incluir registros de subcarpetas',
+    openFile: 'Abrir',
+    open: {
+      sentence: 'Ver oraciones de esta carpeta',
+      phrase: 'Ver frases de esta carpeta',
+      doc: 'Ver documentos de esta carpeta'
+    },
+    kinds: {
+      sentence: 'Oración',
+      phrase: 'Frase',
+      doc: 'Documento'
+    }
+  },
   account: {
     support: {
       personalIntro: 'Escanea el código personal de pago de WeChat para apoyar Qonlang.',
@@ -323,7 +380,7 @@ export default {
     galleryNext: 'Siguiente',
     exampleDesc: {
       aelith:
-        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura. El taller reconoce una expresión con un hueco y la palabra que lo ocupa. El grafo incluye un recorrido de cuatro niveles, nodos fijados al arrastrar y controles independientes de fuerzas y colores. Pruebe los saltos por letras y el orden desde el final de las palabras. El banco de traducción guarda alternativas de la misma posición; arrástrelas de vuelta para elegir de nuevo. Prueba los componentes dibujados, la cuadrícula predefinida y las carpetas anidadas para el corpus y los documentos.',
+        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura. El taller reconoce una expresión con un hueco y la palabra que lo ocupa. El grafo incluye un recorrido de cuatro niveles, nodos fijados al arrastrar y controles independientes de fuerzas y colores. Pruebe los saltos por letras y el orden desde el final de las palabras. El banco de traducción guarda alternativas de la misma posición; arrástrelas de vuelta para elegir de nuevo. Prueba los componentes dibujados, la cuadrícula predefinida y las carpetas compartidas para el corpus, las frases y los documentos.',
       tsahun:
         'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura. Las clases temporales relacionan los números de tono de varias cifras con secuencias completas de letras tonales. Un paradigma opcional usa las ranuras de morfemas de cada entrada para reproducir combinaciones de partículas del corpus.'
     },
@@ -840,7 +897,27 @@ export default {
     done: 'Se ha generado la entrada «{lemma}»',
     show: 'Ver en el léxico'
   },
+  clipboard: {
+    copy: 'Copiar',
+    cut: 'Cortar',
+    paste: 'Pegar',
+    copied: '{n} elementos copiados',
+    cutReady: 'Corte preparado para {n} elementos; se mueven al pegar correctamente',
+    pasted: '{n} elementos pegados',
+    failed: 'No se puede acceder al portapapeles. Reintenta con el atajo de teclado.',
+    rejected:
+      'No se puede pegar: usa registros válidos de este proyecto. No se permiten datos de idioma sin correspondencia al cambiar de idioma.',
+    scope: 'Solo el proyecto actual; no se borran dependencias de idioma incompatibles.',
+    confirmSelected: 'Confirmar frases seleccionadas'
+  },
   glyphEditor: {
+    smoothNode: 'Nodo suave',
+    cornerNode: 'Nodo angular',
+    insertNode: 'Insertar nodo',
+    deleteNode: 'Eliminar nodo',
+    insertNodeHint:
+      'Haz doble clic en la curva para insertar allí; el botón usa el punto medio del segmento seleccionado.',
+
     drawComponent: 'Dibujar componente',
     addComponent: 'Añadir componente',
     gridGuides: 'Cuadrícula y guías',
@@ -2979,6 +3056,9 @@ export default {
     importBad: 'Esto no es un archivo de traducción de la interfaz',
     untitled: 'Traducción sin título',
     groups: {
+      scriptScope: 'Carpetas del corpus',
+      sharedFolders: 'Carpetas compartidas',
+      clipboard: 'Copiar / Pegar',
       glyphEditor: 'Editor de dibujo',
       docFolders: 'Carpetas de documentos',
       displayLanguages: 'Idiomas visibles',
@@ -3022,6 +3102,14 @@ export default {
       'El cambio no afecta a esta traducción: quitar la marca «Original cambiado» sin tocar la traducción'
   },
   bench: {
+    approximateHint:
+      'Las sugerencias aproximadas requieren confirmación manual y pueden ser incorrectas. Se excluyen de Añadir todo, no guardan alternativas ni borran avisos de texto sin coincidencia. La búsqueda tiene límites; divida traducciones largas.',
+    approximateSource: 'La traducción «{source}» se parece a la definición «{matched}»',
+    approximateKinds: {
+      normalized: 'Forma normalizada',
+      partial: 'Fragmento de definición',
+      typo: 'Ortografía similar'
+    },
     trashTitle: 'Candidatos guardados ({n})',
     trashHint: 'Arrastre al área de candidatos inferior o elija Restaurar.',
     trashEmpty: 'Todavía no hay candidatos guardados.',

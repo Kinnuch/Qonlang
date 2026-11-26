@@ -9,6 +9,7 @@
  */
 import { mkdirSync, writeFileSync } from 'fs'
 import { addEditorExamples } from './exampleDrawingTools'
+import { addSharedWorkspaceExample } from './exampleSharedWorkspace'
 import { join } from 'path'
 import {
   createProject,
@@ -156,6 +157,7 @@ function deriveAll(p: Project, lang: Language): number {
 }
 function save(name: string, p: Project): void {
   addEditorExamples(p)
+  addSharedWorkspaceExample(p)
   canonicalizeSlotKeys(p)
   const file = join(outDir, name)
   writeFileSync(file, serializeProject(p), 'utf8')

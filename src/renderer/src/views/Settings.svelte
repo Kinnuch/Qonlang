@@ -601,6 +601,43 @@
     </section>
   </div>
 
+  <h2 class="cat">{t('sharedFolders.title')}</h2>
+  <section class="card group" data-folder-settings>
+    <label class="row"
+      >{t('sharedFolders.view')}<select
+        class="select"
+        disabled={projectState.readOnly}
+        value={project.settings.folderView ?? 'icons'}
+        onchange={(event) => {
+          project.settings.folderView = event.currentTarget.value as 'icons' | 'details'
+          projectState.touch()
+        }}
+        ><option value="icons">{t('sharedFolders.icons')}</option><option value="details"
+          >{t('sharedFolders.details')}</option
+        ></select
+      ></label
+    >
+    <div class="row">
+      {#each ['tags', 'createdAt', 'size', 'type'] as key (key)}<label class="check"
+          ><input
+            type="checkbox"
+            disabled={projectState.readOnly}
+            checked={(project.settings.folderMetadata ?? ['tags', 'createdAt', 'size']).includes(
+              key as 'tags' | 'createdAt' | 'size' | 'type'
+            )}
+            onchange={(event) => {
+              const current = project.settings.folderMetadata ?? ['tags', 'createdAt', 'size']
+              project.settings.folderMetadata = event.currentTarget.checked
+                ? [...current, key as 'tags' | 'createdAt' | 'size' | 'type']
+                : current.filter((item) => item !== key)
+              projectState.touch()
+            }}
+          />{t(`sharedFolders.${key}`)}</label
+        >{/each}
+    </div>
+    <HelpDot tip={t('sharedFolders.sizeHint')} />
+  </section>
+
   <h2 class="cat">{t('settings.groups.data')}</h2>
   <div class="groups" data-tour="settings-data">
     <section class="card group" use:filterRows={{ q: ui.search, sel: ':scope > .grid > *' }}>

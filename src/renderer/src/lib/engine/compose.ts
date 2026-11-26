@@ -20,10 +20,17 @@ import {
   type GlossSpan
 } from './composeMatch'
 export { isSpaceless } from './composeMatch'
+import {
+  prepareComposeApprox,
+  matchComposeApprox,
+  type ComposeApproxIndex,
+  type ComposeApproximation
+} from './composeApprox'
 export const COMPOSE_OCCURRENCE_LIMIT = 64
 
 /** 同一个词的所有可用位置；固定锚点区别于框架包住的槽内文本。 */
 export interface ComposeOccurrence {
+  approximate?: ComposeApproximation
   matched: string
   at: number
   end: number
@@ -34,6 +41,7 @@ export interface ComposeOccurrence {
 }
 
 export interface ComposeCandidate {
+  approximate?: ComposeApproximation
   /** 同一个词条 / 语素只出一个泡泡 */
   key: string
   lexemeId?: Id
@@ -119,6 +127,7 @@ function usedIn(tokens: Token[] | undefined): string[] {
 }
 
 export interface ComposeIndex {
+  approximate: ComposeApproxIndex
   entries: Entry[]
   patterns: Map<string, GlossPattern>
   memory: { translation: string; used: string[] }[]
@@ -147,7 +156,7 @@ export function prepareComposeIndex(
     const used = usedIn(x.tokens)
     if (used.length) memory.push({ translation, used })
   }
-  return { entries, patterns, memory }
+  return { entries, patterns, memory, approximate: prepareComposeApprox(patterns.keys()) }
 }
 
 interface MatchedEntry {
@@ -155,6 +164,7 @@ interface MatchedEntry {
   items: { item: string; matches: GlossMatch[] }[]
 }
 interface ComposeScan {
+  approximateLimited?: boolean
   matcher: GlossMatcher
   entries: MatchedEntry[]
   covered: Uint8Array
@@ -192,8 +202,53 @@ function scanGlosses(index: ComposeIndex, text: string): ComposeScan {
     }
   const outsideFrames = new Uint32Array(text.length + 1)
   for (let i = 0; i < text.length; i++) outsideFrames[i + 1] = outsideFrames[i] + 1 - frames[i]
-  return { matcher, entries, covered, outsideFrames, frameEnds }
+  const approximate = matchComposeApprox(index.approximate, text),
+    matchedByKey = new Map(entries.map((entry) => [entry.entry.key, entry])),
+    supplements = new Map<string, GlossMatch[]>()
+  // 同一释义的匹配只投影一次；大量同义词共享只读位置表，最终40词条才复制输出锚点。
+  for (const [item, hits] of approximate.matches) {
+    const exact = matcher.match(index.patterns.get(item)!),
+      supplement = hits
+        .filter((hit) => !exact.some((match) => match.at <= hit.at && match.end >= hit.end))
+        .map((hit) => ({
+          ...hit,
+          anchors: [{ at: hit.at, end: hit.end }],
+          template: false,
+          literalLength: Array.from(hit.approximate.source).length
+        }))
+    if (supplement.length) supplements.set(item, [...exact, ...supplement])
+  }
+  for (const entry of index.entries)
+    for (const item of entry.items) {
+      const supplement = supplements.get(item)
+      if (!supplement) continue
+      let found = matchedByKey.get(entry.key)
+      if (!found) {
+        found = { entry, items: [] }
+        entries.push(found)
+        matchedByKey.set(entry.key, found)
+      }
+      const old = found.items.find((value) => value.item === item)
+      if (old) old.matches = supplement
+      else found.items.push({ item, matches: supplement })
+    }
+  return {
+    matcher,
+    entries,
+    covered,
+    outsideFrames,
+    frameEnds,
+    ...(approximate.truncated ? { approximateLimited: true } : {})
+  }
 }
+const approximateScore = (match: GlossMatch, singleItem: boolean): number =>
+  match.approximate
+    ? match.approximate.kind === 'normalized'
+      ? -1
+      : match.approximate.kind === 'partial'
+        ? -2
+        : -3
+    : Math.min(match.literalLength, 8) + (singleItem ? 1 : 0)
 
 interface RankedCandidate {
   candidate: ComposeCandidate
@@ -207,6 +262,7 @@ interface RankedCandidate {
 function compareCandidates(a: RankedCandidate, b: RankedCandidate): number {
   const ca = a.candidate
   const cb = b.candidate
+  if (!!ca.approximate !== !!cb.approximate) return ca.approximate ? 1 : -1
   if (ca.at !== cb.at) return ca.at - cb.at
   return (
     b.priority - a.priority ||
@@ -226,7 +282,7 @@ function candidatesFrom(scan: ComposeScan, index: ComposeIndex, limit: number): 
       )
       if (!match) continue
       // 省略号长短不参与计分，只看固定文字。
-      const score = Math.min(match.literalLength, 8) + (e.items.length === 1 ? 1 : 0)
+      const score = approximateScore(match, e.items.length === 1)
       const frameEnd = scan.frameEnds.get(match.at)
       const hit: RankedCandidate = {
         candidate: {
@@ -237,7 +293,8 @@ function candidatesFrom(scan: ComposeScan, index: ComposeIndex, limit: number): 
           matched: item,
           at: match.at,
           end: match.end,
-          score
+          score,
+          ...(match.approximate ? { approximate: match.approximate } : {})
         },
         priority: frameEnd === undefined ? 0 : match.template ? 1 : match.end >= frameEnd ? 2 : 0
       }
@@ -264,7 +321,7 @@ function candidatesFrom(scan: ComposeScan, index: ComposeIndex, limit: number): 
     if (!used.length) continue
     const matcher = prepareGlossMatcher(x.translation)
     for (const c of used) {
-      if (matcher.match(index.patterns.get(c.matched)!).length) c.score += 2
+      if (!c.approximate && matcher.match(index.patterns.get(c.matched)!).length) c.score += 2
       const previous = memories.get(c.key)
       if (previous) previous.push(matcher)
       else memories.set(c.key, [matcher])
@@ -282,13 +339,14 @@ function candidatesFrom(scan: ComposeScan, index: ComposeIndex, limit: number): 
         const key = JSON.stringify([match.at, match.end, match.template, match.anchors])
         const previous = occurrences.get(key)
         if (!previous && occurrences.size >= COMPOSE_OCCURRENCE_LIMIT) return false
-        let score = scores.get(item)
+        const scoreKey = JSON.stringify([item, match.approximate?.kind ?? null])
+        let score = scores.get(scoreKey)
         if (score === undefined) {
-          score = Math.min(match.literalLength, 8) + (singleItem ? 1 : 0)
+          score = approximateScore(match, singleItem)
           // 同一说法只查一次经验；同一经验里重复使用的原计分语义保留。
-          for (const matcher of memories.get(candidate.key) ?? [])
+          for (const matcher of match.approximate ? [] : (memories.get(candidate.key) ?? []))
             if (matcher.match(index.patterns.get(item)!).length) score += 2
-          scores.set(item, score)
+          scores.set(scoreKey, score)
         }
         if (!previous || score > previous.score) {
           const end = scan.frameEnds.get(match.at)
@@ -299,6 +357,7 @@ function candidatesFrom(scan: ComposeScan, index: ComposeIndex, limit: number): 
             anchors: match.anchors.map((anchor) => ({ ...anchor })),
             template: match.template,
             score,
+            ...(match.approximate ? { approximate: match.approximate } : {}),
             priority: end === undefined ? 0 : match.template ? 1 : match.end >= end ? 2 : 0
           })
         }
@@ -362,6 +421,7 @@ function gapsFrom({ matcher, covered }: ComposeScan): ComposeGap[] {
 }
 
 export interface ComposeSuggestions {
+  approximateLimited?: boolean
   candidates: ComposeCandidate[]
   gaps: ComposeGap[]
 }
@@ -373,7 +433,11 @@ export function composeSuggestionsFrom(
   limit = 40
 ): ComposeSuggestions {
   const scan = scanGlosses(index, translation)
-  return { candidates: candidatesFrom(scan, index, limit), gaps: gapsFrom(scan) }
+  return {
+    candidates: candidatesFrom(scan, index, limit),
+    gaps: gapsFrom(scan),
+    ...(scan.approximateLimited ? { approximateLimited: true } : {})
+  }
 }
 
 /** 工作台一次反查，同时得到候选和缺词；不缓存工程对象，不改写词条或译文。 */

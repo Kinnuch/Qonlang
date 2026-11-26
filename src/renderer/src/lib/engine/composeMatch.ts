@@ -1,10 +1,12 @@
 /** 只反查译文里的释义，不参与音变、词形生成或句子输出。 */
+import type { ComposeApproximation } from './composeApprox'
 export interface GlossSpan {
   at: number
   end: number
 }
 
 export interface GlossMatch extends GlossSpan {
+  approximate?: ComposeApproximation
   /** 只标固定部分；槽里的内容还要继续查词。 */
   anchors: GlossSpan[]
   template: boolean

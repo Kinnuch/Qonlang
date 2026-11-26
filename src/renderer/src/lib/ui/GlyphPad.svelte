@@ -11,6 +11,23 @@
   import type { GlyphDrawing } from '$lib/core/model'
   import { GUIDES } from '$lib/script/drawnFont'
   import { drawingFromFont } from '$lib/script/fontBuild'
+  import {
+    strokeNodes,
+    strokeWithNodes,
+    moveStrokeNode,
+    setStrokeNodeMode,
+    insertStrokeNode,
+    deleteStrokeNode,
+    nearestStrokeSegment
+  } from '$lib/script/glyphStrokeNodes'
+  import {
+    contourNodeSmooth,
+    setContourNodeMode,
+    moveContourNode,
+    splitContourNode,
+    deleteContourNode,
+    nearestContourSegment
+  } from '$lib/script/glyphContourNodes'
   import { eraseDrawing } from '$lib/script/glyphEraser'
   import GlyphEditorPanel from './GlyphEditorPanel.svelte'
   import {
@@ -19,7 +36,6 @@
     editorBezierContour,
     normalizeEditorSettings,
     snapEditorPoint,
-    splitEditorSegment,
     type GlyphComponent,
     type GlyphEditorProject,
     type GlyphEditorSettings
@@ -78,10 +94,7 @@
     FileDown
   } from '@lucide/svelte'
 
-  interface Stroke {
-    points: Pt[]
-    width: number
-  }
+  type Stroke = GlyphDrawing['strokes'][number]
   interface Snap {
     strokes: Stroke[]
     contours: GlyphContour[]
@@ -96,7 +109,8 @@
   type ShapeKind = 'rect' | 'ellipse' | 'polygon' | 'line'
   /** 节点：轮廓第 cmd 条命令的第 slot 个点（0 终点、1 第一个控制点、2 第二个控制点），或笔画的第 pt 个点 */
   type NodeRef =
-    { kind: 'c'; i: number; cmd: number; slot: number } | { kind: 's'; i: number; pt: number }
+    | { kind: 'c'; i: number; cmd: number; slot: number }
+    | { kind: 's'; i: number; pt: number; handle?: 'in' | 'out' }
 
   let {
     drawing,
@@ -138,14 +152,13 @@
   let partName = $state(untrack(() => componentName))
   let curveNodes = $state<{ point: Pt; handle: Pt }[]>([])
   const gridId = $props.id()
-  let strokes = $state<Stroke[]>(
-    (initial?.strokes ?? []).map((s) => ({
-      width: s.width,
-      points: s.points.map((p) => [p[0], p[1]] as Pt)
-    }))
-  )
+  let strokes = $state<Stroke[]>(JSON.parse(JSON.stringify(initial?.strokes ?? [])) as Stroke[])
   let contours = $state<GlyphContour[]>(
-    (initial?.contours ?? []).map((c) => ({ cmds: c.cmds.map((x) => [...x] as PathCmd) }))
+    (initial?.contours ?? []).map((c) => ({
+      ...c,
+      smooth: c.smooth ? [...c.smooth] : undefined,
+      cmds: c.cmds.map((x) => [...x] as PathCmd)
+    }))
   )
   let advance = $state(initial?.advance ?? initialSettings.advance)
   let width = $state(
@@ -255,11 +268,68 @@
     if (selNode?.kind !== 'c') return
     const { i, cmd } = selNode
     const c = contours[i]
-    const next = kind === 'split' ? splitEditorSegment(c, cmd) : convertEditorSegment(c, cmd, kind)
+    const next = kind === 'split' ? splitContourNode(c, cmd) : convertEditorSegment(c, cmd, kind)
     if (next === c) return
     remember()
     contours = contours.map((c, k) => (k === i ? next : c))
     selNode = { kind: 'c', i, cmd, slot: 0 }
+  }
+  function setNodeMode(mode: 'smooth' | 'corner'): void {
+    const ref = selNode
+    if (!ref) return
+    if (ref.kind === 's') {
+      if (ref.handle) return
+      const next = setStrokeNodeMode(strokes[ref.i], ref.pt, mode)
+      if (next !== strokes[ref.i]) {
+        remember()
+        strokes = strokes.map((s, i) => (i === ref.i ? next : s))
+      }
+    } else {
+      if (ref.slot !== 0) return
+      const next = setContourNodeMode(contours[ref.i], ref.cmd, mode)
+      if (next !== contours[ref.i]) {
+        remember()
+        contours = contours.map((c, i) => (i === ref.i ? next : c))
+      }
+    }
+  }
+  function insertNode(): void {
+    const ref = selNode
+    if (!ref) return
+    if (ref.kind === 's') {
+      const segment = Math.max(0, ref.pt - 1),
+        next = insertStrokeNode(strokes[ref.i], segment)
+      if (next !== strokes[ref.i]) {
+        remember()
+        strokes = strokes.map((s, i) => (i === ref.i ? next : s))
+        selNode = { kind: 's', i: ref.i, pt: segment + 1 }
+      }
+    } else editSegment('split')
+  }
+  function insertAt(event: MouseEvent): void {
+    if (tool !== 'node') return
+    const point = toFont(event),
+      target = nodeTarget ?? hitItem(point)
+    if (!target) return
+    if (target.kind === 's') {
+      const hit = nearestStrokeSegment(strokes[target.i], point, 12 * upp)
+      if (!hit || hit.t <= 0.001 || hit.t >= 0.999) return
+      const next = insertStrokeNode(strokes[target.i], hit.index, hit.t)
+      remember()
+      strokes = strokes.map((s, i) => (i === target.i ? next : s))
+      nodeTarget = target
+      selNode = { kind: 's', i: target.i, pt: hit.index + 1 }
+    } else {
+      const hit = nearestContourSegment(contours[target.i], point, 12 * upp)
+      if (!hit) return
+      const next = splitContourNode(contours[target.i], hit.index, hit.t)
+      remember()
+      contours = contours.map((c, i) => (i === target.i ? next : c))
+      nodeTarget = target
+      selNode = { kind: 'c', i: target.i, cmd: hit.index, slot: 0 }
+    }
+    event.preventDefault()
+    event.stopPropagation()
   }
   function finishCurve(): void {
     const c = editorBezierContour($state.snapshot(curveNodes))
@@ -433,6 +503,13 @@
   // ───── 节点 ─────
   let nodeTarget = $state<{ kind: 's' | 'c'; i: number } | null>(null)
   let selNode = $state<NodeRef | null>(null)
+  const selectedNodeMode = $derived(
+    selNode
+      ? selNode.kind === 's'
+        ? strokeNodes(strokes[selNode.i])[selNode.pt]?.smooth
+        : contourNodeSmooth(contours[selNode.i], selNode.cmd)
+      : false
+  )
   /** 命令里第 slot 个点的坐标在数组里的位置 */
   function slotAt(cmd: PathCmd, slot: number): [number, number] | null {
     if (cmd[0] === 'M' || cmd[0] === 'L') return slot === 0 ? [1, 2] : null
@@ -457,9 +534,30 @@
     if (nt.kind === 's') {
       const s = strokes[nt.i]
       if (!s) return []
-      s.points.forEach((p, pt) =>
-        out.push({ ref: { kind: 's', i: nt.i, pt }, x: p[0], y: p[1], on: true, links: [] })
-      )
+      const ns = strokeNodes(s)
+      ns.forEach((node, pt) => {
+        out.push({
+          ref: { kind: 's', i: nt.i, pt },
+          x: node.point[0],
+          y: node.point[1],
+          on: true,
+          links: []
+        })
+        for (const handle of ['in', 'out'] as const) {
+          const p = node[handle]
+          if (
+            Math.hypot(p[0] - node.point[0], p[1] - node.point[1]) > 0.001 &&
+            ((handle === 'in' && pt > 0) || (handle === 'out' && pt < ns.length - 1))
+          )
+            out.push({
+              ref: { kind: 's', i: nt.i, pt, handle },
+              x: p[0],
+              y: p[1],
+              on: false,
+              links: [node.point]
+            })
+        }
+      })
       return out
     }
     const c = contours[nt.i]
@@ -487,7 +585,7 @@
   })
   function sameRef(a: NodeRef | null, b: NodeRef): boolean {
     if (!a || a.kind !== b.kind || a.i !== b.i) return false
-    if (a.kind === 's' && b.kind === 's') return a.pt === b.pt
+    if (a.kind === 's' && b.kind === 's') return a.pt === b.pt && a.handle === b.handle
     if (a.kind === 'c' && b.kind === 'c') return a.cmd === b.cmd && a.slot === b.slot
     return false
   }
@@ -507,95 +605,72 @@
    * 拖一个节点时跟着动的坐标：节点本身；拖的是三次曲线接头上的 on-curve 点，两边挨着它的控制点一起动；
    * 起点和闭合回来的末点重合时两个一起动。
    */
-  function nodeMovers(base: Snap, ref: NodeRef): { cmd: number; at: [number, number] }[] {
-    if (ref.kind !== 'c') return []
-    const cmds = base.contours[ref.i]?.cmds
-    if (!cmds?.[ref.cmd]) return []
-    const at = slotAt(cmds[ref.cmd], ref.slot)
-    if (!at) return []
-    const out = [{ cmd: ref.cmd, at }]
-    if (ref.slot !== 0) return out
-    const ends = [ref.cmd]
-    const x = num(cmds[ref.cmd], at[0])
-    const y = num(cmds[ref.cmd], at[1])
-    const lastDraw = cmds.findLastIndex((c) => c[0] !== 'Z')
-    const lastAt = lastDraw > 0 ? slotAt(cmds[lastDraw], 0) : null
-    if (ref.cmd === 0 && lastAt) {
-      if (num(cmds[lastDraw], lastAt[0]) === x && num(cmds[lastDraw], lastAt[1]) === y) {
-        out.push({ cmd: lastDraw, at: lastAt })
-        ends.push(lastDraw)
-      }
-    } else if (ref.cmd === lastDraw && num(cmds[0], 1) === x && num(cmds[0], 2) === y) {
-      out.push({ cmd: 0, at: [1, 2] })
-      ends.push(0)
-    }
-    for (const e of ends) {
-      if (cmds[e][0] === 'C') out.push({ cmd: e, at: [3, 4] })
-      const next = cmds[e + 1]
-      if (next && next[0] === 'C') out.push({ cmd: e + 1, at: [1, 2] })
-    }
-    return out
-  }
   function dragNode(base: Snap, ref: NodeRef, dx: number, dy: number): void {
     if (ref.kind === 's') {
+      const node = strokeNodes(base.strokes[ref.i])[ref.pt],
+        point = ref.handle ? node[ref.handle] : node.point
       strokes = base.strokes.map((s, i) =>
-        i === ref.i
-          ? {
-              width: s.width,
-              points: s.points.map((q, k) => (k === ref.pt ? ([q[0] + dx, q[1] + dy] as Pt) : q))
-            }
-          : s
+        i === ref.i ? moveStrokeNode(s, ref.pt, [point[0] + dx, point[1] + dy], ref.handle) : s
       )
       return
     }
-    const movers = nodeMovers(base, ref)
-    contours = base.contours.map((c, i) => {
-      if (i !== ref.i) return c
-      const cmds = c.cmds.map((x) => [...x] as (string | number)[])
-      for (const m of movers) {
-        cmds[m.cmd][m.at[0]] = (cmds[m.cmd][m.at[0]] as number) + dx
-        cmds[m.cmd][m.at[1]] = (cmds[m.cmd][m.at[1]] as number) + dy
-      }
-      return { cmds: cmds as PathCmd[] }
-    })
+    const c = base.contours[ref.i],
+      cmd = c.cmds[ref.cmd],
+      at = slotAt(cmd, ref.slot)
+    if (!at) return
+    contours = base.contours.map((c, i) =>
+      i === ref.i
+        ? moveContourNode(c, ref.cmd, ref.slot, [num(cmd, at[0]) + dx, num(cmd, at[1]) + dy])
+        : c
+    )
   }
   /** 删掉选中的节点：on-curve 点整段去掉（轮廓至少留 3 个点），控制点去掉就把曲线降一级 */
   function deleteNode(ref: NodeRef): void {
     if (ref.kind === 's') {
       const s = strokes[ref.i]
       if (!s) return
+      if (ref.handle) {
+        const ns = strokeNodes(s).map((node, i) =>
+          i === ref.pt ? { ...node, [ref.handle!]: [...node.point] as Pt, smooth: false } : node
+        )
+        remember()
+        strokes = strokes.map((x, i) => (i === ref.i ? strokeWithNodes(x, ns) : x))
+        selNode = null
+        return
+      }
       remember()
-      if (s.points.length <= 1) {
+      if (strokeNodes(s).length <= 2) {
         strokes = strokes.filter((_, i) => i !== ref.i)
         nodeTarget = null
-      } else
-        strokes = strokes.map((x, i) =>
-          i === ref.i ? { width: x.width, points: x.points.filter((_, k) => k !== ref.pt) } : x
-        )
+      } else strokes = strokes.map((x, i) => (i === ref.i ? deleteStrokeNode(x, ref.pt) : x))
       selNode = null
       return
     }
     const c = contours[ref.i]
     if (!c?.cmds[ref.cmd]) return
+    if (ref.slot === 0) {
+      const next = deleteContourNode(c, ref.cmd)
+      if (next !== c) {
+        remember()
+        contours = contours.map((x, i) => (i === ref.i ? next : x))
+        selNode = null
+      }
+      return
+    }
     const cmds = c.cmds.map((x) => [...x] as PathCmd)
     const cmd = cmds[ref.cmd]
-    if (ref.slot === 0) {
-      if (cmds.filter((x) => x[0] !== 'Z').length <= 3) return
-      if (ref.cmd === 0) {
-        // 删起点：下一段的终点当新起点
-        const end = slotAt(cmds[1], 0)
-        if (!end) return
-        cmds[0] = ['M', num(cmds[1], end[0]), num(cmds[1], end[1])]
-        cmds.splice(1, 1)
-      } else cmds.splice(ref.cmd, 1)
-    } else if (cmd[0] === 'Q') cmds[ref.cmd] = ['L', cmd[3], cmd[4]]
+    if (cmd[0] === 'Q') cmds[ref.cmd] = ['L', cmd[3], cmd[4]]
     else if (cmd[0] === 'C')
       cmds[ref.cmd] =
         ref.slot === 1
           ? ['Q', cmd[3], cmd[4], cmd[5], cmd[6]]
           : ['Q', cmd[1], cmd[2], cmd[5], cmd[6]]
     remember()
-    contours = contours.map((x, i) => (i === ref.i ? { cmds } : x))
+    contours = contours.map((x, i) =>
+      i === ref.i
+        ? { ...x, cmds, smooth: x.smooth?.filter((k) => k !== ref.cmd && k !== ref.cmd - 1) }
+        : x
+    )
     selNode = null
   }
 
@@ -1009,7 +1084,15 @@
     if (!idx.s.length && !idx.c.length) return
     remember()
     strokes = strokes.map((s, i) =>
-      idx.s.includes(i) ? { width: s.width, points: [...s.points].reverse() } : s
+      idx.s.includes(i)
+        ? {
+            ...s,
+            points: [...s.points].reverse(),
+            ...(s.nodes
+              ? { nodes: [...s.nodes].reverse().map((n) => ({ ...n, in: n.out, out: n.in })) }
+              : {})
+          }
+        : s
     )
     contours = contours.map((c, i) => (idx.c.includes(i) ? reverseContour(c) : c))
   }
@@ -1036,9 +1119,7 @@
     if (!idx.s.length && !idx.c.length) return
     const wasSel = hasSel
     remember()
-    const grown = strokes.map((s, i) =>
-      idx.s.includes(i) ? { width: s.width + a * 2, points: s.points } : s
-    )
+    const grown = strokes.map((s, i) => (idx.s.includes(i) ? { ...s, width: s.width + a * 2 } : s))
     const added = idx.c
       .map((i) => contourOutline(contours[i]))
       .filter((line) => line.length > 1)
@@ -1177,6 +1258,8 @@
       strokes: strokes
         .filter((s) => s.points.length)
         .map((s) => ({
+          ...s,
+          ...(s.nodes ? { nodes: JSON.parse(JSON.stringify(s.nodes)) } : {}),
           width: r(s.width),
           points: s.points.map((p) => [r(p[0]), r(p[1])] as Pt)
         }))
@@ -1387,6 +1470,33 @@
   {:else if tool === 'node'}
     <div class="row wrap small">
       <span class="muted">{t('glyphEditor.segment')}</span>
+      <button
+        class="btn sm"
+        data-node-mode="smooth"
+        class:active={selectedNodeMode}
+        disabled={!selNode || (selNode.kind === 'c' ? selNode.slot !== 0 : !!selNode.handle)}
+        onclick={() => setNodeMode('smooth')}>{t('glyphEditor.smoothNode')}</button
+      >
+      <button
+        class="btn sm"
+        data-node-mode="corner"
+        class:active={!!selNode && !selectedNodeMode}
+        disabled={!selNode || (selNode.kind === 'c' ? selNode.slot !== 0 : !!selNode.handle)}
+        onclick={() => setNodeMode('corner')}>{t('glyphEditor.cornerNode')}</button
+      >
+      <button
+        class="btn sm"
+        data-node-insert
+        disabled={!selNode}
+        onclick={insertNode}
+        title={t('glyphEditor.insertNodeHint')}>{t('glyphEditor.insertNode')}</button
+      >
+      <button
+        class="btn sm"
+        data-node-delete
+        disabled={!selNode}
+        onclick={() => selNode && deleteNode(selNode)}>{t('glyphEditor.deleteNode')}</button
+      >
       {#each segments as segment (segment.kind)}<button
           class="btn sm"
           disabled={selNode?.kind !== 'c' || selNode.cmd === 0}
@@ -1487,6 +1597,7 @@
     role="img"
     aria-label={title}
     onpointerdown={down}
+    ondblclick={insertAt}
     onpointermove={move}
     onpointerleave={() => (eraserCursor = null)}
     onpointerup={up}
@@ -1735,6 +1846,7 @@
       {#each nodes as n, ni (ni)}
         {#if n.on}
           <rect
+            data-glyph-node={JSON.stringify(n.ref)}
             class="node"
             class:sel={sameRef(selNode, n.ref)}
             x={n.x - hs * 0.8}
@@ -1745,6 +1857,7 @@
           />
         {:else}
           <circle
+            data-glyph-node={JSON.stringify(n.ref)}
             class="node ctl"
             class:sel={sameRef(selNode, n.ref)}
             cx={n.x}

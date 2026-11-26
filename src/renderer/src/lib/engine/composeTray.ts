@@ -127,7 +127,8 @@ export function expandComposeCandidateView(
       ? candidate.occurrences
       : [undefined]
     for (const occurrence of occurrences) {
-      const group = occurrence ? footprint(occurrence, translation) : null,
+      const approximation = occurrence ? occurrence.approximate : candidate.approximate
+      const group = occurrence && !approximation ? footprint(occurrence, translation) : null,
         at = occurrence?.at ?? candidate.at,
         end = occurrence?.end ?? candidate.end,
         id = JSON.stringify([candidate.key, at, end ?? null, group])
@@ -139,6 +140,7 @@ export function expandComposeCandidateView(
           end,
           matched: occurrence?.matched ?? candidate.matched,
           score: occurrence?.score ?? candidate.score,
+          approximate: approximation,
           id,
           group,
           translation
@@ -150,6 +152,7 @@ export function expandComposeCandidateView(
   const sorted = [...found.values()]
     .sort(
       (a, b) =>
+        Number(!!a.candidate.approximate) - Number(!!b.candidate.approximate) ||
         a.candidate.at - b.candidate.at ||
         b.priority - a.priority ||
         b.candidate.score - a.candidate.score ||
@@ -306,7 +309,7 @@ export function planComposeAddAll(
   const result: ComposeTrayCandidate[] = [],
     groups = new Set<string>()
   for (const candidate of partitionComposeTray(candidates, state).floating) {
-    if (candidate.translation !== state.translation) continue
+    if (candidate.translation !== state.translation || candidate.approximate) continue
     if (candidate.group !== null) {
       if (groups.has(candidate.group)) continue
       groups.add(candidate.group)

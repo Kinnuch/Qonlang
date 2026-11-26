@@ -44,15 +44,18 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
         language.scripts[0].components?.[0].drawing.contours?.[0].cmds.some((cmd) => cmd[0] === 'C')
       ).toBe(true)
       expect(p.glyphEditor?.presets[0].settings.snap).toBe(true)
-      expect(p.corpusFolders?.some((f) => f.languageId === language.id)).toBe(true)
-      expect(p.corpusFolders?.find((f) => f.id === 'example-review')?.parentId).toBe(
-        'example-excerpts'
-      )
-      expect(p.docFolders?.find((f) => f.id === 'example-doc-examples')?.parentId).toBe(
+      expect(p.folders?.find((f) => f.id === 'example-review')?.parentId).toBe('example-excerpts')
+      expect(p.folders?.find((f) => f.id === 'example-doc-examples')?.parentId).toBe(
         'example-notes'
       )
-      expect(p.docs.every((d) => !d.folderId)).toBe(true)
-      expect(p.sentences.every((s) => !s.folderId)).toBe(true)
+      for (const records of [p.docs, p.sentences, p.phrasebook]) {
+        expect(records.some((record) => record.folderId === 'example-excerpts')).toBe(true)
+        expect(records.some((record) => !record.folderId)).toBe(true)
+      }
+      expect(
+        language.scripts[0].components?.find((c) => c.id === 'example-smooth-pen')?.drawing
+          .strokes[0].nodes?.[1].smooth
+      ).toBe(true)
     }
   )
   it.each([

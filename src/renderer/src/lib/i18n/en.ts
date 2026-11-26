@@ -3,6 +3,63 @@ import type zh from './zh'
 type Dict = typeof zh
 
 const en: Dict = {
+  scriptScope: {
+    title: 'Corpus folder scope',
+    hint: 'All applies to every sentence and phrase. Custom includes selected folders and their descendants, then removes excluded subtrees. Default means only unfiled records. This setting does not delete manual script forms or token analyses.',
+    all: 'All folders',
+    none: 'Hide in corpus',
+    selected: 'Custom folders',
+    folder: 'Folder',
+    include: 'Include subtree',
+    exclude: 'Exclude subtree',
+    missing: 'Folder no longer exists: {id}',
+    forget: 'Remove reference',
+    sentenceTitle: 'Visible scripts',
+    sentenceHint:
+      'When two or more scripts apply, choose which to show for this sentence. A single applicable script is always shown; previous choices are kept.'
+  },
+  sharedFolders: {
+    count: 'Count',
+    title: 'Shared folders',
+    create: 'New folder',
+    rename: 'Rename',
+    move: 'Move to folder',
+    remove: 'Delete folder',
+    removeHint:
+      'Move child folders, sentences, phrases and documents to the parent without deleting their contents. Conflicting folder names receive a number. You can undo this action.',
+    removed: 'Folder deleted; contents preserved.',
+    invalid: 'The name exists, the destination is invalid, or the move would create a cycle.',
+    path: 'Folder path',
+    parent: 'Parent folder',
+    back: 'Back to folders',
+    browse: 'Browse subfolders',
+    icons: 'Icons',
+    details: 'Details',
+    view: 'Folder view',
+    folder: 'Folder',
+    tags: 'Tags',
+    createdAt: 'Created',
+    size: 'File size',
+    sizeHint:
+      'Size estimates UTF-8 record data and excludes separate attachments. Older records without a creation date show “—”.',
+    type: 'Type',
+    actions: 'Folder actions',
+    copy: 'Copy',
+    cut: 'Cut',
+    paste: 'Paste',
+    includeChildren: 'Include records in subfolders',
+    openFile: 'Open',
+    open: {
+      sentence: 'Open this folder’s sentences',
+      phrase: 'Open this folder’s phrases',
+      doc: 'Open this folder’s documents'
+    },
+    kinds: {
+      sentence: 'Sentence',
+      phrase: 'Phrase',
+      doc: 'Document'
+    }
+  },
   account: {
     support: {
       personalIntro: 'Scan the personal WeChat payment code to support Qonlang.',
@@ -320,7 +377,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again. Try drawing components, a grid preset, and nested folders for documents and corpus examples.',
+        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again. Try drawing components, a grid preset, and shared folders for corpus examples, phrases and documents.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font. Temporary classes map multi-character tone numbers to complete tone-letter sequences. An optional paradigm uses per-entry morpheme slots to reproduce corpus particle combinations.'
     },
@@ -829,7 +886,27 @@ const en: Dict = {
     done: 'Created entry “{lemma}”',
     show: 'Open in lexicon'
   },
+  clipboard: {
+    copy: 'Copy',
+    cut: 'Cut',
+    paste: 'Paste',
+    copied: 'Copied {n} items',
+    cutReady: 'Cut prepared for {n} items; items move only after a successful paste',
+    pasted: 'Pasted {n} items',
+    failed: 'Cannot access the system clipboard. Please retry with the keyboard shortcut.',
+    rejected:
+      'Cannot paste: use valid records from this project. Cross-language records must have no unmapped language-specific data.',
+    scope: 'Current project only; unsupported language dependencies are never cleared.',
+    confirmSelected: 'Confirm selected sentences'
+  },
   glyphEditor: {
+    smoothNode: 'Smooth node',
+    cornerNode: 'Corner node',
+    insertNode: 'Insert node',
+    deleteNode: 'Delete node',
+    insertNodeHint:
+      'Double-click the actual curve to insert at that position; the button inserts at the selected segment midpoint.',
+
     drawComponent: 'Draw a component',
     addComponent: 'Add component',
     gridGuides: 'Grid and guides',
@@ -2942,6 +3019,9 @@ const en: Dict = {
     importBad: 'Not an interface translation file',
     untitled: 'Untitled translation',
     groups: {
+      scriptScope: 'Corpus folder scope',
+      sharedFolders: 'Shared folders',
+      clipboard: 'Copy / Paste',
       glyphEditor: 'Drawing editor',
       docFolders: 'Document folders',
       displayLanguages: 'Display languages',
@@ -2985,6 +3065,14 @@ const en: Dict = {
       'The change doesn’t affect this translation: clear the “Source changed” mark and keep the translation as it is'
   },
   bench: {
+    approximateHint:
+      'Approximate suggestions require manual confirmation and may be wrong. They are excluded from Add all, do not collect alternatives, and do not clear unmatched translation hints. Search is bounded; split long translations if needed.',
+    approximateSource: 'Translation “{source}” is close to gloss “{matched}”',
+    approximateKinds: {
+      normalized: 'Normalized match',
+      partial: 'Gloss contains fragment',
+      typo: 'Similar spelling'
+    },
     trashTitle: 'Collected candidates ({n})',
     trashHint: 'Drag back to the candidate area below, or choose Restore.',
     trashEmpty: 'No candidates have been collected yet.',

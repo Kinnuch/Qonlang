@@ -1,6 +1,20 @@
 /** 语料文件夹只管理归属与顺序，不复制或删除例句正文。 */
 import type { CorpusFolder, Id, Project, Sentence } from './model'
 import {
+  projectFolders,
+  projectFolderOf,
+  projectFolderPath,
+  validProjectFolder,
+  createProjectFolder,
+  renameProjectFolder,
+  removeProjectFolder,
+  reorderProjectFolder,
+  moveProjectFolder,
+  moveProjectRecords,
+  projectFolderMoveTargets,
+  projectFolderRecords
+} from './projectFolders'
+import {
   folderParents,
   folderPath,
   createFolderIndex,
@@ -19,11 +33,16 @@ export interface CorpusFolderItem extends CorpusFolder {
 }
 
 export const corpusFolderTree = (project: Project, languageId: Id): CorpusFolder[] =>
-  (project.corpusFolders ?? []).filter((folder) => folder.languageId === languageId)
+  project.folders !== undefined
+    ? projectFolders(project).map((folder) => ({ ...folder, languageId }))
+    : (project.corpusFolders ?? []).filter((folder) => folder.languageId === languageId)
 export const corpusFolderPath = (project: Project, languageId: Id, id: Id): CorpusFolder[] =>
-  folderPath(corpusFolderTree(project, languageId), id)
+  project.folders !== undefined
+    ? projectFolderPath(project, id).map((folder) => ({ ...folder, languageId }))
+    : folderPath(corpusFolderTree(project, languageId), id)
 
 export function corpusFolderOf(project: Project, sentence: Sentence): Id {
+  if (project.folders !== undefined) return projectFolderOf(project, sentence)
   return (project.corpusFolders ?? []).some(
     (folder) => folder.id === sentence.folderId && folder.languageId === sentence.languageId
   )
@@ -32,6 +51,15 @@ export function corpusFolderOf(project: Project, sentence: Sentence): Id {
 }
 
 export function corpusFoldersFor(project: Project, languageId: Id): CorpusFolderItem[] {
+  if (project.folders !== undefined)
+    return corpusFoldersFor(
+      {
+        ...project,
+        folders: undefined,
+        corpusFolders: projectFolders(project).map((folder) => ({ ...folder, languageId }))
+      },
+      languageId
+    )
   const tree = corpusFolderTree(project, languageId),
     parents = folderParents(tree)
   const folders: CorpusFolderItem[] = [
@@ -101,6 +129,7 @@ export function corpusFoldersFor(project: Project, languageId: Id): CorpusFolder
 
 /** 目的地一次性按原始子树排除；无效父链不能作为移动目标。 */
 export function corpusFolderMoveTargets(project: Project, languageId: Id, id: Id): Set<Id> {
+  if (project.folders !== undefined) return projectFolderMoveTargets(project, id)
   const tree = corpusFolderTree(project, languageId),
     parents = folderParents(tree),
     blocked = folderDescendants(tree, id)
@@ -117,6 +146,7 @@ export function corpusFolderMoveTargets(project: Project, languageId: Id, id: Id
 }
 
 export function validCorpusFolder(project: Project, languageId: Id, folderId: Id): boolean {
+  if (project.folders !== undefined) return validProjectFolder(project, folderId)
   return (
     !folderId ||
     (project.corpusFolders ?? []).some(
@@ -132,6 +162,10 @@ export function createCorpusFolder(
   id: Id,
   parentId: Id = ''
 ): CorpusFolder | null {
+  if (project.folders !== undefined) {
+    const folder = createProjectFolder(project, name, id, parentId)
+    return folder ? { ...folder, languageId } : null
+  }
   const clean = name.trim(),
     parents = folderParents(corpusFolderTree(project, languageId))
   if (
@@ -156,6 +190,7 @@ export function createCorpusFolder(
 }
 
 export function renameCorpusFolder(project: Project, folderId: Id, name: string): boolean {
+  if (project.folders !== undefined) return renameProjectFolder(project, folderId, name)
   const folder = project.corpusFolders?.find((folder) => folder.id === folderId),
     clean = name.trim(),
     parents = folderParents(folder ? corpusFolderTree(project, folder.languageId) : [])
@@ -178,6 +213,7 @@ export function renameCorpusFolder(project: Project, folderId: Id, name: string)
 
 /** 删除文件夹将直接子层与其中例句提升到父层，子树、正文和分析均保留。 */
 export function removeCorpusFolder(project: Project, folderId: Id): boolean {
+  if (project.folders !== undefined) return removeProjectFolder(project, folderId)
   const at = project.corpusFolders?.findIndex((folder) => folder.id === folderId) ?? -1
   if (at < 0) return false
   const folder = project.corpusFolders![at]
@@ -199,6 +235,7 @@ export function reorderCorpusFolder(
   fromId: Id,
   toId: Id
 ): boolean {
+  if (project.folders !== undefined) return reorderProjectFolder(project, fromId, toId)
   if (!fromId || !toId || fromId === toId) return false
   const folders = project.corpusFolders ?? [],
     parents = folderParents(corpusFolderTree(project, languageId)),
@@ -224,6 +261,14 @@ export function moveCorpusSentences(
   languageId: Id,
   folderId: Id
 ): number {
+  if (project.folders !== undefined)
+    return moveProjectRecords(
+      project,
+      project.sentences
+        .filter((sentence) => sentence.languageId === languageId && ids.includes(sentence.id))
+        .map((sentence) => ({ kind: 'sentence' as const, id: sentence.id })),
+      folderId
+    )
   if (!validCorpusFolder(project, languageId, folderId)) return 0
   const wanted = new Set(ids),
     validIds = new Set(corpusFolderTree(project, languageId).map((folder) => folder.id))
@@ -247,6 +292,16 @@ export function corpusFolderSentences(
   folderId: Id,
   recursive = false
 ): Sentence[] {
+  if (project.folders !== undefined) {
+    const selected = new Set(
+      projectFolderRecords(project, folderId, recursive)
+        .filter((ref) => ref.kind === 'sentence')
+        .map((ref) => ref.id)
+    )
+    return project.sentences.filter(
+      (sentence) => sentence.languageId === languageId && selected.has(sentence.id)
+    )
+  }
   if (!validCorpusFolder(project, languageId, folderId)) return []
   const tree = corpusFolderTree(project, languageId),
     validIds = new Set(tree.map((folder) => folder.id)),
@@ -261,6 +316,7 @@ export function corpusFolderSentences(
 }
 
 export function moveCorpusFolder(project: Project, languageId: Id, id: Id, parentId: Id): boolean {
+  if (project.folders !== undefined) return moveProjectFolder(project, id, parentId)
   const tree = corpusFolderTree(project, languageId),
     source = tree.find((folder) => folder.id === id),
     parents = folderParents(tree)

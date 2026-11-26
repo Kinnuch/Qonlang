@@ -23,6 +23,7 @@ import {
   type MorphContext
 } from '../morph'
 import { nucleusSet } from '../phon'
+import { createScriptScopeResolver, type ScriptScopeResolver } from '$lib/core/scriptScope'
 import { mutationTables, type MutationTable } from '../morph/mutation'
 import { sentenceScriptText } from '$lib/script/lexiconScript'
 import { piecesOf } from './candidates'
@@ -1003,7 +1004,12 @@ export function morphJoiner(project: Project, a: Analysis, i: number): string {
   return m.morphemeId && morphemeType(project, m.morphemeId) === 'clitic' ? '=' : '-'
 }
 
-export function interlinear(project: Project, s: Sentence, glossLang?: string): Interlinear {
+export function interlinear(
+  project: Project,
+  s: Sentence,
+  glossLang?: string,
+  scope?: ScriptScopeResolver
+): Interlinear {
   const words = s.tokens.map((t) => {
     const a = t.analyses[t.chosen]
     if (!a) return { surface: t.surface, morphs: t.surface, gloss: '?', resolved: false }
@@ -1024,15 +1030,18 @@ export function interlinear(project: Project, s: Sentence, glossLang?: string): 
     Object.values(s.translation).find(Boolean) ??
     ''
   const lang = project.languages.find((l) => l.id === s.languageId)
-  const scripts = lang
-    ? lang.scripts
-        .map((sc) => ({
-          name: sc.name,
-          scriptId: sc.id,
-          text: sentenceScriptText(project, lang, sc, s)
-        }))
-        .filter((x) => x.text)
-    : []
+  if (!scope && lang?.scripts.length) scope = createScriptScopeResolver(project, lang)
+  const scripts =
+    lang && scope
+      ? scope
+          .visible(s)
+          .map((sc) => ({
+            name: sc.name,
+            scriptId: sc.id,
+            text: sentenceScriptText(project, lang, sc, s, undefined, scope)
+          }))
+          .filter((x) => x.text)
+      : []
   return { words, translation, extra: s.extraLines, scripts }
 }
 

@@ -1,5 +1,7 @@
 <script lang="ts">
   import { deletable } from '$lib/ui/deletable'
+  import RecordClipboardTools from '$lib/ui/RecordClipboardTools.svelte'
+  import { copyProjectRecords, pasteProjectRecords } from '$lib/state/recordClipboard.svelte'
   import { navScroll } from '$lib/ui/navScroll'
   import { morphJoiner } from '$lib/engine/gloss'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
@@ -26,6 +28,8 @@
   import { ui } from '$lib/state/ui.svelte'
   import { i18n, t, pickText } from '$lib/i18n/index.svelte'
   import { displayTextRows } from '$lib/core/displayLanguages'
+  import { createScriptScopeResolver, setSentenceScriptVisible } from '$lib/core/scriptScope'
+  import SentenceScriptPicker from '$lib/ui/SentenceScriptPicker.svelte'
   import { createSentence, createLexeme, newId } from '$lib/core/factory'
   import { buildSentenceDocReferences } from '$lib/core/docReferences'
   import type { Analysis, Id, Sentence, Token } from '$lib/core/model'
@@ -86,28 +90,16 @@
   import { moveById } from '$lib/core/move'
   import { fiveRows } from '$lib/ui/fiveRows'
   import { corpusTextSize } from '$lib/ui/corpusTextSize'
-  import CorpusFolders, {
-    CORPUS_SENTENCE_DRAG,
-    type CorpusExportKind
-  } from '$lib/ui/CorpusFolders.svelte'
+  import { CORPUS_SENTENCE_DRAG, type CorpusExportKind } from '$lib/ui/CorpusFolders.svelte'
+  import ProjectDirectory from '$lib/ui/ProjectDirectory.svelte'
   import {
     corpusFolderOf,
     corpusFoldersFor,
     corpusFolderSentences,
-    createCorpusFolder,
-    renameCorpusFolder,
-    removeCorpusFolder,
-    reorderCorpusFolder,
     moveCorpusSentences,
     validCorpusFolder
   } from '$lib/core/corpusFolders'
-  import {
-    corpusFolderTree,
-    corpusFolderPath,
-    moveCorpusFolder,
-    corpusFolderMoveTargets
-  } from '$lib/core/corpusFolders'
-  import { folderParent } from '$lib/core/folderTree'
+  import { corpusFolderPath } from '$lib/core/corpusFolders'
   import {
     selectCorpusSentence,
     removeCorpusSentences,
@@ -126,6 +118,16 @@
       null
   )
   const language = $derived(project.languages.find((l) => l.id === langId) ?? null)
+  const scriptScope = $derived(createScriptScopeResolver(project, language))
+  function setScriptShown(sentence: Sentence, id: Id, visible: boolean): void {
+    if (
+      projectState.project !== project ||
+      projectState.readOnly ||
+      !project.sentences.includes(sentence)
+    )
+      return
+    if (setSentenceScriptVisible(sentence, id, visible, scriptScope)) touch()
+  }
 
   /** 回到这一页时接着用上次的子页、选中的句子、导出格式；换了语言就不恢复选中与滚动 */
   const memo = ui.memo<{
@@ -187,6 +189,67 @@
   const selectedIds = $derived(new Set(multiIds))
   const selectedVisibleIds = $derived(visibleIds.filter((id) => selectedIds.has(id)))
   const selectedVisibleSet = $derived(new Set(selectedVisibleIds))
+  const clipboardSentenceIds = $derived(
+    selectedVisibleIds.length ? selectedVisibleIds : visibleIds.filter((id) => id === selectedId)
+  )
+  async function pasteSentences(): Promise<void> {
+    const owner = project,
+      at = folderId
+    const result = await pasteProjectRecords(
+      owner,
+      at,
+      undefined,
+      () => projectState.project === owner && folderId === at && mode === 'entries' && !folderView
+    )
+    if (result?.ok) {
+      const ids = result.refs.filter((r) => r.kind === 'sentence').map((r) => r.id)
+      multiIds = ids
+      selectedId = ids[0] ?? null
+    }
+  }
+  function confirmBatch(ids: readonly Id[]): void {
+    if (projectState.readOnly) return
+    const wanted = new Set(ids.filter((id) => visibleIds.includes(id)))
+    for (const sentence of project.sentences)
+      if (wanted.has(sentence.id)) {
+        if (!sentence.tokens.length && sentence.text.trim()) analyzeSentence(project, sentence)
+        for (const token of sentence.tokens)
+          if (token.analyses[token.chosen]) token.confirmed = true
+      }
+    if (wanted.size) touch()
+  }
+  const sentenceClipboardActions = $derived([
+    {
+      label: t('clipboard.copy'),
+      disabled: projectState.readOnly,
+      run: () =>
+        void copyProjectRecords(
+          project,
+          clipboardSentenceIds.map((id) => ({ kind: 'sentence' as const, id })),
+          'copy'
+        )
+    },
+    {
+      label: t('clipboard.cut'),
+      disabled: projectState.readOnly,
+      run: () =>
+        void copyProjectRecords(
+          project,
+          clipboardSentenceIds.map((id) => ({ kind: 'sentence' as const, id })),
+          'cut'
+        )
+    },
+    {
+      label: t('clipboard.paste'),
+      disabled: projectState.readOnly,
+      run: () => void pasteSentences()
+    },
+    {
+      label: t('clipboard.confirmSelected'),
+      disabled: projectState.readOnly,
+      run: () => confirmBatch(clipboardSentenceIds)
+    }
+  ])
   const selectionScope = $derived(JSON.stringify([langId, folderId, query, folderView]))
   let previousSelectionScope = ''
   $effect(() => {
@@ -383,125 +446,6 @@
     bench = null
     importOpen = false
     mode = 'entries'
-  }
-  async function newFolder(parentId: Id = folderId): Promise<void> {
-    if (projectState.readOnly || !langId) return
-    const owner = project,
-      lid = langId,
-      name = await ui.prompt(t('corpus.folders.create'), '')
-    if (!name || projectState.readOnly || projectState.project !== owner || langId !== lid) return
-    if (createCorpusFolder(project, lid, name, newId(), parentId)) touch()
-    else ui.toast(t('corpus.folders.invalidName'))
-  }
-  async function renameFolder(id: Id): Promise<void> {
-    const folder = project.corpusFolders?.find((folder) => folder.id === id)
-    if (!folder || projectState.readOnly) return
-    const owner = project,
-      lid = folder.languageId,
-      name = await ui.prompt(t('corpus.folders.rename'), folder.name)
-    if (!name || projectState.readOnly || projectState.project !== owner || langId !== lid) return
-    if (renameCorpusFolder(project, id, name)) touch()
-    else ui.toast(t('corpus.folders.invalidName'))
-  }
-  async function removeFolder(id: Id): Promise<void> {
-    const folder = project.corpusFolders?.find((folder) => folder.id === id)
-    if (!folder || projectState.readOnly) return
-    const owner = project,
-      lid = folder.languageId
-    if (
-      !(await ui.confirm(
-        t('corpus.folders.remove'),
-        t('corpus.folders.removeHint'),
-        t('common.delete')
-      ))
-    )
-      return
-    if (projectState.project !== owner || projectState.readOnly || langId !== lid) return
-    const tree = corpusFolderTree(project, lid),
-      parentId = folderParent(tree, id),
-      children = tree
-        .filter((item) => item.parentId === id)
-        .map((item) => ({ id: item.id, name: item.name }))
-    const old = $state.snapshot(folder),
-      position = project.corpusFolders!.findIndex((folder) => folder.id === id),
-      members = project.sentences
-        .filter((s) => s.folderId === id && s.languageId === lid)
-        .map((s) => s.id)
-    if (removeCorpusFolder(project, id)) {
-      const afterChildNames = new Map(
-        (project.corpusFolders ?? []).map((item) => [item.id, item.name])
-      )
-      if (folderId === id) folderId = parentId
-      touch()
-      ui.toast(t('corpus.folders.removed'), {
-        action: {
-          label: t('common.undo'),
-          run: () => {
-            if (projectState.project !== owner || projectState.readOnly) return
-            if (!project.corpusFolders?.some((folder) => folder.id === id)) {
-              const folders = [...(project.corpusFolders ?? [])]
-              folders.splice(Math.min(position, folders.length), 0, old)
-              project.corpusFolders = folders
-            }
-            for (const child of project.corpusFolders ?? []) {
-              const before = children.find((item) => item.id === child.id)
-              if (before && folderParent(corpusFolderTree(project, lid), child.id) === parentId) {
-                child.parentId = id
-                if (child.name === afterChildNames.get(child.id)) child.name = before.name
-              }
-            }
-            moveCorpusSentences(
-              project,
-              members.filter((id) => {
-                const s = project.sentences.find((s) => s.id === id)
-                return s && corpusFolderOf(project, s) === parentId
-              }),
-              lid,
-              id
-            )
-            touch()
-          }
-        }
-      })
-    }
-  }
-  function reorderFolder(from: Id, to: Id): void {
-    if (!projectState.readOnly && langId && reorderCorpusFolder(project, langId, from, to)) touch()
-  }
-  function moveFolderInto(id: Id, parentId: Id): void {
-    if (projectState.readOnly || !langId) return
-    if (moveCorpusFolder(project, langId, id, parentId)) touch()
-    else if (
-      !corpusFolderTree(project, langId).some(
-        (folder) =>
-          folder.id === id && folderParent(corpusFolderTree(project, langId), id) === parentId
-      )
-    )
-      ui.toast(t('corpus.folders.invalidMove'))
-  }
-  async function chooseMoveFolder(id: Id): Promise<void> {
-    if (projectState.readOnly || !langId) return
-    const owner = project,
-      lid = langId,
-      targets = corpusFolderMoveTargets(project, lid, id)
-    const choices = [
-      { value: '', label: 'Default' },
-      ...folders
-        .filter((folder) => !folder.default && targets.has(folder.id))
-        .map((folder) => ({
-          value: folder.id,
-          label: folder.path
-        }))
-    ]
-    const parentId = await ui.choose(t('corpus.folders.moveFolder'), '', choices)
-    if (
-      parentId === null ||
-      projectState.project !== owner ||
-      projectState.readOnly ||
-      langId !== lid
-    )
-      return
-    moveFolderInto(id, parentId)
   }
   function moveSentences(ids: Id[], target: Id): void {
     if (projectState.readOnly || !langId) return
@@ -703,6 +647,15 @@
     }, 420)
   }
   /** 点例句卡片：选中它；已经选中但编辑器收起了，就重新展开 */
+  function closeAnalysis(id: Id): void {
+    collapsedId = id
+    wordHover.hide(true)
+    void tick().then(() => {
+      document
+        .querySelector<HTMLElement>(`.item[data-id="${CSS.escape(id)}"]`)
+        ?.focus({ preventScroll: true })
+    })
+  }
   function pick(id: Id, e?: MouseEvent | KeyboardEvent): void {
     if (e && (e.shiftKey || e.ctrlKey || e.metaKey)) {
       e.preventDefault()
@@ -1074,7 +1027,7 @@
 
   const exportText = $derived.by(() => {
     if (!selected) return ''
-    const il = interlinear(project, selected, i18n.locale)
+    const il = interlinear(project, selected, i18n.locale, scriptScope)
     switch (exportFormat) {
       case 'leipzig':
         return toLeipzig(il)
@@ -1137,26 +1090,18 @@
   }
 </script>
 
-{#snippet folderPanel(compact: boolean)}
-  {#if langId}<CorpusFolders
-      projectId={project.meta.id}
-      languageId={langId}
-      {folders}
-      currentId={folderId}
-      readOnly={projectState.readOnly}
-      {compact}
-      onopen={openFolder}
-      onbrowse={browseFolder}
-      oncreate={newFolder}
-      onrename={renameFolder}
-      onremove={removeFolder}
-      onreorder={reorderFolder}
-      onfoldermove={moveFolderInto}
-      onchoosemove={chooseMoveFolder}
-      onmove={moveSentences}
-      onimport={(target, json) => openImport(json, target)}
-      onexport={(target, kind, recursive) => exportSentences(kind, target, recursive)}
-    />{/if}
+{#snippet folderPanel(compact: boolean, forceExpanded = false)}
+  <ProjectDirectory
+    kind="sentence"
+    currentId={folderId}
+    {compact}
+    {forceExpanded}
+    onopen={openFolder}
+    onbrowse={browseFolder}
+    onimport={(target, json) => openImport(json, target)}
+    onexport={(target, kind, recursive) =>
+      exportSentences(kind as CorpusExportKind, target, recursive)}
+  />
 {/snippet}
 <div class="page" style:--corpus-text-scale={textSize / 100}>
   <div class="page-head row">
@@ -1192,377 +1137,276 @@
     {/if}
   </div>
 
-  {#if mode === 'entries' && !folderView && langId}<nav
-      class="row small"
-      data-corpus-list-breadcrumbs
-      aria-label={t('corpus.folders.path')}
-    >
-      <button class="btn ghost sm" onclick={() => openFolder('')}>Default</button
-      >{#each corpusFolderPath(project, langId, folderId) as part (part.id)}<span aria-hidden="true"
-          >/</span
-        ><button class="btn ghost sm" onclick={() => openFolder(part.id)}>{part.name}</button
-        >{/each}
-    </nav>{/if}
-  {#if mode === 'entries' && !folderView && selectedVisibleIds.length > 1}<div
-      class="row corpus-bulk"
-      data-corpus-bulk
-    >
-      <span class="small">{t('corpus.selectedN', { n: selectedVisibleIds.length })}</span><button
-        class="btn danger sm"
-        data-corpus-bulk-delete
-        disabled={projectState.readOnly}
-        onclick={() => removeBatch(selectedVisibleIds)}
-        ><Trash2 size={14} />{t('common.delete')}</button
-      ><button
-        class="btn ghost sm"
-        data-corpus-clear-selection
-        onclick={() => {
-          multiIds = []
-          selectionAnchor = null
-        }}>{t('corpus.clearSelection')}</button
-      >
-    </div>{/if}
-
-  {#if importOpen && language}
-    <div class="scroll">
-      {#key importNonce}
-        <TableImportDialog
-          title={t('io.importSentences')}
-          fields={sentenceFields(glossLangs, language)}
-          guide={guideUrl('corpus', 'table-format')}
-          exists={(text) => existingTexts.has(normalizeSentence(text))}
-          json={{
-            preview: (content) => (langId ? previewSentencesJson(project, langId, content) : null),
-            run: runSentencesJson
+  <div class="corpus-layout">
+    {#if mode === 'entries' && !folderView}<aside class="folder-sidebar">
+        {@render folderPanel(true)}
+      </aside>{/if}
+    <div class="corpus-main">
+      {#if mode === 'entries' && !folderView && langId}<nav
+          class="row small"
+          data-corpus-list-breadcrumbs
+          aria-label={t('corpus.folders.path')}
+        >
+          <button class="btn ghost sm" onclick={() => openFolder('')}>Default</button
+          >{#each corpusFolderPath(project, langId, folderId) as part (part.id)}<span
+              aria-hidden="true">/</span
+            ><button class="btn ghost sm" onclick={() => openFolder(part.id)}>{part.name}</button
+            >{/each}
+        </nav>{/if}
+      {#if mode === 'entries' && !folderView}<RecordClipboardTools
+          {project}
+          kind="sentence"
+          ids={clipboardSentenceIds}
+          {folderId}
+          enabled={!bench && !importOpen}
+          onconfirm={() => confirmBatch(clipboardSentenceIds)}
+          onpasted={(ids) => {
+            multiIds = ids
+            selectedId = ids[0] ?? null
           }}
-          startWithJson={importJson}
-          onimport={importSentenceTable}
-          onclose={() => (importOpen = false)}
-        />
-      {/key}
-    </div>
-  {:else if bench && language && (!benchSource || benchSource.languageId === language.id)}
-    <!-- 译文工作台：先写译文、挑词拼原文，完成后填进这一句（或者新加一句） -->
-    {#key `${language.id}:${bench.targetId ?? ''}`}<Workbench
-        languageId={language.id}
-        initial={bench.initial}
-        sourceText={benchSource?.text ?? ''}
-        sourceTokens={benchSource?.tokens ?? []}
-        glossLang={benchGloss}
-        kind="sentence"
-        saved={memo.bench?.saved ?? null}
-        onsave={(s) => memo.bench && (memo.bench.saved = s)}
-        ondone={benchDone}
-        oncancel={closeBench}
-      />{/key}
-  {:else if !language}
-    <p class="muted">{t('lexicon.noLanguage')}</p>
-  {:else if folderView && mode === 'entries'}
-    <div class="scroll">{@render folderPanel(false)}</div>
-  {:else if mode === 'stats'}
-    <div class="scroll stats">
-      {#if stats}
-        {@const st = stats}
-        <StatsPanel
-          facts={[
-            { label: t('stats.corpus.sentences'), value: st.sentences },
-            {
-              label: t('stats.corpus.tokens'),
-              value: st.tokens,
-              sub: t('stats.corpus.avgTokens', { n: st.avgTokens.toFixed(1) })
-            },
-            {
-              label: t('stats.corpus.types'),
-              value: st.types,
-              sub: t('stats.corpus.hapax', { n: st.hapax })
-            },
-            {
-              label: t('stats.corpus.resolved'),
-              value: st.resolvedTokens,
-              sub: pctOf(st.resolvedTokens, st.tokens)
-            },
-            {
-              label: t('stats.corpus.confirmed'),
-              value: st.confirmedTokens,
-              sub: pctOf(st.confirmedTokens, st.tokens)
-            },
-            {
-              label: t('stats.corpus.fullyConfirmed'),
-              value: st.fullyConfirmedSentences,
-              sub: pctOf(st.fullyConfirmedSentences, st.sentences)
-            },
-            {
-              label: t('stats.corpus.withTranslation'),
-              value: st.withTranslation,
-              sub: pctOf(st.withTranslation, st.sentences)
-            },
-            {
-              label: t('stats.corpus.withSource'),
-              value: st.withSource,
-              sub: pctOf(st.withSource, st.sentences)
-            },
-            { label: t('stats.corpus.withScriptForm'), value: st.withScriptForm },
-            {
-              label: t('stats.corpus.lexemeCoverage'),
-              value: `${Math.round(st.lexemeCoverage * 100)}%`
-            },
-            {
-              label: t('stats.corpus.morphemeCoverage'),
-              value: `${Math.round(st.morphemeCoverage * 100)}%`
-            },
-            { label: t('corpus.stats.unresolved'), value: st.unresolved.length }
-          ]}
-          groups={[
-            {
-              title: t('stats.corpus.bySource'),
-              buckets: st.bySource,
-              onpick: (k) => filterFromStats(k)
-            },
-            { title: t('stats.corpus.byTag'), buckets: st.byTag },
-            { title: t('stats.corpus.byGloss'), buckets: st.byGloss, max: 20 },
-            { title: t('stats.corpus.byLength'), buckets: st.byLength, max: 40 }
-          ]}
-          rankings={[
-            {
-              title: t('corpus.stats.frequency'),
-              items: st.frequency
-                .slice(0, 100)
-                .map((f) => ({ id: f.surface, label: f.surface, n: f.n })),
-              onpick: (w) => filterFromStats(w)
-            },
-            {
-              title: t('stats.corpus.topLexemes'),
-              items: st.topLexemes.map((x) => ({ id: x.lexemeId, label: x.lemma, n: x.n })),
-              onpick: (id) => ui.jump('lexicon', 'lexeme', id)
-            }
-          ]}
-        />
-        <section class="unres">
-          <h3>
-            {t('corpus.stats.unresolved')} <span class="badge">{st.unresolved.length}</span>
-          </h3>
-          <div class="chips" use:fiveRows>
-            {#each st.unresolved as w (w)}<button
-                class="chip data warn"
-                onclick={() => filterFromStats(w)}>{w}</button
-              >{/each}
-          </div>
-        </section>
-      {/if}
-    </div>
-  {:else if mode === 'abbr'}
-    <div class="scroll" data-tour="corpus-abbr">
-      <div class="row">
-        <span class="grow"></span>
-        <button class="btn sm" onclick={fillLeipzig}
-          ><Sparkles size={14} />{t('corpus.abbr.fillLeipzig')}</button
+        />{/if}
+      {#if mode === 'entries' && !folderView && selectedVisibleIds.length > 1}<div
+          class="row corpus-bulk"
+          data-corpus-bulk
         >
-        <button
-          class="btn primary sm"
-          onclick={() => {
-            project.abbreviations.unshift({ abbr: '', name: {} })
-            touch()
-          }}><Plus size={14} />{t('corpus.abbr.add')}</button
-        >
-      </div>
-      <table class="tbl abbr">
-        <thead
-          ><tr
-            ><th>{t('corpus.abbr.abbr')}</th>{#each glossLangs as g (g)}<th
-                >{t('corpus.abbr.name')} ({g})</th
-              >{/each}<th></th></tr
-          ></thead
-        >
-        <tbody>
-          {#each project.abbreviations as a, i (i)}
-            <tr>
-              <td><input class="input mono" bind:value={a.abbr} oninput={touch} /></td>
-              {#each glossLangs as g (g)}<td
-                  ><input class="input" bind:value={a.name[g]} oninput={touch} /></td
-                >{/each}
-              <td
-                ><button
-                  class="btn ghost icon sm"
-                  onclick={() => {
-                    project.abbreviations.splice(i, 1)
-                    touch()
-                  }}><X size={14} /></button
-                ></td
-              >
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-  {:else}
-    <div class="scroll" use:navScroll={'corpus'}>
-      {#if movingSentence}<div class="corpus-drop-targets">{@render folderPanel(true)}</div>{/if}
-      <Hint id="corpus" text={t('corpus.hint')} />
-      {#snippet editorPanel(s: Sentence)}
-        <div class="card editor" class:fading>
-          <div class="row toolbar" data-tour="corpus-analyze">
-            <span class="small muted grow"
-              >{t('corpus.coverageLabel', {
-                confirmed: coverage(s).confirmed,
-                total: coverage(s).total
-              })}</span
-            >
-            <button class="btn sm" onclick={() => analyze(false)}
-              ><Wand2 size={14} />{t('corpus.analyze')}</button
-            >
-            <button class="btn ghost sm" onclick={() => analyze(true)}
-              ><RefreshCw size={14} />{t('corpus.reanalyze')}</button
-            >
-            <button class="btn ghost sm" onclick={confirmAll}
-              ><CheckCheck size={14} />{t('corpus.confirmAll')}</button
-            >
-          </div>
-          {#each language.scripts as sc (sc.id)}
-            {@const st = sentenceScriptText(project, language, sc, s, lookupWord)}
-            {#if st}<div
-                class="scr"
-                style={fontCss(sc)}
-                dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'}
-                title={sc.name}
-              >
-                {st}
-              </div>{/if}
-          {/each}
-          {#if s.tokens.length === 0}
-            <p class="small muted">{t('corpus.noTokens')}</p>
-          {:else}
-            <div class="il">
-              {#each s.tokens as tk, i (i)}
-                <div class="tok" class:bad={unresolved(tk)} class:ok={tk.confirmed}>
-                  <div
-                    class="surface data"
-                    class:link={linkable(tk)}
-                    class:ambiguous={ambiguous(tk, s)}
-                    role="link"
-                    tabindex="-1"
-                    onmouseenter={(e) => hoverWord(e, tk, s)}
-                    onmouseleave={() => wordHover.hide()}
-                    onclick={(e) => clickWord(e, tk, s)}
-                    onkeydown={() => {}}
-                  >
-                    {tk.surface}
-                  </div>
-                  <input
-                    class="input data m"
-                    value={morphsOf(tk)}
-                    title={t('corpus.morphs')}
-                    onchange={(e) =>
-                      customize(tk, (e.currentTarget as HTMLInputElement).value, glossOf(tk))}
-                  />
-                  <input
-                    class="input g"
-                    value={glossOf(tk)}
-                    title={glossTitle(glossOf(tk)) || t('corpus.gloss')}
-                    onchange={(e) =>
-                      customize(tk, morphsOf(tk), (e.currentTarget as HTMLInputElement).value)}
-                  />
-                  <div class="row ctl">
-                    <select
-                      class="select cand"
-                      value={String(tk.chosen)}
-                      title={t('corpus.candidates')}
-                      onchange={(e) => {
-                        tk.chosen = Number((e.currentTarget as HTMLSelectElement).value)
-                        touch()
-                      }}
-                    >
-                      {#each tk.analyses as a, j (j)}<option value={String(j)}
-                          >{analysisLabel(a)}</option
-                        >{/each}
-                      {#if tk.analyses.length === 0}<option value="0">—</option>{/if}
-                    </select>
-                    <button
-                      class="btn ghost icon sm"
-                      class:on={tk.confirmed}
-                      title={t('corpus.confirmed')}
-                      onclick={() => {
-                        tk.confirmed = !tk.confirmed
-                        touch()
-                      }}><Check size={14} /></button
-                    >
-                    <button
-                      class="btn ghost icon sm"
-                      title={t('corpus.refresh')}
-                      onclick={() => refreshCandidates(tk)}><RefreshCw size={12} /></button
-                    >
-                    {#if unresolved(tk)}<button
-                        class="btn ghost sm new"
-                        onclick={() => newLexeme(tk)}
-                        ><Plus size={12} />{t('corpus.newLexeme')}</button
-                      >{/if}
-                  </div>
-                </div>
-              {/each}
-            </div>
-            {#each displayTextRows(s.translation, project.settings.translationDisplay, translationOrder) as row (row.language)}<p
-                class="tr"
-                lang={row.language}
-              >
-                {row.text}
-              </p>{/each}
+          <button
+            class="btn sm"
+            data-corpus-confirm-selected
+            title="Ctrl/⌘+Enter"
+            disabled={projectState.readOnly}
+            onclick={() => confirmBatch(selectedVisibleIds)}
+            >{t('clipboard.confirmSelected')}</button
+          >
+          <span class="small">{t('corpus.selectedN', { n: selectedVisibleIds.length })}</span
+          ><button
+            class="btn danger sm"
+            data-corpus-bulk-delete
+            disabled={projectState.readOnly}
+            onclick={() => removeBatch(selectedVisibleIds)}
+            ><Trash2 size={14} />{t('common.delete')}</button
+          ><button
+            class="btn ghost sm"
+            data-corpus-clear-selection
+            onclick={() => {
+              multiIds = []
+              selectionAnchor = null
+            }}>{t('corpus.clearSelection')}</button
+          >
+        </div>{/if}
+
+      {#if importOpen && language}
+        <div class="scroll">
+          {#key importNonce}
+            <TableImportDialog
+              title={t('io.importSentences')}
+              fields={sentenceFields(glossLangs, language)}
+              guide={guideUrl('corpus', 'table-format')}
+              exists={(text) => existingTexts.has(normalizeSentence(text))}
+              json={{
+                preview: (content) =>
+                  langId ? previewSentencesJson(project, langId, content) : null,
+                run: runSentencesJson
+              }}
+              startWithJson={importJson}
+              onimport={importSentenceTable}
+              onclose={() => (importOpen = false)}
+            />
+          {/key}
+        </div>
+      {:else if bench && language && (!benchSource || benchSource.languageId === language.id)}
+        <!-- 译文工作台：先写译文、挑词拼原文，完成后填进这一句（或者新加一句） -->
+        {#key `${language.id}:${bench.targetId ?? ''}`}<Workbench
+            languageId={language.id}
+            initial={bench.initial}
+            sourceText={benchSource?.text ?? ''}
+            sourceTokens={benchSource?.tokens ?? []}
+            glossLang={benchGloss}
+            kind="sentence"
+            saved={memo.bench?.saved ?? null}
+            onsave={(s) => memo.bench && (memo.bench.saved = s)}
+            ondone={benchDone}
+            oncancel={closeBench}
+          />{/key}
+      {:else if !language}
+        <p class="muted">{t('lexicon.noLanguage')}</p>
+      {:else if folderView && mode === 'entries'}
+        <div class="scroll">{@render folderPanel(false)}</div>
+      {:else if mode === 'stats'}
+        <div class="scroll stats">
+          {#if stats}
+            {@const st = stats}
+            <StatsPanel
+              facts={[
+                { label: t('stats.corpus.sentences'), value: st.sentences },
+                {
+                  label: t('stats.corpus.tokens'),
+                  value: st.tokens,
+                  sub: t('stats.corpus.avgTokens', { n: st.avgTokens.toFixed(1) })
+                },
+                {
+                  label: t('stats.corpus.types'),
+                  value: st.types,
+                  sub: t('stats.corpus.hapax', { n: st.hapax })
+                },
+                {
+                  label: t('stats.corpus.resolved'),
+                  value: st.resolvedTokens,
+                  sub: pctOf(st.resolvedTokens, st.tokens)
+                },
+                {
+                  label: t('stats.corpus.confirmed'),
+                  value: st.confirmedTokens,
+                  sub: pctOf(st.confirmedTokens, st.tokens)
+                },
+                {
+                  label: t('stats.corpus.fullyConfirmed'),
+                  value: st.fullyConfirmedSentences,
+                  sub: pctOf(st.fullyConfirmedSentences, st.sentences)
+                },
+                {
+                  label: t('stats.corpus.withTranslation'),
+                  value: st.withTranslation,
+                  sub: pctOf(st.withTranslation, st.sentences)
+                },
+                {
+                  label: t('stats.corpus.withSource'),
+                  value: st.withSource,
+                  sub: pctOf(st.withSource, st.sentences)
+                },
+                { label: t('stats.corpus.withScriptForm'), value: st.withScriptForm },
+                {
+                  label: t('stats.corpus.lexemeCoverage'),
+                  value: `${Math.round(st.lexemeCoverage * 100)}%`
+                },
+                {
+                  label: t('stats.corpus.morphemeCoverage'),
+                  value: `${Math.round(st.morphemeCoverage * 100)}%`
+                },
+                { label: t('corpus.stats.unresolved'), value: st.unresolved.length }
+              ]}
+              groups={[
+                {
+                  title: t('stats.corpus.bySource'),
+                  buckets: st.bySource,
+                  onpick: (k) => filterFromStats(k)
+                },
+                { title: t('stats.corpus.byTag'), buckets: st.byTag },
+                { title: t('stats.corpus.byGloss'), buckets: st.byGloss, max: 20 },
+                { title: t('stats.corpus.byLength'), buckets: st.byLength, max: 40 }
+              ]}
+              rankings={[
+                {
+                  title: t('corpus.stats.frequency'),
+                  items: st.frequency
+                    .slice(0, 100)
+                    .map((f) => ({ id: f.surface, label: f.surface, n: f.n })),
+                  onpick: (w) => filterFromStats(w)
+                },
+                {
+                  title: t('stats.corpus.topLexemes'),
+                  items: st.topLexemes.map((x) => ({ id: x.lexemeId, label: x.lemma, n: x.n })),
+                  onpick: (id) => ui.jump('lexicon', 'lexeme', id)
+                }
+              ]}
+            />
+            <section class="unres">
+              <h3>
+                {t('corpus.stats.unresolved')} <span class="badge">{st.unresolved.length}</span>
+              </h3>
+              <div class="chips" use:fiveRows>
+                {#each st.unresolved as w (w)}<button
+                    class="chip data warn"
+                    onclick={() => filterFromStats(w)}>{w}</button
+                  >{/each}
+              </div>
+            </section>
           {/if}
         </div>
-      {/snippet}
-
-      {#if selected && collapsedId !== selected.id && !list.some((x) => x.id === selected.id)}
-        {@render editorPanel(selected)}
-      {/if}
-
-      {#if list.length === 0}
-        <p class="muted">{t('corpus.empty')}</p>
-      {:else}
-        <div class="list">
-          {#each list.slice(0, lz.shown) as s, si (s.id)}
-            {#if selectedId === s.id && collapsedId !== s.id}{@render editorPanel(s)}{/if}
-            {@const c = coverage(s)}
-            {@const done = fullyConfirmed(s)}
-            {@const spans = textSpans(s)}
-            <div
-              class="card item"
-              data-id={s.id}
-              use:deletable={{
-                identity: JSON.stringify([project.meta.id, langId, folderId, s.id]),
-                selected: selectedId === s.id || selectedVisibleSet.has(s.id),
-                actions: [
-                  {
-                    label: t('corpus.folders.move'),
-                    disabled: projectState.readOnly,
-                    run: () => chooseFolder(s)
-                  }
-                ],
-                select: () => {
-                  if (!selectedVisibleSet.has(s.id)) {
-                    multiIds = [s.id]
-                    selectionAnchor = s.id
-                  }
-                  selectedId = s.id
-                },
-                remove: () => remove(s)
-              }}
-              class:sel={selectedId === s.id || selectedVisibleSet.has(s.id)}
-              aria-pressed={selectedVisibleSet.has(s.id)}
-              data-corpus-selected={selectedVisibleSet.has(s.id)}
-              class:flash={flashId === s.id}
-              use:flashOn={justConfirmed === s.id}
-              role="button"
-              tabindex="0"
-              {...sentenceDrag(s, si)}
-              onclickcapture={(e) => {
-                if (e.shiftKey || e.ctrlKey || e.metaKey) {
-                  e.stopPropagation()
-                  pick(s.id, e)
-                }
-              }}
-              onclick={(e) => pick(s.id, e)}
-              onkeydown={(e) => e.key === 'Enter' && pick(s.id, e)}
+      {:else if mode === 'abbr'}
+        <div class="scroll" data-tour="corpus-abbr">
+          <div class="row">
+            <span class="grow"></span>
+            <button class="btn sm" onclick={fillLeipzig}
+              ><Sparkles size={14} />{t('corpus.abbr.fillLeipzig')}</button
             >
-              {#each language.scripts as sc (sc.id)}
-                {@const st = sentenceScriptText(project, language, sc, s, lookupWord)}
+            <button
+              class="btn primary sm"
+              onclick={() => {
+                project.abbreviations.unshift({ abbr: '', name: {} })
+                touch()
+              }}><Plus size={14} />{t('corpus.abbr.add')}</button
+            >
+          </div>
+          <table class="tbl abbr">
+            <thead
+              ><tr
+                ><th>{t('corpus.abbr.abbr')}</th>{#each glossLangs as g (g)}<th
+                    >{t('corpus.abbr.name')} ({g})</th
+                  >{/each}<th></th></tr
+              ></thead
+            >
+            <tbody>
+              {#each project.abbreviations as a, i (i)}
+                <tr>
+                  <td><input class="input mono" bind:value={a.abbr} oninput={touch} /></td>
+                  {#each glossLangs as g (g)}<td
+                      ><input class="input" bind:value={a.name[g]} oninput={touch} /></td
+                    >{/each}
+                  <td
+                    ><button
+                      class="btn ghost icon sm"
+                      onclick={() => {
+                        project.abbreviations.splice(i, 1)
+                        touch()
+                      }}><X size={14} /></button
+                    ></td
+                  >
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {:else}
+        <div class="scroll" use:navScroll={'corpus'}>
+          {#if movingSentence}<div class="corpus-drop-targets">
+              {@render folderPanel(true, true)}
+            </div>{/if}
+          <Hint id="corpus" text={t('corpus.hint')} />
+          {#snippet editorPanel(s: Sentence)}
+            <div class="card editor" class:fading>
+              <div class="row toolbar" data-tour="corpus-analyze">
+                <span class="small muted grow"
+                  >{t('corpus.coverageLabel', {
+                    confirmed: coverage(s).confirmed,
+                    total: coverage(s).total
+                  })}</span
+                >
+                <button class="btn sm" onclick={() => analyze(false)}
+                  ><Wand2 size={14} />{t('corpus.analyze')}</button
+                >
+                <button class="btn ghost sm" onclick={() => analyze(true)}
+                  ><RefreshCw size={14} />{t('corpus.reanalyze')}</button
+                >
+                <button class="btn ghost sm" onclick={confirmAll}
+                  ><CheckCheck size={14} />{t('corpus.confirmAll')}</button
+                >
+                <button
+                  type="button"
+                  class="btn ghost icon sm"
+                  data-close-analysis
+                  title={t('common.close')}
+                  aria-label={t('common.close')}
+                  onclick={() => closeAnalysis(s.id)}><X size={15} /></button
+                >
+              </div>
+              <SentenceScriptPicker
+                sentence={s}
+                scripts={scriptScope.applicable(s)}
+                readOnly={projectState.readOnly}
+                onchange={(id, visible) => setScriptShown(s, id, visible)}
+              />
+              {#each scriptScope.visible(s) as sc (sc.id)}
+                {@const st = sentenceScriptText(project, language, sc, s, lookupWord, scriptScope)}
                 {#if st}<div
                     class="scr"
                     style={fontCss(sc)}
@@ -1572,26 +1416,14 @@
                     {st}
                   </div>{/if}
               {/each}
-              <div class="row">
-                {#if spans}
-                  <!-- 按原文画：词之间的空格、逗号句号这些标点原样留着，词才能悬浮 -->
-                  <span class="data text grow"
-                    >{#each spans as sp, k (k)}{#if sp.at >= 0}{@const tk = s.tokens[sp.at]}<span
-                          class="w"
-                          class:link={linkable(tk)}
-                          class:ambiguous={ambiguous(tk, s)}
-                          role="link"
-                          tabindex="-1"
-                          onmouseenter={(e) => hoverWord(e, tk, s)}
-                          onmouseleave={() => wordHover.hide()}
-                          onclick={(e) => clickWord(e, tk, s)}
-                          onkeydown={() => {}}>{sp.text}</span
-                        >{:else}{sp.text}{/if}{/each}</span
-                  >
-                {:else if s.tokens.length}
-                  <span class="data text grow words">
-                    {#each s.tokens as tk, i (i)}<span
-                        class="w"
+              {#if s.tokens.length === 0}
+                <p class="small muted">{t('corpus.noTokens')}</p>
+              {:else}
+                <div class="il">
+                  {#each s.tokens as tk, i (i)}
+                    <div class="tok" class:bad={unresolved(tk)} class:ok={tk.confirmed}>
+                      <div
+                        class="surface data"
                         class:link={linkable(tk)}
                         class:ambiguous={ambiguous(tk, s)}
                         role="link"
@@ -1599,39 +1431,213 @@
                         onmouseenter={(e) => hoverWord(e, tk, s)}
                         onmouseleave={() => wordHover.hide()}
                         onclick={(e) => clickWord(e, tk, s)}
-                        onkeydown={() => {}}>{tk.surface}</span
-                      >{/each}
-                  </span>
-                {:else}
-                  <span class="data text grow">{s.text || '—'}</span>
-                {/if}
-                <span class="badge" class:accent={done}>{c.confirmed}/{c.total}</span>
-              </div>
-              {#if done}
-                {@const il = interlinear(project, s, i18n.locale)}
-                <div class="gl" class:slide-in={justConfirmed === s.id}>
-                  {#each il.words as w, i (i)}<span class="gw"
-                      ><span class="data m">{w.morphs}</span><span class="g">{w.gloss}</span></span
-                    >{/each}
+                        onkeydown={() => {}}
+                      >
+                        {tk.surface}
+                      </div>
+                      <input
+                        class="input data m"
+                        value={morphsOf(tk)}
+                        title={t('corpus.morphs')}
+                        onchange={(e) =>
+                          customize(tk, (e.currentTarget as HTMLInputElement).value, glossOf(tk))}
+                      />
+                      <input
+                        class="input g"
+                        value={glossOf(tk)}
+                        title={glossTitle(glossOf(tk)) || t('corpus.gloss')}
+                        onchange={(e) =>
+                          customize(tk, morphsOf(tk), (e.currentTarget as HTMLInputElement).value)}
+                      />
+                      <div class="row ctl">
+                        <select
+                          class="select cand"
+                          value={String(tk.chosen)}
+                          title={t('corpus.candidates')}
+                          onchange={(e) => {
+                            tk.chosen = Number((e.currentTarget as HTMLSelectElement).value)
+                            touch()
+                          }}
+                        >
+                          {#each tk.analyses as a, j (j)}<option value={String(j)}
+                              >{analysisLabel(a)}</option
+                            >{/each}
+                          {#if tk.analyses.length === 0}<option value="0">—</option>{/if}
+                        </select>
+                        <button
+                          class="btn ghost icon sm"
+                          class:on={tk.confirmed}
+                          title={t('corpus.confirmed')}
+                          onclick={() => {
+                            tk.confirmed = !tk.confirmed
+                            touch()
+                          }}><Check size={14} /></button
+                        >
+                        <button
+                          class="btn ghost icon sm"
+                          title={t('corpus.refresh')}
+                          onclick={() => refreshCandidates(tk)}><RefreshCw size={12} /></button
+                        >
+                        {#if unresolved(tk)}<button
+                            class="btn ghost sm new"
+                            onclick={() => newLexeme(tk)}
+                            ><Plus size={12} />{t('corpus.newLexeme')}</button
+                          >{/if}
+                      </div>
+                    </div>
+                  {/each}
                 </div>
+                {#each displayTextRows(s.translation, project.settings.translationDisplay, translationOrder) as row (row.language)}<p
+                    class="tr"
+                    lang={row.language}
+                  >
+                    {row.text}
+                  </p>{/each}
               {/if}
-              {#each displayTextRows(s.translation, project.settings.translationDisplay, translationOrder) as row (row.language)}<div
-                  class="tr-line"
-                  lang={row.language}
-                  data-corpus-translation={row.language}
-                >
-                  {row.text}
-                </div>{/each}
-              {#if s.tags.length || s.source}<div class="small muted">
-                  {[s.source, ...s.tags].filter(Boolean).join(' · ')}
-                </div>{/if}
             </div>
-          {/each}
-          {#if list.length > lz.shown}<div class="more-mark" use:lazyMore={lz}></div>{/if}
+          {/snippet}
+
+          {#if selected && collapsedId !== selected.id && !list.some((x) => x.id === selected.id)}
+            {@render editorPanel(selected)}
+          {/if}
+
+          {#if list.length === 0}
+            <p class="muted">{t('corpus.empty')}</p>
+          {:else}
+            <div class="list">
+              {#each list.slice(0, lz.shown) as s, si (s.id)}
+                {#if selectedId === s.id && collapsedId !== s.id}{@render editorPanel(s)}{/if}
+                {@const c = coverage(s)}
+                {@const done = fullyConfirmed(s)}
+                {@const spans = textSpans(s)}
+                <div
+                  class="card item"
+                  data-id={s.id}
+                  use:deletable={{
+                    identity: JSON.stringify([project.meta.id, langId, folderId, s.id]),
+                    selected: selectedId === s.id || selectedVisibleSet.has(s.id),
+                    actions: [
+                      ...sentenceClipboardActions,
+                      {
+                        label: t('corpus.folders.move'),
+                        disabled: projectState.readOnly,
+                        run: () => chooseFolder(s)
+                      }
+                    ],
+                    select: () => {
+                      if (!selectedVisibleSet.has(s.id)) {
+                        multiIds = [s.id]
+                        selectionAnchor = s.id
+                      }
+                      selectedId = s.id
+                    },
+                    remove: () => remove(s)
+                  }}
+                  class:sel={selectedId === s.id || selectedVisibleSet.has(s.id)}
+                  aria-pressed={selectedVisibleSet.has(s.id)}
+                  data-corpus-selected={selectedVisibleSet.has(s.id)}
+                  class:flash={flashId === s.id}
+                  use:flashOn={justConfirmed === s.id}
+                  role="button"
+                  tabindex="0"
+                  {...sentenceDrag(s, si)}
+                  onclickcapture={(e) => {
+                    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                      e.stopPropagation()
+                      pick(s.id, e)
+                    }
+                  }}
+                  onclick={(e) => pick(s.id, e)}
+                  onkeydown={(e) => e.key === 'Enter' && pick(s.id, e)}
+                >
+                  <SentenceScriptPicker
+                    sentence={s}
+                    scripts={scriptScope.applicable(s)}
+                    readOnly={projectState.readOnly}
+                    onchange={(id, visible) => setScriptShown(s, id, visible)}
+                  />
+                  {#each scriptScope.visible(s) as sc (sc.id)}
+                    {@const st = sentenceScriptText(
+                      project,
+                      language,
+                      sc,
+                      s,
+                      lookupWord,
+                      scriptScope
+                    )}
+                    {#if st}<div
+                        class="scr"
+                        style={fontCss(sc)}
+                        dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'}
+                        title={sc.name}
+                      >
+                        {st}
+                      </div>{/if}
+                  {/each}
+                  <div class="row">
+                    {#if spans}
+                      <!-- 按原文画：词之间的空格、逗号句号这些标点原样留着，词才能悬浮 -->
+                      <span class="data text grow"
+                        >{#each spans as sp, k (k)}{#if sp.at >= 0}{@const tk =
+                              s.tokens[sp.at]}<span
+                              class="w"
+                              class:link={linkable(tk)}
+                              class:ambiguous={ambiguous(tk, s)}
+                              role="link"
+                              tabindex="-1"
+                              onmouseenter={(e) => hoverWord(e, tk, s)}
+                              onmouseleave={() => wordHover.hide()}
+                              onclick={(e) => clickWord(e, tk, s)}
+                              onkeydown={() => {}}>{sp.text}</span
+                            >{:else}{sp.text}{/if}{/each}</span
+                      >
+                    {:else if s.tokens.length}
+                      <span class="data text grow words">
+                        {#each s.tokens as tk, i (i)}<span
+                            class="w"
+                            class:link={linkable(tk)}
+                            class:ambiguous={ambiguous(tk, s)}
+                            role="link"
+                            tabindex="-1"
+                            onmouseenter={(e) => hoverWord(e, tk, s)}
+                            onmouseleave={() => wordHover.hide()}
+                            onclick={(e) => clickWord(e, tk, s)}
+                            onkeydown={() => {}}>{tk.surface}</span
+                          >{/each}
+                      </span>
+                    {:else}
+                      <span class="data text grow">{s.text || '—'}</span>
+                    {/if}
+                    <span class="badge" class:accent={done}>{c.confirmed}/{c.total}</span>
+                  </div>
+                  {#if done}
+                    {@const il = interlinear(project, s, i18n.locale, scriptScope)}
+                    <div class="gl" class:slide-in={justConfirmed === s.id}>
+                      {#each il.words as w, i (i)}<span class="gw"
+                          ><span class="data m">{w.morphs}</span><span class="g">{w.gloss}</span
+                          ></span
+                        >{/each}
+                    </div>
+                  {/if}
+                  {#each displayTextRows(s.translation, project.settings.translationDisplay, translationOrder) as row (row.language)}<div
+                      class="tr-line"
+                      lang={row.language}
+                      data-corpus-translation={row.language}
+                    >
+                      {row.text}
+                    </div>{/each}
+                  {#if s.tags.length || s.source}<div class="small muted">
+                      {[s.source, ...s.tags].filter(Boolean).join(' · ')}
+                    </div>{/if}
+                </div>
+              {/each}
+              {#if list.length > lz.shown}<div class="more-mark" use:lazyMore={lz}></div>{/if}
+            </div>
+          {/if}
         </div>
       {/if}
     </div>
-  {/if}
+  </div>
 </div>
 
 {#if selected && mode === 'entries' && !importOpen}
@@ -1688,6 +1694,12 @@
       <LocalizedInput bind:value={s.translation} onchange={touch} />
     </div>
     {#if language && language.scripts.length}
+      <SentenceScriptPicker
+        sentence={s}
+        scripts={scriptScope.applicable(s)}
+        readOnly={projectState.readOnly}
+        onchange={(id, visible) => setScriptShown(s, id, visible)}
+      />
       <div class="field">
         <span class="small muted">{t('script.override')}</span>
         {#each language.scripts as sc (sc.id)}
@@ -1861,6 +1873,29 @@
     flex-direction: column;
     gap: 12px;
     height: 100%;
+  }
+  .corpus-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    gap: 12px;
+  }
+  .corpus-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+  }
+  .folder-sidebar {
+    flex: 0 0 190px;
+    overflow: auto;
+    border-inline-end: 1px solid var(--border);
+  }
+  @media (max-width: 900px) {
+    .folder-sidebar {
+      flex-basis: 150px;
+    }
   }
   .page-head {
     gap: 10px;

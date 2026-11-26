@@ -36,6 +36,8 @@ export interface Project {
   phrasebook: Phrase[]
   abbreviations: Abbreviation[]
   docs: DocPage[]
+  /** 三类记录共用的项目目录；未设置时兼容旧语料和文档目录。空ID是虚拟Default。 */
+  folders?: ProjectFolder[]
   /** 文档的项目级目录树；文档语言筛选独立于目录归属，旧文档位于Default。 */
   docFolders?: DocFolder[]
   /** 词条检视器里用户自己加的模块（异体字、文化注释……），在「词类与维度」里定义 */
@@ -88,6 +90,8 @@ export type DisplayLanguageSelection =
   { mode: 'one' | 'two'; languages: string[] } | { mode: 'all' }
 
 export interface ProjectSettings {
+  folderView?: 'icons' | 'details'
+  folderMetadata?: ('tags' | 'createdAt' | 'size' | 'type')[]
   /** 主界面默认显示的语言 */
   defaultLanguageId: Id | null
   /** 释义等多语言字段的首选语言顺序 */
@@ -216,8 +220,14 @@ export interface Glyph {
  * 外轮廓逆时针、内洞顺时针，跟笔画叠在一起按非零规则填。
  */
 export interface GlyphDrawing {
-  strokes: { points: [number, number][]; width: number }[]
+  strokes: {
+    points: [number, number][]
+    width: number
+    nodes?: import('../script/glyphStrokeNodes').StrokeNode[]
+  }[]
   contours?: {
+    /** 平滑锚点对应 cmds 中的端点下标；旧轮廓缺省为独立控制柄。 */
+    smooth?: number[]
     cmds: (
       | ['M', number, number]
       | ['L', number, number]
@@ -259,6 +269,8 @@ export interface Script {
    * `pron:<正字法 id>`、`custom:<检视器模块 id>`；那一栏是空的就回落到单词。
    */
   from?: string
+  /** 仅限制语料／短语的文字行；未设置时适用全部目录，Default空ID只表示未归档记录。 */
+  folderScope?: { mode: 'none' | 'selected'; folderIds: Id[]; excludedFolderIds?: Id[] }
 }
 
 /**
@@ -849,14 +861,17 @@ export interface CorpusFolder {
 
 export interface Sentence {
   id: Id
+  createdAt?: string
   languageId: Id
-  /** 同语言语料文件夹；缺省或失效的引用属于 Default。 */
+  /** 项目共享目录；缺省或失效的引用属于 Default。 */
   folderId?: Id
   text: string
   /** orthographyId → 文本 */
   orthoTexts: Record<Id, string>
   /** scriptId → 手工指定的文字写法（覆盖自动映射） */
   scriptForms: Record<Id, string>
+  /** 多套文字适用时逐句隐藏；只剩一套适用文字时仍直接显示，不删除这些偏好。 */
+  hiddenScriptIds?: Id[]
   translation: LocalizedText
   source: string
   tags: string[]
@@ -897,6 +912,8 @@ export interface Analysis {
 
 export interface Phrase {
   id: Id
+  folderId?: Id
+  createdAt?: string
   languageId: Id
   category: string
   text: string
@@ -918,6 +935,8 @@ export interface Abbreviation {
 
 export interface DocPage {
   id: Id
+  createdAt?: string
+  tags?: string[]
   folderId?: Id
   languageId: Id | null
   title: string
@@ -931,4 +950,12 @@ export interface DocFolder {
   id: Id
   name: string
   parentId?: Id
+}
+
+export interface ProjectFolder {
+  id: Id
+  name: string
+  parentId?: Id
+  tags?: string[]
+  createdAt?: string
 }

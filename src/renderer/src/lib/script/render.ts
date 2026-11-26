@@ -6,6 +6,8 @@ import { escapeRuleText, parseRuleText, runRulesOnText, type RuleProgram } from 
 import { packTables, packWord, type PackTables } from './pack'
 import { languageParseOptions } from '$lib/engine/phon'
 import { canonicalG } from '$lib/ipa/equivalence'
+import { glyphValues } from './glyphValues'
+export { glyphValues } from './glyphValues'
 
 /**
  * 编好的转写，按文字对象记：展开的映射、解析好的规则、音节拼合用的表，外加同一段文字转过的结果。
@@ -80,14 +82,6 @@ function compiledFor(lang: Language, script: Script): Compiled {
   }
   compiled.set(script, entry)
   return entry
-}
-
-/** 一个字形的全部转写值：value 里可以用 / 、 , 分隔多个读音 */
-export function glyphValues(g: { value: string }): string[] {
-  return g.value
-    .split(/[/、,，]/)
-    .map((x) => x.trim())
-    .filter(Boolean)
 }
 
 /** 规则里会被当成音类的单个大写字母：语言的音类，加上这套文字自己的规则里声明的 */
@@ -244,17 +238,28 @@ export function packText(lang: Language, script: Script, text: string): string {
   const tables = c.tables
   return keepPlaceholders(text, (chunk) =>
     chunk.replace(/[^\s]+/g, (w) => {
-      const parts = w.split(/([·-])/)
-      let out = ''
-      for (let i = 0; i < parts.length; i++) {
-        const seg = parts[i]
-        if (!seg) continue
-        if (seg === '·' || seg === '-') continue
-        const isHead = parts[i + 1] === '·'
-        for (const r of packWord(lang, script, seg, isHead, tables))
-          out += byReading.get(canonicalG(r)) ?? r
-      }
-      return out
+      // 逗号不进入辅音／元音拼合；明确的字形或文字规则可映射，未配置则保留。
+      return w
+        .split(/([,，])/u)
+        .map((part) => {
+          if (/^[,，]$/u.test(part))
+            return c.program
+              ? runRulesOnText(c.program, part, { keepDots: true })
+              : (byReading.get(part) ?? part)
+          if (!part) return ''
+          const parts = part.split(/([·-])/)
+          let out = ''
+          for (let i = 0; i < parts.length; i++) {
+            const seg = parts[i]
+            if (!seg) continue
+            if (seg === '·' || seg === '-') continue
+            const isHead = parts[i + 1] === '·'
+            for (const r of packWord(lang, script, seg, isHead, tables))
+              out += byReading.get(canonicalG(r)) ?? r
+          }
+          return out
+        })
+        .join('')
     })
   )
 }

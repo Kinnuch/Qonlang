@@ -23,6 +23,7 @@
   import { piecesOf } from '$lib/engine/gloss/candidates'
   import { tokensMatchText } from '$lib/engine/gloss/tokens'
   import { createSentence } from '$lib/core/factory'
+  import { createProjectScriptScopes, type ScriptScopeResolver } from '$lib/core/scriptScope'
   import { WordResolver } from '$lib/engine/gloss/resolve'
   import { collectEvidence } from '$lib/engine/gloss/candidates'
   import { projectState } from '$lib/state/project.svelte'
@@ -41,6 +42,8 @@
     resolvers: Map<Id, WordResolver>
     /** 短语 id → 分析好的样子（第一次画这张时才分析） */
     phrases: Map<Id, Sentence>
+    /** 文件读入后的只读快照；量取许多卡片时共用目录树。 */
+    scope: (languageId: Id) => ScriptScopeResolver
   }
   type Slide =
     | { kind: 'sentence'; key: string; source: number; sentence: Sentence; translation: string }
@@ -109,14 +112,17 @@
     for (const entry of entries) {
       try {
         const r = await platform.openRecent(entry)
-        if (r)
+        if (r) {
+          const project = parseProject(await readProjectText(r.content))
           got.push({
             entry,
-            project: parseProject(await readProjectText(r.content)),
+            project,
+            scope: createProjectScriptScopes(project),
             indexes: new Map(),
             resolvers: new Map(),
             phrases: new Map()
           })
+        }
       } catch {
         // 文件不在了、不是合法的项目：跳过这一个
       }
@@ -139,11 +145,12 @@
     const lang = src.project.languages.find((l) => l.id === sen.languageId)
     if (!lang) return []
     const out: { id: Id; text: string; css: string; rtl: boolean; name: string }[] = []
-    for (const sc of lang.scripts ?? []) {
+    const scope = src.scope(lang.id)
+    for (const sc of kind === 'sentence' ? scope.visible(sen) : scope.applicable(sen)) {
       ensureScriptFont(sc)
       const text =
         kind === 'sentence'
-          ? sentenceScriptText(src.project, lang, sc, sen)
+          ? sentenceScriptText(src.project, lang, sc, sen, undefined, scope)
           : textScript(src.project, lang, sc, sen.text, sen.tokens)
       if (text.trim())
         out.push({ id: sc.id, text, css: fontCss(sc), rtl: sc.direction === 'rtl', name: sc.name })
@@ -342,6 +349,7 @@
     s.id = p.phraseId
     s.text = p.text
     s.translation = p.translations ?? {}
+    s.folderId = src.project.phrasebook.find((x) => x.id === p.phraseId)?.folderId
     const opts = {
       mode: settings.tokenizer,
       pattern: settings.tokenizerPattern,
@@ -481,17 +489,19 @@
     const lines =
       s.kind === 'sentence'
         ? scriptLines(src, s.sentence, 'sentence')
-        : scriptLinesOf(src, s.languageId, s.text)
+        : scriptLinesOf(src, s.languageId, s.text, s.phraseId)
     return lines.every((l) => scriptW(l.css, l.text) <= inner)
   }
   function scriptLinesOf(
     src: Source,
     languageId: Id,
-    text: string
+    text: string,
+    phraseId: Id
   ): { text: string; css: string }[] {
     const lang = src.project.languages.find((l) => l.id === languageId)
     if (!lang) return []
-    return (lang.scripts ?? [])
+    const phrase = src.project.phrasebook.find((item) => item.id === phraseId)
+    return (phrase ? src.scope(languageId).applicable(phrase) : [])
       .map((sc) => ({ text: textScript(src.project, lang, sc, text), css: fontCss(sc) }))
       .filter((x) => x.text.trim())
   }

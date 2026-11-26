@@ -1,6 +1,18 @@
 /** 文档目录独立于所属语言；旧文档无归属时落在隐式Default，任何移动都不改正文。 */
 import type { DocFolder, DocPage, Id, Project } from './model'
 import {
+  projectFolders,
+  projectFolderOf,
+  projectFolderPath,
+  validProjectFolder,
+  createProjectFolder,
+  renameProjectFolder,
+  removeProjectFolder,
+  moveProjectFolder,
+  moveProjectRecords,
+  projectFolderMoveTargets
+} from './projectFolders'
+import {
   folderParent,
   folderParents,
   folderDescendants,
@@ -45,12 +57,20 @@ export function normalizeDocFolders(value: unknown): DocFolder[] {
   return out.map((folder) => ({ ...folder, parentId: parents.get(folder.id) || undefined }))
 }
 export function validDocFolder(project: Project, id: Id): boolean {
+  if (project.folders !== undefined) return validProjectFolder(project, id)
   return !id || (project.docFolders ?? []).some((folder) => folder.id === id)
 }
 export function docFolderOf(project: Project, doc: Pick<DocPage, 'folderId'>): Id {
+  if (project.folders !== undefined) return projectFolderOf(project, doc)
   return doc.folderId && validDocFolder(project, doc.folderId) ? doc.folderId : ''
 }
 export function docFolderPath(project: Project, id: Id): string {
+  if (project.folders !== undefined)
+    return (
+      projectFolderPath(project, id)
+        .map((folder) => folder.name)
+        .join(' / ') || 'Default'
+    )
   return (
     folderPath(project.docFolders ?? [], id)
       .map((folder) => folder.name)
@@ -58,6 +78,11 @@ export function docFolderPath(project: Project, id: Id): string {
   )
 }
 export function docFoldersFor(project: Project, languageId: Id | null = null): DocFolderItem[] {
+  if (project.folders !== undefined)
+    return docFoldersFor(
+      { ...project, folders: undefined, docFolders: projectFolders(project) },
+      languageId
+    )
   const byId = new Map<string, DocFolder>()
   for (const folder of project.docFolders ?? [])
     if (folder.id && !byId.has(folder.id)) byId.set(folder.id, folder)
@@ -129,6 +154,7 @@ export function createDocFolder(
   id: Id,
   parentId: Id = ''
 ): DocFolder | null {
+  if (project.folders !== undefined) return createProjectFolder(project, name, id, parentId)
   const clean = name.trim()
   if (
     !clean ||
@@ -144,6 +170,7 @@ export function createDocFolder(
   return folder
 }
 export function renameDocFolder(project: Project, id: Id, name: string): boolean {
+  if (project.folders !== undefined) return renameProjectFolder(project, id, name)
   const folder = project.docFolders?.find((folder) => folder.id === id),
     clean = name.trim(),
     parent = folderParent(project.docFolders ?? [], id)
@@ -162,6 +189,7 @@ export function canMoveDocFolder(project: Project, id: Id, parentId: Id): boolea
 }
 /** 批量目标只建一次有效父索引；防移入子树仍按原始关系判断。 */
 export function docFolderMoveTargets(project: Project, id: Id): Set<Id> {
+  if (project.folders !== undefined) return projectFolderMoveTargets(project, id)
   const folders = project.docFolders ?? [],
     source = folders.find((folder) => folder.id === id),
     targets = new Set<Id>()
@@ -184,11 +212,13 @@ export function docFolderMoveTargets(project: Project, id: Id): Set<Id> {
   return targets
 }
 export function moveDocFolder(project: Project, id: Id, parentId: Id): boolean {
+  if (project.folders !== undefined) return moveProjectFolder(project, id, parentId)
   return (
     canMoveDocFolder(project, id, parentId) && moveFolder(project.docFolders ?? [], id, parentId)
   )
 }
 export function removeDocFolder(project: Project, id: Id): boolean {
+  if (project.folders !== undefined) return removeProjectFolder(project, id)
   const removed = removeFolderPreservingChildren(project.docFolders ?? [], id)
   if (!removed) return false
   for (const doc of project.docs)
@@ -199,6 +229,12 @@ export function removeDocFolder(project: Project, id: Id): boolean {
   return true
 }
 export function moveDocs(project: Project, ids: readonly Id[], folderId: Id): number {
+  if (project.folders !== undefined)
+    return moveProjectRecords(
+      project,
+      ids.map((id) => ({ kind: 'doc', id })),
+      folderId
+    )
   if (!validDocFolder(project, folderId)) return 0
   const wanted = new Set(ids)
   let count = 0

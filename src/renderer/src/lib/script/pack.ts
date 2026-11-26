@@ -8,6 +8,7 @@
 import type { Glyph, Language, Script } from '$lib/core/model'
 import { nucleusSet, segment } from '$lib/engine/phon'
 import { canonicalG, gEquivalent } from '$lib/ipa/equivalence'
+import { glyphValues } from './glyphValues'
 
 export interface PackTables {
   /** 切分用的单位表 */
@@ -62,7 +63,7 @@ export function packTables(lang: Language, script: Script): PackTables {
   const cv = new Set<string>()
   const vc = new Set<string>()
   const add = (g: Glyph): void => {
-    for (const raw of g.value.split(/[/、,，]/)) {
+    for (const raw of glyphValues(g)) {
       const v = canonicalG(raw.trim().toLowerCase())
       if (!v) continue
       all.add(v)

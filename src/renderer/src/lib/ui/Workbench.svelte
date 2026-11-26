@@ -225,6 +225,8 @@
   const suggestions = $derived(composeSuggestionsFrom(glossIndex, query))
   const candidateView = $derived(expandComposeCandidateView(suggestions.candidates, query))
   const candidates = $derived(query === translation ? candidateView.candidates : [])
+  const approximateCount = $derived(candidates.filter((candidate) => candidate.approximate).length)
+  const canAddAll = $derived(planComposeAddAll(candidates, tray).length > 0)
   /** 译文里在词库、语素表里都没对上的部分 */
   const gaps = $derived(query === translation ? suggestions.gaps : [])
   /** 没对上的那一段：跳到词库新建一个词条，释义先填好；工作台的样子页面记着，「返回上一页」回来接着拼 */
@@ -1107,6 +1109,9 @@
             n: floating.length
           })}{/if}
         {#if candidateView.truncated}<HelpDot tip={t('bench.candidateLimited')} />{/if}
+        {#if approximateCount || suggestions.approximateLimited}<HelpDot
+            tip={t('bench.approximateHint')}
+          />{/if}
       </div>
       <CandidateTrash
         items={stashed}
@@ -1133,6 +1138,8 @@
         <button
           class="bubble"
           class:morph={!!c.morphemeId}
+          class:approximate={!!c.approximate}
+          data-candidate-approximate={c.approximate?.kind}
           style={drift(c.id)}
           data-candidate-key={c.id}
           draggable="true"
@@ -1141,10 +1148,13 @@
           onclick={() => {
             if (!candidateDragging && performance.now() - dragEndedAt > 100) add(c)
           }}
-          title={`${t('bench.bubbleTitle')} · ${t('bench.candidateLocation', { n: [...c.translation.slice(0, c.at)].length + 1 })}`}
+          title={`${t('bench.bubbleTitle')} · ${t('bench.candidateLocation', { n: [...c.translation.slice(0, c.at)].length + 1 })}${c.approximate ? ' · ' + t('bench.approximateSource', { source: c.approximate.source, matched: c.matched }) : ''}`}
         >
           <span class="data">{c.surface}</span>
           <span class="tiny muted">{glossOf(c)}</span>
+          {#if c.approximate}<span class="tiny approximation"
+              >{t(`bench.approximateKinds.${c.approximate.kind}`)}</span
+            >{/if}
         </button>
       {:else}
         <p class="small muted">
@@ -1152,13 +1162,23 @@
         </p>
       {/each}
     </div>
-    <button class="btn sm add-all" disabled={!floating.length} onclick={addAll}
-      ><Plus size={13} />{t('bench.addAll')}</button
+    <button
+      class="btn sm add-all"
+      disabled={!canAddAll}
+      title={t('bench.approximateHint')}
+      onclick={addAll}><Plus size={13} />{t('bench.addAll')}</button
     >
   </section>
 </div>
 
 <style>
+  .bubble.approximate {
+    border-style: dashed;
+  }
+  .approximation {
+    font-size: 10px;
+    opacity: 0.85;
+  }
   .bench {
     display: flex;
     flex-direction: column;

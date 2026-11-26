@@ -49,6 +49,8 @@
   const scriptSampleOptions = { keepDots: true }
   import { sentenceScriptText } from '$lib/script/lexiconScript'
   import { scriptSpacing } from '$lib/script/spacing'
+  import { createScriptScopeResolver } from '$lib/core/scriptScope'
+  import ScriptFolderScope from '$lib/ui/ScriptFolderScope.svelte'
   import { parseRuleText, runRules, type RuleProgram } from '$lib/engine/sca'
   import { canonicalG } from '$lib/ipa/equivalence'
   import { parseGlyphLines } from '$lib/importers/glyphLines'
@@ -302,8 +304,17 @@
   const previewLexemes = $derived(
     lang ? project.lexemes.filter((l) => l.languageId === lang.id).slice(0, 40) : []
   )
+  const scopeResolver = $derived(createScriptScopeResolver(project, lang))
   const previewSentences = $derived(
-    lang ? project.sentences.filter((s) => s.languageId === lang.id).slice(0, 10) : []
+    lang && script
+      ? project.sentences
+          .filter(
+            (s) =>
+              s.languageId === lang.id &&
+              scopeResolver.visible(s).some((candidate) => candidate.id === script.id)
+          )
+          .slice(0, 10)
+      : []
   )
 
   function touch(): void {
@@ -1249,7 +1260,7 @@
               style={fontCss(script)}
               dir={script.direction === 'rtl' ? 'rtl' : 'ltr'}
             >
-              {sentenceScriptText(project, lang, script, s)}
+              {sentenceScriptText(project, lang, script, s, undefined, scopeResolver)}
             </div>
             <div class="data">{s.text}</div>
             <div class="small muted">{pickText(s.translation, glossLangs)}</div>
@@ -1359,6 +1370,7 @@
             >{/each}</select
         >
       </div>
+      <ScriptFolderScope {project} script={sc} readOnly={projectState.readOnly} onchange={touch} />
       <div class="field">
         <label for="s-dir">{t('script.direction')}</label>
         <select id="s-dir" class="select" bind:value={sc.direction} onchange={touch}>
