@@ -22,6 +22,7 @@
     onsort,
     options,
     selected = null,
+    extraFilterActive = false,
     onfilter,
     onjump,
     canjump,
@@ -36,6 +37,7 @@
     options?: FilterOption[]
     /** 选中的取值集合；null 表示不筛 */
     selected?: Set<string> | null
+    extraFilterActive?: boolean
     onfilter?: (sel: Set<string> | null) => void
     /** 有此回调时，字母文字只负责跳转，勾选框才改变筛选。 */
     onjump?: (value: string) => void
@@ -56,7 +58,7 @@
     const all = options ?? []
     return q ? all.filter((o) => o.label.toLowerCase().includes(q)) : all
   })
-  const active = $derived(selected !== null && selected !== undefined)
+  const active = $derived(extraFilterActive || (selected !== null && selected !== undefined))
 
   function toggle(e: MouseEvent): void {
     e.stopPropagation()
@@ -64,7 +66,7 @@
     query = ''
     if (open && btn) {
       const r = btn.getBoundingClientRect()
-      const width = Math.min(filterTools ? 300 : 240, window.innerWidth - 16)
+      const width = Math.min(filterTools ? 410 : 240, window.innerWidth - 16)
       const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8))
       panelStyle = `left:${left}px;top:${r.bottom + 4}px`
       void tick().then(() => panel?.querySelector<HTMLElement>('button, input')?.focus())
@@ -275,11 +277,13 @@
     flex-wrap: wrap;
   }
   .panel.with-tools {
-    width: 300px;
+    width: 410px;
   }
   .filter-tools {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
     max-width: 100%;
     min-width: 0;
   }

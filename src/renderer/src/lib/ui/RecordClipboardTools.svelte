@@ -19,6 +19,8 @@
     targetLanguageId = null,
     folderId = '',
     enabled = true,
+    controls = true,
+    listen = true,
     onpasted = () => {},
     onconfirm
   }: {
@@ -28,6 +30,8 @@
     targetLanguageId?: Id | null
     folderId?: Id
     enabled?: boolean
+    controls?: boolean
+    listen?: boolean
     onpasted?: (ids: Id[]) => void
     onconfirm?: () => void
   } = $props()
@@ -56,7 +60,9 @@
       folderId === targetFolder &&
       targetLanguageId === targetLanguage
     if (kind === 'sentence' || kind === 'phrase' || kind === 'doc') {
-      const result = await pasteProjectRecords(owner, folderId, event, stillValid)
+      const result = await pasteProjectRecords(owner, folderId, event, stillValid, {
+        allowFolders: !!folderId
+      })
       if (result?.ok && projectState.project === owner)
         onpasted(result.refs.filter((r) => r.kind === kind).map((r) => r.id))
     } else {
@@ -65,13 +71,14 @@
     }
   }
   function eventCopy(e: ClipboardEvent, mode: 'copy' | 'cut'): void {
-    if (clipboardRecordEventAllowed(e)) void copy(mode, e)
+    if (listen && clipboardRecordEventAllowed(e)) void copy(mode, e)
   }
 </script>
 
 <svelte:document
   onkeydowncapture={(e) => {
     if (
+      listen &&
       onconfirm &&
       writable &&
       ids.length &&
@@ -87,32 +94,32 @@
   oncopy={(e) => eventCopy(e, 'copy')}
   oncut={(e) => eventCopy(e, 'cut')}
   onpaste={(e) => {
-    if (clipboardRecordEventAllowed(e)) void paste(e)
+    if (listen && clipboardRecordEventAllowed(e)) void paste(e)
   }}
 />
-<span class="clipboard-tools" data-record-clipboard={kind}>
-  <button
-    class="btn ghost sm"
-    data-record-copy
-    disabled={!writable || !ids.length}
-    title="Ctrl/⌘+C"
-    onclick={() => void copy('copy')}><Copy size={13} />{t('clipboard.copy')}</button
-  >
-  <button
-    class="btn ghost sm"
-    data-record-cut
-    disabled={!writable || !ids.length}
-    title="Ctrl/⌘+X"
-    onclick={() => void copy('cut')}><Scissors size={13} />{t('clipboard.cut')}</button
-  >
-  <button
-    class="btn ghost sm"
-    data-record-paste
-    disabled={!writable}
-    title="Ctrl/⌘+V"
-    onclick={() => void paste()}><ClipboardPaste size={13} />{t('clipboard.paste')}</button
-  >
-</span>
+{#if controls}<span class="clipboard-tools" data-record-clipboard={kind}>
+    <button
+      class="btn ghost sm"
+      data-record-copy
+      disabled={!writable || !ids.length}
+      title="Ctrl/⌘+C"
+      onclick={() => void copy('copy')}><Copy size={13} />{t('clipboard.copy')}</button
+    >
+    <button
+      class="btn ghost sm"
+      data-record-cut
+      disabled={!writable || !ids.length}
+      title="Ctrl/⌘+X"
+      onclick={() => void copy('cut')}><Scissors size={13} />{t('clipboard.cut')}</button
+    >
+    <button
+      class="btn ghost sm"
+      data-record-paste
+      disabled={!writable}
+      title="Ctrl/⌘+V"
+      onclick={() => void paste()}><ClipboardPaste size={13} />{t('clipboard.paste')}</button
+    >
+  </span>{/if}
 
 <style>
   .clipboard-tools {

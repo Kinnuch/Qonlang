@@ -2,11 +2,15 @@
 
 ## 1.1.1 · unreleased
 
-- Corpus, Phrasebook and Documents share project folders. Collapse the folder sidebar or open the directory in icon or details view. Settings control the metadata shown, including tags, creation time and size.
-- Move, copy, cut and paste entries or subfolders within the project. Lexemes and morphemes support single and multiple selection. Selected sentences can be confirmed, copied, cut or deleted together. Close the sentence analysis panel with its × button.
+- Corpus, Phrasebook and Documents share project folders. Thin folder icons follow the theme, and Root directory is distinct from Default for unfiled records. Hide the entire folder sidebar while keeping its hierarchy indentation. Switch between icon and details views; Settings control metadata such as tags, creation time and size.
+- Parent-folder counts include sentences, phrases and documents in all descendant folders. Root directory counts the whole project; Default counts only unfiled records.
+- Move, copy, cut and paste records or subfolders. Folders, lexemes and morphemes share consistent context actions with available shortcuts. Leaving a module clears multiple selection; batch tools stay on one row with Delete last. Selected sentences can still be confirmed, copied, cut, pasted or deleted together. Close the sentence analysis panel with its × button.
 - The translation workbench offers labelled approximate suggestions for matches such as Chinese substrings in longer glosses and small spelling differences in longer words. Choose these manually; Add all in order still uses exact matches.
 - In the drawing pad, switch stroke and contour nodes between smooth and corner, insert nodes on the curve or delete them, and save the editable handles with the project.
-- Choose all, none or selected folders for each writing system. Sentences with several applicable scripts have individual visibility checkboxes. Glyphs explicitly mapped to an ASCII comma are now used in transcription.
+- Choose all, none or selected folders for each writing system. Sentence visibility checkboxes now sit before each script name in the inspector, leaving the sentence body and expanded analysis panel clear. A single applicable script is shown directly; hiding preserves manual forms. Glyphs explicitly mapped to an ASCII comma are now used in transcription.
+- Set, change or reset lexicon-tag and part-of-speech colors in their existing editors. Rounded list and entry-card badges automatically choose readable text colors. Colors are saved in the project, with independent colors for compound parts of speech.
+- Create or delete project-wide morpheme slots from entry editing. Deletion explains the affected bindings, clears them only after confirmation and keeps the morpheme records. Undo restores the original slot, order and bindings.
+- The headword funnel adds Marked words only, separate from favorites and combinable with initial-letter, ending-letter and search filters.
 
 ## 1.1.0 · 2026-11-25
 

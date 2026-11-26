@@ -90,6 +90,8 @@ export type DisplayLanguageSelection =
   { mode: 'one' | 'two'; languages: string[] } | { mode: 'all' }
 
 export interface ProjectSettings {
+  /** 同名词库标签共用徽章色；未设置时跟随当前主题。 */
+  lexiconTagColors?: Record<string, string>
   folderView?: 'icons' | 'details'
   folderMetadata?: ('tags' | 'createdAt' | 'size' | 'type')[]
   /** 主界面默认显示的语言 */
@@ -472,6 +474,8 @@ export interface CategoryValue {
 
 export interface PartOfSpeech {
   id: Id
+  /** 可选徽章背景色；复合词类独立设置，未设时跟随主题。 */
+  color?: string
   name: LocalizedText
   abbr: string
   /** 绑定的范式；孤立语词类可为 null。绑了几个时这是默认的那个 */

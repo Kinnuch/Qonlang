@@ -40,7 +40,9 @@
     Columns2,
     FileText,
     Link,
-    FolderOpen
+    FolderOpen,
+    PanelLeftOpen,
+    PanelLeftClose
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
 
@@ -55,6 +57,8 @@
     view: 'edit' | 'split' | 'preview'
     folderId: Id
     folderView: boolean
+    directoryRoot: boolean
+    sidebarOpen: boolean
   }>('docs')
   let selectedId = $state<Id | null>(
     memo.lang === projectState.currentLanguageId ? (memo.selectedId ?? null) : null
@@ -63,6 +67,8 @@
   let view = $state<'edit' | 'split' | 'preview'>(memo.view ?? 'preview')
   let folderId = $state<Id>(memo.folderId ?? '')
   let folderView = $state(memo.folderView ?? false)
+  let directoryRoot = $state(memo.directoryRoot ?? false)
+  let sidebarOpen = $state(memo.sidebarOpen ?? false)
   const folders = $derived(docFoldersFor(project, langId))
   const folderPaths = $derived(new Map(folders.map((folder) => [folder.id, folder.path])))
   const folderIds = $derived(new Set(folders.map((folder) => folder.id)))
@@ -91,11 +97,13 @@
     folderId = folderOf(d)
     selectedId = d.id
     folderView = false
+    directoryRoot = false
   }
   function openFolder(id: Id): void {
     if (!validDocFolder(project, id)) return
     folderId = id
     folderView = false
+    directoryRoot = false
     ui.search = ''
     if (selected && folderOf(selected) !== id) selectedId = null
   }
@@ -103,6 +111,16 @@
     openFolder(id)
     selectedId = null
     folderView = true
+  }
+  function browseRoot(): void {
+    openFolder('')
+    selectedId = null
+    folderView = true
+    directoryRoot = true
+  }
+  function showFolders(): void {
+    if (folderId) browseFolder(folderId)
+    else browseRoot()
   }
   /** 这几类用数据字体（词头、语素形式这些） */
   const DATA_KINDS = new Set<DocLinkKind>(['lexeme', 'morpheme', 'sentence', 'phrase'])
@@ -183,7 +201,9 @@
       lang: projectState.currentLanguageId,
       id: selectedId,
       docView: view,
-      docFolder: folderId
+      docFolder: folderId,
+      root: directoryRoot ? '1' : '',
+      folders: folderView ? '1' : ''
     })
   })
   $effect(() => {
@@ -191,6 +211,8 @@
     if (!r) return
     const v: PageView = r.view ?? {}
     selectedId = v.id ?? null
+    directoryRoot = v.root === '1'
+    folderView = v.folders === '1'
     folderId = selectedId
       ? docFolderOf(
           project,
@@ -205,7 +227,9 @@
       selectedId,
       view,
       folderId,
-      folderView
+      folderView,
+      directoryRoot,
+      sidebarOpen
     })
   })
 
@@ -216,7 +240,8 @@
       owner,
       target,
       undefined,
-      () => projectState.project === owner && folderId === target && !folderView
+      () => projectState.project === owner && folderId === target && !folderView,
+      { allowFolders: !!target }
     )
   }
   function touch(d?: DocPage): void {
@@ -232,6 +257,7 @@
     project.docs.unshift(d)
     selectedId = d.id
     folderView = false
+    directoryRoot = false
     view = 'edit'
     touch()
     queueMicrotask(() => document.getElementById('doc-title')?.focus())
@@ -351,11 +377,20 @@
   <div class="page-head row">
     <h1>{t('docs.title')}</h1>
     <GuideLink section="docs" />
+    <button
+      class="btn sidebar-toggle"
+      data-page-sidebar-toggle="docs"
+      aria-controls="docs-sidebar"
+      aria-expanded={sidebarOpen}
+      title={t(sidebarOpen ? 'sharedFolders.hideSidebar' : 'sharedFolders.showSidebar')}
+      onclick={() => (sidebarOpen = !sidebarOpen)}
+      >{#if sidebarOpen}<PanelLeftClose size={16} />{:else}<PanelLeftOpen size={16} />{/if}<span
+        >{t('sharedFolders.sidebar')}</span
+      ></button
+    >
+
     <span class="grow"></span>
-    {#if !folderView}<button
-        class="btn"
-        data-doc-show-folders
-        onclick={() => browseFolder(folderId)}
+    {#if !folderView}<button class="btn" data-doc-show-folders onclick={showFolders}
         ><FolderOpen size={16} />{t('sharedFolders.back')}</button
       >{/if}
     {#if selected && !folderView}
@@ -377,6 +412,7 @@
   </div>
   <Hint id="docs" text={t('docs.hint')} />
   {#if !folderView}<RecordClipboardTools
+      controls={false}
       {project}
       kind="doc"
       ids={selectedId ? [selectedId] : []}
@@ -387,20 +423,19 @@
       }}
     />{/if}
 
-  {#if folderView}<div class="directory-scroll">
-      <ProjectDirectory
-        kind="doc"
-        currentId={folderId}
-        onopen={openFolder}
-        onbrowse={browseFolder}
-      />
-    </div>{:else}
-    <div class="body">
-      <aside class="pages" data-tour="docs-list">
+  <div class="body">
+    {#if sidebarOpen}<aside
+        class="pages"
+        id="docs-sidebar"
+        data-page-sidebar="docs"
+        data-tour="docs-list"
+      >
         <ProjectDirectory
           kind="doc"
           currentId={folderId}
           compact
+          rootView={directoryRoot}
+          onroot={browseRoot}
           onopen={openFolder}
           onbrowse={browseFolder}
         />
@@ -457,58 +492,65 @@
           </button>
         {/each}
         {#if list.length === 0}<p class="small muted">{t('docs.empty')}</p>{/if}
-      </aside>
-      {#if selected}
-        {@const d = selected}
-        <div class="editor" class:split={view === 'split'}>
-          {#if view !== 'preview'}
-            <div class="pane">
-              <div class="row toolbar" data-tour="docs-toolbar">
-                {#each documentFormat(d) === 'html' ? [['<strong>', '</strong>', 'B'], ['<em>', '</em>', 'I'], ['<h2>', '</h2>', 'H'], ['<ul><li>', '</li></ul>', '•'], ['<table><tr><th>a</th><th>b</th></tr><tr><td>1</td><td>2</td></tr></table>', '', '⊞'], ['<pre><code>', '</code></pre>', '</>']] : [['**', '**', 'B'], ['*', '*', 'I'], ['## ', '', 'H'], ['- ', '', '•'], ['| a | b |\n| --- | --- |\n| 1 | 2 |', '', '⊞'], ['```\n', '\n```', '</>']] as [a, b, label] (label)}
-                  <button
-                    class="btn ghost sm mono"
-                    title={label}
-                    onclick={() => insertAtCursor(a + b)}>{label}</button
-                  >
-                {/each}
+      </aside>{/if}
+    {#if folderView}<div class="directory-scroll">
+        <ProjectDirectory
+          kind="doc"
+          currentId={folderId}
+          rootView={directoryRoot}
+          onroot={browseRoot}
+          onopen={openFolder}
+          onbrowse={browseFolder}
+        />
+      </div>{:else if selected}
+      {@const d = selected}
+      <div class="editor" class:split={view === 'split'}>
+        {#if view !== 'preview'}
+          <div class="pane">
+            <div class="row toolbar" data-tour="docs-toolbar">
+              {#each documentFormat(d) === 'html' ? [['<strong>', '</strong>', 'B'], ['<em>', '</em>', 'I'], ['<h2>', '</h2>', 'H'], ['<ul><li>', '</li></ul>', '•'], ['<table><tr><th>a</th><th>b</th></tr><tr><td>1</td><td>2</td></tr></table>', '', '⊞'], ['<pre><code>', '</code></pre>', '</>']] : [['**', '**', 'B'], ['*', '*', 'I'], ['## ', '', 'H'], ['- ', '', '•'], ['| a | b |\n| --- | --- |\n| 1 | 2 |', '', '⊞'], ['```\n', '\n```', '</>']] as [a, b, label] (label)}
                 <button
-                  class="btn ghost sm"
-                  title={t('docs.insertLink')}
-                  onclick={() => (pickerOpen = true)}
-                  ><Link size={14} />{t('docs.insertLink')}</button
+                  class="btn ghost sm mono"
+                  title={label}
+                  onclick={() => insertAtCursor(a + b)}>{label}</button
                 >
-                <HelpDot tip={t('docs.linkHelp')} />
-              </div>
-              <textarea
-                id="doc-md"
-                class="textarea md"
-                bind:value={d.markdown}
-                readonly={projectState.readOnly}
-                oninput={() => touch(d)}
-                data-document-source={documentFormat(d)}
-                placeholder={t(
-                  documentFormat(d) === 'html' ? 'docs.htmlPlaceholder' : 'docs.placeholder'
-                )}
-              ></textarea>
+              {/each}
+              <button
+                class="btn ghost sm"
+                title={t('docs.insertLink')}
+                onclick={() => (pickerOpen = true)}><Link size={14} />{t('docs.insertLink')}</button
+              >
+              <HelpDot tip={t('docs.linkHelp')} />
             </div>
-          {/if}
-          {#if view !== 'edit'}
-            <div
-              class="pane preview md-body"
-              data-tour="docs-preview"
-              role="presentation"
-              onclick={onPreviewClick}
-            >
-              <h1>{d.title}</h1>
-              {@html html}
-            </div>
-          {/if}
-        </div>
-      {:else}
-        <div class="grow center muted">{t('docs.select')}</div>
-      {/if}
-    </div>
-  {/if}
+            <textarea
+              id="doc-md"
+              class="textarea md"
+              bind:value={d.markdown}
+              readonly={projectState.readOnly}
+              oninput={() => touch(d)}
+              data-document-source={documentFormat(d)}
+              placeholder={t(
+                documentFormat(d) === 'html' ? 'docs.htmlPlaceholder' : 'docs.placeholder'
+              )}
+            ></textarea>
+          </div>
+        {/if}
+        {#if view !== 'edit'}
+          <div
+            class="pane preview md-body"
+            data-tour="docs-preview"
+            role="presentation"
+            onclick={onPreviewClick}
+          >
+            <h1>{d.title}</h1>
+            {@html html}
+          </div>
+        {/if}
+      </div>
+    {:else}
+      <div class="grow center muted">{t('docs.select')}</div>
+    {/if}
+  </div>
 </div>
 
 {#if moving}<div class="overlay" role="dialog" aria-modal="true" tabindex="-1" data-doc-move-dialog>
@@ -638,6 +680,7 @@
     height: 100%;
   }
   .page-head {
+    flex-wrap: wrap;
     gap: 10px;
   }
   .body {
@@ -796,5 +839,10 @@
   }
   .tiny {
     font-size: 11px;
+  }
+  @media (max-width: 900px) {
+    .pages {
+      width: 180px;
+    }
   }
 </style>

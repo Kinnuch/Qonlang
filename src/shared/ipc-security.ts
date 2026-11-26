@@ -43,7 +43,9 @@ export const IPC_INVOKE_CHANNELS: ReadonlySet<string> = new Set([
   'snapshot:save',
   'study:load',
   'study:save',
-  'support:request'
+  'support:request',
+  'ui:contextMenu',
+  'ui:closeContextMenu'
 ])
 
 export const IPC_EVENT_CHANNELS: ReadonlySet<string> = new Set([

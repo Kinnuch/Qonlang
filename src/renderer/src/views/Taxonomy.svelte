@@ -24,6 +24,8 @@
   import { compoundLabels, isCompoundPos, ownParadigmIds } from '$lib/core/pos'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
+  import BadgeColorPicker from '$lib/ui/BadgeColorPicker.svelte'
+  import { normalizeBadgeColor } from '$lib/core/lexemeColors'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { sortable } from '$lib/ui/sortable.svelte'
   import {
@@ -278,7 +280,7 @@
       {#each project.posList.slice(0, lzPos.shown) as p (p.id)}
         {@const fid = `tx.pos:${p.id}`}
         {@const folded = sectionCollapsed(fid)}
-        <div class="card item" class:folded>
+        <div class="card item" class:folded data-pos-editor={p.id}>
           {@render foldBtn(fid, folded)}
           {#if folded}
             <button class="fold-title grow" onclick={() => toggleSection(fid)}
@@ -305,6 +307,19 @@
               />
             </div>
           {/if}
+          <BadgeColorPicker
+            value={p.color}
+            label={t('badgeColors.pos')}
+            readOnly={projectState.readOnly}
+            dataKey={'pos:' + p.id}
+            onchange={(color) => {
+              if (projectState.readOnly || !project.posList.includes(p)) return
+              const value = normalizeBadgeColor(color)
+              if (value) p.color = value
+              else delete p.color
+              projectState.touch()
+            }}
+          />
           <span class="small muted use">{t('taxonomy.inUse', { n: posUse(p) })}</span>
           <button
             class="btn ghost icon sm"

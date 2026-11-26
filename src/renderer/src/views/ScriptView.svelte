@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import { deletable } from '$lib/ui/deletable'
   import { navScroll } from '$lib/ui/navScroll'
   import { focusField } from '$lib/ui/focus'
@@ -157,8 +158,13 @@
   })
   /** Ctrl / Shift 多选出来的字形 */
   let multiGlyphs = $state<string[]>([])
+  onDestroy(() => {
+    if (multiGlyphs.length > 1) ui.clearViewSelection('script', 'glyph', 'selectedGlyph')
+  })
   function clearBulkGlyphs(): void {
     multiGlyphs = []
+    selectedGlyph = null
+    anchorGlyph = null
   }
   const glyphSelectionActions = $derived([
     {
@@ -1028,10 +1034,12 @@
               disabled={projectState.readOnly}
               onclick={categorizeSelectedGlyphs}>{t('script.bulkCategory')}</button
             >
+
+            <button class="btn ghost sm" onclick={clearBulkGlyphs}>{t('lexicon.clearSel')}</button>
+
             <button class="btn ghost sm danger" onclick={removeSelectedGlyphs}
               ><Trash2 size={14} />{t('common.delete')}</button
             >
-            <button class="btn ghost sm" onclick={clearBulkGlyphs}>{t('lexicon.clearSel')}</button>
           </div>
         {/if}
         {#if script.glyphs.length === 0}

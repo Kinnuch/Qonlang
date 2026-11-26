@@ -1,4 +1,10 @@
 export default {
+  badgeColors: {
+    newTag: 'Color de la etiqueta nueva (compartido por nombre)',
+    tag: 'Color de «{name}» (compartido por nombre)',
+    pos: 'Color de la insignia de clase de palabra',
+    reset: 'Restablecer el color del tema'
+  },
   scriptScope: {
     title: 'Carpetas del corpus',
     hint: 'Todas se aplica a cada oración y frase. Personalizadas incluye las carpetas elegidas y sus descendientes y después quita los subárboles excluidos. Default representa solo los registros sin carpeta. Se conservan las formas manuales y los análisis.',
@@ -15,8 +21,22 @@ export default {
       'Si se aplican dos o más escrituras, elija cuáles mostrar en esta oración. Una única escritura aplicable siempre se muestra; se conservan las elecciones anteriores.'
   },
   sharedFolders: {
+    root: 'Directorio raíz',
+    sidebar: 'Panel de carpetas',
+    showSidebar: 'Mostrar panel de carpetas',
+    hideSidebar: 'Ocultar todo el panel lateral',
+    expandBranch: 'Expandir subcarpetas',
+    collapseBranch: 'Contraer subcarpetas',
+    empty: 'Esta carpeta está vacía.',
+    countHint:
+      'Incluye las oraciones, frases y documentos de esta carpeta y todas sus subcarpetas.',
+    defaultHint:
+      'Default solo contiene registros sin carpeta. Cree, mueva o pegue carpetas en la raíz del proyecto.',
+    rootHint:
+      'Todos los registros del proyecto. Default y las carpetas superiores aparecen al mismo nivel.',
+
     count: 'Cantidad',
-    title: 'Carpetas compartidas',
+    title: 'Directorio raíz',
     create: 'Nueva carpeta',
     rename: 'Renombrar',
     move: 'Mover a carpeta',
@@ -380,9 +400,9 @@ export default {
     galleryNext: 'Siguiente',
     exampleDesc: {
       aelith:
-        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura. El taller reconoce una expresión con un hueco y la palabra que lo ocupa. El grafo incluye un recorrido de cuatro niveles, nodos fijados al arrastrar y controles independientes de fuerzas y colores. Pruebe los saltos por letras y el orden desde el final de las palabras. El banco de traducción guarda alternativas de la misma posición; arrástrelas de vuelta para elegir de nuevo. Prueba los componentes dibujados, la cuadrícula predefinida y las carpetas compartidas para el corpus, las frases y los documentos.',
+        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura. El taller reconoce una expresión con un hueco y la palabra que lo ocupa. El grafo incluye un recorrido de cuatro niveles, nodos fijados al arrastrar y controles independientes de fuerzas y colores. Pruebe los saltos por letras y el orden desde el final de las palabras. El banco de traducción guarda alternativas de la misma posición; arrástrelas de vuelta para elegir de nuevo. Prueba los componentes dibujados, la cuadrícula predefinida y las carpetas compartidas para el corpus, las frases y los documentos. Pruebe los colores de las etiquetas y las clases de palabra y consulte los totales que incluyen subcarpetas en la raíz del proyecto.',
       tsahun:
-        'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura. Las clases temporales relacionan los números de tono de varias cifras con secuencias completas de letras tonales. Un paradigma opcional usa las ranuras de morfemas de cada entrada para reproducir combinaciones de partículas del corpus.'
+        'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura. Las clases temporales relacionan los números de tono de varias cifras con secuencias completas de letras tonales. Un paradigma opcional usa las ranuras de morfemas de cada entrada para reproducir combinaciones de partículas del corpus. Pruebe los colores de las etiquetas y las clases de palabra y consulte los totales que incluyen subcarpetas en la raíz del proyecto.'
     },
     coffee: 'Invíteme a un café',
     changelog: 'Registro de cambios',
@@ -804,6 +824,10 @@ export default {
     count: '{n} elementos'
   },
   morphemeSlots: {
+    deleteSlot: 'Eliminar el espacio de morfema «{name}»',
+    deleteImpact:
+      'Este espacio se comparte en el proyecto. Se desvincularán {words} entradas. Se conservarán los {steps} pasos de paradigma que lo utilizan para que puedas elegir otro espacio.',
+    deleted: 'Se eliminó el espacio «{name}»',
     title: 'Espacios de morfemas',
     hint: 'Defina un espacio reutilizable y elija un morfema del idioma de esta entrada. El paradigma usa ese vínculo y selecciona alomorfos por valores y entorno. Confirme la separación antes de guardar el tema; el lema no cambia.',
     add: 'Añadir espacio',
@@ -1437,6 +1461,7 @@ export default {
     favorite: 'Favorito',
     favOnly: 'Solo los favoritos',
     marked: 'Marca',
+    markedOnly: 'Solo palabras marcadas',
     markedHint:
       'El símbolo que se muestra delante de las palabras marcadas se puede cambiar en «Configuración»',
     pos: 'Clase de palabra',
@@ -3056,8 +3081,9 @@ export default {
     importBad: 'Esto no es un archivo de traducción de la interfaz',
     untitled: 'Traducción sin título',
     groups: {
+      badgeColors: 'Colores de etiquetas y clases de palabra',
       scriptScope: 'Carpetas del corpus',
-      sharedFolders: 'Carpetas compartidas',
+      sharedFolders: 'Directorio raíz',
       clipboard: 'Copiar / Pegar',
       glyphEditor: 'Editor de dibujo',
       docFolders: 'Carpetas de documentos',

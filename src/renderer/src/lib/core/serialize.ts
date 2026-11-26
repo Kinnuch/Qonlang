@@ -15,6 +15,7 @@ import {
 import { createDoc, createEtymology, createProject, newId } from './factory'
 import { splitRegisters } from './register'
 import { normalizeDisplayLanguages } from './displayLanguages'
+import { normalizeBadgeColor, normalizeLexiconTagColors } from './lexemeColors'
 import { normalizeDocFolders } from './docFolders'
 import { normalizeScriptFolderScope, normalizeScriptIds } from './scriptScope'
 import { ensureProjectFolders } from './projectFolders'
@@ -119,6 +120,17 @@ function migrate(obj: Partial<Project> & { schemaVersion: number }): Project {
   ] as const) {
     if (!Array.isArray(merged[key])) (merged as unknown as Record<string, unknown>)[key] = []
   }
+  if (merged.settings.lexiconTagColors !== undefined) {
+    const colors = normalizeLexiconTagColors(merged.settings.lexiconTagColors)
+    if (colors) merged.settings.lexiconTagColors = colors
+    else delete merged.settings.lexiconTagColors
+  }
+  for (const pos of merged.posList)
+    if (pos.color !== undefined) {
+      const color = normalizeBadgeColor(pos.color)
+      if (color) pos.color = color
+      else delete pos.color
+    }
   if (!merged.settings.imageSize) merged.settings.imageSize = { width: 320, height: 240 }
   if (
     merged.settings.folderView !== undefined &&

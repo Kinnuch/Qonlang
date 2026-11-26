@@ -1,4 +1,10 @@
 export default {
+  badgeColors: {
+    newTag: 'Couleur du nouveau tag (partagée par son nom)',
+    tag: 'Couleur de « {name} » (partagée par son nom)',
+    pos: 'Couleur du badge de catégorie grammaticale',
+    reset: 'Rétablir la couleur du thème'
+  },
   scriptScope: {
     title: 'Dossiers du corpus',
     hint: 'Tous inclut chaque phrase et expression. Personnalisé inclut les dossiers choisis et leurs descendants, puis retire les sous-arbres exclus. Default désigne uniquement les entrées non classées. Les graphies manuelles et les analyses sont conservées.',
@@ -15,8 +21,22 @@ export default {
       'Si plusieurs écritures sont applicables, choisissez celles à afficher pour cette phrase. Une seule écriture applicable est toujours affichée ; les choix précédents sont conservés.'
   },
   sharedFolders: {
+    root: 'Répertoire racine',
+    sidebar: 'Barre des dossiers',
+    showSidebar: 'Afficher la barre des dossiers',
+    hideSidebar: 'Masquer toute la barre latérale',
+    expandBranch: 'Développer les sous-dossiers',
+    collapseBranch: 'Replier les sous-dossiers',
+    empty: 'Ce dossier est vide.',
+    countHint:
+      'Comprend les phrases, expressions et documents du dossier et de tous ses descendants.',
+    defaultHint:
+      'Default contient uniquement les éléments non classés. Créez, déplacez ou collez les dossiers à la racine du projet.',
+    rootHint:
+      'Tous les éléments du projet. Default et les dossiers de premier niveau sont au même niveau.',
+
     count: 'Nombre',
-    title: 'Dossiers partagés',
+    title: 'Répertoire racine',
     create: 'Nouveau dossier',
     rename: 'Renommer',
     move: 'Déplacer vers un dossier',
@@ -384,9 +404,9 @@ export default {
     galleryNext: 'Suivante',
     exampleDesc: {
       aelith:
-        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète. Le graphe propose un parcours à quatre niveaux, des nœuds fixés par déplacement et des réglages indépendants de forces et de couleurs. Essayez les sauts par lettre et le tri depuis la fin des mots. L’atelier range les alternatives d’un même emplacement dans la traduction ; glissez-les à nouveau pour changer de choix. Essayez les composants dessinés, la grille prédéfinie et les dossiers partagés entre corpus, locutions et documents.',
+        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète. Le graphe propose un parcours à quatre niveaux, des nœuds fixés par déplacement et des réglages indépendants de forces et de couleurs. Essayez les sauts par lettre et le tri depuis la fin des mots. L’atelier range les alternatives d’un même emplacement dans la traduction ; glissez-les à nouveau pour changer de choix. Essayez les composants dessinés, la grille prédéfinie et les dossiers partagés entre corpus, locutions et documents. Essayez les couleurs des étiquettes et des catégories grammaticales, puis consultez les totaux incluant les sous-dossiers à la racine du projet.',
       tsahun:
-        'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation suivant la graphie et correspondances graphème–phonème modifiables), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture. Les classes temporaires associent les numéros de ton à plusieurs chiffres à des séquences complètes de lettres de ton. Un paradigme facultatif utilise les emplacements de morphèmes de chaque entrée pour reproduire des combinaisons de particules du corpus.'
+        'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation suivant la graphie et correspondances graphème–phonème modifiables), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture. Les classes temporaires associent les numéros de ton à plusieurs chiffres à des séquences complètes de lettres de ton. Un paradigme facultatif utilise les emplacements de morphèmes de chaque entrée pour reproduire des combinaisons de particules du corpus. Essayez les couleurs des étiquettes et des catégories grammaticales, puis consultez les totaux incluant les sous-dossiers à la racine du projet.'
     },
     coffee: 'Offrez-moi un café',
     changelog: 'Journal des modifications',
@@ -808,6 +828,10 @@ export default {
     count: '{n} éléments'
   },
   morphemeSlots: {
+    deleteSlot: 'Supprimer l’emplacement « {name} »',
+    deleteImpact:
+      'Cet emplacement est partagé dans le projet. Sa suppression détache {words} entrées. Les {steps} étapes de paradigme qui y font référence sont conservées pour permettre de choisir un nouvel emplacement.',
+    deleted: 'Emplacement « {name} » supprimé',
     title: 'Emplacements de morphèmes',
     hint: 'Définissez un emplacement réutilisable, puis choisissez un morphème de la langue de cette entrée. Le paradigme utilise ce lien et choisit l’allomorphe selon les valeurs et l’environnement. Confirmez la séparation avant de sauver le radical ; le lemme reste intact.',
     add: 'Ajouter un emplacement',
@@ -1447,6 +1471,7 @@ export default {
     favorite: 'Favori',
     favOnly: 'Favoris seulement',
     marked: 'Marque',
+    markedOnly: 'Mots marqués uniquement',
     markedHint: 'La marque affichée devant les mots signalés se règle dans les paramètres',
     pos: 'Classe de mots',
     noPos: '(aucune)',
@@ -3065,8 +3090,9 @@ export default {
     importBad: 'Ce n’est pas un fichier de traduction de l’interface',
     untitled: 'Traduction sans titre',
     groups: {
+      badgeColors: 'Couleurs des tags et catégories grammaticales',
       scriptScope: 'Dossiers du corpus',
-      sharedFolders: 'Dossiers partagés',
+      sharedFolders: 'Répertoire racine',
       clipboard: 'Copier / Coller',
       glyphEditor: 'Éditeur de dessin',
       docFolders: 'Dossiers de documents',

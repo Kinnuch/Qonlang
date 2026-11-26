@@ -18,6 +18,7 @@ import { nativeLabel, pickLocale } from './locale'
 import { AccountClient } from './account'
 import { atomicWrite, projectContentHash, writeProjectFile } from './project-files'
 import { SUPPORT_PAYMENT_MODE } from '../shared/support-mode'
+import { validContextMenu } from '../shared/context-menu'
 import { pathToFileURL } from 'node:url'
 import {
   guardIpcHandlers,
@@ -813,6 +814,17 @@ let forceClose = false
 /** 更新助手已经接手退出；macOS 的 activate 不应在此时重建窗口。 */
 let updateExitPending = false
 let mainWindow: BrowserWindow | null = null
+let pendingContextTimer: ReturnType<typeof setTimeout> | null = null
+let claimedContext: { x: number; y: number; at: number } | null = null
+let customContext: { id: string; menu: Menu; done: (id: string | null) => void } | null = null
+function contextClaimed(x: number, y: number): boolean {
+  return (
+    !!claimedContext &&
+    Date.now() - claimedContext.at < 250 &&
+    Math.abs(claimedContext.x - x) < 3 &&
+    Math.abs(claimedContext.y - y) < 3
+  )
+}
 let winStateTimer: ReturnType<typeof setTimeout> | null = null
 
 /** 上次关窗时的大小与位置；头一次启动或者文件坏了给 null，按屏幕算默认值 */
@@ -948,44 +960,51 @@ function createWindow(): void {
     if (readOnlyOpen && app.isPackaged) mainWindow?.webContents.closeDevTools()
   })
   mainWindow.webContents.on('context-menu', (_e, params) => {
-    void (async () => {
-      const prefs = await getPrefs()
-      const send = (a: string) => () => mainWindow?.webContents.send('menu', a)
-      const items: MenuItemConstructorOptions[] = []
-      if (params.isEditable) {
+    if (contextClaimed(params.x, params.y)) return
+    if (pendingContextTimer) clearTimeout(pendingContextTimer)
+    pendingContextTimer = setTimeout(() => {
+      pendingContextTimer = null
+      if (contextClaimed(params.x, params.y)) return
+      void (async () => {
+        const prefs = await getPrefs()
+        const send = (a: string) => () => mainWindow?.webContents.send('menu', a)
+        const items: MenuItemConstructorOptions[] = []
+        if (params.isEditable) {
+          items.push(
+            { role: 'undo', label: N('undoTyping'), enabled: params.editFlags.canUndo },
+            { role: 'redo', label: N('redoTyping'), enabled: params.editFlags.canRedo },
+            { type: 'separator' },
+            { role: 'cut', label: N('cut'), enabled: params.editFlags.canCut },
+            { role: 'copy', label: N('copy'), enabled: params.editFlags.canCopy },
+            { role: 'paste', label: N('paste'), enabled: params.editFlags.canPaste },
+            { role: 'selectAll', label: N('selectAll') },
+            { type: 'separator' }
+          )
+        } else if (params.selectionText) {
+          items.push({ role: 'copy', label: N('copy') }, { type: 'separator' })
+        }
+        if (params.linkURL) {
+          items.push(
+            { label: N('copyLink'), click: () => clipboard.writeText(params.linkURL) },
+            { type: 'separator' }
+          )
+        }
         items.push(
-          { role: 'undo', label: N('undoTyping'), enabled: params.editFlags.canUndo },
-          { role: 'redo', label: N('redoTyping'), enabled: params.editFlags.canRedo },
+          { label: N('undoChange'), accelerator: 'CmdOrCtrl+Z', click: send('undo') },
+          { label: N('redo'), accelerator: 'CmdOrCtrl+Y', click: send('redo') },
+          { label: N('back'), accelerator: 'Alt+Left', click: send('back') },
           { type: 'separator' },
-          { role: 'cut', label: N('cut'), enabled: params.editFlags.canCut },
-          { role: 'copy', label: N('copy'), enabled: params.editFlags.canCopy },
-          { role: 'paste', label: N('paste'), enabled: params.editFlags.canPaste },
-          { role: 'selectAll', label: N('selectAll') },
-          { type: 'separator' }
+          { label: N('palette'), accelerator: 'CmdOrCtrl+K', click: send('palette') },
+          { label: N('chars'), accelerator: 'CmdOrCtrl+I', click: send('chars') },
+          { label: N('save'), accelerator: 'CmdOrCtrl+S', click: send('save') },
+          { label: N('saveAs'), accelerator: 'CmdOrCtrl+Shift+S', click: send('saveAs') },
+          { type: 'separator' },
+          { label: N('guide'), click: () => void shell.openExternal(guideUrlFor(prefs.locale)) }
         )
-      } else if (params.selectionText) {
-        items.push({ role: 'copy', label: N('copy') }, { type: 'separator' })
-      }
-      if (params.linkURL) {
-        items.push(
-          { label: N('copyLink'), click: () => clipboard.writeText(params.linkURL) },
-          { type: 'separator' }
-        )
-      }
-      items.push(
-        { label: N('undoChange'), accelerator: 'CmdOrCtrl+Z', click: send('undo') },
-        { label: N('redo'), accelerator: 'CmdOrCtrl+Y', click: send('redo') },
-        { label: N('back'), accelerator: 'Alt+Left', click: send('back') },
-        { type: 'separator' },
-        { label: N('palette'), accelerator: 'CmdOrCtrl+K', click: send('palette') },
-        { label: N('chars'), accelerator: 'CmdOrCtrl+I', click: send('chars') },
-        { label: N('save'), accelerator: 'CmdOrCtrl+S', click: send('save') },
-        { label: N('saveAs'), accelerator: 'CmdOrCtrl+Shift+S', click: send('saveAs') },
-        { type: 'separator' },
-        { label: N('guide'), click: () => void shell.openExternal(guideUrlFor(prefs.locale)) }
-      )
-      Menu.buildFromTemplate(items).popup({ window: mainWindow! })
-    })()
+        if (mainWindow && !mainWindow.isDestroyed() && !contextClaimed(params.x, params.y))
+          Menu.buildFromTemplate(items).popup({ window: mainWindow })
+      })()
+    }, 45)
   })
 
   secureRendererContents(mainWindow.webContents, rendererEntry, (url) => shell.openExternal(url))
@@ -998,6 +1017,60 @@ function createWindow(): void {
 }
 
 function registerIpc(): void {
+  ipcMain.handle('ui:contextMenu', (event, value: unknown) => {
+    if (
+      !validContextMenu(value) ||
+      event.sender !== mainWindow?.webContents ||
+      !mainWindow ||
+      mainWindow.isDestroyed()
+    )
+      return null
+    claimedContext = { x: value.x, y: value.y, at: Date.now() }
+    if (pendingContextTimer) {
+      clearTimeout(pendingContextTimer)
+      pendingContextTimer = null
+    }
+    if (customContext) {
+      const current = customContext
+      customContext = null
+      current.menu.closePopup(mainWindow)
+      current.done(null)
+    }
+    return new Promise<string | null>((resolve) => {
+      let settled = false
+      const done = (id: string | null): void => {
+        if (settled) return
+        settled = true
+        if (customContext?.id === value.id) customContext = null
+        resolve(id)
+      }
+      const menu = Menu.buildFromTemplate(
+        value.items.map((item) =>
+          item.type === 'separator'
+            ? { type: 'separator' }
+            : {
+                id: item.id,
+                label: item.label,
+                type: item.type ?? 'normal',
+                checked: item.checked,
+                enabled: item.enabled !== false,
+                accelerator: item.shortcut,
+                click: () => done(item.id)
+              }
+        )
+      )
+      customContext = { id: value.id, menu, done }
+      menu.popup({ window: mainWindow!, callback: () => done(null) })
+    })
+  })
+  ipcMain.handle('ui:closeContextMenu', (_event, id: unknown) => {
+    if (typeof id === 'string' && customContext?.id === id) {
+      const current = customContext
+      customContext = null
+      current.menu.closePopup(mainWindow ?? undefined)
+      current.done(null)
+    }
+  })
   guardIpcHandlers(ipcMain, () => mainWindow?.webContents ?? null, rendererEntry)
   const accounts = new AccountClient({
     supportMode: SUPPORT_PAYMENT_MODE,

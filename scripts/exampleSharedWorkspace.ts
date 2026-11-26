@@ -5,6 +5,13 @@ import { setStrokeNodeMode } from '../src/renderer/src/lib/script/glyphStrokeNod
 export function addSharedWorkspaceExample(p: Project): void {
   const lang = p.languages.find((l) => l.id === p.settings.defaultLanguageId) ?? p.languages[0]
   if (!lang) return
+  // 用工程已有的词类、标签示范自定义颜色。
+  const word = p.lexemes.find((w) => w.languageId === lang.id && w.tags.length && w.posId)
+  if (word) {
+    p.settings.lexiconTagColors = { ...p.settings.lexiconTagColors, [word.tags[0]]: '#b4d8cb' }
+    const pos = p.posList.find((entry) => entry.id === word.posId)
+    if (pos) pos.color = '#c4cfee'
+  }
   ensureProjectFolders(p)
   delete p.corpusFolders
   delete p.docFolders
@@ -19,7 +26,7 @@ export function addSharedWorkspaceExample(p: Project): void {
     title: '共享目录 · Shared folder',
     languageId: null,
     markdown:
-      '语料、短语和文档共享同一棵目录树。在「练习 · Practice」下的「摘录 · Excerpts」打开详情视图，可以同时看到三类记录。侧栏默认收起，点击目录按钮可展开。试着把例句复制或剪切到「校订 · Review」；剪切在成功粘贴后才移动原件。手写板可插入「节点 · Nodes」部件，在节点工具里选择一条笔画，切换平滑或尖锐，或双击曲线插入节点。\n\nCorpus sentences, phrases and documents share a folder tree. Open Practice → Excerpts in Details view to see all three kinds together. Expand the collapsed sidebar to browse. Try copying or cutting the sentence and pasting it in Review. A cut moves the original on paste. In the drawing pad, insert the Nodes component, select its stroke with the node tool, change an anchor between smooth and corner, or double-click the curve to insert an anchor.',
+      '语料、短语和文档共享同一棵目录树。在「练习 · Practice」下的「摘录 · Excerpts」打开详情视图，可以同时看到三类记录。点击顶部「文件夹侧栏」可展开或收起整列。根目录下「练习」的数量包含「摘录」里的例句、短语和文档。试着把例句复制或剪切到「校订 · Review」；剪切在成功粘贴后才移动原件。手写板可插入「节点 · Nodes」部件，在节点工具里选择一条笔画，切换平滑或尖锐，或双击曲线插入节点。\n\nCorpus sentences, phrases and documents share a folder tree. Open Practice → Excerpts in Details view to see all three kinds together. Use the folder sidebar button to show or hide the whole column. In the root directory, Practice includes records in Excerpts in its count. Try copying or cutting the sentence and pasting it in Review. A cut moves the original on paste. In the drawing pad, insert the Nodes component, select its stroke with the node tool, change an anchor between smooth and corner, or double-click the curve to insert an anchor.',
     tags: ['1.1.1'],
     updatedAt: p.meta.updatedAt
   })
@@ -52,5 +59,5 @@ export function addSharedWorkspaceExample(p: Project): void {
   const about = p.docs.find((d) => d.title === '关于这个示例')
   if (about)
     about.markdown +=
-      '\n\n在三个模块中打开共享的「摘录 · Excerpts」目录，可练习剪切、复制和粘贴。查看其中的「共享目录 · Shared folder」说明，或在手写板导入「节点 · Nodes」试画平滑笔画。'
+      '\n\n在三个模块中打开共享的「摘录 · Excerpts」目录，可练习剪切、复制和粘贴。查看其中的「共享目录 · Shared folder」说明，或在手写板导入「节点 · Nodes」试画平滑笔画。词库中可在单词漏斗里只看带记号的词；在词类或标签的编辑位置可修改徽章颜色。'
 }

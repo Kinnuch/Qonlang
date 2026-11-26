@@ -1,10 +1,9 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
-  import { Trash2 } from '@lucide/svelte'
   import { projectState } from '$lib/state/project.svelte'
   import type { Project } from '$lib/core/model'
-  import type { MenuAction } from '$lib/platform'
-  import { runMenuAction } from '$lib/state/menuActions'
+  import ContextMenu from './ContextMenu.svelte'
+  import { completeContextActions, actionShortcut, type ContextAction } from './contextActions'
   import { ui } from '$lib/state/ui.svelte'
   import { t } from '$lib/i18n/index.svelte'
   import {
@@ -24,21 +23,7 @@
     x: number
     y: number
   } | null>(null)
-  let menuElement = $state<HTMLDivElement | null>(null)
   let busy = false
-  const modifier =
-    typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? '⌘' : 'Ctrl+'
-  const commands: { action: MenuAction; label: string; shortcut?: string; separator?: boolean }[] =
-    [
-      { action: 'undo', label: 'undoChange', shortcut: modifier + 'Z', separator: true },
-      { action: 'redo', label: 'redo', shortcut: modifier + 'Y' },
-      { action: 'back', label: 'back', shortcut: 'Alt+←' },
-      { action: 'palette', label: 'palette', shortcut: modifier + 'K', separator: true },
-      { action: 'chars', label: 'chars', shortcut: modifier + 'I' },
-      { action: 'save', label: 'save', shortcut: modifier + 'S' },
-      { action: 'saveAs', label: 'saveAs', shortcut: modifier + 'Shift+S' },
-      { action: 'guide', label: 'guide', separator: true }
-    ]
   const modal = (): boolean =>
     !!(ui.confirmReq || ui.chooseReq || ui.promptReq || ui.paletteOpen) ||
     [...document.querySelectorAll('dialog[open], [aria-modal="true"]')].some(
@@ -86,9 +71,6 @@
       busy = false
     }
   }
-  function focusMenu(node: HTMLDivElement): void {
-    queueMicrotask(() => node.querySelector<HTMLButtonElement>('button')?.focus())
-  }
   $effect(() => {
     // 页面/语言或工程切换后，不保留指向此前对象的菜单。
     void ui.section
@@ -98,7 +80,7 @@
   })
   onMount(() => {
     const point = (event: Event): void => {
-      if (menuElement?.contains(event.target as Node)) return
+      if (event.target instanceof Element && event.target.closest('[data-selection-menu]')) return
       menu = null
       active = editingDeleteTarget(event.target) ? null : deleteTargetFor(event.target)
       activeIdentity = active?.options.identity
@@ -121,14 +103,8 @@
             target,
             identity: target.options.identity,
             project,
-            x: Math.max(4, Math.min(event.clientX, innerWidth - 270)),
-            y: Math.max(
-              4,
-              Math.min(
-                event.clientY,
-                innerHeight - 370 - (target.options.actions?.length ?? 0) * 38
-              )
-            )
+            x: event.clientX,
+            y: event.clientY
           }
       })
     }
@@ -166,108 +142,39 @@
       window.removeEventListener('keydown', key)
     }
   })
+  function menuActions(current: NonNullable<typeof menu>): ContextAction[] {
+    const valid = (): boolean =>
+      current.project === projectState.project &&
+      current.target.node.isConnected &&
+      current.identity === current.target.options.identity &&
+      !modal()
+    const items = (current.target.options.actions ?? []).map((action, index) => ({
+      id: 'custom:' + index,
+      label: action.label,
+      enabled: !action.disabled,
+      shortcut: actionShortcut(action.label),
+      run: () => {
+        if (valid() && !action.disabled) action.run()
+      }
+    }))
+    return completeContextActions(items, {
+      id: 'delete',
+      label: current.target.options.label || t('common.delete'),
+      shortcut: 'Delete',
+      enabled: available(current.target, current.project, current.identity),
+      danger: true,
+      run: () => {
+        if (valid()) void remove(current.target, current.project, current.identity)
+      }
+    })
+  }
 </script>
 
-{#if menu}
-  {@const current = menu}
-  <div
-    class="selection-menu card"
-    style:left={`${current.x}px`}
-    style:top={`${current.y}px`}
-    role="menu"
-    tabindex="-1"
-    bind:this={menuElement}
-    use:focusMenu
-    data-selection-menu
-  >
-    {#each current.target.options.actions ?? [] as action (action.label)}
-      <button
-        disabled={action.disabled}
-        role="menuitem"
-        onclick={() => {
-          const snapshot = current
-          const command = action
-          menu = null
-          if (
-            !command.disabled &&
-            snapshot.project === projectState.project &&
-            snapshot.target.node.isConnected &&
-            snapshot.identity === snapshot.target.options.identity
-          )
-            command.run()
-        }}>{action.label}</button
-      >
-    {/each}
-    <button
-      class="delete"
-      role="menuitem"
-      disabled={!available(current.target, current.project, current.identity)}
-      onclick={() => void remove(current.target, current.project, current.identity)}
-      ><Trash2 size={15} /><span>{current.target.options.label || t('common.delete')}</span><kbd
-        >Delete</kbd
-      ></button
-    >
-    {#each commands as command (command.action)}
-      {#if command.separator}<div class="separator" role="separator"></div>{/if}
-      <button
-        role="menuitem"
-        data-context-command={command.action}
-        onclick={() => {
-          menu = null
-          runMenuAction(command.action)
-        }}
-        ><span>{t(`native.${command.label}`)}</span>{#if command.shortcut}<kbd
-            >{command.shortcut}</kbd
-          >{/if}</button
-      >
-    {/each}
-  </div>
-{/if}
-
-<style>
-  .selection-menu {
-    position: fixed;
-    z-index: 1400;
-    min-width: 250px;
-    max-width: calc(100vw - 8px);
-    max-height: calc(100vh - 8px);
-    overflow: auto;
-    padding: 4px;
-    box-shadow: var(--shadow-lg);
-  }
-  .selection-menu button {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    border: 0;
-    color: var(--text);
-    background: none;
-    padding: 8px 10px;
-    border-radius: var(--radius-sm);
-    font: inherit;
-    text-align: start;
-    cursor: pointer;
-  }
-  .selection-menu button.delete {
-    color: var(--danger);
-  }
-  .selection-menu button:hover:not(:disabled),
-  .selection-menu button:focus-visible {
-    background: var(--bg-hover);
-    outline: none;
-  }
-  .selection-menu span {
-    flex: 1;
-  }
-  kbd {
-    font: inherit;
-    font-size: 11px;
-    opacity: 0.75;
-  }
-  .separator {
-    height: 1px;
-    background: var(--border);
-    margin: 4px 2px;
-  }
-</style>
+{#if menu}{@const current = menu}{#key current}
+    <ContextMenu
+      x={current.x}
+      y={current.y}
+      items={menuActions(current)}
+      onclose={() => (menu = null)}
+    />
+  {/key}{/if}

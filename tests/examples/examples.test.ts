@@ -30,11 +30,63 @@ import {
 import { localizeExampleDocs, type ExampleDocsEn } from '$lib/core/exampleDocs'
 import { buildSentenceDocReferences } from '$lib/core/docReferences'
 import { createLexemeGraph, collectLexemeGraph } from '$lib/core/lexemeGraph'
+import { createProjectDirectoryProjection } from '$lib/core/projectDirectory'
+import { lexiconTagColor } from '$lib/core/lexemeColors'
 
 const dir = join(__dirname, '..', '..', 'examples')
 const load = (name: string) => parseProject(readFileSync(join(dir, name), 'utf8'))
 
 describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', () => {
+  it.each([
+    ['Aelith', 'kaso'],
+    ['Tsahun', 'tsa55']
+  ])('%s has editable tag and part-of-speech colors on an existing entry', (name, lemma) => {
+    const p = load(name + '.laim.json'),
+      word = p.lexemes.find((word) => word.lemma === lemma)!,
+      pos = p.posList.find((pos) => pos.id === word.posId)!
+    expect(word.tags.length).toBeGreaterThan(0)
+    expect(lexiconTagColor(p, word.tags[0])).toBe('#b4d8cb')
+    expect(pos.color).toBe('#c4cfee')
+    expect(p.docs.find((doc) => doc.title === '关于这个示例')!.markdown).toContain('徽章颜色')
+  })
+  it.each([
+    ['Aelith', 19],
+    ['Tsahun', 18]
+  ] as const)(
+    '%s counts all three record kinds in folder ancestors and the separate project root',
+    (name, total) => {
+      const p = load(name + '.laim.json'),
+        projection = createProjectDirectoryProjection(p),
+        practice = projection.byId.get('example-practice')!,
+        excerpts = projection.byId.get('example-excerpts')!,
+        defaultFolder = projection.byId.get('')!
+      expect(excerpts).toMatchObject({ directCount: 3, count: 3 })
+      expect(practice).toMatchObject({ directCount: 0, count: 3, depth: 0 })
+      expect(excerpts.ancestors).toEqual(['example-practice'])
+      expect(projection.byId.get('example-review')!.ancestors).toEqual([
+        'example-practice',
+        'example-excerpts'
+      ])
+      expect(projection.byId.get('example-review')!.count).toBe(0)
+      for (const records of [p.sentences, p.phrasebook, p.docs])
+        expect(records.filter((record) => record.folderId === excerpts.id)).toHaveLength(1)
+      expect(projection.rootCount).toBe(total)
+      expect(defaultFolder).toMatchObject({
+        directCount: total - 3,
+        count: total - 3,
+        ancestors: []
+      })
+      expect(projection.rootCount).toBe(p.sentences.length + p.phrasebook.length + p.docs.length)
+      const shared = p.docs.find((doc) => doc.id === 'example-shared-workspace')!
+      expect(shared.markdown).toContain('根目录下「练习」的数量包含「摘录」')
+      const en = JSON.parse(readFileSync(join(dir, 'docs-en.json'), 'utf8')) as ExampleDocsEn
+      localizeExampleDocs(p, name === 'Aelith' ? 'aelith' : 'tsahun', en, 'en')
+      expect(shared.markdown).toContain('root directory')
+      expect(p.docs.find((doc) => doc.title === 'About this example')!.markdown).toContain(
+        'badge colour'
+      )
+    }
+  )
   it.each(['Aelith', 'Tsahun'])(
     '%s includes reusable drawing exercises and a corpus folder',
     (name) => {

@@ -130,6 +130,8 @@ window.addEventListener('beforeunload', (e) => {
 })
 
 export const webPlatform: PlatformAPI = {
+  showContextMenu: async () => null,
+  closeContextMenu: async () => {},
   kind: 'web',
   async support() {
     return {

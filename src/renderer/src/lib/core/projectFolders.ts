@@ -554,7 +554,7 @@ export function pasteProjectClipboard(
   project: Project,
   clipboard: ProjectClipboard,
   targetFolderId: Id,
-  options: { newId?: () => Id; now?: number } = {}
+  options: { newId?: () => Id; now?: number; allowFolders?: boolean } = {}
 ): ProjectPasteResult {
   const fail = (
     reason: Extract<ProjectPasteResult, { ok: false }>['reason']
@@ -568,6 +568,8 @@ export function pasteProjectClipboard(
     return fail('stale')
   // 后续计划只读内部已签发快照，不按系统文本提供的来源ID重新猜记录。
   clipboard = issued.payload
+  // Default和视图根共用空ID，但Default仅容纳记录；由入口明确禁止目录粘贴。
+  if (options.allowFolders === false && clipboard.folders.length > 0) return fail('invalid-target')
   const now = options.now ?? Date.now()
   for (const [id, expires] of consumedCuts) if (expires <= now) consumedCuts.delete(id)
   if (
@@ -640,7 +642,12 @@ export function pasteProjectClipboard(
       row.record.createdAt = new Date(now).toISOString()
     }
   }
-  const graph = createFolderIndex(plannedFolders)
+  // 选中根原本可位于其他目录，外部父不在载荷里；只校验其内部子树，最终父层随后设为目标。
+  const graph = createFolderIndex(
+    plannedFolders.map((folder) =>
+      roots.has(folder.id) ? { ...folder, parentId: undefined } : folder
+    )
+  )
   if (
     plannedFolders.some(
       (folder) => !roots.has(folder.id) && graph.parent(folder.id) !== (folder.parentId ?? '')

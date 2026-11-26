@@ -129,6 +129,22 @@ class UiState {
   lastScroll(section: Section): number {
     return this.scrolls[section] ?? 0
   }
+  /** 多选离开模块后完全解选；返回历史也不能重新亮起组内最后一个对象。 */
+  clearViewSelection(
+    section: Section,
+    viewKey: 'id' | 'glyph' = 'id',
+    memoryKey = 'selectedId'
+  ): void {
+    if (this.memory[section]) this.memory[section]![memoryKey] = null
+    if (this.views[section]) this.views[section] = { ...this.views[section], [viewKey]: null }
+    this.navHistory = this.navHistory.map((entry) =>
+      entry.section === section && entry.view
+        ? { ...entry, view: { ...entry.view, [viewKey]: null } }
+        : entry
+    )
+    if (this.restoreReq?.section === section && this.restoreReq.view)
+      this.restoreReq = { ...this.restoreReq, view: { ...this.restoreReq.view, [viewKey]: null } }
+  }
   /** 这次进页面是「返回」带来的：滚动交给 takeRestore，页面自己不另外恢复 */
   restoring(section: Section): boolean {
     return this.restoreReq?.section === section

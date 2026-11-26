@@ -2,7 +2,7 @@
   import type { Id, Lexeme, MorphemeSlot, MorphemeType, Project } from '$lib/core/model'
   import { MORPHEME_TYPES } from '$lib/core/factory'
   import { boundMorpheme, splitMorphemePart } from '$lib/core/morphemeSlots'
-  import { createMorphemeSlot } from '$lib/state/morphemeSlotActions'
+  import { createMorphemeSlot, removeMorphemeSlot } from '$lib/state/morphemeSlotActions'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
   import { t } from '$lib/i18n/index.svelte'
@@ -135,7 +135,20 @@
     {@const hit = boundMorpheme(project, lexeme, slot.id)}
     {@const selected = lexeme.morphemeBindings?.[slot.id] ?? ''}
     <div class="slot card" data-binding-row={slot.id}>
-      <div class="small" title={slot.description}>{slot.name}</div>
+      <div class="row slot-heading">
+        <span class="small grow" title={slot.description}>{slot.name}</span>
+        <button
+          type="button"
+          class="btn ghost icon sm danger"
+          data-remove-slot={slot.id}
+          title={t('morphemeSlots.deleteSlot', { name: slot.name })}
+          aria-label={t('morphemeSlots.deleteSlot', { name: slot.name })}
+          disabled={projectState.readOnly}
+          onclick={() => void removeMorphemeSlot(project, slot.id)}
+        >
+          <X size={14} />
+        </button>
+      </div>
       <ReferencePicker
         {project}
         kind="morpheme"

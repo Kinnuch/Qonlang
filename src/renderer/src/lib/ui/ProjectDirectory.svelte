@@ -10,16 +10,17 @@
     MoreHorizontal,
     FileText,
     Quote,
-    MessageCircle
+    MessageCircle,
+    HardDrive
   } from '@lucide/svelte'
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
+  import ProjectDirectoryMenus from './ProjectDirectoryMenus.svelte'
   import { t } from '$lib/i18n/index.svelte'
   import { newId } from '$lib/core/factory'
   import {
     projectFolders,
     ensureProjectFolders,
-    projectFolderPath,
     projectFolderOf,
     createProjectFolder,
     renameProjectFolder,
@@ -32,6 +33,7 @@
     type ProjectRecordRef
   } from '$lib/core/projectFolders'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
+  import { createProjectDirectoryProjection } from '$lib/core/projectDirectory'
   import { createFolderIndex } from '$lib/core/folderTree'
   import {
     copyProjectRecords,
@@ -43,7 +45,8 @@
     kind,
     currentId = '',
     compact = false,
-    forceExpanded = false,
+    rootView = false,
+    onroot,
     onbrowse,
     onopen,
     onimport,
@@ -52,82 +55,75 @@
     kind: ProjectRecordKind
     currentId?: string
     compact?: boolean
-    forceExpanded?: boolean
+    rootView?: boolean
+    onroot: () => void
     onbrowse: (id: string) => void
     onopen: (id: string) => void
     onimport?: (id: string, json: boolean) => void
     onexport?: (id: string | null, format: string, recursive: boolean) => void
   } = $props()
   const project = $derived(projectState.project!)
-  const folders = $derived(projectFolders(project))
   const lz = lazy(80)
-  const index = $derived(createFolderIndex(folders))
-  const path = $derived(projectFolderPath(project, currentId))
   const metadata = $derived(project.settings.folderMetadata ?? ['tags', 'createdAt', 'size'])
   const mode = $derived(project.settings.folderView ?? 'icons')
+  const projection = $derived(
+    createProjectDirectoryProjection(project, {
+      sizes: !compact && mode === 'details' && metadata.includes('size')
+    })
+  )
+  const rows = $derived(projection.rows)
+  const folders = $derived(rows.filter((folder) => !folder.default))
+  const index = $derived(createFolderIndex(folders))
+  const path = $derived(index.path(currentId))
+  const treeMemo = ui.memo<{ directoryCollapsed: string[] }>('docs')
+  let collapsed = $state.raw(new Set<string>(treeMemo.directoryCollapsed ?? []))
+  $effect(() => {
+    treeMemo.directoryCollapsed = [...collapsed]
+  })
+  const visibleRows = $derived.by(() => {
+    const out = [] as typeof rows
+    let hiddenDepth: number | null = null
+    for (const row of rows) {
+      if (row.default) {
+        out.push(row)
+        continue
+      }
+      if (hiddenDepth !== null && row.depth > hiddenDepth) continue
+      hiddenDepth = null
+      out.push(row)
+      if (collapsed.has(row.id)) hiddenDepth = row.depth
+    }
+    return out
+  })
+  const shown = $derived(
+    compact
+      ? visibleRows
+      : rootView
+        ? rows.filter((row) => row.default || !row.parentId)
+        : currentId
+          ? rows.filter((row) => !row.default && row.parentId === currentId)
+          : []
+  )
   const detailColumns = $derived(
-    '28px minmax(150px,1fr) 48px ' +
+    '24px minmax(140px,1fr) 48px ' +
       ['type', 'tags', 'createdAt', 'size']
         .filter((key) => metadata.includes(key as 'type' | 'tags' | 'createdAt' | 'size'))
         .map(() => 'minmax(80px,auto)')
         .join(' ') +
       ' 40px'
   )
-  let expanded = $state(false),
-    menu = $state<{ id: string | null; x: number; y: number } | null>(null),
+  let menu = $state<{ id: string | null; x: number; y: number; root?: boolean } | null>(null),
     recursive = $state(true),
-    over = $state<string | null>(null)
-  const rows = $derived.by(() => {
-    const out = [
-      {
-        id: '',
-        name: 'Default',
-        parentId: '',
-        tags: [] as string[],
-        createdAt: undefined as string | undefined,
-        depth: 0
-      }
-    ]
-    const queue = [...(index.children.get('') ?? [])]
-      .reverse()
-      .map((folder) => ({ folder, depth: 0 }))
-    while (queue.length) {
-      const { folder, depth } = queue.pop()!
-      out.push({
-        ...folder,
-        parentId: index.parent(folder.id),
-        tags: folder.tags ?? [],
-        createdAt: folder.createdAt,
-        depth
-      })
-      for (const child of [...(index.children.get(folder.id) ?? [])].reverse())
-        queue.push({ folder: child, depth: depth + 1 })
-    }
-    return out
-  })
-  const shown = $derived(
-    compact ? rows : rows.filter((row) => (row.id ? row.parentId === currentId : !currentId))
-  )
+    over = $state<string | null>(null),
+    overRoot = $state(false)
   const effectiveFolder = (record: { folderId?: string }): string =>
     project.folders !== undefined
       ? index.has(record.folderId ?? '')
         ? (record.folderId ?? '')
         : ''
       : projectFolderOf(project, record)
-  const counts = $derived.by(() => {
-    const result = new Map<string, { count: number; bytes: number }>()
-    for (const item of [...project.sentences, ...project.phrasebook, ...project.docs]) {
-      const id = effectiveFolder(item),
-        old = result.get(id) ?? { count: 0, bytes: 0 }
-      old.count++
-      if (!compact && mode === 'details' && metadata.includes('size'))
-        old.bytes += new TextEncoder().encode(JSON.stringify(item)).length
-      result.set(id, old)
-    }
-    return result
-  })
   const files = $derived.by(() => {
-    if (compact) return []
+    if (compact || rootView) return []
     const out: {
       kind: ProjectRecordKind
       id: string
@@ -152,28 +148,28 @@
             createdAt: record.createdAt,
             languageId: record.languageId,
             bytes:
-              !compact && mode === 'details' && metadata.includes('size')
+              mode === 'details' && metadata.includes('size')
                 ? new TextEncoder().encode(JSON.stringify(record)).length
                 : 0
           })
     return out
   })
+  function toggleBranch(id: string): void {
+    const next = new Set(collapsed)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    collapsed = next
+  }
   let clipboardRef = $state<import('$lib/core/projectFolders').ProjectClipboardRef | null>(null)
   function clipboardEvent(event: ClipboardEvent, operation: 'copy' | 'cut' | 'paste'): void {
     if (compact || !clipboardRecordEventAllowed(event) || projectState.readOnly) return
     if (operation === 'paste') {
-      const owner = project,
-        at = currentId
-      void pasteProjectRecords(
-        owner,
-        at,
-        event,
-        () => projectState.project === owner && currentId === at
-      )
+      void paste(currentId, rootView, event)
     } else if (clipboardRef) void copyProjectRecords(project, [clipboardRef], operation, event)
   }
   $effect(() => {
     void currentId
+    void rootView
     void project.meta.id
     lz.reset()
     clipboardRef = null
@@ -185,13 +181,14 @@
     menu = null
     fileMenu = {
       ref,
-      x: Math.max(8, Math.min(innerWidth - 250, event.clientX)),
-      y: Math.max(8, Math.min(innerHeight - 270, event.clientY))
+      x: event.clientX,
+      y: event.clientY
     }
   }
   $effect(() => {
     void project.meta.id
     void currentId
+    void rootView
     fileMenu = null
   })
   $effect(() => {
@@ -266,8 +263,10 @@
   $effect(() => {
     void project.meta.id
     void currentId
+    void rootView
     menu = null
     over = null
+    overRoot = false
   })
   $effect(() => {
     if (!menu) return
@@ -287,28 +286,26 @@
       window.removeEventListener('keydown', close)
     }
   })
-  function context(event: MouseEvent, id: string | null): void {
+  function context(event: MouseEvent, id: string | null, root?: boolean): void {
     event.preventDefault()
     event.stopPropagation()
     menu = {
       id,
-      x: Math.max(8, Math.min(innerWidth - 260, event.clientX)),
-      y: Math.max(8, Math.min(innerHeight - 470, event.clientY))
+      ...(root === undefined ? {} : { root }),
+      x: event.clientX,
+      y: event.clientY
     }
-    recursive = true
     fileMenu = null
-  }
-  function run(action: () => unknown): void {
-    action()
-    menu = null
   }
   async function create(parent: string): Promise<void> {
     if (projectState.readOnly) return
     const owner = project,
       name = await ui.prompt(t('sharedFolders.create'), '')
     if (name === null || owner !== projectState.project || projectState.readOnly) return
-    if (createProjectFolder(owner, name, newId(), parent)) projectState.touch()
-    else ui.toast(t('sharedFolders.invalid'))
+    if (createProjectFolder(owner, name, newId(), parent)) {
+      projectState.touch()
+      if (!parent && !rootView) onroot()
+    } else ui.toast(t('sharedFolders.invalid'))
   }
   async function rename(id: string): Promise<void> {
     const folder = folders.find((item) => item.id === id)
@@ -363,7 +360,10 @@
       for (const record of list) if (record.folderId === id) records.push({ kind, id: record.id })
     if (!removeProjectFolder(owner, id)) return
     const after = new Map(projectFolders(owner).map((folder) => [folder.id, folder.name]))
-    if (currentId === id) onbrowse(parent)
+    if (currentId === id) {
+      if (parent) onbrowse(parent)
+      else onroot()
+    }
     projectState.touch()
     ui.toast(t('sharedFolders.removed'), {
       action: {
@@ -419,7 +419,7 @@
             index
               .path(row.id)
               .map((folder) => folder.name)
-              .join(' / ') || 'Default'
+              .join(' / ') || t('sharedFolders.root')
         }))
     )
     if (target === null || owner !== projectState.project || projectState.readOnly) return
@@ -437,19 +437,23 @@
       JSON.stringify({ projectId: project.meta.id, id })
     )
   }
-  function dragOver(event: DragEvent, id: string): void {
+  function dragOver(event: DragEvent, id: string, rootTarget = false): void {
     if (
       projectState.readOnly ||
       !event.dataTransfer ||
       ![...event.dataTransfer.types].some((type) => type.startsWith('text/x-qonlang-'))
     )
       return
+    if (!id && !rootTarget && event.dataTransfer.types.includes('text/x-qonlang-project-folder'))
+      return
+    overRoot = rootTarget
     event.preventDefault()
     event.stopPropagation()
     over = id
   }
-  function drop(event: DragEvent, id: string): void {
+  function drop(event: DragEvent, id: string, rootTarget = false): void {
     over = null
+    overRoot = false
     if (projectState.readOnly || !event.dataTransfer) return
     event.preventDefault()
     event.stopPropagation()
@@ -476,6 +480,10 @@
             id
           )
         } else {
+          if (!id && !rootTarget) {
+            ui.toast(t('sharedFolders.defaultHint'))
+            return
+          }
           const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
           changed =
             id && event.clientX < rect.left + rect.width * 0.2
@@ -493,22 +501,71 @@
   function clipboard(id: string, mode: 'copy' | 'cut'): void {
     void copyProjectRecords(project, [{ kind: 'folder', id }], mode)
   }
-  function paste(id: string): void {
+  async function paste(id: string, rootTarget = false, event?: ClipboardEvent): Promise<void> {
     const owner = project,
-      at = currentId
-    void pasteProjectRecords(
+      at = currentId,
+      wasRoot = rootView
+    const result = await pasteProjectRecords(
       owner,
       id,
-      undefined,
-      () => projectState.project === owner && currentId === at
+      event,
+      () => projectState.project === owner && currentId === at && rootView === wasRoot,
+      { allowFolders: !!id || rootTarget }
     )
+    if (result?.ok && rootTarget && result.refs.length && projectState.project === owner) {
+      const wanted = new Map<ProjectRecordKind, Set<string>>()
+      for (const ref of result.refs) {
+        if (!wanted.has(ref.kind)) wanted.set(ref.kind, new Set())
+        wanted.get(ref.kind)!.add(ref.id)
+      }
+      for (const [recordKind, list] of [
+        ['sentence', owner.sentences],
+        ['phrase', owner.phrasebook],
+        ['doc', owner.docs]
+      ] as const)
+        if (list.some((record) => wanted.get(recordKind)?.has(record.id) && !record.folderId)) {
+          onbrowse('')
+          break
+        }
+    }
   }
-  function portal(node: HTMLElement): { destroy(): void } {
-    document.body.append(node)
-    return { destroy: () => node.remove() }
+  function removeFile(ref: ProjectRecordRef): void {
+    if (projectState.readOnly) return
+    const owner = project,
+      key = ref.kind === 'sentence' ? 'sentences' : ref.kind === 'phrase' ? 'phrasebook' : 'docs',
+      list = owner[key],
+      at = list.findIndex((row) => row.id === ref.id)
+    if (at < 0) return
+    const saved = JSON.parse(JSON.stringify(list[at]))
+    const label = 'title' in saved ? saved.title : saved.text
+    ;(owner[key] as { id: string }[]) = (list as { id: string }[]).filter(
+      (row) => row.id !== ref.id
+    )
+    projectState.touch()
+    ui.toast(t('sharedFolders.removed', { name: label || '—' }), {
+      action: {
+        label: t('common.undo'),
+        run: () => {
+          if (
+            projectState.project !== owner ||
+            projectState.readOnly ||
+            owner[key].some((row) => row.id === saved.id)
+          )
+            return
+          ;(owner[key] as { id: string }[]).splice(Math.min(at, owner[key].length), 0, saved)
+          projectState.touch()
+        }
+      }
+    })
   }
 </script>
 
+<svelte:window
+  ondragend={() => {
+    over = null
+    overRoot = false
+  }}
+/>
 <svelte:document
   oncopy={(event) => clipboardEvent(event, 'copy')}
   oncut={(event) => clipboardEvent(event, 'cut')}
@@ -520,28 +577,47 @@
   class="directory"
   class:compact
   data-project-directory={kind}
+  data-root-view={rootView}
   oncontextmenu={(event) => context(event, null)}
-  ondragenter={(event) => {
-    if (
-      event.dataTransfer &&
-      [...event.dataTransfer.types].some((type) => type.startsWith('text/x-qonlang-'))
-    )
-      expanded = true
-  }}
 >
   {#if compact}
-    <button
-      class="btn ghost tree-toggle"
-      data-folder-sidebar-toggle
-      aria-expanded={expanded}
-      onclick={() => (expanded = !expanded)}
-      >{#if expanded}<ChevronDown size={15} />{:else}<ChevronRight size={15} />{/if}<Folder
-        size={16}
-      />{t('sharedFolders.title')}</button
-    >
+    <div class="tree-root-row">
+      <button
+        class="folder-open root-open"
+        class:active={rootView}
+        data-project-root-open
+        class:root-drop={overRoot}
+        oncontextmenu={(event) => context(event, null, true)}
+        ondragover={(event) => dragOver(event, '', true)}
+        ondragleave={() => {
+          overRoot = false
+          over = null
+        }}
+        ondrop={(event) => drop(event, '', true)}
+        onclick={onroot}
+        ><HardDrive size={18} /><strong>{t('sharedFolders.root')}</strong><span
+          class="folder-count"
+          title={t('sharedFolders.rootHint')}>{projection.rootCount}</span
+        ></button
+      ><span class="menu-slot"></span>
+    </div>
   {:else}
     <div class="row toolbar">
-      <h2 class="grow">{t('sharedFolders.title')}</h2>
+      <h2 class="grow row">
+        {#if rootView}<HardDrive size={21} />{:else}<Folder size={21} />{/if}<span
+          class="directory-title"
+          title={rootView
+            ? t('sharedFolders.root')
+            : currentId
+              ? (projection.byId.get(currentId)?.name ?? 'Default')
+              : 'Default'}
+          >{rootView
+            ? t('sharedFolders.root')
+            : currentId
+              ? (projection.byId.get(currentId)?.name ?? 'Default')
+              : 'Default'}</span
+        >
+      </h2>
       <div class="seg">
         <button
           data-folder-view="icons"
@@ -568,248 +644,235 @@
       <button
         class="btn sm"
         data-project-folder-create
-        disabled={projectState.readOnly}
-        onclick={() => create(currentId)}
+        disabled={projectState.readOnly || (!rootView && !currentId)}
+        title={!rootView && !currentId ? t('sharedFolders.defaultHint') : undefined}
+        onclick={() => create(rootView ? '' : currentId)}
         ><FolderPlus size={15} />{t('sharedFolders.create')}</button
       >
     </div>
     <nav class="row crumbs" aria-label={t('sharedFolders.path')}>
-      <button class="btn ghost sm" data-project-breadcrumb="" onclick={() => onbrowse('')}
-        >Default</button
-      >{#each path as part (part.id)}<ChevronRight size={13} /><button
-          class="btn ghost sm"
-          data-project-breadcrumb={part.id}
-          onclick={() => onbrowse(part.id)}>{part.name}</button
-        >{/each}<span class="grow"></span>{#if currentId}<button
-          class="btn sm"
-          onclick={() => onbrowse(index.parent(currentId))}
-          ><ArrowUp size={14} />{t('sharedFolders.parent')}</button
-        >{/if}<button class="btn sm" data-project-open-records onclick={() => onopen(currentId)}
-        >{t(`sharedFolders.open.${kind}`)}</button
+      <button
+        class="btn ghost sm"
+        data-project-root-open
+        class:root-drop={overRoot}
+        oncontextmenu={(event) => context(event, null, true)}
+        ondragover={(event) => dragOver(event, '', true)}
+        ondragleave={() => {
+          overRoot = false
+          over = null
+        }}
+        ondrop={(event) => drop(event, '', true)}
+        onclick={onroot}><HardDrive size={14} />{t('sharedFolders.root')}</button
       >
+      {#if !rootView}{#if !currentId}<ChevronRight size={13} /><button
+            class="btn ghost sm"
+            data-project-breadcrumb=""
+            onclick={() => onbrowse('')}>Default</button
+          >{:else}{#each path as part (part.id)}<ChevronRight size={13} /><button
+              class="btn ghost sm"
+              data-project-breadcrumb={part.id}
+              onclick={() => onbrowse(part.id)}>{part.name}</button
+            >{/each}{/if}{/if}
+      <span class="grow"></span>{#if !rootView}<button
+          class="btn sm"
+          data-project-parent
+          onclick={() =>
+            currentId && index.parent(currentId) ? onbrowse(index.parent(currentId)) : onroot()}
+          ><ArrowUp size={14} />{t('sharedFolders.parent')}</button
+        ><button class="btn sm" data-project-open-records onclick={() => onopen(currentId)}
+          >{t(`sharedFolders.open.${kind}`)}</button
+        >{/if}
     </nav>
   {/if}
-  {#if !compact || expanded || forceExpanded}
-    <div
-      class="folder-grid"
-      class:details={mode === 'details' && !compact}
-      style:--detail-columns={detailColumns}
-      role="list"
-    >
-      {#if !compact && mode === 'details'}<div class="detail-heading" role="listitem">
-          <span></span><span>{t('common.name')}</span><span title={t('sharedFolders.count')}
-            >{t('sharedFolders.count')}</span
-          >{#each ['type', 'tags', 'createdAt', 'size'].filter( (key) => metadata.includes(key as 'type' | 'tags' | 'createdAt' | 'size') ) as key (key)}<span
-              >{t(`sharedFolders.${key}`)}</span
-            >{/each}<span></span>
-        </div>{/if}
-      {#each shown as folder (folder.id)}
-        <div
-          class="folder-row"
-          role="listitem"
-          class:over={over === folder.id}
-          data-project-folder={folder.id}
-          onfocusin={() => (clipboardRef = folder.id ? { kind: 'folder', id: folder.id } : null)}
-          style:--depth={compact ? folder.depth : 0}
-          draggable={!projectState.readOnly && !!folder.id}
-          ondragstart={(event) => dragStart(event, folder.id)}
-          ondragover={(event) => dragOver(event, folder.id)}
-          ondragleave={() => (over = null)}
-          ondrop={(event) => drop(event, folder.id)}
-          oncontextmenu={(event) => context(event, folder.id)}
+  <div
+    class="folder-grid"
+    class:details={mode === 'details' && !compact}
+    role="list"
+    style:--detail-columns={detailColumns}
+  >
+    {#if !compact && mode === 'details'}<div class="detail-heading" role="listitem">
+        <span></span><span>{t('common.name')}</span><span title={t('sharedFolders.countHint')}
+          >{t('sharedFolders.count')}</span
+        >{#each ['type', 'tags', 'createdAt', 'size'].filter( (key) => metadata.includes(key as 'type' | 'tags' | 'createdAt' | 'size') ) as key (key)}<span
+            >{t(`sharedFolders.${key}`)}</span
+          >{/each}<span></span>
+      </div>{/if}
+    {#each shown as folder (folder.id)}
+      <div
+        class="folder-row"
+        role="listitem"
+        class:over={!overRoot && over === folder.id}
+        data-project-folder={folder.id}
+        data-folder-depth={folder.depth}
+        data-folder-total={folder.count}
+        style:--depth={compact ? folder.depth + 1 : 0}
+        onfocusin={() => (clipboardRef = folder.id ? { kind: 'folder', id: folder.id } : null)}
+        draggable={!projectState.readOnly && !!folder.id}
+        ondragstart={(event) => dragStart(event, folder.id)}
+        ondragover={(event) => dragOver(event, folder.id)}
+        ondragleave={() => (over = null)}
+        ondrop={(event) => drop(event, folder.id)}
+        oncontextmenu={(event) => context(event, folder.id)}
+      >
+        {#if compact}{#if folder.children}<button
+              class="tree-fold"
+              data-folder-branch={folder.id}
+              aria-expanded={!collapsed.has(folder.id)}
+              title={t(
+                collapsed.has(folder.id)
+                  ? 'sharedFolders.expandBranch'
+                  : 'sharedFolders.collapseBranch'
+              )}
+              onclick={() => toggleBranch(folder.id)}
+              >{#if collapsed.has(folder.id)}<ChevronRight size={13} />{:else}<ChevronDown
+                  size={13}
+                />{/if}</button
+            >{:else}<span class="tree-fold-placeholder"></span>{/if}{/if}
+        <button
+          class="folder-open"
+          data-project-folder-open={folder.id}
+          class:active={!rootView && currentId === folder.id}
+          onclick={() => onbrowse(folder.id)}
+          ><Folder size={compact ? 17 : mode === 'details' ? 21 : 34} /><strong
+            >{folder.name}</strong
+          ><span
+            class="folder-count"
+            title={t(folder.default ? 'sharedFolders.defaultHint' : 'sharedFolders.countHint')}
+            >{folder.count}</span
+          >
+          {#if !compact && mode === 'details'}{#if metadata.includes('type')}<span
+                >{t('sharedFolders.folder')}</span
+              >{/if}{#if metadata.includes('tags')}<span
+                >{(folder.tags ?? []).join(', ') || '—'}</span
+              >{/if}{#if metadata.includes('createdAt')}<time
+                >{folder.createdAt ? new Date(folder.createdAt).toLocaleDateString() : '—'}</time
+              >{/if}{#if metadata.includes('size')}<span title={t('sharedFolders.sizeHint')}
+                >{(folder.bytes / 1024).toFixed(1)} KB</span
+              >{/if}<span></span>{/if}
+        </button><button
+          class="btn ghost sm more"
+          title={t('sharedFolders.actions')}
+          onclick={(event) => context(event, folder.id)}><MoreHorizontal size={15} /></button
         >
-          <button
-            class="folder-open"
-            data-project-folder-open={folder.id}
-            class:active={currentId === folder.id}
-            onclick={() => (folder.id ? onbrowse(folder.id) : onopen(''))}
-            ><Folder size={compact ? 18 : mode === 'details' ? 24 : 44} /><strong
-              >{folder.name}</strong
-            ><span class="small muted">{counts.get(folder.id)?.count ?? 0}</span>
-            {#if !compact && mode === 'details'}{#if metadata.includes('type')}<span
-                  >{t('sharedFolders.folder')}</span
-                >{/if}{#if metadata.includes('tags')}<span>{folder.tags.join(', ') || '—'}</span
+      </div>
+    {/each}
+    {#if !compact}{#each files.slice(0, lz.shown) as file (JSON.stringify([file.kind, file.id]))}
+        <div
+          class="folder-row file-row"
+          role="listitem"
+          data-directory-file={file.id}
+          data-directory-kind={file.kind}
+          onfocusin={() => (clipboardRef = { kind: file.kind, id: file.id })}
+          draggable={!projectState.readOnly}
+          ondragstart={(event) => fileStart(event, file)}
+          oncontextmenu={(event) => fileContext(event, file)}
+        >
+          <button class="folder-open" onclick={() => openFile(file)}
+            >{#if file.kind === 'sentence'}<Quote
+                size={mode === 'details' ? 21 : 32}
+              />{:else if file.kind === 'phrase'}<MessageCircle
+                size={mode === 'details' ? 21 : 32}
+              />{:else}<FileText size={mode === 'details' ? 21 : 32} />{/if}<strong
+              >{file.name || '—'}</strong
+            >
+            {#if mode === 'details'}<span>—</span>{#if metadata.includes('type')}<span
+                  >{t(`sharedFolders.kinds.${file.kind}`)}</span
+                >{/if}{#if metadata.includes('tags')}<span>{file.tags.join(', ') || '—'}</span
                 >{/if}{#if metadata.includes('createdAt')}<time
-                  >{folder.createdAt ? new Date(folder.createdAt).toLocaleDateString() : '—'}</time
+                  >{file.createdAt ? new Date(file.createdAt).toLocaleDateString() : '—'}</time
                 >{/if}{#if metadata.includes('size')}<span title={t('sharedFolders.sizeHint')}
-                  >{((counts.get(folder.id)?.bytes ?? 0) / 1024).toFixed(1)} KB</span
-                >{/if}<span></span>{/if}
+                  >{(file.bytes / 1024).toFixed(1)} KB</span
+                >{/if}{/if}<small
+              >{project.languages.find((language) => language.id === file.languageId)?.abbr ??
+                ''}</small
+            >
           </button><button
             class="btn ghost sm more"
             title={t('sharedFolders.actions')}
-            onclick={(event) => context(event, folder.id)}><MoreHorizontal size={16} /></button
+            onclick={(event) => fileContext(event, file)}><MoreHorizontal size={15} /></button
           >
         </div>
-      {/each}
-      {#if !compact}{#each files.slice(0, lz.shown) as file (JSON.stringify([file.kind, file.id]))}
-          <div
-            class="folder-row file-row"
-            role="listitem"
-            data-directory-file={file.id}
-            data-directory-kind={file.kind}
-            onfocusin={() => (clipboardRef = { kind: file.kind, id: file.id })}
-            draggable={!projectState.readOnly}
-            ondragstart={(event) => fileStart(event, file)}
-            oncontextmenu={(event) => fileContext(event, file)}
-          >
-            <button class="folder-open" onclick={() => openFile(file)}
-              >{#if file.kind === 'sentence'}<Quote
-                  size={mode === 'details' ? 24 : 40}
-                />{:else if file.kind === 'phrase'}<MessageCircle
-                  size={mode === 'details' ? 24 : 40}
-                />{:else}<FileText size={mode === 'details' ? 24 : 40} />{/if}<strong
-                >{file.name || '—'}</strong
-              >
-              {#if mode === 'details'}<span>—</span>{#if metadata.includes('type')}<span
-                    >{t(`sharedFolders.kinds.${file.kind}`)}</span
-                  >{/if}{#if metadata.includes('tags')}<span>{file.tags.join(', ') || '—'}</span
-                  >{/if}{#if metadata.includes('createdAt')}<time
-                    >{file.createdAt ? new Date(file.createdAt).toLocaleDateString() : '—'}</time
-                  >{/if}{#if metadata.includes('size')}<span title={t('sharedFolders.sizeHint')}
-                    >{(file.bytes / 1024).toFixed(1)} KB</span
-                  >{/if}{/if}
-              <small
-                >{project.languages.find((language) => language.id === file.languageId)?.abbr ??
-                  ''}</small
-              >
-            </button><button
-              class="btn ghost sm more"
-              title={t('sharedFolders.actions')}
-              onclick={(event) => fileContext(event, file)}><MoreHorizontal size={16} /></button
-            >
-          </div>
-        {/each}{#if files.length > lz.shown}<div use:lazyMore={lz}></div>{/if}{/if}
-    </div>
-  {/if}
+      {/each}{#if files.length > lz.shown}<div use:lazyMore={lz}></div>{/if}{/if}
+  </div>
+  {#if !compact && !shown.length && !files.length}<p class="directory-empty muted">
+      {t('sharedFolders.empty')}
+    </p>{/if}
 </section>
-{#if menu}{@const target = menu.id ?? currentId}
-  <div
-    class="folder-menu card"
-    data-project-folder-menu
-    style:left={`${menu.x}px`}
-    style:top={`${menu.y}px`}
-    use:portal
-  >
-    <button onclick={() => run(() => onbrowse(target))}>{t('sharedFolders.browse')}</button>
-    <button onclick={() => run(() => onopen(target))}>{t(`sharedFolders.open.${kind}`)}</button>
-    <button disabled={projectState.readOnly} onclick={() => run(() => create(target))}
-      >{t('sharedFolders.create')}</button
-    >
-    {#if target}<button disabled={projectState.readOnly} onclick={() => run(() => rename(target))}
-        >{t('sharedFolders.rename')}</button
-      ><button disabled={projectState.readOnly} onclick={() => run(() => tags(target))}
-        >{t('sharedFolders.tags')}</button
-      ><button disabled={projectState.readOnly} onclick={() => run(() => chooseMove(target))}
-        >{t('sharedFolders.move')}</button
-      ><button
-        disabled={projectState.readOnly}
-        title={t('clipboard.scope')}
-        onclick={() => run(() => clipboard(target, 'copy'))}>{t('sharedFolders.copy')}</button
-      ><button disabled={projectState.readOnly} onclick={() => run(() => clipboard(target, 'cut'))}
-        >{t('sharedFolders.cut')}</button
-      >{/if}
-    <button disabled={projectState.readOnly} onclick={() => run(() => paste(target))}
-      >{t('sharedFolders.paste')}</button
-    >
-    {#if onimport}<button
-        disabled={projectState.readOnly}
-        onclick={() => run(() => onimport?.(target, false))}>{t('io.importTable')}</button
-      ><button disabled={projectState.readOnly} onclick={() => run(() => onimport?.(target, true))}
-        >{t('io.importJson')}</button
-      >{/if}
-    {#if onexport}<label class="check"
-        ><input type="checkbox" bind:checked={recursive} />{t(
-          'sharedFolders.includeChildren'
-        )}</label
-      >{#each formats as format (format)}<button
-          disabled={projectState.readOnly}
-          onclick={() =>
-            run(() =>
-              onexport?.(menu?.id === null && !currentId ? null : target, format, recursive)
-            )}>{t('common.export')} {format.toUpperCase()}</button
-        >{/each}{/if}
-    {#if target}<button
-        class="danger"
-        disabled={projectState.readOnly}
-        onclick={() => run(() => remove(target))}>{t('sharedFolders.remove')}</button
-      >{/if}
-  </div>{/if}
-
-{#if fileMenu}{@const ref = fileMenu.ref}
-  <div
-    class="folder-menu card"
-    data-directory-file-menu
-    style:left={`${fileMenu.x}px`}
-    style:top={`${fileMenu.y}px`}
-    use:portal
-  >
-    <button
-      onclick={() => {
-        const picked = ref
-        fileMenu = null
-        openFile(picked)
-      }}>{t('sharedFolders.openFile')}</button
-    >
-    <button
-      onclick={() => {
-        const picked = ref
-        fileMenu = null
-        void copyProjectRecords(project, [picked], 'copy')
-      }}>{t('sharedFolders.copy')}</button
-    >
-    <button
-      disabled={projectState.readOnly}
-      onclick={() => {
-        const picked = ref
-        fileMenu = null
-        void copyProjectRecords(project, [picked], 'cut')
-      }}>{t('sharedFolders.cut')}</button
-    >
-    <button
-      disabled={projectState.readOnly}
-      onclick={() => {
-        const picked = ref
-        fileMenu = null
-        void moveFile(picked)
-      }}>{t('sharedFolders.move')}</button
-    >
-    <button
-      disabled={projectState.readOnly}
-      onclick={() => {
-        fileMenu = null
-        paste(currentId)
-      }}>{t('sharedFolders.paste')}</button
-    >
-  </div>{/if}
+<ProjectDirectoryMenus
+  {project}
+  {currentId}
+  {rootView}
+  {kind}
+  {formats}
+  bind:recursive
+  bind:menu
+  bind:fileMenu
+  {onroot}
+  {onbrowse}
+  {onopen}
+  {create}
+  {rename}
+  {tags}
+  {chooseMove}
+  {clipboard}
+  {paste}
+  {onimport}
+  {onexport}
+  {remove}
+  {openFile}
+  {moveFile}
+  {removeFile}
+/>
 
 <style>
   .directory {
     min-width: 0;
     padding: 8px;
+    color: var(--text);
+  }
+  .directory :global(svg) {
+    stroke-width: 1.5;
+    flex: none;
   }
   .toolbar,
   .crumbs {
     flex-wrap: wrap;
     margin-block-end: 10px;
+    gap: 8px;
   }
   h2 {
     font-size: 1rem;
     margin: 0;
+    font-weight: 600;
+    min-width: 0;
+    flex: 1 0 160px;
   }
-  .tree-toggle {
-    width: 100%;
-    justify-content: start;
+  .directory-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .folder-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 9px;
   }
   .folder-row {
     position: relative;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius-sm, 8px);
     min-width: 0;
+    background: var(--bg-elev);
+    color: var(--text);
+  }
+  .folder-row:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-strong);
+  }
+  .root-drop {
+    outline: 2px solid var(--accent);
+    background: var(--accent-soft);
   }
   .folder-row.over {
     outline: 2px solid var(--accent);
@@ -818,24 +881,43 @@
   .folder-open {
     border: 0;
     background: transparent;
-    color: inherit;
+    color: var(--text);
     cursor: pointer;
     width: 100%;
     display: flex;
-    min-height: 116px;
+    min-height: 106px;
     align-items: center;
     justify-content: center;
     flex-direction: column;
-    gap: 6px;
+    gap: 7px;
     padding: 14px;
+  }
+  .folder-open :global(svg) {
+    color: var(--accent);
   }
   .folder-open strong {
     overflow-wrap: anywhere;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  .folder-open.active {
+    background: var(--accent-soft);
+  }
+  .folder-open:focus-visible,
+  .tree-fold:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  .folder-count {
+    color: var(--text-3);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
   }
   .more {
     position: absolute;
-    inset-inline-end: 1px;
-    inset-block-start: 1px;
+    inset-inline-end: 2px;
+    inset-block-start: 2px;
+    color: var(--text-2);
   }
   .details {
     grid-template-columns: 1fr;
@@ -852,7 +934,7 @@
     text-align: start;
   }
   .detail-heading {
-    color: var(--muted);
+    color: var(--text-2);
     font-size: 0.8rem;
   }
   .details .folder-open strong {
@@ -863,55 +945,79 @@
     font-size: 0.8rem;
     overflow-wrap: anywhere;
   }
+  .compact {
+    padding: 4px;
+  }
   .compact .folder-grid {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
   }
   .compact .folder-row {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) 24px;
+    align-items: center;
     border: 0;
-    margin-inline-start: calc(var(--depth) * 12px);
+    border-radius: var(--radius-sm, 5px);
+    margin: 0;
+    padding-inline-start: calc(var(--depth) * 16px);
+    background: transparent;
   }
-  .compact .folder-open {
-    min-height: 30px;
-    flex-direction: row;
+  .compact .folder-row:hover {
+    background: var(--bg-hover);
+  }
+  .compact .folder-open,
+  .tree-root-row .folder-open {
+    min-height: 32px;
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    align-items: center;
     justify-content: start;
-    padding: 5px 28px 5px 5px;
+    padding: 5px 4px;
     gap: 6px;
     text-align: start;
+    border-radius: var(--radius-sm, 5px);
   }
   .compact .folder-open strong {
-    flex: 1;
-    font-weight: 500;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
   }
-  .folder-menu {
-    position: fixed;
-    z-index: 1400;
-    width: 250px;
-    max-height: calc(100vh - 20px);
-    overflow: auto;
-    padding: 5px;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 6px 25px #0003;
+  .compact .more {
+    position: static;
+    width: 24px;
+    padding: 4px;
   }
-  .folder-menu button {
+  .tree-fold,
+  .tree-fold-placeholder {
+    width: 18px;
+    height: 24px;
+    display: grid;
+    place-items: center;
     background: transparent;
     border: 0;
-    color: inherit;
-    padding: 6px 10px;
-    text-align: start;
+    color: var(--text-2);
+    padding: 0;
+  }
+  .tree-fold {
     cursor: pointer;
   }
-  .folder-menu button:hover {
-    background: var(--hover);
+  .tree-root-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 24px;
+    align-items: center;
+    margin-block-end: 3px;
   }
-  .folder-menu button:disabled {
-    opacity: 0.4;
-    cursor: default;
+  .tree-root-row strong {
+    font-weight: 600;
   }
-  .folder-menu .danger {
-    color: var(--danger);
+  .menu-slot {
+    width: 24px;
+  }
+  .directory-empty {
+    padding: 12px;
+    font-size: 0.85rem;
   }
 </style>

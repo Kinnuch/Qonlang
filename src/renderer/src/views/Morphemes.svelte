@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import RecordClipboardTools from '$lib/ui/RecordClipboardTools.svelte'
   import { copyRecords, pasteRecords } from '$lib/state/recordClipboard.svelte'
   import { deletable } from '$lib/ui/deletable'
@@ -66,9 +67,13 @@
   const sameLang = memo.lang === projectState.currentLanguageId
   let selectedId = $state<Id | null>(sameLang ? (memo.selectedId ?? null) : null)
   let multiIds = $state<Id[]>([])
+  onDestroy(() => {
+    if (multiIds.length > 1) ui.clearViewSelection('morphemes')
+  })
   function clearBulkSelection(): void {
     multiIds = []
     selectedId = null
+    anchorId = null
   }
   const selectionActions = $derived([{ label: t('lexicon.clearSel'), run: clearBulkSelection }])
   let anchorId = $state<Id | null>(null)
@@ -478,6 +483,7 @@
   </div>
   <Hint id="morphemes" text={t('morphemes.hint')} />
   <RecordClipboardTools
+    controls={false}
     {project}
     kind="morpheme"
     ids={clipboardIds}
@@ -569,12 +575,25 @@
     {#if multiIds.length > 1}
       <div class="row bulk" data-morpheme-selection>
         <span class="small">{t('lexicon.selectedN', { n: multiIds.length })}</span>
+        <RecordClipboardTools
+          {project}
+          kind="morpheme"
+          ids={clipboardIds}
+          targetLanguageId={langId}
+          listen={false}
+          onpasted={(ids) => {
+            multiIds = ids
+            selectedId = ids[0] ?? null
+          }}
+        />
+
+        <button class="btn ghost sm" onclick={clearBulkSelection}>{t('lexicon.clearSel')}</button>
+
         <button
           class="btn ghost sm danger"
           disabled={projectState.readOnly}
           onclick={removeSelected}><Trash2 size={14} />{t('common.delete')}</button
         >
-        <button class="btn ghost sm" onclick={clearBulkSelection}>{t('lexicon.clearSel')}</button>
       </div>
     {/if}
     <div class="table-wrap" use:navScroll={'morphemes'}>

@@ -27,6 +27,7 @@
   import { posStemSlotList, posText, sensePos } from '$lib/core/pos'
   import { pronunciationOf } from '$lib/core/pronounce'
   import { displayTextRows } from '$lib/core/displayLanguages'
+  import { badgeColorStyle, lexiconTagColor } from '$lib/core/lexemeColors'
 
   /** 显示模式下屈折形那一块收没收起（录入模式那边另记，见 Lexicon 的 FORMS_FOLD_EDIT） */
   const FORMS_FOLD_ID = 'lex.forms:show'
@@ -108,7 +109,12 @@
     looseForms.map(([k, f]) => ({ k, v: f.surface, derived: f.derived, ipa: f.ipa }))
   )
   const lang = $derived(project.languages.find((x) => x.id === l.languageId))
-  const pos = $derived(project.posList.find((p) => p.id === l.posId))
+  const headerPos = $derived(
+    [...new Set([l.posId, ...(l.extraPosIds ?? [])])].flatMap((id) => {
+      const pos = project.posList.find((p) => p.id === id)
+      return pos ? [pos] : []
+    })
+  )
   /** 各块的顺序：皮肤页里拖着排，没排过就用默认顺序 */
   const blocks = $derived(cardBlocks(ui.prefs.cardOrder))
   const visible = (key: string): boolean =>
@@ -230,7 +236,11 @@
           {x.text}
         </div>{/each}
       <div class="row meta">
-        {#if pos}<span class="pos">{pos.abbr || pickText(pos.name, glossLangs)}</span>{/if}
+        {#each headerPos as pos (pos.id)}<span
+            class="pos rounded-badge"
+            data-lexicon-pos={pos.id}
+            style={badgeColorStyle(pos.color)}>{pos.abbr || pickText(pos.name, glossLangs)}</span
+          >{/each}
         {#each pron as p, pi (pi)}<span class="ipa data" title={orthoIpaLabel(p.name, pron.length)}
             >{pronText(p.p.ipa)}{#if pron.length > 1}<span class="tiny">{p.name}</span>{/if}</span
           >{/each}
@@ -261,20 +271,32 @@
       {#each displayTextRows(s.definition, project.settings.definitionDisplay, glossLangs, 'preferred') as definition (definition.language)}
         {@const g = definition.language}
         {#if s.definition[g]}<p class="def" lang={g}>
-            {#if g === firstLang}{#if sp}<span class="spos" title={pickText(sp.name, glossLangs)}
-                  >{posText(sp, glossLangs)}</span
+            {#if g === firstLang}{#if sp}<span
+                  class="spos rounded-badge"
+                  data-lexicon-pos={sp.id}
+                  style={badgeColorStyle(sp.color)}
+                  title={pickText(sp.name, glossLangs)}>{posText(sp, glossLangs)}</span
                 >{/if}{#each regsOf(s) as r (r)}<span class="reg" title={r}>{regLabel(r)}</span
                 >{/each}{/if}{s.definition[g]}
           </p>{/if}
       {/each}
       {#if !firstLang && (regsOf(s).length || sp)}
         <p class="def">
-          {#if sp}<span class="spos">{posText(sp, glossLangs)}</span
+          {#if sp}<span
+              class="spos rounded-badge"
+              data-lexicon-pos={sp.id}
+              style={badgeColorStyle(sp.color)}>{posText(sp, glossLangs)}</span
             >{/if}{#each regsOf(s) as r (r)}<span class="reg" title={r}>{regLabel(r)}</span>{/each}
         </p>
       {/if}
       {#if s.tags.length}
-        <p class="tiny muted tags">{s.tags.join(' · ')}</p>
+        <p class="tiny muted tags">
+          {#each s.tags as tag, ti (tag + ti)}<span
+              class="rounded-badge"
+              data-lexicon-tag={tag}
+              style={badgeColorStyle(lexiconTagColor(project, tag))}>{tag}</span
+            >{/each}
+        </p>
       {/if}
     {/snippet}
 
@@ -316,7 +338,11 @@
   {#snippet blockTags()}
     {#if l.tags.length}
       <div class="chips">
-        {#each l.tags as tg (tg)}<span class="chip tag">{tg}</span>{/each}
+        {#each l.tags as tg (tg)}<span
+            class="chip tag"
+            data-lexicon-tag={tg}
+            style={badgeColorStyle(lexiconTagColor(project, tg))}>{tg}</span
+          >{/each}
       </div>
     {/if}
   {/snippet}
@@ -587,6 +613,19 @@
   .pos {
     font-style: italic;
     color: var(--accent-text);
+  }
+  .rounded-badge {
+    display: inline-block;
+    padding: 1px 7px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-sunken);
+    font-size: 0.85em;
+    line-height: 1.4;
+    vertical-align: baseline;
+  }
+  .tags .rounded-badge {
+    margin-inline-end: 4px;
   }
   /* 勾了「影响发音」的槽位推出来的发音，跟在形式后面 */
   .form-ipa {

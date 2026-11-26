@@ -27,6 +27,11 @@ function bridge(): Bridge {
 
 export const electronPlatform: PlatformAPI = {
   kind: 'electron',
+  showContextMenu: (request) =>
+    bridge().invoke('ui:contextMenu', request) as Promise<string | null>,
+  closeContextMenu: async (id) => {
+    await bridge().invoke('ui:closeContextMenu', id)
+  },
   support(operation, input) {
     return bridge().support(operation, input)
   },

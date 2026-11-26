@@ -3,6 +3,12 @@ import type zh from './zh'
 type Dict = typeof zh
 
 const en: Dict = {
+  badgeColors: {
+    newTag: 'New tag color (shared by this tag name)',
+    tag: 'Color for “{name}” (shared by this tag name)',
+    pos: 'Part-of-speech badge color',
+    reset: 'Reset to theme default'
+  },
   scriptScope: {
     title: 'Corpus folder scope',
     hint: 'All applies to every sentence and phrase. Custom includes selected folders and their descendants, then removes excluded subtrees. Default means only unfiled records. This setting does not delete manual script forms or token analyses.',
@@ -19,8 +25,21 @@ const en: Dict = {
       'When two or more scripts apply, choose which to show for this sentence. A single applicable script is always shown; previous choices are kept.'
   },
   sharedFolders: {
+    root: 'Root directory',
+    sidebar: 'Folder sidebar',
+    showSidebar: 'Show folder sidebar',
+    hideSidebar: 'Hide entire sidebar',
+    expandBranch: 'Expand subfolders',
+    collapseBranch: 'Collapse subfolders',
+    empty: 'This folder is empty.',
+    countHint: 'Includes sentences, phrases and documents in this folder and all descendants.',
+    defaultHint:
+      'Default holds unassigned records only. Create, move or paste folders in Root directory.',
+    rootHint:
+      'All sentences, phrases and documents in the project. Default and top-level folders are siblings here.',
+
     count: 'Count',
-    title: 'Shared folders',
+    title: 'Root directory',
     create: 'New folder',
     rename: 'Rename',
     move: 'Move to folder',
@@ -377,9 +396,9 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again. Try drawing components, a grid preset, and shared folders for corpus examples, phrases and documents.',
+        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again. Try drawing components, a grid preset, and shared folders for corpus examples, phrases and documents. Try tag and part-of-speech colors, and inspect descendant counts in the project root.',
       tsahun:
-        'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font. Temporary classes map multi-character tone numbers to complete tone-letter sequences. An optional paradigm uses per-entry morpheme slots to reproduce corpus particle combinations.'
+        'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font. Temporary classes map multi-character tone numbers to complete tone-letter sequences. An optional paradigm uses per-entry morpheme slots to reproduce corpus particle combinations. Try tag and part-of-speech colors, and inspect descendant counts in the project root.'
     },
     coffee: 'Buy me a coffee',
     changelog: 'Changelog',
@@ -793,6 +812,10 @@ const en: Dict = {
     count: '{n} items'
   },
   morphemeSlots: {
+    deleteSlot: 'Delete morpheme slot “{name}”',
+    deleteImpact:
+      'This slot is shared by the project. Deleting it clears bindings on {words} entries. The {steps} paradigm steps that refer to it are kept so you can choose a new slot.',
+    deleted: 'Deleted morpheme slot “{name}”',
     title: 'Morpheme slots',
     hint: 'Define a reusable slot, then choose a specific morpheme in this entry’s language. Paradigms use the binding and select allomorphs by the current slot values and environment. Confirm a split before saving a stem; the headword stays unchanged.',
     add: 'Add morpheme slot',
@@ -1425,6 +1448,7 @@ const en: Dict = {
     favorite: 'Favourite',
     favOnly: 'Favourites only',
     marked: 'Mark',
+    markedOnly: 'Marked words only',
     markedHint: 'Show a symbol in front of this word; the symbol is set in Settings',
     pos: 'Part of speech',
     noPos: '(none)',
@@ -3019,8 +3043,9 @@ const en: Dict = {
     importBad: 'Not an interface translation file',
     untitled: 'Untitled translation',
     groups: {
+      badgeColors: 'Tag and part-of-speech colors',
       scriptScope: 'Corpus folder scope',
-      sharedFolders: 'Shared folders',
+      sharedFolders: 'Root directory',
       clipboard: 'Copy / Paste',
       glyphEditor: 'Drawing editor',
       docFolders: 'Document folders',

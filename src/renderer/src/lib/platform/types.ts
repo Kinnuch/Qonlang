@@ -16,6 +16,8 @@ export type {
 import type { Skin, UserSkinPreset } from '$lib/skin/presets'
 import type { CustomLocale } from '$lib/i18n/index.svelte'
 import type { GraphSettings } from '$lib/ui/graphSettings'
+import type { ContextMenuRequest } from '../../../../shared/context-menu'
+export type { ContextMenuItem, ContextMenuRequest } from '../../../../shared/context-menu'
 
 export type MenuAction =
   | 'save'
@@ -253,6 +255,8 @@ export interface AppInfo {
 }
 
 export interface PlatformAPI {
+  showContextMenu(request: ContextMenuRequest): Promise<string | null>
+  closeContextMenu(id: string): Promise<void>
   support(operation: SupportOperation, input?: SupportInput): Promise<SupportResult>
   account(operation: AccountOperation, input?: AccountInput): Promise<AccountResult>
   readonly kind: 'electron' | 'web'

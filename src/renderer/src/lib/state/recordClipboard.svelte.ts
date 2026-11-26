@@ -131,7 +131,8 @@ export async function pasteProjectRecords(
   project: Project,
   folderId: Id,
   event?: ClipboardEvent,
-  stillValid: () => boolean = () => true
+  stillValid: () => boolean = () => true,
+  options: { allowFolders?: boolean } = {}
 ): Promise<ProjectPasteResult | null> {
   if (!editable(project)) return null
   const section = ui.section,
@@ -150,8 +151,12 @@ export async function pasteProjectRecords(
     project,
     payload as Parameters<typeof pasteProjectClipboard>[1],
     folderId,
-    { newId }
+    { newId, ...options }
   )
+  if (!result.ok && result.reason === 'invalid-target' && options.allowFolders === false) {
+    ui.toast(t('sharedFolders.defaultHint'))
+    return result
+  }
   finish(project, result)
   return result
 }

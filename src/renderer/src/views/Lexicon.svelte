@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import { canonicalG, gEquivalent } from '$lib/ipa/equivalence'
   import RecordClipboardTools from '$lib/ui/RecordClipboardTools.svelte'
   import { copyRecords, pasteRecords } from '$lib/state/recordClipboard.svelte'
@@ -77,6 +78,14 @@
   import Portal from '$lib/ui/Portal.svelte'
   import Hint from '$lib/ui/Hint.svelte'
   import TagInput from '$lib/ui/TagInput.svelte'
+  import BadgeColorPicker from '$lib/ui/BadgeColorPicker.svelte'
+  import {
+    badgeColorStyle,
+    lexiconTagColor,
+    setLexiconTagColor,
+    pruneLexiconTagColors,
+    followLexiconTagRename
+  } from '$lib/core/lexemeColors'
   import LocalizedInput from '$lib/ui/LocalizedInput.svelte'
   import CsvImportWizard from '$lib/ui/CsvImportWizard.svelte'
   import DictExport from '$lib/ui/DictExport.svelte'
@@ -153,6 +162,7 @@
     endingFilter: Set<string> | null
     colFilters: Record<string, Set<string>>
     favOnly: boolean
+    markedOnly: boolean
   }>('lexicon')
   const sameLang = memo.lang === projectState.currentLanguageId
   let mode = $state<'entries' | 'taxonomy' | 'csv' | 'lexc' | 'export' | 'stats'>(
@@ -185,6 +195,7 @@
   let colFilters = $state<Record<string, Set<string>>>(memo.colFilters ?? {})
   /** 只看收藏（列表左边点亮的那些） */
   let favOnly = $state(memo.favOnly ?? false)
+  let markedOnly = $state(memo.markedOnly ?? false)
   /** 打了记号的词前面加的符号 */
   const markSymbol = $derived(project.settings.markSymbol || '*')
   function toggleFavorite(l: Lexeme): void {
@@ -278,6 +289,9 @@
     key.startsWith('feat:')
   /** Ctrl / Shift 多选出来的词条 */
   let multiIds = $state<Id[]>([])
+  onDestroy(() => {
+    if (multiIds.length > 1) ui.clearViewSelection('lexicon')
+  })
   let lastIndex = $state(-1)
   /** 从别处跳转过来时短暂高亮 */
   let flashId = $state<Id | null>(null)
@@ -336,7 +350,8 @@
       sortFromEnd,
       endingFilter,
       colFilters: { ...colFilters },
-      favOnly
+      favOnly,
+      markedOnly
     })
   })
   // 不是「返回」进来的：列表滚回上次离开时的位置
@@ -385,6 +400,7 @@
     const pq = parseQuery(query, searchFields)
     const arr = inLang.filter((l) => {
       if (favOnly && !l.favorite) return false
+      if (markedOnly && !l.marked) return false
       for (const [key, sel] of activeFilters)
         if (!filterValues(l, key).some((v) => sel.has(v))) return false
       if (pq.terms.length && !matchQuery(pq, (f) => lexemeFieldValues(l, f))) return false
@@ -528,6 +544,13 @@
   }
   const selected = $derived(project.lexemes.find((l) => l.id === selectedId) ?? null)
   const allTags = $derived([...new Set(project.lexemes.flatMap((l) => l.tags))].sort())
+  const posColors = $derived(new Map(project.posList.map((pos) => [pos.id, pos.color])))
+  function tagColor(tag: string): string | undefined {
+    return lexiconTagColor(project, tag)
+  }
+  function changeTagColor(tag: string, color: string | undefined): void {
+    if (!projectState.readOnly && setLexiconTagColor(project, tag, color)) touch()
+  }
   /** 语域：内置常用项 + 项目里已经用过的 */
   const registerOptions = $derived([
     ...new Set([
@@ -1189,6 +1212,7 @@
     ui.search = ''
     colFilters = {}
     endingFilter = null
+    markedOnly = false
     mode = 'entries'
     mainView = 'list'
     selectedId = id
@@ -1250,9 +1274,12 @@
   }
   // ── 批量标签：选中几条之后一起加、一起去掉、一起改名 ──
   let tagBoxOpen = $state(false)
+  let newTagColor = $state<string | undefined>(undefined)
   function clearBulkSelection(): void {
     multiIds = []
     tagBoxOpen = false
+    selectedId = null
+    lastIndex = -1
   }
   const selectionActions = $derived([
     {
@@ -1276,6 +1303,7 @@
   /** 这门语言里用过的标签，加标签时给提示 */
   const knownTags = $derived([...new Set(inLang.flatMap((l) => l.tags))].sort())
   function addTagToSelected(tag: string): void {
+    if (projectState.readOnly) return
     const tg = tag.trim()
     if (!tg) return
     for (const l of selectedLexemes)
@@ -1284,9 +1312,12 @@
         l.updatedAt = now()
       }
     newTag = ''
+    if (newTagColor) setLexiconTagColor(project, tg, newTagColor)
+    newTagColor = undefined
     touch()
   }
   function removeTagFromSelected(tag: string): void {
+    if (projectState.readOnly) return
     for (const l of selectedLexemes) {
       const i = l.tags.indexOf(tag)
       if (i >= 0) {
@@ -1294,18 +1325,23 @@
         l.updatedAt = now()
       }
     }
+    pruneLexiconTagColors(project)
     touch()
   }
   async function renameTagInSelected(tag: string): Promise<void> {
+    const owner = project,
+      targets = [...selectedLexemes]
     const name = (await ui.prompt(t('lexicon.tagRename'), tag))?.trim()
-    if (!name || name === tag) return
-    for (const l of selectedLexemes) {
+    if (!name || name === tag || projectState.project !== owner || projectState.readOnly) return
+    for (const l of targets) {
+      if (!owner.lexemes.includes(l)) continue
       const i = l.tags.indexOf(tag)
       if (i < 0) continue
       if (l.tags.includes(name)) l.tags.splice(i, 1)
       else l.tags[i] = name
       l.updatedAt = now()
     }
+    followLexiconTagRename(owner, tag, name)
     touch()
   }
   const clipboardIds = $derived(
@@ -1420,6 +1456,7 @@
   </div>
   <Hint id="lexicon" text={t('lexicon.hint')} />
   <RecordClipboardTools
+    controls={false}
     {project}
     kind="lexeme"
     ids={clipboardIds}
@@ -1602,16 +1639,29 @@
     {#if multiIds.length > 1}
       <div class="row bulk">
         <span class="small">{t('lexicon.selectedN', { n: multiIds.length })}</span>
+        <RecordClipboardTools
+          {project}
+          kind="lexeme"
+          ids={clipboardIds}
+          targetLanguageId={langId}
+          listen={false}
+          onpasted={(ids) => {
+            multiIds = ids
+            selectedId = ids[0] ?? null
+          }}
+        />
         <button
           class="btn ghost sm"
           disabled={projectState.readOnly}
           onclick={() => (tagBoxOpen = !tagBoxOpen)}
           ><Tags size={14} />{t('lexicon.bulkTag')}</button
         >
+
+        <button class="btn ghost sm" onclick={clearBulkSelection}>{t('lexicon.clearSel')}</button>
+
         <button class="btn ghost sm danger" onclick={removeSelected}
           ><Trash2 size={14} />{t('common.delete')}</button
         >
-        <button class="btn ghost sm" onclick={clearBulkSelection}>{t('lexicon.clearSel')}</button>
       </div>
       {#if tagBoxOpen}
         <div class="card tagbox">
@@ -1624,6 +1674,13 @@
               onkeydown={(e) => {
                 if (e.key === 'Enter') addTagToSelected(newTag)
               }}
+            />
+            <BadgeColorPicker
+              value={newTagColor}
+              label={t('badgeColors.newTag')}
+              readOnly={projectState.readOnly}
+              dataKey="bulk-new-tag"
+              onchange={(color) => (newTagColor = color)}
             />
             <button
               class="btn sm primary"
@@ -1643,7 +1700,14 @@
             <div class="row wrap tagrows">
               {#each selectedTags as [tg, n] (tg)}
                 <span class="tagrow">
-                  <span class="badge">{tg}</span>
+                  <span class="badge" style={badgeColorStyle(tagColor(tg))}>{tg}</span>
+                  <BadgeColorPicker
+                    value={tagColor(tg)}
+                    label={t('badgeColors.tag', { name: tg })}
+                    readOnly={projectState.readOnly}
+                    dataKey={'bulk-tag:' + tg}
+                    onchange={(color) => changeTagColor(tg, color)}
+                  />
                   <span class="small muted">{n}/{selectedLexemes.length}</span>
                   {#if n < selectedLexemes.length}
                     <button
@@ -1700,6 +1764,7 @@
                 onsort={() => cycleSort('lemma')}
                 options={filterOptions('lemma')}
                 selected={lemmaFilter ?? null}
+                extraFilterActive={markedOnly}
                 onfilter={(sel) => {
                   if (sortFromEnd) endingFilter = sel
                   else setFilter('lemma', sel)
@@ -1708,6 +1773,14 @@
                 canjump={(letter) => firstRowByLetter.has(letter)}
               >
                 {#snippet filterTools()}
+                  <button
+                    type="button"
+                    class="btn ghost sm"
+                    class:active={markedOnly}
+                    aria-pressed={markedOnly}
+                    data-lemma-marked-only
+                    onclick={() => (markedOnly = !markedOnly)}>{t('lexicon.markedOnly')}</button
+                  >
                   <label class="ending-sort">
                     <input
                       type="checkbox"
@@ -1822,12 +1895,18 @@
                 {#if c.key === 'pos'}
                   <td class="pos"
                     >{#each [l.posId, ...(l.extraPosIds ?? [])].filter(Boolean) as pid (pid)}<span
-                        class="badge">{posLabel(pid)}</span
+                        class="badge"
+                        data-lexicon-pos={pid}
+                        style={badgeColorStyle(posColors.get(pid!))}>{posLabel(pid)}</span
                       >{/each}</td
                   >
                 {:else if c.key === 'tags'}
                   <td class="tags-cell"
-                    >{#each l.tags.slice(0, 4) as tg (tg)}<span class="badge">{tg}</span>{/each}</td
+                    >{#each l.tags.slice(0, 4) as tg (tg)}<span
+                        class="badge"
+                        data-lexicon-tag={tg}
+                        style={badgeColorStyle(tagColor(tg))}>{tg}</span
+                      >{/each}</td
                   >
                 {:else if c.key.startsWith('script:')}
                   {@const sc = scriptOf(c.key.slice(7))}
@@ -2079,8 +2158,14 @@
       <TagInput
         bind:tags={l.tags}
         suggestions={allTags}
+        colorOf={tagColor}
+        oncolor={changeTagColor}
+        readOnly={projectState.readOnly}
         placeholder={t('lexicon.tagsPlaceholder')}
-        onchange={() => touch(l)}
+        onchange={() => {
+          pruneLexiconTagColors(project)
+          touch(l)
+        }}
       />
     </div>
 

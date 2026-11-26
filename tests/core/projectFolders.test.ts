@@ -682,4 +682,85 @@ describe('atomic folder and record clipboard operations', () => {
     )
     expect(project.sentences.every((record) => record.folderId === 'target')).toBe(true)
   })
+
+  it.each(['copy', 'cut'] as const)(
+    'pastes plain %s records into Default when folders are disallowed',
+    (mode) => {
+      const f = fixture(),
+        { project } = f
+      createProjectFolder(project, 'Source', 'source')
+      moveProjectRecords(project, refsOf(f), 'source')
+      const clipboard = createProjectClipboard(project, refsOf(f), mode, { now: 1 })!
+      expect(clipboard.folders).toEqual([])
+      const result = pasteProjectClipboard(project, clipboard, '', {
+        now: 2,
+        allowFolders: false,
+        newId: ids('record')
+      })
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.refs).toHaveLength(3)
+      for (const ref of result.refs) {
+        const list =
+          ref.kind === 'sentence'
+            ? project.sentences
+            : ref.kind === 'phrase'
+              ? project.phrasebook
+              : project.docs
+        expect(list.find((record) => record.id === ref.id)!.folderId).toBeUndefined()
+      }
+      expect(project.folders!.map((folder) => folder.id)).toEqual(['source'])
+    }
+  )
+
+  it.each(['copy', 'cut'] as const)(
+    'rejects directory %s into Default without writing or consuming it, then permits Root',
+    (mode) => {
+      const f = fixture(),
+        { project } = f
+      createProjectFolder(project, 'Holder', 'holder')
+      createProjectFolder(project, 'Source', 'source', 'holder')
+      createProjectFolder(project, 'Child', 'child', 'source')
+      moveProjectRecords(project, refsOf(f), 'child')
+      const clipboard = createProjectClipboard(project, [{ kind: 'folder', id: 'source' }], mode, {
+          now: 1
+        })!,
+        before = serializeProject(project),
+        fresh = ids('folder')
+      let allocations = 0
+      const allocate = () => {
+        allocations++
+        return fresh()
+      }
+      expect(
+        pasteProjectClipboard(project, clipboard, '', {
+          now: 2,
+          allowFolders: false,
+          newId: allocate
+        })
+      ).toEqual({ ok: false, reason: 'invalid-target' })
+      expect(serializeProject(project)).toBe(before)
+      expect(allocations).toBe(0)
+      const result = pasteProjectClipboard(project, clipboard, '', {
+        now: 3,
+        allowFolders: true,
+        newId: allocate
+      })
+      expect(result).toMatchObject({ ok: true })
+      if (!result.ok) return
+      expect(result.folderIds).toHaveLength(1)
+      expect(projectFolderPath(project, result.folderIds[0]).map((folder) => folder.name)).toEqual([
+        'Source'
+      ])
+      expect(result.refs).toHaveLength(3)
+      const copiedSentence = project.sentences.find(
+        (record) => record.id === result.refs.find((ref) => ref.kind === 'sentence')!.id
+      )!
+      expect(
+        projectFolderPath(project, copiedSentence.folderId!).map((folder) => folder.name)
+      ).toEqual(['Source', 'Child'])
+      if (mode === 'cut') expect(project.sentences).toHaveLength(1)
+      else expect(project.sentences).toHaveLength(2)
+    }
+  )
 })

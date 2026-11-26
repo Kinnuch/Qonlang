@@ -67,7 +67,18 @@
   import Workbench, { type BenchResult, type BenchSaved } from '$lib/ui/Workbench.svelte'
   import { pinChoices } from '$lib/engine/compose'
   import { uiGlossCode } from '$lib/core/glossInputs'
-  import { Plus, Trash2, X, Wand2, Upload, Download, PencilRuler, FolderOpen } from '@lucide/svelte'
+  import {
+    Plus,
+    Trash2,
+    X,
+    Wand2,
+    Upload,
+    Download,
+    PencilRuler,
+    FolderOpen,
+    PanelLeftOpen,
+    PanelLeftClose
+  } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { sortable, type SortableProps } from '$lib/ui/sortable.svelte'
@@ -94,6 +105,8 @@
     category: string
     folderId: Id
     folderView: boolean
+    directoryRoot: boolean
+    sidebarOpen: boolean
     /** 开着的工作台：填回哪一条、拼到哪儿了（跳去词库新建词条再回来，照原样摆回去） */
     bench: { targetId: Id | null; initial: string; saved?: BenchSaved } | null
   }>('phrasebook')
@@ -102,12 +115,15 @@
   let category = $state<string>(sameLang ? (memo.category ?? '') : '')
   let folderId = $state<Id>(memo.folderId ?? '')
   let folderView = $state(memo.folderView ?? false)
+  let directoryRoot = $state(memo.directoryRoot ?? false)
+  let sidebarOpen = $state(memo.sidebarOpen ?? false)
   let importTarget = $state<{ projectId: Id; languageId: Id; folderId: Id } | null>(null)
   function openFolder(id: Id): void {
     if (!validProjectFolder(project, id)) return
     wordHover.hide(true)
     folderId = id
     folderView = false
+    directoryRoot = false
     selectedId = null
     category = ''
     ui.search = ''
@@ -117,6 +133,15 @@
   function browseFolder(id: Id): void {
     openFolder(id)
     folderView = true
+  }
+  function browseRoot(): void {
+    openFolder('')
+    folderView = true
+    directoryRoot = true
+  }
+  function showFolders(): void {
+    if (folderId) browseFolder(folderId)
+    else browseRoot()
   }
   function recordActions(p: Phrase): NonNullable<DeleteOptions['actions']> {
     return [
@@ -483,7 +508,9 @@
       lang: projectState.currentLanguageId,
       id: selectedId,
       category,
-      docFolder: folderId
+      docFolder: folderId,
+      root: directoryRoot ? '1' : '',
+      folders: folderView ? '1' : ''
     })
   })
   $effect(() => {
@@ -495,7 +522,8 @@
     folderId = selectedId
       ? projectFolderOf(project, project.phrasebook.find((item) => item.id === selectedId) ?? {})
       : (v.docFolder ?? '')
-    folderView = false
+    folderView = v.folders === '1'
+    directoryRoot = v.root === '1'
     ui.restoreScroll('phrasebook', r.scroll)
   })
   $effect(() => {
@@ -504,7 +532,9 @@
       selectedId,
       category,
       folderId,
-      folderView
+      folderView,
+      directoryRoot,
+      sidebarOpen
     })
   })
   if (sameLang && !ui.restoring('phrasebook'))
@@ -520,6 +550,7 @@
     selectedId = id
     folderId = projectFolderOf(project, ph)
     folderView = false
+    directoryRoot = false
     void scrollToItem('phrasebook', `.item[data-id="${id}"]`, () => {
       const i = list.findIndex((x) => x.id === id)
       if (i >= 0) lz.ensure(i + 1)
@@ -549,7 +580,8 @@
       owner,
       target,
       undefined,
-      () => projectState.project === owner && folderId === target && !folderView
+      () => projectState.project === owner && folderId === target && !folderView,
+      { allowFolders: !!target }
     )
   }
   function touch(): void {
@@ -610,6 +642,7 @@
     closeBench()
     selectedId = p.id
     folderView = false
+    directoryRoot = false
     touch()
     ui.toast(t('bench.added'))
   }
@@ -618,6 +651,7 @@
     const p = createPhrase(langId, category)
     if (folderId) p.folderId = folderId
     folderView = false
+    directoryRoot = false
     project.phrasebook.unshift(p)
     selectedId = p.id
     touch()
@@ -706,6 +740,7 @@
     importTarget = { projectId: project.meta.id, languageId: langId, folderId: target }
     folderId = target
     folderView = false
+    directoryRoot = false
     importJson = jsonFirst
     importNonce++
     importOpen = true
@@ -777,11 +812,20 @@
   <div class="page-head row">
     <h1>{t('phrasebook.title')}</h1>
     <GuideLink section="phrasebook" />
+    <button
+      class="btn sidebar-toggle"
+      data-page-sidebar-toggle="phrasebook"
+      aria-controls="phrasebook-sidebar"
+      aria-expanded={sidebarOpen}
+      title={t(sidebarOpen ? 'sharedFolders.hideSidebar' : 'sharedFolders.showSidebar')}
+      onclick={() => (sidebarOpen = !sidebarOpen)}
+      >{#if sidebarOpen}<PanelLeftClose size={16} />{:else}<PanelLeftOpen size={16} />{/if}<span
+        >{t('sharedFolders.sidebar')}</span
+      ></button
+    >
+
     <span class="grow"></span>
-    {#if !folderView}<button
-        class="btn"
-        data-phrase-show-folders
-        onclick={() => browseFolder(folderId)}
+    {#if !folderView}<button class="btn" data-phrase-show-folders onclick={showFolders}
         ><FolderOpen size={16} />{t('sharedFolders.back')}</button
       >{/if}
     {#if language && !folderView}
@@ -803,6 +847,7 @@
   </div>
   <Hint id="phrasebook" text={t('phrasebook.hint')} />
   {#if !folderView}<RecordClipboardTools
+      controls={false}
       {project}
       kind="phrase"
       ids={selectedId ? [selectedId] : []}
@@ -847,113 +892,124 @@
       />{/key}
   {:else if !language}
     <p class="muted">{t('lexicon.noLanguage')}</p>
-  {:else if folderView}
-    <div class="scroll">
-      <ProjectDirectory
-        kind="phrase"
-        currentId={folderId}
-        onopen={openFolder}
-        onbrowse={browseFolder}
-        onimport={(target, json) => openImport(json, target)}
-        onexport={(target, format, recursive) =>
-          exportPhrases(format as 'csv' | 'json', target, recursive)}
-      />
-    </div>
   {:else}
     <div class="body">
-      <aside class="cats" data-tour="phrasebook-cats">
-        <ProjectDirectory
-          kind="phrase"
-          currentId={folderId}
-          compact
-          onopen={openFolder}
-          onbrowse={browseFolder}
-        />
-        <button class="cat" class:active={category === ''} onclick={() => (category = '')}
-          >{t('phrasebook.allCategories')}<span class="n">{inLang.length}</span></button
+      {#if sidebarOpen}<aside
+          class="cats"
+          id="phrasebook-sidebar"
+          data-page-sidebar="phrasebook"
+          data-tour="phrasebook-cats"
         >
-        {#each categories as c (c)}
-          <button
-            class="cat"
-            class:active={category === c}
-            onclick={() => (category = c)}
-            ondblclick={renameCategory}
-            >{c}<span class="n">{inLang.filter((p) => p.category === c).length}</span></button
+          <ProjectDirectory
+            kind="phrase"
+            currentId={folderId}
+            rootView={directoryRoot}
+            onroot={browseRoot}
+            compact
+            onopen={openFolder}
+            onbrowse={browseFolder}
+          />
+          <button class="cat" class:active={category === ''} onclick={() => (category = '')}
+            >{t('phrasebook.allCategories')}<span class="n">{inLang.length}</span></button
           >
-        {/each}
-        {#if categories.length === 0}<p class="tiny muted">{t('phrasebook.noCategories')}</p>{/if}
-      </aside>
-      <div class="scroll" use:navScroll={'phrasebook'}>
-        {#if list.length === 0}
-          <p class="muted">{t('phrasebook.empty')}</p>
-        {:else}
-          <div class="list">
-            {#each list.slice(0, lz.shown) as p, pi (p.id)}
-              {@const view = phraseView(p)}
-              <div
-                class="card item"
-                data-id={p.id}
-                use:deletable={{
-                  selected: selectedId === p.id,
-                  select: () => {
-                    selectedId = p.id
-                  },
-                  actions: recordActions(p),
-                  remove: () => remove(p)
-                }}
-                class:sel={selectedId === p.id}
-                class:flash={flashId === p.id}
-                role="button"
-                tabindex="0"
-                {...phraseSortable(pi, p)}
-                onclick={() => (selectedId = p.id)}
-                onkeydown={(e) => e.key === 'Enter' && (selectedId = p.id)}
-              >
-                {#each scriptScope.applicable(p) as sc (sc.id)}
-                  {@const st = textScript(project, language, sc, p.text)}
-                  {#if st}<div
-                      class="scr"
-                      style={fontCss(sc)}
-                      dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'}
+          {#each categories as c (c)}
+            <button
+              class="cat"
+              class:active={category === c}
+              onclick={() => (category = c)}
+              ondblclick={renameCategory}
+              >{c}<span class="n">{inLang.filter((p) => p.category === c).length}</span></button
+            >
+          {/each}
+          {#if categories.length === 0}<p class="tiny muted">{t('phrasebook.noCategories')}</p>{/if}
+        </aside>{/if}
+      {#if folderView}
+        <div class="scroll">
+          <ProjectDirectory
+            kind="phrase"
+            currentId={folderId}
+            rootView={directoryRoot}
+            onroot={browseRoot}
+            onopen={openFolder}
+            onbrowse={browseFolder}
+            onimport={(target, json) => openImport(json, target)}
+            onexport={(target, format, recursive) =>
+              exportPhrases(format as 'csv' | 'json', target, recursive)}
+          />
+        </div>
+      {:else}
+        <div class="scroll" use:navScroll={'phrasebook'}>
+          {#if list.length === 0}
+            <p class="muted">{t('phrasebook.empty')}</p>
+          {:else}
+            <div class="list">
+              {#each list.slice(0, lz.shown) as p, pi (p.id)}
+                {@const view = phraseView(p)}
+                <div
+                  class="card item"
+                  data-id={p.id}
+                  use:deletable={{
+                    selected: selectedId === p.id,
+                    select: () => {
+                      selectedId = p.id
+                    },
+                    actions: recordActions(p),
+                    remove: () => remove(p)
+                  }}
+                  class:sel={selectedId === p.id}
+                  class:flash={flashId === p.id}
+                  role="button"
+                  tabindex="0"
+                  {...phraseSortable(pi, p)}
+                  onclick={() => (selectedId = p.id)}
+                  onkeydown={(e) => e.key === 'Enter' && (selectedId = p.id)}
+                >
+                  {#each scriptScope.applicable(p) as sc (sc.id)}
+                    {@const st = textScript(project, language, sc, p.text)}
+                    {#if st}<div
+                        class="scr"
+                        style={fontCss(sc)}
+                        dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'}
+                      >
+                        {st}
+                      </div>{/if}
+                  {/each}
+                  <div class="row">
+                    <span class="data text grow words"
+                      >{#each view.spans as sp, i (i)}{#if sp.word}<span
+                            class="w"
+                            class:link={spanLinkable(p, view.tokens, sp)}
+                            role="link"
+                            tabindex="-1"
+                            onmouseenter={(e) => hoverWord(e, p, view.tokens, sp.at)}
+                            onmouseleave={() => wordHover.hide()}
+                            onclick={(e) => clickWord(e, p, view.tokens, sp)}
+                            onkeydown={() => {}}>{sp.text}</span
+                          >{:else}{sp.text}{/if}{/each}{#if !p.text}—{/if}</span
                     >
-                      {st}
+                    {#if p.category && !category}<span class="badge">{p.category}</span>{/if}
+                  </div>
+                  {#each language.orthographies as o (o.id)}
+                    {#if p.pronunciations[o.id]?.ipa}<div class="small data muted">
+                        /{p.pronunciations[o.id].ipa}/
+                      </div>{/if}
+                  {/each}
+                  {#each displayTextRows( p.translation, project.settings.translationDisplay, [i18n.locale, i18n.custom?.base ?? '', ...glossLangs] ) as row (row.language)}<div
+                      class="small tr"
+                      lang={row.language}
+                    >
+                      {row.text}
+                    </div>{/each}
+                  {#if p.variants.length}<div class="tiny muted">
+                      {p.variants.map((v) => v.text).join(' · ')}
                     </div>{/if}
-                {/each}
-                <div class="row">
-                  <span class="data text grow words"
-                    >{#each view.spans as sp, i (i)}{#if sp.word}<span
-                          class="w"
-                          class:link={spanLinkable(p, view.tokens, sp)}
-                          role="link"
-                          tabindex="-1"
-                          onmouseenter={(e) => hoverWord(e, p, view.tokens, sp.at)}
-                          onmouseleave={() => wordHover.hide()}
-                          onclick={(e) => clickWord(e, p, view.tokens, sp)}
-                          onkeydown={() => {}}>{sp.text}</span
-                        >{:else}{sp.text}{/if}{/each}{#if !p.text}—{/if}</span
-                  >
-                  {#if p.category && !category}<span class="badge">{p.category}</span>{/if}
                 </div>
-                {#each language.orthographies as o (o.id)}
-                  {#if p.pronunciations[o.id]?.ipa}<div class="small data muted">
-                      /{p.pronunciations[o.id].ipa}/
-                    </div>{/if}
-                {/each}
-                {#each displayTextRows( p.translation, project.settings.translationDisplay, [i18n.locale, i18n.custom?.base ?? '', ...glossLangs] ) as row (row.language)}<div
-                    class="small tr"
-                    lang={row.language}
-                  >
-                    {row.text}
-                  </div>{/each}
-                {#if p.variants.length}<div class="tiny muted">
-                    {p.variants.map((v) => v.text).join(' · ')}
-                  </div>{/if}
-              </div>
-            {/each}
-            {#if list.length > lz.shown}<div class="more-mark" use:lazyMore={lz}></div>{/if}
-          </div>
-        {/if}
-      </div>
+              {/each}
+              {#if list.length > lz.shown}<div class="more-mark" use:lazyMore={lz}></div>{/if}
+            </div>
+          {/if}
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
@@ -1103,6 +1159,7 @@
     height: 100%;
   }
   .page-head {
+    flex-wrap: wrap;
     gap: 10px;
   }
   .body {
@@ -1112,7 +1169,7 @@
     gap: 16px;
   }
   .cats {
-    width: 180px;
+    width: 230px;
     flex: none;
     display: flex;
     flex-direction: column;
@@ -1198,5 +1255,10 @@
   }
   .tiny {
     font-size: 11px;
+  }
+  @media (max-width: 900px) {
+    .cats {
+      width: 180px;
+    }
   }
 </style>

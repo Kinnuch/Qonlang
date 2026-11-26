@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import { deletable } from '$lib/ui/deletable'
   import RecordClipboardTools from '$lib/ui/RecordClipboardTools.svelte'
   import { copyProjectRecords, pasteProjectRecords } from '$lib/state/recordClipboard.svelte'
@@ -29,7 +30,6 @@
   import { i18n, t, pickText } from '$lib/i18n/index.svelte'
   import { displayTextRows } from '$lib/core/displayLanguages'
   import { createScriptScopeResolver, setSentenceScriptVisible } from '$lib/core/scriptScope'
-  import SentenceScriptPicker from '$lib/ui/SentenceScriptPicker.svelte'
   import { createSentence, createLexeme, newId } from '$lib/core/factory'
   import { buildSentenceDocReferences } from '$lib/core/docReferences'
   import type { Analysis, Id, Sentence, Token } from '$lib/core/model'
@@ -82,7 +82,10 @@
     Sparkles,
     Merge,
     FolderOpen,
-    PencilRuler
+    PencilRuler,
+    PanelLeftOpen,
+    PanelLeftClose,
+    HardDrive
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
@@ -137,6 +140,8 @@
     collapsedId: Id | null
     folderId: Id
     folderView: boolean
+    directoryRoot: boolean
+    sidebarOpen: boolean
     exportFormat: 'leipzig' | 'markdown' | 'html' | 'latex' | 'template'
     templateId: string
     /** 开着的工作台：填回哪一句、拼到哪儿了（跳去词库新建词条再回来，照原样摆回去） */
@@ -149,6 +154,8 @@
     selectionAnchor = $state<Id | null>(null)
   let folderId = $state<Id>(sameLang ? (memo.folderId ?? '') : '')
   let folderView = $state(sameLang && memo.folderView === true)
+  let directoryRoot = $state(memo.directoryRoot ?? false)
+  let sidebarOpen = $state(memo.sidebarOpen ?? false)
   let movingSentence = $state(false)
   const folders = $derived(langId ? corpusFoldersFor(project, langId) : [])
   const knownFolderIds = $derived(new Set(folders.map((folder) => folder.id)))
@@ -186,6 +193,9 @@
     )
   })
   const visibleIds = $derived(list.map((sentence) => sentence.id))
+  onDestroy(() => {
+    if (multiIds.length > 1) ui.clearViewSelection('corpus')
+  })
   const selectedIds = $derived(new Set(multiIds))
   const selectedVisibleIds = $derived(visibleIds.filter((id) => selectedIds.has(id)))
   const selectedVisibleSet = $derived(new Set(selectedVisibleIds))
@@ -199,7 +209,8 @@
       owner,
       at,
       undefined,
-      () => projectState.project === owner && folderId === at && mode === 'entries' && !folderView
+      () => projectState.project === owner && folderId === at && mode === 'entries' && !folderView,
+      { allowFolders: !!at }
     )
     if (result?.ok) {
       const ids = result.refs.filter((r) => r.kind === 'sentence').map((r) => r.id)
@@ -309,6 +320,7 @@
     ui.search = q
     mode = 'entries'
     folderView = false
+    directoryRoot = false
   }
   const templates = $derived(project.settings.exportTemplates.filter((x) => x.kind === 'gloss'))
 
@@ -336,6 +348,7 @@
       mode,
       folder: folderId,
       folders: folderView ? '1' : '',
+      root: directoryRoot ? '1' : '',
       bench: bench ? '1' : '',
       collapsed: collapsedId && collapsedId === selectedId ? '1' : ''
     })
@@ -348,6 +361,7 @@
     collapsedId = v.collapsed === '1' ? selectedId : null
     folderId = v.folder ?? ''
     folderView = v.folders === '1'
+    directoryRoot = v.root === '1'
     mode = v.mode === 'stats' || v.mode === 'abbr' ? v.mode : 'entries'
     bench =
       v.bench === '1' && memo.bench
@@ -363,6 +377,8 @@
       collapsedId,
       folderId,
       folderView,
+      directoryRoot,
+      sidebarOpen,
       exportFormat,
       templateId
     })
@@ -377,6 +393,7 @@
     ui.search = ''
     folderId = corpusFolderOf(project, s)
     folderView = false
+    directoryRoot = false
     // 定位例句时暂收工作台和导入页；工作台草稿仍留在memo，返回原位置时可继续。
     bench = null
     importOpen = false
@@ -430,6 +447,7 @@
     wordHover.hide(true)
     folderId = id
     folderView = false
+    directoryRoot = false
     selectedId = null
     collapsedId = null
     bench = null
@@ -443,10 +461,17 @@
   function showFolders(): void {
     wordHover.hide(true)
     folderView = true
+    directoryRoot = !folderId
     bench = null
     importOpen = false
     mode = 'entries'
   }
+  function browseRoot(): void {
+    openFolder('')
+    folderView = true
+    directoryRoot = true
+  }
+
   function moveSentences(ids: Id[], target: Id): void {
     if (projectState.readOnly || !langId) return
     if (moveCorpusSentences(project, ids, langId, target)) {
@@ -531,6 +556,7 @@
   function openBench(s: Sentence): void {
     folderId = corpusFolderOf(project, s)
     folderView = false
+    directoryRoot = false
     if (memo.bench?.targetId === s.id) bench = { targetId: s.id, initial: memo.bench.initial }
     else {
       bench = { targetId: s.id, initial: s.translation[benchGloss] ?? '' }
@@ -576,6 +602,7 @@
     selectedId = s.id
     mode = 'entries'
     folderView = false
+    directoryRoot = false
     touch()
     queueMicrotask(() => document.getElementById('st-text')?.focus())
   }
@@ -708,6 +735,7 @@
     importTarget = { projectId: project.meta.id, languageId: langId, folderId: target }
     folderId = target
     folderView = false
+    directoryRoot = false
     importJson = jsonFirst
     importNonce++
     importOpen = true
@@ -1090,12 +1118,13 @@
   }
 </script>
 
-{#snippet folderPanel(compact: boolean, forceExpanded = false)}
+{#snippet folderPanel(compact: boolean)}
   <ProjectDirectory
     kind="sentence"
     currentId={folderId}
     {compact}
-    {forceExpanded}
+    rootView={directoryRoot}
+    onroot={browseRoot}
     onopen={openFolder}
     onbrowse={browseFolder}
     onimport={(target, json) => openImport(json, target)}
@@ -1107,6 +1136,18 @@
   <div class="page-head row">
     <h1>{t('corpus.title')}</h1>
     <GuideLink section="corpus" />
+    {#if mode === 'entries'}<button
+        class="btn sidebar-toggle"
+        data-page-sidebar-toggle="corpus"
+        aria-controls="corpus-sidebar"
+        aria-expanded={sidebarOpen}
+        title={t(sidebarOpen ? 'sharedFolders.hideSidebar' : 'sharedFolders.showSidebar')}
+        onclick={() => (sidebarOpen = !sidebarOpen)}
+        >{#if sidebarOpen}<PanelLeftClose size={16} />{:else}<PanelLeftOpen size={16} />{/if}<span
+          >{t('sharedFolders.sidebar')}</span
+        ></button
+      >{/if}
+
     <div class="seg" data-tour="corpus-tabs">
       <button class:active={mode === 'entries'} onclick={() => (mode = 'entries')}
         >{t('corpus.modes.entries')}</button
@@ -1138,7 +1179,11 @@
   </div>
 
   <div class="corpus-layout">
-    {#if mode === 'entries' && !folderView}<aside class="folder-sidebar">
+    {#if mode === 'entries' && sidebarOpen && !bench && !importOpen}<aside
+        class="folder-sidebar"
+        id="corpus-sidebar"
+        data-page-sidebar="corpus"
+      >
         {@render folderPanel(true)}
       </aside>{/if}
     <div class="corpus-main">
@@ -1147,13 +1192,18 @@
           data-corpus-list-breadcrumbs
           aria-label={t('corpus.folders.path')}
         >
-          <button class="btn ghost sm" onclick={() => openFolder('')}>Default</button
-          >{#each corpusFolderPath(project, langId, folderId) as part (part.id)}<span
-              aria-hidden="true">/</span
-            ><button class="btn ghost sm" onclick={() => openFolder(part.id)}>{part.name}</button
-            >{/each}
+          <button class="btn ghost sm" data-content-root onclick={browseRoot}
+            ><HardDrive size={14} />{t('sharedFolders.root')}</button
+          >
+          {#if !folderId}<span>/</span><button class="btn ghost sm" onclick={() => openFolder('')}
+              >Default</button
+            >{:else}{#each corpusFolderPath(project, langId, folderId) as part (part.id)}<span
+                >/</span
+              ><button class="btn ghost sm" onclick={() => openFolder(part.id)}>{part.name}</button
+              >{/each}{/if}
         </nav>{/if}
       {#if mode === 'entries' && !folderView}<RecordClipboardTools
+          controls={false}
           {project}
           kind="sentence"
           ids={clipboardSentenceIds}
@@ -1169,28 +1219,42 @@
           class="row corpus-bulk"
           data-corpus-bulk
         >
+          <span class="small">{t('corpus.selectedN', { n: selectedVisibleIds.length })}</span>
+          <RecordClipboardTools
+            {project}
+            kind="sentence"
+            ids={clipboardSentenceIds}
+            {folderId}
+            listen={false}
+            onpasted={(ids) => {
+              multiIds = ids
+              selectedId = ids[0] ?? null
+            }}
+          />
           <button
-            class="btn sm"
+            class="btn ghost sm"
             data-corpus-confirm-selected
             title="Ctrl/⌘+Enter"
             disabled={projectState.readOnly}
             onclick={() => confirmBatch(selectedVisibleIds)}
             >{t('clipboard.confirmSelected')}</button
           >
-          <span class="small">{t('corpus.selectedN', { n: selectedVisibleIds.length })}</span
-          ><button
-            class="btn danger sm"
-            data-corpus-bulk-delete
-            disabled={projectState.readOnly}
-            onclick={() => removeBatch(selectedVisibleIds)}
-            ><Trash2 size={14} />{t('common.delete')}</button
-          ><button
+          <button
             class="btn ghost sm"
             data-corpus-clear-selection
             onclick={() => {
               multiIds = []
               selectionAnchor = null
+              selectedId = null
             }}>{t('corpus.clearSelection')}</button
+          >
+
+          <button
+            class="btn ghost danger sm"
+            data-corpus-bulk-delete
+            disabled={projectState.readOnly}
+            onclick={() => removeBatch(selectedVisibleIds)}
+            ><Trash2 size={14} />{t('common.delete')}</button
           >
         </div>{/if}
 
@@ -1369,7 +1433,7 @@
       {:else}
         <div class="scroll" use:navScroll={'corpus'}>
           {#if movingSentence}<div class="corpus-drop-targets">
-              {@render folderPanel(true, true)}
+              {@render folderPanel(true)}
             </div>{/if}
           <Hint id="corpus" text={t('corpus.hint')} />
           {#snippet editorPanel(s: Sentence)}
@@ -1399,12 +1463,7 @@
                   onclick={() => closeAnalysis(s.id)}><X size={15} /></button
                 >
               </div>
-              <SentenceScriptPicker
-                sentence={s}
-                scripts={scriptScope.applicable(s)}
-                readOnly={projectState.readOnly}
-                onchange={(id, visible) => setScriptShown(s, id, visible)}
-              />
+
               {#each scriptScope.visible(s) as sc (sc.id)}
                 {@const st = sentenceScriptText(project, language, sc, s, lookupWord, scriptScope)}
                 {#if st}<div
@@ -1550,12 +1609,6 @@
                   onclick={(e) => pick(s.id, e)}
                   onkeydown={(e) => e.key === 'Enter' && pick(s.id, e)}
                 >
-                  <SentenceScriptPicker
-                    sentence={s}
-                    scripts={scriptScope.applicable(s)}
-                    readOnly={projectState.readOnly}
-                    onchange={(id, visible) => setScriptShown(s, id, visible)}
-                  />
                   {#each scriptScope.visible(s) as sc (sc.id)}
                     {@const st = sentenceScriptText(
                       project,
@@ -1694,17 +1747,22 @@
       <LocalizedInput bind:value={s.translation} onchange={touch} />
     </div>
     {#if language && language.scripts.length}
-      <SentenceScriptPicker
-        sentence={s}
-        scripts={scriptScope.applicable(s)}
-        readOnly={projectState.readOnly}
-        onchange={(id, visible) => setScriptShown(s, id, visible)}
-      />
-      <div class="field">
+      {@const applicable = scriptScope.applicable(s)}
+      <div class="field" data-script-overrides>
         <span class="small muted">{t('script.override')}</span>
         {#each language.scripts as sc (sc.id)}
           <div class="row kv">
-            <span class="small oname">{sc.name}</span>
+            {#if applicable.length > 1 && applicable.some((script) => script.id === sc.id)}
+              <label class="small oname script-check"
+                ><input
+                  type="checkbox"
+                  data-sentence-script={sc.id}
+                  checked={!s.hiddenScriptIds?.includes(sc.id)}
+                  disabled={projectState.readOnly}
+                  onchange={(e) => setScriptShown(s, sc.id, e.currentTarget.checked)}
+                /><span>{sc.name}</span></label
+              >
+            {:else}<span class="small oname">{sc.name}</span>{/if}
             <input
               class="input scr"
               style={fontCss(sc)}
@@ -1888,16 +1946,17 @@
     min-height: 0;
   }
   .folder-sidebar {
-    flex: 0 0 190px;
+    flex: 0 0 230px;
     overflow: auto;
     border-inline-end: 1px solid var(--border);
   }
   @media (max-width: 900px) {
     .folder-sidebar {
-      flex-basis: 150px;
+      flex-basis: 180px;
     }
   }
   .page-head {
+    flex-wrap: wrap;
     gap: 10px;
   }
   .scroll {
@@ -2114,6 +2173,16 @@
   .lbl {
     width: 90px;
     flex: none;
+  }
+  .script-check {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+  }
+  .script-check input {
+    flex: none;
+    margin: 0;
   }
   .oname {
     width: 90px;
