@@ -24,8 +24,7 @@
     phrasesToJson,
     phrasesToRows
   } from '$lib/importers/corpusIO'
-  import { matchQuery, parseQuery } from '$lib/core/query'
-  import { SEARCH_FIELDS } from '$lib/core/searchFields'
+  import { phrasebookView } from '$lib/core/phrasebookView'
   /** 短语簿：分类 → 短语；检视器编辑原文、译文、发音、变体、标签。 */
   import { projectState } from '$lib/state/project.svelte'
   import { ui } from '$lib/state/ui.svelte'
@@ -67,18 +66,7 @@
   import Workbench, { type BenchResult, type BenchSaved } from '$lib/ui/Workbench.svelte'
   import { pinChoices } from '$lib/engine/compose'
   import { uiGlossCode } from '$lib/core/glossInputs'
-  import {
-    Plus,
-    Trash2,
-    X,
-    Wand2,
-    Upload,
-    Download,
-    PencilRuler,
-    FolderOpen,
-    PanelLeftOpen,
-    PanelLeftClose
-  } from '@lucide/svelte'
+  import { Plus, Trash2, X, Wand2, Upload, Download, PencilRuler } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import { sortable, type SortableProps } from '$lib/ui/sortable.svelte'
@@ -138,10 +126,6 @@
     openFolder('')
     folderView = true
     directoryRoot = true
-  }
-  function showFolders(): void {
-    if (folderId) browseFolder(folderId)
-    else browseRoot()
   }
   function recordActions(p: Phrase): NonNullable<DeleteOptions['actions']> {
     return [
@@ -221,7 +205,6 @@
   const query = $derived(ui.search)
 
   const inLang = $derived(project.phrasebook.filter((p) => !langId || p.languageId === langId))
-  const categories = $derived([...new Set(inLang.map((p) => p.category).filter(Boolean))].sort())
   const sharedFolderIds = $derived(new Set(projectFolders(project).map((folder) => folder.id)))
   const phraseFolderOf = (phrase: Phrase): Id =>
     project.folders !== undefined
@@ -229,33 +212,67 @@
         ? phrase.folderId
         : ''
       : projectFolderOf(project, phrase)
-  const list = $derived.by(() => {
-    const pq = parseQuery(query, SEARCH_FIELDS.phrasebook)
-    return inLang.filter(
-      (p) =>
-        phraseFolderOf(p) === folderId &&
-        (!category || p.category === category) &&
-        (!pq.terms.length || matchQuery(pq, (f) => phraseFieldValues(p, f)))
-    )
-  })
-  /** 搜索用：短语在某个字段里的文字 */
-  function phraseFieldValues(p: Phrase, field: string | null): string[] {
-    const tr = Object.values(p.translation)
-    switch (field) {
-      case 'text':
-        return [p.text, ...p.variants.map((v) => v.text)]
-      case 'tr':
-        return tr
-      case 'category':
-        return [p.category]
-      case 'tag':
-        return p.tags
-      case 'ipa':
-        return Object.values(p.pronunciations).map((x) => x.ipa)
-      default:
-        return [p.text, ...tr]
-    }
+  const phraseViewScope = $derived(
+    phrasebookView(project.phrasebook, {
+      languageId: langId,
+      folderId,
+      root: directoryRoot,
+      query,
+      category,
+      folderOf: phraseFolderOf
+    })
+  )
+  const categories = $derived(phraseViewScope.categories.map((item) => item.name))
+  const categoryCounts = $derived(
+    new Map(phraseViewScope.categories.map((item) => [item.name, item.count]))
+  )
+  const list = $derived(phraseViewScope.list)
+  const phraseFolderIndex = $derived(createFolderIndex(projectFolders(project)))
+  const folderPathOf = (p: Phrase): string =>
+    phraseFolderIndex
+      .path(phraseFolderOf(p))
+      .map((folder) => folder.name)
+      .join(' / ') || 'Default'
+  function chooseCategory(value: string): void {
+    category = value
+    if (!directoryRoot) folderView = false
   }
+  function choosePhrase(phrase: Phrase): void {
+    wordHover.hide(true)
+    bench = null
+    importOpen = false
+    folderId = phraseFolderOf(phrase)
+    folderView = false
+    directoryRoot = false
+    selectedId = phrase.id
+    if (category && phrase.category !== category) category = ''
+    void scrollToItem('phrasebook', `.item[data-id="${phrase.id}"]`, () => {
+      const at = list.findIndex((item) => item.id === phrase.id)
+      if (at >= 0) lz.ensure(at + 1)
+    }).then(() => flash(phrase.id))
+  }
+  $effect(() => {
+    if (category && !categoryCounts.has(category)) category = ''
+  })
+  let previousPhraseScope = ''
+  $effect(() => {
+    const key = JSON.stringify([langId, folderId, directoryRoot, query, category])
+    if (key !== previousPhraseScope) {
+      previousPhraseScope = key
+      wordHover.hide(true)
+      if (selectedId && !list.some((phrase) => phrase.id === selectedId)) selectedId = null
+    } else if (selectedId) {
+      const current = project.phrasebook.find((phrase) => phrase.id === selectedId)
+      if (
+        !current ||
+        (langId && current.languageId !== langId) ||
+        (!directoryRoot && phraseFolderOf(current) !== folderId)
+      ) {
+        selectedId = null
+        wordHover.hide(true)
+      }
+    }
+  })
   const selected = $derived(project.phrasebook.find((p) => p.id === selectedId) ?? null)
   const allTags = $derived([...new Set(project.phrasebook.flatMap((p) => p.tags))].sort())
   /** 悬浮认词：跟语料页共用一套判断（engine/gloss/resolve.ts）；项目一改就换一个新的 */
@@ -558,12 +575,14 @@
   }
   // 分批渲染：先画一屏，滚到快见底了再画下一批（短语一多，进页面整份重画会卡一下）
   const lz = lazy(20)
+  const sidebarLazy = lazy(40)
   let lastCount = -1
   $effect(() => {
     const n = list.length
     if (n === lastCount) return
     lastCount = n
     lz.reset()
+    sidebarLazy.reset()
   })
   /** 滚到了再闪：高亮从头到尾都看得见 */
   function flash(id: Id): void {
@@ -800,9 +819,25 @@
   }
   async function renameCategory(): Promise<void> {
     if (!category) return
-    const name = (await ui.prompt(t('phrasebook.category'), category))?.trim()
-    if (!name || name === category) return
-    for (const p of inLang) if (p.category === category) p.category = name
+    const owner = project,
+      oldCategory = category,
+      atLanguage = langId,
+      atFolder = folderId,
+      atRoot = directoryRoot
+    const name = (await ui.prompt(t('phrasebook.category'), oldCategory))?.trim()
+    if (
+      !name ||
+      name === oldCategory ||
+      projectState.readOnly ||
+      projectState.project !== owner ||
+      langId !== atLanguage ||
+      folderId !== atFolder ||
+      directoryRoot !== atRoot ||
+      category !== oldCategory
+    )
+      return
+    // 保持原有同语言分类重命名范围，不因侧栏计数改为目录作用域而改变已有批处理语义。
+    for (const p of inLang) if (p.category === oldCategory) p.category = name
     category = name
     touch()
   }
@@ -812,22 +847,7 @@
   <div class="page-head row">
     <h1>{t('phrasebook.title')}</h1>
     <GuideLink section="phrasebook" />
-    <button
-      class="btn sidebar-toggle"
-      data-page-sidebar-toggle="phrasebook"
-      aria-controls="phrasebook-sidebar"
-      aria-expanded={sidebarOpen}
-      title={t(sidebarOpen ? 'sharedFolders.hideSidebar' : 'sharedFolders.showSidebar')}
-      onclick={() => (sidebarOpen = !sidebarOpen)}
-      >{#if sidebarOpen}<PanelLeftClose size={16} />{:else}<PanelLeftOpen size={16} />{/if}<span
-        >{t('sharedFolders.sidebar')}</span
-      ></button
-    >
-
     <span class="grow"></span>
-    {#if !folderView}<button class="btn" data-phrase-show-folders onclick={showFolders}
-        ><FolderOpen size={16} />{t('sharedFolders.back')}</button
-      >{/if}
     {#if language && !folderView}
       <Menu label={t('lexicon.import')} icon={Download} tour="phrasebook-io">
         <button onclick={() => openImport(false)}>{t('io.importTable')}</button>
@@ -845,6 +865,20 @@
       onclick={add}><Plus size={16} />{t('phrasebook.add')}</button
     >
   </div>
+  <ProjectDirectory
+    kind="phrase"
+    navigationOnly
+    currentId={folderId}
+    rootView={directoryRoot}
+    {sidebarOpen}
+    ontoggleSidebar={() => (sidebarOpen = !sidebarOpen)}
+    onroot={browseRoot}
+    onbrowse={browseFolder}
+    onopen={openFolder}
+    onimport={(target, json) => openImport(json, target)}
+    onexport={(target, format, recursive) =>
+      exportPhrases(format as 'csv' | 'json', target, recursive)}
+  />
   <Hint id="phrasebook" text={t('phrasebook.hint')} />
   {#if !folderView}<RecordClipboardTools
       controls={false}
@@ -858,75 +892,115 @@
       }}
     />{/if}
 
-  {#if importOpen && language}
-    <div class="scroll">
-      {#key importNonce}
-        <TableImportDialog
-          title={t('io.importPhrases')}
-          fields={phraseFields(glossLangs, language)}
-          guide={guideUrl('phrasebook', 'table-format')}
-          exists={(text) => existingTexts.has(normalizeSentence(text))}
-          json={{
-            preview: (content) => (langId ? previewPhrasesJson(project, langId, content) : null),
-            run: runPhrasesJson
-          }}
-          startWithJson={importJson}
-          onimport={importPhraseTable}
-          onclose={() => (importOpen = false)}
+  <div class="body">
+    {#if sidebarOpen}<aside
+        class="cats"
+        id="phrasebook-sidebar"
+        data-page-sidebar="phrasebook"
+        data-tour="phrasebook-cats"
+      >
+        <ProjectDirectory
+          kind="phrase"
+          currentId={folderId}
+          rootView={directoryRoot}
+          onroot={browseRoot}
+          compact
+          onopen={openFolder}
+          onbrowse={browseFolder}
         />
-      {/key}
-    </div>
-  {:else if bench && language && (!benchSource || benchSource.languageId === language.id)}
-    <!-- 译文工作台：先写译文、挑词拼原文，完成后填进这条短语（或者新加一条） -->
-    {#key `${language.id}:${bench.targetId ?? ''}`}<Workbench
-        languageId={language.id}
-        initial={bench.initial}
-        sourceText={benchSource?.text ?? ''}
-        sourceTokens={benchSource?.tokens ?? []}
-        glossLang={benchGloss}
-        kind="phrase"
-        saved={memo.bench?.saved ?? null}
-        onsave={(s) => memo.bench && (memo.bench.saved = s)}
-        ondone={benchDone}
-        oncancel={closeBench}
-      />{/key}
-  {:else if !language}
-    <p class="muted">{t('lexicon.noLanguage')}</p>
-  {:else}
-    <div class="body">
-      {#if sidebarOpen}<aside
-          class="cats"
-          id="phrasebook-sidebar"
-          data-page-sidebar="phrasebook"
-          data-tour="phrasebook-cats"
+        <button
+          class="cat"
+          data-phrase-category=""
+          class:active={category === ''}
+          onclick={() => chooseCategory('')}
+          >{t('phrasebook.allCategories')}<span class="n" data-phrase-count
+            >{phraseViewScope.matching.length}</span
+          ></button
         >
-          <ProjectDirectory
-            kind="phrase"
-            currentId={folderId}
-            rootView={directoryRoot}
-            onroot={browseRoot}
-            compact
-            onopen={openFolder}
-            onbrowse={browseFolder}
-          />
-          <button class="cat" class:active={category === ''} onclick={() => (category = '')}
-            >{t('phrasebook.allCategories')}<span class="n">{inLang.length}</span></button
+        {#each categories as c (c)}
+          <button
+            class="cat"
+            data-phrase-category={c}
+            class:active={category === c}
+            onclick={() => chooseCategory(c)}
+            ondblclick={renameCategory}
+            >{c}<span class="n">{categoryCounts.get(c) ?? 0}</span></button
           >
-          {#each categories as c (c)}
+        {/each}
+        {#if categories.length === 0}<p class="tiny muted">{t('phrasebook.noCategories')}</p>{/if}
+        <nav class="phrase-index" data-phrase-sidebar-list aria-label={t('phrasebook.title')}>
+          {#each list.slice(0, sidebarLazy.shown) as phrase (phrase.id)}
             <button
-              class="cat"
-              class:active={category === c}
-              onclick={() => (category = c)}
-              ondblclick={renameCategory}
-              >{c}<span class="n">{inLang.filter((p) => p.category === c).length}</span></button
+              type="button"
+              class="phrase-link"
+              class:active={selectedId === phrase.id}
+              data-phrase-sidebar={phrase.id}
+              use:deletable={{
+                identity: JSON.stringify([project.meta.id, langId, folderId, phrase.id]),
+                selected: selectedId === phrase.id,
+                select: () => choosePhrase(phrase),
+                actions: recordActions(phrase),
+                remove: () => remove(phrase)
+              }}
+              aria-pressed={selectedId === phrase.id}
+              title={folderPathOf(phrase)}
+              onclick={() => choosePhrase(phrase)}
+              draggable={!projectState.readOnly}
+              ondragstart={(event) => phraseDrag(event, phrase.id)}
             >
+              <span class="data phrase-title">{phrase.text || '—'}</span>
+              {#if directoryRoot}<span class="tiny muted phrase-path">{folderPathOf(phrase)}</span
+                >{/if}
+            </button>
           {/each}
-          {#if categories.length === 0}<p class="tiny muted">{t('phrasebook.noCategories')}</p>{/if}
-        </aside>{/if}
-      {#if folderView}
+          {#if list.length > sidebarLazy.shown}<div
+              class="more-mark"
+              use:lazyMore={sidebarLazy}
+            ></div>{/if}
+          {#if !list.length}<p class="small muted">{t('phrasebook.empty')}</p>{/if}
+        </nav>
+      </aside>{/if}
+    <div class="phrase-main">
+      {#if importOpen && language}
+        <div class="scroll">
+          {#key importNonce}
+            <TableImportDialog
+              title={t('io.importPhrases')}
+              fields={phraseFields(glossLangs, language)}
+              guide={guideUrl('phrasebook', 'table-format')}
+              exists={(text) => existingTexts.has(normalizeSentence(text))}
+              json={{
+                preview: (content) =>
+                  langId ? previewPhrasesJson(project, langId, content) : null,
+                run: runPhrasesJson
+              }}
+              startWithJson={importJson}
+              onimport={importPhraseTable}
+              onclose={() => (importOpen = false)}
+            />
+          {/key}
+        </div>
+      {:else if bench && language && (!benchSource || benchSource.languageId === language.id)}
+        <!-- 译文工作台：先写译文、挑词拼原文，完成后填进这条短语（或者新加一条） -->
+        {#key `${language.id}:${bench.targetId ?? ''}`}<Workbench
+            languageId={language.id}
+            initial={bench.initial}
+            sourceText={benchSource?.text ?? ''}
+            sourceTokens={benchSource?.tokens ?? []}
+            glossLang={benchGloss}
+            kind="phrase"
+            saved={memo.bench?.saved ?? null}
+            onsave={(s) => memo.bench && (memo.bench.saved = s)}
+            ondone={benchDone}
+            oncancel={closeBench}
+          />{/key}
+      {:else if !language}
+        <p class="muted">{t('lexicon.noLanguage')}</p>
+      {:else if folderView}
         <div class="scroll">
           <ProjectDirectory
             kind="phrase"
+            hideNavigation
             currentId={folderId}
             rootView={directoryRoot}
             onroot={browseRoot}
@@ -1011,7 +1085,7 @@
         </div>
       {/if}
     </div>
-  {/if}
+  </div>
 </div>
 
 {#if selected && language && !importOpen}
@@ -1021,6 +1095,7 @@
       <label for="ph-text">{t('phrasebook.text')}</label>
       <textarea
         id="ph-text"
+        data-selected-phrase={selectedId}
         class="textarea data"
         rows="2"
         bind:value={p.text}
@@ -1130,6 +1205,52 @@
 {/if}
 
 <style>
+  .phrase-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+  }
+  .phrase-index {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-block-start: 1px solid var(--border);
+    margin-block-start: 6px;
+    padding-block-start: 6px;
+  }
+  .phrase-link {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--text);
+    text-align: start;
+    padding: 6px 8px;
+    cursor: pointer;
+    min-width: 0;
+    width: 100%;
+  }
+  .phrase-link:hover,
+  .phrase-link:focus-visible {
+    background: var(--bg-hover);
+  }
+  .phrase-link.active {
+    background: var(--accent-soft);
+    color: var(--accent-text);
+  }
+  .phrase-title,
+  .phrase-path {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .item.flash {
     animation: jump-flash 1.8s ease-out;
   }

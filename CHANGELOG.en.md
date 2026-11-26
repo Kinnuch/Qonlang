@@ -1,8 +1,9 @@
 # Changelog
 
-## 1.1.1 · unreleased
+## 1.1.1 · 2026-11-26
 
-- Corpus, Phrasebook and Documents share project folders. Thin folder icons follow the theme, and Root directory is distinct from Default for unfiled records. Hide the entire folder sidebar while keeping its hierarchy indentation. Switch between icon and details views; Settings control metadata such as tags, creation time and size.
+- Corpus, Phrasebook and Documents share project folders. Thin folder icons follow the theme, and Root directory is distinct from Default for unfiled records. Use the triangle to the left of Root directory to show or hide the sidebar. Select a folder name to browse its contents. Switch between icon and details views; Settings control metadata such as tags, creation time and size.
+- The phrase sidebar lists phrases and category counts for the current language and folder. Open the relation graph after editing a definition and close it to return to the same position in the lexicon.
 - Parent-folder counts include sentences, phrases and documents in all descendant folders. Root directory counts the whole project; Default counts only unfiled records.
 - Move, copy, cut and paste records or subfolders. Folders, lexemes and morphemes share consistent context actions with available shortcuts. Leaving a module clears multiple selection; batch tools stay on one row with Delete last. Selected sentences can still be confirmed, copied, cut, pasted or deleted together. Close the sentence analysis panel with its × button.
 - The translation workbench offers labelled approximate suggestions for matches such as Chinese substrings in longer glosses and small spelling differences in longer words. Choose these manually; Add all in order still uses exact matches.

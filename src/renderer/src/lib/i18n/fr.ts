@@ -1376,7 +1376,7 @@ export default {
         'Une phrase d’exemple étant sélectionnée, cette barre la segmente automatiquement et la glose mot à mot ; si un mot a plusieurs candidats, survolez-le et choisissez le bon dans la fiche qui apparaît.',
         'Le module « Corpus » comporte trois grands panneaux : les phrases d’exemple, les statistiques et la liste d’abréviations.',
         'Voici la liste d’abréviations : les abréviations employées dans les gloses s’y enregistrent, et l’export les développe en noms complets.',
-        'Cliquez sur Retour aux dossiers, puis faites un clic droit sur le fond ou un dossier pour créer, importer ou exporter. L’importation de tables et JSON et les formats d’exportation existants sont conservés.'
+        'Cliquez sur le répertoire racine pour parcourir les dossiers. Un clic droit sur un dossier ou sur le fond permet de créer un dossier, d’importer ou d’exporter.'
       ],
       phrasebook: [
         'Cliquez ici pour ajouter une expression.',

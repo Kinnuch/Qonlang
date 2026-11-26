@@ -5258,7 +5258,7 @@
       "folderId": "example-excerpts",
       "title": "共享目录 · Shared folder",
       "languageId": null,
-      "markdown": "语料、短语和文档共享同一棵目录树。在「练习 · Practice」下的「摘录 · Excerpts」打开详情视图，可以同时看到三类记录。点击顶部「文件夹侧栏」可展开或收起整列。根目录下「练习」的数量包含「摘录」里的例句、短语和文档。试着把例句复制或剪切到「校订 · Review」；剪切在成功粘贴后才移动原件。手写板可插入「节点 · Nodes」部件，在节点工具里选择一条笔画，切换平滑或尖锐，或双击曲线插入节点。\n\nCorpus sentences, phrases and documents share a folder tree. Open Practice → Excerpts in Details view to see all three kinds together. Use the folder sidebar button to show or hide the whole column. In the root directory, Practice includes records in Excerpts in its count. Try copying or cutting the sentence and pasting it in Review. A cut moves the original on paste. In the drawing pad, insert the Nodes component, select its stroke with the node tool, change an anchor between smooth and corner, or double-click the curve to insert an anchor.",
+      "markdown": "语料、短语和文档共享同一棵目录树。在「练习 · Practice」下的「摘录 · Excerpts」打开详情视图，可以同时看到三类记录。点击「根目录」左侧的小三角可展开或收起整列侧栏。根目录下「练习」的数量包含「摘录」里的例句、短语和文档。试着把例句复制或剪切到「校订 · Review」；剪切在成功粘贴后才移动原件。手写板可插入「节点 · Nodes」部件，在节点工具里选择一条笔画，切换平滑或尖锐，或双击曲线插入节点。\n\nCorpus sentences, phrases and documents share a folder tree. Open Practice → Excerpts in Details view to see all three kinds together. Click the triangle beside Root directory to show or hide the sidebar. In the root directory, Practice includes records in Excerpts in its count. Try copying or cutting the sentence and pasting it in Review. A cut moves the original on paste. In the drawing pad, insert the Nodes component, select its stroke with the node tool, change an anchor between smooth and corner, or double-click the curve to insert an anchor.",
       "tags": [
         "1.1.1"
       ],

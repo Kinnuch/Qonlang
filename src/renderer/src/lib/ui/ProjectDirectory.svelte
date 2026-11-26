@@ -33,7 +33,10 @@
     type ProjectRecordRef
   } from '$lib/core/projectFolders'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
-  import { createProjectDirectoryProjection } from '$lib/core/projectDirectory'
+  import {
+    createProjectDirectoryProjection,
+    type ProjectDirectoryProjection
+  } from '$lib/core/projectDirectory'
   import { createFolderIndex } from '$lib/core/folderTree'
   import {
     copyProjectRecords,
@@ -45,6 +48,11 @@
     kind,
     currentId = '',
     compact = false,
+    navigationOnly = false,
+    hideNavigation = false,
+    sidebarOpen = false,
+    ontoggleSidebar,
+    tour,
     rootView = false,
     onroot,
     onbrowse,
@@ -55,6 +63,11 @@
     kind: ProjectRecordKind
     currentId?: string
     compact?: boolean
+    navigationOnly?: boolean
+    hideNavigation?: boolean
+    sidebarOpen?: boolean
+    ontoggleSidebar?: () => void
+    tour?: string
     rootView?: boolean
     onroot: () => void
     onbrowse: (id: string) => void
@@ -66,13 +79,20 @@
   const lz = lazy(80)
   const metadata = $derived(project.settings.folderMetadata ?? ['tags', 'createdAt', 'size'])
   const mode = $derived(project.settings.folderView ?? 'icons')
-  const projection = $derived(
-    createProjectDirectoryProjection(project, {
-      sizes: !compact && mode === 'details' && metadata.includes('size')
-    })
+  const projection: ProjectDirectoryProjection = $derived(
+    navigationOnly
+      ? { rows: [], byId: new Map(), rootCount: 0, rootBytes: 0 }
+      : createProjectDirectoryProjection(project, {
+          sizes: !compact && mode === 'details' && metadata.includes('size')
+        })
   )
   const rows = $derived(projection.rows)
-  const folders = $derived(rows.filter((folder) => !folder.default))
+  const folders = $derived(
+    navigationOnly ? projectFolders(project) : rows.filter((folder) => !folder.default)
+  )
+  const sidebarSection = $derived(
+    kind === 'sentence' ? 'corpus' : kind === 'phrase' ? 'phrasebook' : 'docs'
+  )
   const index = $derived(createFolderIndex(folders))
   const path = $derived(index.path(currentId))
   const treeMemo = ui.memo<{ directoryCollapsed: string[] }>('docs')
@@ -123,7 +143,7 @@
         : ''
       : projectFolderOf(project, record)
   const files = $derived.by(() => {
-    if (compact || rootView) return []
+    if (compact || navigationOnly || rootView) return []
     const out: {
       kind: ProjectRecordKind
       id: string
@@ -162,7 +182,8 @@
   }
   let clipboardRef = $state<import('$lib/core/projectFolders').ProjectClipboardRef | null>(null)
   function clipboardEvent(event: ClipboardEvent, operation: 'copy' | 'cut' | 'paste'): void {
-    if (compact || !clipboardRecordEventAllowed(event) || projectState.readOnly) return
+    if (compact || navigationOnly || !clipboardRecordEventAllowed(event) || projectState.readOnly)
+      return
     if (operation === 'paste') {
       void paste(currentId, rootView, event)
     } else if (clipboardRef) void copyProjectRecords(project, [clipboardRef], operation, event)
@@ -574,13 +595,58 @@
 <section
   role="group"
   aria-label={t('sharedFolders.title')}
-  class="directory"
+  class:directory={!navigationOnly}
+  class:navigation-only={navigationOnly}
   class:compact
   data-project-directory={kind}
   data-root-view={rootView}
   oncontextmenu={(event) => context(event, null)}
 >
-  {#if compact}
+  {#if navigationOnly}
+    <nav
+      class="root-navigation"
+      data-root-navigation={sidebarSection}
+      aria-label={t('sharedFolders.path')}
+    >
+      <span class="root-controls">
+        <button
+          type="button"
+          class="root-triangle"
+          data-page-sidebar-toggle={sidebarSection}
+          aria-controls={`${sidebarSection}-sidebar`}
+          aria-expanded={sidebarOpen}
+          aria-label={t(sidebarOpen ? 'sharedFolders.hideSidebar' : 'sharedFolders.showSidebar')}
+          title={t(sidebarOpen ? 'sharedFolders.hideSidebar' : 'sharedFolders.showSidebar')}
+          onclick={() => ontoggleSidebar?.()}
+          >{#if sidebarOpen}<ChevronDown size={13} />{:else}<ChevronRight size={13} />{/if}</button
+        >
+        <button
+          type="button"
+          class="btn ghost sm root-link"
+          data-project-root-open
+          data-tour={tour}
+          class:root-drop={overRoot}
+          oncontextmenu={(event) => context(event, null, true)}
+          ondragover={(event) => dragOver(event, '', true)}
+          ondragleave={() => {
+            overRoot = false
+            over = null
+          }}
+          ondrop={(event) => drop(event, '', true)}
+          onclick={onroot}><HardDrive size={15} />{t('sharedFolders.root')}</button
+        >
+      </span>
+      {#if !rootView}{#if !currentId}<ChevronRight size={12} /><button
+            class="btn ghost sm"
+            data-project-breadcrumb=""
+            onclick={() => onbrowse('')}>Default</button
+          >{:else}{#each path as part (part.id)}<ChevronRight size={12} /><button
+              class="btn ghost sm"
+              data-project-breadcrumb={part.id}
+              onclick={() => onbrowse(part.id)}>{part.name}</button
+            >{/each}{/if}{/if}
+    </nav>
+  {:else if compact}
     <div class="tree-root-row">
       <button
         class="folder-open root-open"
@@ -603,21 +669,23 @@
     </div>
   {:else}
     <div class="row toolbar">
-      <h2 class="grow row">
-        {#if rootView}<HardDrive size={21} />{:else}<Folder size={21} />{/if}<span
-          class="directory-title"
-          title={rootView
-            ? t('sharedFolders.root')
-            : currentId
-              ? (projection.byId.get(currentId)?.name ?? 'Default')
-              : 'Default'}
-          >{rootView
-            ? t('sharedFolders.root')
-            : currentId
-              ? (projection.byId.get(currentId)?.name ?? 'Default')
-              : 'Default'}</span
-        >
-      </h2>
+      {#if !(hideNavigation && rootView)}
+        <h2 class="grow row">
+          {#if rootView}<HardDrive size={21} />{:else}<Folder size={21} />{/if}<span
+            class="directory-title"
+            title={rootView
+              ? t('sharedFolders.root')
+              : currentId
+                ? (projection.byId.get(currentId)?.name ?? 'Default')
+                : 'Default'}
+            >{rootView
+              ? t('sharedFolders.root')
+              : currentId
+                ? (projection.byId.get(currentId)?.name ?? 'Default')
+                : 'Default'}</span
+          >
+        </h2>
+      {:else}<span class="grow"></span>{/if}
       <div class="seg">
         <button
           data-folder-view="icons"
@@ -650,153 +718,155 @@
         ><FolderPlus size={15} />{t('sharedFolders.create')}</button
       >
     </div>
-    <nav class="row crumbs" aria-label={t('sharedFolders.path')}>
-      <button
-        class="btn ghost sm"
-        data-project-root-open
-        class:root-drop={overRoot}
-        oncontextmenu={(event) => context(event, null, true)}
-        ondragover={(event) => dragOver(event, '', true)}
-        ondragleave={() => {
-          overRoot = false
-          over = null
-        }}
-        ondrop={(event) => drop(event, '', true)}
-        onclick={onroot}><HardDrive size={14} />{t('sharedFolders.root')}</button
-      >
-      {#if !rootView}{#if !currentId}<ChevronRight size={13} /><button
+    {#if !hideNavigation || !rootView}<nav class="row crumbs" aria-label={t('sharedFolders.path')}>
+        {#if !hideNavigation}<button
             class="btn ghost sm"
-            data-project-breadcrumb=""
-            onclick={() => onbrowse('')}>Default</button
-          >{:else}{#each path as part (part.id)}<ChevronRight size={13} /><button
-              class="btn ghost sm"
-              data-project-breadcrumb={part.id}
-              onclick={() => onbrowse(part.id)}>{part.name}</button
-            >{/each}{/if}{/if}
-      <span class="grow"></span>{#if !rootView}<button
-          class="btn sm"
-          data-project-parent
-          onclick={() =>
-            currentId && index.parent(currentId) ? onbrowse(index.parent(currentId)) : onroot()}
-          ><ArrowUp size={14} />{t('sharedFolders.parent')}</button
-        ><button class="btn sm" data-project-open-records onclick={() => onopen(currentId)}
-          >{t(`sharedFolders.open.${kind}`)}</button
-        >{/if}
-    </nav>
-  {/if}
-  <div
-    class="folder-grid"
-    class:details={mode === 'details' && !compact}
-    role="list"
-    style:--detail-columns={detailColumns}
-  >
-    {#if !compact && mode === 'details'}<div class="detail-heading" role="listitem">
-        <span></span><span>{t('common.name')}</span><span title={t('sharedFolders.countHint')}
-          >{t('sharedFolders.count')}</span
-        >{#each ['type', 'tags', 'createdAt', 'size'].filter( (key) => metadata.includes(key as 'type' | 'tags' | 'createdAt' | 'size') ) as key (key)}<span
-            >{t(`sharedFolders.${key}`)}</span
-          >{/each}<span></span>
-      </div>{/if}
-    {#each shown as folder (folder.id)}
-      <div
-        class="folder-row"
-        role="listitem"
-        class:over={!overRoot && over === folder.id}
-        data-project-folder={folder.id}
-        data-folder-depth={folder.depth}
-        data-folder-total={folder.count}
-        style:--depth={compact ? folder.depth + 1 : 0}
-        onfocusin={() => (clipboardRef = folder.id ? { kind: 'folder', id: folder.id } : null)}
-        draggable={!projectState.readOnly && !!folder.id}
-        ondragstart={(event) => dragStart(event, folder.id)}
-        ondragover={(event) => dragOver(event, folder.id)}
-        ondragleave={() => (over = null)}
-        ondrop={(event) => drop(event, folder.id)}
-        oncontextmenu={(event) => context(event, folder.id)}
-      >
-        {#if compact}{#if folder.children}<button
-              class="tree-fold"
-              data-folder-branch={folder.id}
-              aria-expanded={!collapsed.has(folder.id)}
-              title={t(
-                collapsed.has(folder.id)
-                  ? 'sharedFolders.expandBranch'
-                  : 'sharedFolders.collapseBranch'
-              )}
-              onclick={() => toggleBranch(folder.id)}
-              >{#if collapsed.has(folder.id)}<ChevronRight size={13} />{:else}<ChevronDown
-                  size={13}
-                />{/if}</button
-            >{:else}<span class="tree-fold-placeholder"></span>{/if}{/if}
-        <button
-          class="folder-open"
-          data-project-folder-open={folder.id}
-          class:active={!rootView && currentId === folder.id}
-          onclick={() => onbrowse(folder.id)}
-          ><Folder size={compact ? 17 : mode === 'details' ? 21 : 34} /><strong
-            >{folder.name}</strong
-          ><span
-            class="folder-count"
-            title={t(folder.default ? 'sharedFolders.defaultHint' : 'sharedFolders.countHint')}
-            >{folder.count}</span
+            data-project-root-open
+            class:root-drop={overRoot}
+            oncontextmenu={(event) => context(event, null, true)}
+            ondragover={(event) => dragOver(event, '', true)}
+            ondragleave={() => {
+              overRoot = false
+              over = null
+            }}
+            ondrop={(event) => drop(event, '', true)}
+            onclick={onroot}><HardDrive size={14} />{t('sharedFolders.root')}</button
           >
-          {#if !compact && mode === 'details'}{#if metadata.includes('type')}<span
-                >{t('sharedFolders.folder')}</span
-              >{/if}{#if metadata.includes('tags')}<span
-                >{(folder.tags ?? []).join(', ') || '—'}</span
-              >{/if}{#if metadata.includes('createdAt')}<time
-                >{folder.createdAt ? new Date(folder.createdAt).toLocaleDateString() : '—'}</time
-              >{/if}{#if metadata.includes('size')}<span title={t('sharedFolders.sizeHint')}
-                >{(folder.bytes / 1024).toFixed(1)} KB</span
-              >{/if}<span></span>{/if}
-        </button><button
-          class="btn ghost sm more"
-          title={t('sharedFolders.actions')}
-          onclick={(event) => context(event, folder.id)}><MoreHorizontal size={15} /></button
-        >
-      </div>
-    {/each}
-    {#if !compact}{#each files.slice(0, lz.shown) as file (JSON.stringify([file.kind, file.id]))}
+          {#if !rootView}{#if !currentId}<ChevronRight size={13} /><button
+                class="btn ghost sm"
+                data-project-breadcrumb=""
+                onclick={() => onbrowse('')}>Default</button
+              >{:else}{#each path as part (part.id)}<ChevronRight size={13} /><button
+                  class="btn ghost sm"
+                  data-project-breadcrumb={part.id}
+                  onclick={() => onbrowse(part.id)}>{part.name}</button
+                >{/each}{/if}{/if}{/if}
+        <span class="grow"></span>{#if !rootView}<button
+            class="btn sm"
+            data-project-parent
+            onclick={() =>
+              currentId && index.parent(currentId) ? onbrowse(index.parent(currentId)) : onroot()}
+            ><ArrowUp size={14} />{t('sharedFolders.parent')}</button
+          ><button class="btn sm" data-project-open-records onclick={() => onopen(currentId)}
+            >{t(`sharedFolders.open.${kind}`)}</button
+          >{/if}
+      </nav>{/if}
+  {/if}
+  {#if !navigationOnly}
+    <div
+      class="folder-grid"
+      class:details={mode === 'details' && !compact}
+      role="list"
+      style:--detail-columns={detailColumns}
+    >
+      {#if !compact && mode === 'details'}<div class="detail-heading" role="listitem">
+          <span></span><span>{t('common.name')}</span><span title={t('sharedFolders.countHint')}
+            >{t('sharedFolders.count')}</span
+          >{#each ['type', 'tags', 'createdAt', 'size'].filter( (key) => metadata.includes(key as 'type' | 'tags' | 'createdAt' | 'size') ) as key (key)}<span
+              >{t(`sharedFolders.${key}`)}</span
+            >{/each}<span></span>
+        </div>{/if}
+      {#each shown as folder (folder.id)}
         <div
-          class="folder-row file-row"
+          class="folder-row"
           role="listitem"
-          data-directory-file={file.id}
-          data-directory-kind={file.kind}
-          onfocusin={() => (clipboardRef = { kind: file.kind, id: file.id })}
-          draggable={!projectState.readOnly}
-          ondragstart={(event) => fileStart(event, file)}
-          oncontextmenu={(event) => fileContext(event, file)}
+          class:over={!overRoot && over === folder.id}
+          data-project-folder={folder.id}
+          data-folder-depth={folder.depth}
+          data-folder-total={folder.count}
+          style:--depth={compact ? folder.depth + 1 : 0}
+          onfocusin={() => (clipboardRef = folder.id ? { kind: 'folder', id: folder.id } : null)}
+          draggable={!projectState.readOnly && !!folder.id}
+          ondragstart={(event) => dragStart(event, folder.id)}
+          ondragover={(event) => dragOver(event, folder.id)}
+          ondragleave={() => (over = null)}
+          ondrop={(event) => drop(event, folder.id)}
+          oncontextmenu={(event) => context(event, folder.id)}
         >
-          <button class="folder-open" onclick={() => openFile(file)}
-            >{#if file.kind === 'sentence'}<Quote
-                size={mode === 'details' ? 21 : 32}
-              />{:else if file.kind === 'phrase'}<MessageCircle
-                size={mode === 'details' ? 21 : 32}
-              />{:else}<FileText size={mode === 'details' ? 21 : 32} />{/if}<strong
-              >{file.name || '—'}</strong
+          {#if compact}{#if folder.children}<button
+                class="tree-fold"
+                data-folder-branch={folder.id}
+                aria-expanded={!collapsed.has(folder.id)}
+                title={t(
+                  collapsed.has(folder.id)
+                    ? 'sharedFolders.expandBranch'
+                    : 'sharedFolders.collapseBranch'
+                )}
+                onclick={() => toggleBranch(folder.id)}
+                >{#if collapsed.has(folder.id)}<ChevronRight size={13} />{:else}<ChevronDown
+                    size={13}
+                  />{/if}</button
+              >{:else}<span class="tree-fold-placeholder"></span>{/if}{/if}
+          <button
+            class="folder-open"
+            data-project-folder-open={folder.id}
+            class:active={!rootView && currentId === folder.id}
+            onclick={() => onbrowse(folder.id)}
+            ><Folder size={compact ? 17 : mode === 'details' ? 21 : 34} /><strong
+              >{folder.name}</strong
+            ><span
+              class="folder-count"
+              title={t(folder.default ? 'sharedFolders.defaultHint' : 'sharedFolders.countHint')}
+              >{folder.count}</span
             >
-            {#if mode === 'details'}<span>—</span>{#if metadata.includes('type')}<span
-                  >{t(`sharedFolders.kinds.${file.kind}`)}</span
-                >{/if}{#if metadata.includes('tags')}<span>{file.tags.join(', ') || '—'}</span
+            {#if !compact && mode === 'details'}{#if metadata.includes('type')}<span
+                  >{t('sharedFolders.folder')}</span
+                >{/if}{#if metadata.includes('tags')}<span
+                  >{(folder.tags ?? []).join(', ') || '—'}</span
                 >{/if}{#if metadata.includes('createdAt')}<time
-                  >{file.createdAt ? new Date(file.createdAt).toLocaleDateString() : '—'}</time
+                  >{folder.createdAt ? new Date(folder.createdAt).toLocaleDateString() : '—'}</time
                 >{/if}{#if metadata.includes('size')}<span title={t('sharedFolders.sizeHint')}
-                  >{(file.bytes / 1024).toFixed(1)} KB</span
-                >{/if}{/if}<small
-              >{project.languages.find((language) => language.id === file.languageId)?.abbr ??
-                ''}</small
-            >
+                  >{(folder.bytes / 1024).toFixed(1)} KB</span
+                >{/if}<span></span>{/if}
           </button><button
             class="btn ghost sm more"
             title={t('sharedFolders.actions')}
-            onclick={(event) => fileContext(event, file)}><MoreHorizontal size={15} /></button
+            onclick={(event) => context(event, folder.id)}><MoreHorizontal size={15} /></button
           >
         </div>
-      {/each}{#if files.length > lz.shown}<div use:lazyMore={lz}></div>{/if}{/if}
-  </div>
-  {#if !compact && !shown.length && !files.length}<p class="directory-empty muted">
-      {t('sharedFolders.empty')}
-    </p>{/if}
+      {/each}
+      {#if !compact}{#each files.slice(0, lz.shown) as file (JSON.stringify([file.kind, file.id]))}
+          <div
+            class="folder-row file-row"
+            role="listitem"
+            data-directory-file={file.id}
+            data-directory-kind={file.kind}
+            onfocusin={() => (clipboardRef = { kind: file.kind, id: file.id })}
+            draggable={!projectState.readOnly}
+            ondragstart={(event) => fileStart(event, file)}
+            oncontextmenu={(event) => fileContext(event, file)}
+          >
+            <button class="folder-open" onclick={() => openFile(file)}
+              >{#if file.kind === 'sentence'}<Quote
+                  size={mode === 'details' ? 21 : 32}
+                />{:else if file.kind === 'phrase'}<MessageCircle
+                  size={mode === 'details' ? 21 : 32}
+                />{:else}<FileText size={mode === 'details' ? 21 : 32} />{/if}<strong
+                >{file.name || '—'}</strong
+              >
+              {#if mode === 'details'}<span>—</span>{#if metadata.includes('type')}<span
+                    >{t(`sharedFolders.kinds.${file.kind}`)}</span
+                  >{/if}{#if metadata.includes('tags')}<span>{file.tags.join(', ') || '—'}</span
+                  >{/if}{#if metadata.includes('createdAt')}<time
+                    >{file.createdAt ? new Date(file.createdAt).toLocaleDateString() : '—'}</time
+                  >{/if}{#if metadata.includes('size')}<span title={t('sharedFolders.sizeHint')}
+                    >{(file.bytes / 1024).toFixed(1)} KB</span
+                  >{/if}{/if}<small
+                >{project.languages.find((language) => language.id === file.languageId)?.abbr ??
+                  ''}</small
+              >
+            </button><button
+              class="btn ghost sm more"
+              title={t('sharedFolders.actions')}
+              onclick={(event) => fileContext(event, file)}><MoreHorizontal size={15} /></button
+            >
+          </div>
+        {/each}{#if files.length > lz.shown}<div use:lazyMore={lz}></div>{/if}{/if}
+    </div>
+    {#if !compact && !shown.length && !files.length}<p class="directory-empty muted">
+        {t('sharedFolders.empty')}
+      </p>{/if}
+  {/if}
 </section>
 <ProjectDirectoryMenus
   {project}
@@ -825,6 +895,50 @@
 />
 
 <style>
+  .navigation-only {
+    min-width: 0;
+    color: var(--text);
+  }
+  .root-navigation {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+  }
+  .root-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+  }
+  .root-triangle {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-3);
+    cursor: pointer;
+  }
+  .root-triangle:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+  .root-triangle:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .root-link {
+    gap: 5px;
+  }
+  .navigation-only :global(svg) {
+    stroke-width: 1.5;
+    flex: none;
+  }
+
   .directory {
     min-width: 0;
     padding: 8px;

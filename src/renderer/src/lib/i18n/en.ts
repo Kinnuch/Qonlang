@@ -1359,7 +1359,7 @@ const en: Dict = {
         'With a sentence selected, this bar splits it into words and glosses them automatically; where a word has several candidates, hover it and pick the right one in the card.',
         'Sentences / statistics / abbreviations.',
         'This is the abbreviation table: the abbreviations used in glosses are registered here and spelled out on export.',
-        'Click Back to folders, then right-click the background or a folder to create, import or export. Table and JSON import and the existing export formats are retained.'
+        'Click Root directory to browse folders. Right-click a folder or its background to create a folder, import or export.'
       ],
       phrasebook: [
         'Add a phrase.',

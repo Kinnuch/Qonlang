@@ -81,11 +81,7 @@
     Check,
     Sparkles,
     Merge,
-    FolderOpen,
-    PencilRuler,
-    PanelLeftOpen,
-    PanelLeftClose,
-    HardDrive
+    PencilRuler
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
@@ -102,7 +98,6 @@
     moveCorpusSentences,
     validCorpusFolder
   } from '$lib/core/corpusFolders'
-  import { corpusFolderPath } from '$lib/core/corpusFolders'
   import {
     selectCorpusSentence,
     removeCorpusSentences,
@@ -159,7 +154,6 @@
   let movingSentence = $state(false)
   const folders = $derived(langId ? corpusFoldersFor(project, langId) : [])
   const knownFolderIds = $derived(new Set(folders.map((folder) => folder.id)))
-  const currentFolder = $derived(folders.find((folder) => folder.id === folderId) ?? folders[0])
   $effect(() => {
     if (langId && !validCorpusFolder(project, langId, folderId)) folderId = ''
   })
@@ -457,14 +451,6 @@
   function browseFolder(id: Id): void {
     openFolder(id)
     folderView = true
-  }
-  function showFolders(): void {
-    wordHover.hide(true)
-    folderView = true
-    directoryRoot = !folderId
-    bench = null
-    importOpen = false
-    mode = 'entries'
   }
   function browseRoot(): void {
     openFolder('')
@@ -1123,6 +1109,7 @@
     kind="sentence"
     currentId={folderId}
     {compact}
+    hideNavigation={!compact}
     rootView={directoryRoot}
     onroot={browseRoot}
     onopen={openFolder}
@@ -1136,18 +1123,6 @@
   <div class="page-head row">
     <h1>{t('corpus.title')}</h1>
     <GuideLink section="corpus" />
-    {#if mode === 'entries'}<button
-        class="btn sidebar-toggle"
-        data-page-sidebar-toggle="corpus"
-        aria-controls="corpus-sidebar"
-        aria-expanded={sidebarOpen}
-        title={t(sidebarOpen ? 'sharedFolders.hideSidebar' : 'sharedFolders.showSidebar')}
-        onclick={() => (sidebarOpen = !sidebarOpen)}
-        >{#if sidebarOpen}<PanelLeftClose size={16} />{:else}<PanelLeftOpen size={16} />{/if}<span
-          >{t('sharedFolders.sidebar')}</span
-        ></button
-      >{/if}
-
     <div class="seg" data-tour="corpus-tabs">
       <button class:active={mode === 'entries'} onclick={() => (mode = 'entries')}
         >{t('corpus.modes.entries')}</button
@@ -1160,14 +1135,6 @@
       >
     </div>
     <span class="grow"></span>
-    {#if mode === 'entries' && language}
-      {#if !folderView}<span class="badge">{currentFolder?.name ?? 'Default'}</span><button
-          class="btn"
-          data-tour="corpus-io"
-          data-corpus-show-folders
-          onclick={showFolders}><FolderOpen size={16} />{t('corpus.folders.back')}</button
-        >{/if}
-    {/if}
     {#if mode === 'entries' && !folderView}
       <button class="btn ghost" title={t('corpus.dedup.hintBtn')} onclick={runDedup}
         ><Merge size={16} />{t('corpus.dedup.button')}</button
@@ -1178,8 +1145,23 @@
     {/if}
   </div>
 
+  {#if mode === 'entries'}<ProjectDirectory
+      kind="sentence"
+      navigationOnly
+      currentId={folderId}
+      rootView={directoryRoot}
+      {sidebarOpen}
+      ontoggleSidebar={() => (sidebarOpen = !sidebarOpen)}
+      tour="corpus-io"
+      onroot={browseRoot}
+      onbrowse={browseFolder}
+      onopen={openFolder}
+      onimport={(target, json) => openImport(json, target)}
+      onexport={(target, format, recursive) =>
+        exportSentences(format as CorpusExportKind, target, recursive)}
+    />{/if}
   <div class="corpus-layout">
-    {#if mode === 'entries' && sidebarOpen && !bench && !importOpen}<aside
+    {#if mode === 'entries' && sidebarOpen}<aside
         class="folder-sidebar"
         id="corpus-sidebar"
         data-page-sidebar="corpus"
@@ -1187,21 +1169,6 @@
         {@render folderPanel(true)}
       </aside>{/if}
     <div class="corpus-main">
-      {#if mode === 'entries' && !folderView && langId}<nav
-          class="row small"
-          data-corpus-list-breadcrumbs
-          aria-label={t('corpus.folders.path')}
-        >
-          <button class="btn ghost sm" data-content-root onclick={browseRoot}
-            ><HardDrive size={14} />{t('sharedFolders.root')}</button
-          >
-          {#if !folderId}<span>/</span><button class="btn ghost sm" onclick={() => openFolder('')}
-              >Default</button
-            >{:else}{#each corpusFolderPath(project, langId, folderId) as part (part.id)}<span
-                >/</span
-              ><button class="btn ghost sm" onclick={() => openFolder(part.id)}>{part.name}</button
-              >{/each}{/if}
-        </nav>{/if}
       {#if mode === 'entries' && !folderView}<RecordClipboardTools
           controls={false}
           {project}

@@ -462,6 +462,8 @@
     return {
       update,
       destroy() {
+        // 全屏时节点移到了body，组件卸载也要清掉它，避免留下覆盖列表的旧图层。
+        node.remove()
         anchor.remove()
       }
     }

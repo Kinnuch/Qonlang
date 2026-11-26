@@ -18,7 +18,7 @@
     },
     "共享目录 · Shared folder": {
       "title": "Shared folders and pen nodes",
-      "markdown": "Corpus sentences, phrases and documents share a folder tree. Open Practice → Excerpts in Details view to see all three kinds together. Use the folder sidebar button to show or hide the whole column. In the root directory, Practice includes records in Excerpts in its count. Try copying or cutting the sentence and pasting it in Review. A cut moves the original on paste. In the drawing pad, insert the Nodes component, select its stroke with the node tool, change an anchor between smooth and corner, or double-click the curve to insert an anchor."
+      "markdown": "Corpus sentences, phrases and documents share a folder tree. Open Practice → Excerpts in Details view to see all three kinds together. Click the triangle beside Root directory to show or hide the sidebar. In the root directory, Practice includes records in Excerpts in its count. Try copying or cutting the sentence and pasting it in Review. A cut moves the original on paste. In the drawing pad, insert the Nodes component, select its stroke with the node tool, change an anchor between smooth and corner, or double-click the curve to insert an anchor."
     }
   },
   "tsahun": {
@@ -32,7 +32,7 @@
     },
     "共享目录 · Shared folder": {
       "title": "Shared folders and pen nodes",
-      "markdown": "Corpus sentences, phrases and documents share a folder tree. Open Practice → Excerpts in Details view to see all three kinds together. Use the folder sidebar button to show or hide the whole column. In the root directory, Practice includes records in Excerpts in its count. Try copying or cutting the sentence and pasting it in Review. A cut moves the original on paste. In the drawing pad, insert the Nodes component, select its stroke with the node tool, change an anchor between smooth and corner, or double-click the curve to insert an anchor."
+      "markdown": "Corpus sentences, phrases and documents share a folder tree. Open Practice → Excerpts in Details view to see all three kinds together. Click the triangle beside Root directory to show or hide the sidebar. In the root directory, Practice includes records in Excerpts in its count. Try copying or cutting the sentence and pasting it in Review. A cut moves the original on paste. In the drawing pad, insert the Nodes component, select its stroke with the node tool, change an anchor between smooth and corner, or double-click the curve to insert an anchor."
     }
   }
 }

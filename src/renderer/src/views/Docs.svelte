@@ -31,19 +31,7 @@
   import Hint from '$lib/ui/Hint.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
   import DocLinkPicker from '$lib/ui/DocLinkPicker.svelte'
-  import {
-    Plus,
-    Trash2,
-    Upload,
-    Eye,
-    Pencil,
-    Columns2,
-    FileText,
-    Link,
-    FolderOpen,
-    PanelLeftOpen,
-    PanelLeftClose
-  } from '@lucide/svelte'
+  import { Plus, Trash2, Upload, Eye, Pencil, Columns2, FileText, Link } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
@@ -117,10 +105,6 @@
     selectedId = null
     folderView = true
     directoryRoot = true
-  }
-  function showFolders(): void {
-    if (folderId) browseFolder(folderId)
-    else browseRoot()
   }
   /** 这几类用数据字体（词头、语素形式这些） */
   const DATA_KINDS = new Set<DocLinkKind>(['lexeme', 'morpheme', 'sentence', 'phrase'])
@@ -377,22 +361,7 @@
   <div class="page-head row">
     <h1>{t('docs.title')}</h1>
     <GuideLink section="docs" />
-    <button
-      class="btn sidebar-toggle"
-      data-page-sidebar-toggle="docs"
-      aria-controls="docs-sidebar"
-      aria-expanded={sidebarOpen}
-      title={t(sidebarOpen ? 'sharedFolders.hideSidebar' : 'sharedFolders.showSidebar')}
-      onclick={() => (sidebarOpen = !sidebarOpen)}
-      >{#if sidebarOpen}<PanelLeftClose size={16} />{:else}<PanelLeftOpen size={16} />{/if}<span
-        >{t('sharedFolders.sidebar')}</span
-      ></button
-    >
-
     <span class="grow"></span>
-    {#if !folderView}<button class="btn" data-doc-show-folders onclick={showFolders}
-        ><FolderOpen size={16} />{t('sharedFolders.back')}</button
-      >{/if}
     {#if selected && !folderView}
       <div class="seg" data-tour="docs-views">
         <button class:active={view === 'edit'} onclick={() => (view = 'edit')}
@@ -410,6 +379,17 @@
       ><Plus size={16} />{t('docs.add')}</button
     >
   </div>
+  <ProjectDirectory
+    kind="doc"
+    navigationOnly
+    currentId={folderId}
+    rootView={directoryRoot}
+    {sidebarOpen}
+    ontoggleSidebar={() => (sidebarOpen = !sidebarOpen)}
+    onroot={browseRoot}
+    onbrowse={browseFolder}
+    onopen={openFolder}
+  />
   <Hint id="docs" text={t('docs.hint')} />
   {#if !folderView}<RecordClipboardTools
       controls={false}
@@ -496,6 +476,7 @@
     {#if folderView}<div class="directory-scroll">
         <ProjectDirectory
           kind="doc"
+          hideNavigation
           currentId={folderId}
           rootView={directoryRoot}
           onroot={browseRoot}

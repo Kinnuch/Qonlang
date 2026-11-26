@@ -1368,7 +1368,7 @@ export default {
         'Con una oración seleccionada, aquí puede segmentarla automáticamente y glosarla palabra por palabra; si una palabra tiene varios candidatos, pase el ratón por encima y elija el correcto en la ficha que aparece.',
         'El módulo «Corpus» tiene tres paneles: oraciones de ejemplo, estadísticas y tabla de abreviaturas.',
         'Esta es la tabla de abreviaturas: aquí se registran las abreviaturas usadas en las glosas, y al exportar se desarrollan en su nombre completo.',
-        'Haga clic en Volver a las carpetas y luego haga clic derecho en el fondo o una carpeta para crear, importar o exportar. Se conservan la importación de tablas y JSON y los formatos de exportación existentes.'
+        'Haga clic en el directorio raíz para explorar las carpetas. Haga clic derecho en una carpeta o en el fondo para crear una carpeta, importar o exportar.'
       ],
       phrasebook: [
         'Pulse aquí para añadir una frase.',

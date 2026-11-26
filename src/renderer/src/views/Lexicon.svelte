@@ -7,6 +7,11 @@
   import MorphemeBindingsEditor from '$lib/ui/MorphemeBindingsEditor.svelte'
   import { traceLine } from '$lib/ui/engineText'
   import { navScroll } from '$lib/ui/navScroll'
+  import {
+    captureListViewPosition,
+    restoreListViewPosition,
+    type ListViewPosition
+  } from '$lib/ui/listViewPosition'
   import type { GrammaticalCategory } from '$lib/core/model'
   import { VirtualRows } from '$lib/ui/virtualRows.svelte'
   import { scrollToItem } from '$lib/ui/reveal'
@@ -72,6 +77,7 @@
     type Id,
     type Lexeme,
     type Paradigm,
+    type Project,
     type PartOfSpeech,
     type Script
   } from '$lib/core/model'
@@ -148,6 +154,12 @@
   )
 
   /** 回到这一页时接着用上次的筛选、排序、子页与选中项；换了语言就不恢复选中与滚动 */
+  interface GraphListReturn {
+    owner: Project
+    languageId: Id | null
+    wordId: Id
+    position: ListViewPosition
+  }
   const memo = ui.memo<{
     lang: Id | null
     mode: 'entries' | 'taxonomy' | 'stats'
@@ -163,6 +175,7 @@
     colFilters: Record<string, Set<string>>
     favOnly: boolean
     markedOnly: boolean
+    graphListReturn?: GraphListReturn
   }>('lexicon')
   const sameLang = memo.lang === projectState.currentLanguageId
   let mode = $state<'entries' | 'taxonomy' | 'csv' | 'lexc' | 'export' | 'stats'>(
@@ -184,6 +197,75 @@
   /** 关系图里是图还是对比视图 */
   let graphMode = $state<'graph' | 'compare'>(sameLang ? (memo.graphMode ?? 'graph') : 'graph')
   let selectedId = $state<Id | null>(sameLang ? (memo.selectedId ?? null) : null)
+  let listScroller = $state<HTMLElement | null>(null)
+  let graphListReturn = $state.raw<GraphListReturn | null>(memo.graphListReturn ?? null)
+  let listReturnRequest = $state.raw<GraphListReturn | null>(null)
+  let handledListReturn: GraphListReturn | null = null
+  function sameGraphOrigin(
+    origin: GraphListReturn | null,
+    id: Id | null = selectedId
+  ): origin is GraphListReturn {
+    return (
+      !!origin &&
+      origin.owner === projectState.project &&
+      origin.languageId === langId &&
+      origin.wordId === id
+    )
+  }
+  function returnToList(): void {
+    if (sameGraphOrigin(graphListReturn)) {
+      ui.cancelScrollRestore('lexicon')
+      listReturnRequest = { ...graphListReturn }
+      mainView = 'list'
+    } else if (selectedId) {
+      // 图里主动选择了另一个词，沿用明确定位目标的意图，避免收藏筛选挡住它。
+      if (favOnly && !selected?.favorite) favOnly = false
+      reveal(selectedId)
+    } else mainView = 'list'
+  }
+  function toggleGraph(): void {
+    if (mainView === 'graph') {
+      returnToList()
+      return
+    }
+    const position = captureListViewPosition(listScroller)
+    graphListReturn =
+      position && selectedId
+        ? {
+            owner: project,
+            languageId: langId,
+            wordId: selectedId,
+            position
+          }
+        : null
+    listReturnRequest = null
+    ui.cancelScrollRestore('lexicon')
+    mainView = 'graph'
+  }
+  function restoreGraphList(
+    node: HTMLElement,
+    request: GraphListReturn | null
+  ): { update: (request: GraphListReturn | null) => void; destroy: () => void } {
+    let cancel = (): void => {}
+    function update(next: GraphListReturn | null): void {
+      cancel()
+      if (!next || handledListReturn === next) return
+      handledListReturn = next
+      const owner = project
+      cancel = restoreListViewPosition(
+        node,
+        next.position,
+        () =>
+          projectState.project === owner &&
+          ui.section === 'lexicon' &&
+          mode === 'entries' &&
+          mainView === 'list' &&
+          sameGraphOrigin(next)
+      )
+    }
+    update(request)
+    return { update, destroy: () => cancel() }
+  }
   const query = $derived(ui.search)
   /** 表头排序：哪一列、什么方向；null = 按字母表；'custom' = 项目里的数组顺序 */
   let sortKey = $state<string | null>(memo.sortKey ?? null)
@@ -334,7 +416,10 @@
     if (v.mode === 'entries' || v.mode === 'taxonomy' || v.mode === 'stats') mode = v.mode
     mainView = v.main === 'graph' ? 'graph' : 'list'
     editMode = v.edit === '1'
-    ui.restoreScroll('lexicon', r.scroll)
+    if (mainView === 'list' && sameGraphOrigin(graphListReturn)) {
+      ui.cancelScrollRestore('lexicon')
+      listReturnRequest = { ...graphListReturn }
+    } else ui.restoreScroll('lexicon', r.scroll)
   })
   $effect(() => {
     Object.assign(memo, {
@@ -351,7 +436,8 @@
       endingFilter,
       colFilters: { ...colFilters },
       favOnly,
-      markedOnly
+      markedOnly,
+      graphListReturn: graphListReturn ?? undefined
     })
   })
   // 不是「返回」进来的：列表滚回上次离开时的位置
@@ -1208,6 +1294,7 @@
   function reveal(id: Id): void {
     const l = project.lexemes.find((x) => x.id === id)
     if (!l) return
+    listReturnRequest = null
     if (langId && l.languageId !== langId) projectState.currentLanguageId = l.languageId
     ui.search = ''
     colFilters = {}
@@ -1406,7 +1493,7 @@
     {/if}
     <span class="grow"></span>
     {#if mode === 'entries' && mainView === 'graph'}
-      <button class="btn" onclick={() => (mainView = 'list')}
+      <button class="btn" data-close-lexeme-graph onclick={returnToList}
         ><ArrowLeft size={16} />{t('lexicon.backToList')}</button
       >
     {:else if mode === 'entries'}
@@ -1737,9 +1824,11 @@
     {/if}
     <div
       class="scroll"
+      bind:this={listScroller}
       use:navScroll={'lexicon'}
       use:innerWidth={(w) => (scrollW = w)}
       use:rows.box
+      use:restoreGraphList={listReturnRequest}
     >
       <table class="tbl fixed" style={`width:${tableWidth}px`}>
         <colgroup>
@@ -1990,7 +2079,7 @@
   {@const l = selected}
   <Portal>
     <div class="row card-actions">
-      <button class="btn sm" onclick={() => (mainView = mainView === 'graph' ? 'list' : 'graph')}
+      <button class="btn sm" data-toggle-lexeme-graph onclick={toggleGraph}
         ><Waypoints size={14} />{mainView === 'graph'
           ? t('lexicon.backToList')
           : t('lexicon.graph')}</button
@@ -2042,7 +2131,7 @@
   {@const l = selected}
   <Portal>
     <div class="row card-actions">
-      <button class="btn sm" onclick={() => (mainView = mainView === 'graph' ? 'list' : 'graph')}
+      <button class="btn sm" data-toggle-lexeme-graph onclick={toggleGraph}
         ><Waypoints size={14} />{mainView === 'graph'
           ? t('lexicon.backToList')
           : t('lexicon.graph')}</button
