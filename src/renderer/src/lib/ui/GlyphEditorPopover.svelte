@@ -3,6 +3,7 @@
   import { ChevronDown } from '@lucide/svelte'
   import { anchoredFloating } from './anchoredFloating'
   import HelpDot from './HelpDot.svelte'
+  import { dismissOwnedHelpTooltip, ownedHelpTooltip } from './helpTooltip'
 
   let {
     name,
@@ -42,12 +43,13 @@
       if (live)
         (
           popup?.querySelector<HTMLElement>(
-            'input:not(:disabled),select:not(:disabled),button:not(:disabled)'
+            'input:not(:disabled),select:not(:disabled),button:not(:disabled):not([data-help-dot])'
           ) ?? popup
         )?.focus()
     })
     const inside = (target: EventTarget | null): boolean =>
-      target instanceof Node && (!!anchor?.contains(target) || !!popup?.contains(target))
+      target instanceof Node &&
+      (!!anchor?.contains(target) || !!popup?.contains(target) || !!ownedHelpTooltip(popup, target))
     const outside = (event: PointerEvent): void => {
       if (!inside(event.target)) close()
     }
@@ -58,6 +60,7 @@
       if (event.key === 'Escape') {
         event.preventDefault()
         event.stopImmediatePropagation()
+        if (dismissOwnedHelpTooltip(popup)) return
         close(true)
       } else if (event.key === 'Tab') {
         const controls = Array.from(

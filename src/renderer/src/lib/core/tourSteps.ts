@@ -143,7 +143,7 @@ export const TOUR_STEPS: Record<string, TourStep[]> = {
     { selector: '.item', go: 'corpus', view: { mode: 'entries' } },
     {
       selector: '[data-tour="corpus-analyze"]',
-      click: '.item',
+      click: '[data-record-edit]',
       go: 'corpus',
       view: { mode: 'entries' }
     },

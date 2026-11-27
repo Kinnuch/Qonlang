@@ -205,7 +205,7 @@
   const browseMode = $derived(recordViewMode(ui.prefs.recordViews?.corpus))
   let explicitEditorId = $state<Id | null>(null)
   function setBrowseMode(value: RecordViewMode): void {
-    if (value !== 'list') collapsedId = selectedId
+    collapsedId = selectedId
     explicitEditorId = null
     ui.prefs.recordViews = { ...ui.prefs.recordViews, corpus: value }
     ui.savePrefsSoon()
@@ -224,9 +224,7 @@
     explicitEditorId = id
   }
   function analysisOpen(id: Id): boolean {
-    return (
-      selectedId === id && collapsedId !== id && (browseMode === 'list' || explicitEditorId === id)
-    )
+    return selectedId === id && collapsedId !== id && explicitEditorId === id
   }
 
   const list = $derived.by(() => {
@@ -717,7 +715,7 @@
       setTimeout(() => (justConfirmed = null), 1200)
     }, 420)
   }
-  /** 点例句卡片：选中它；已经选中但编辑器收起了，就重新展开 */
+  /** 收起分析仍保留选中；三种浏览方式只从明确的编辑入口展开。 */
   function closeAnalysis(id: Id): void {
     if (explicitEditorId === id) explicitEditorId = null
     collapsedId = id
@@ -743,7 +741,7 @@
     multiIds = next.ids
     selectionAnchor = next.anchor
     selectedId = next.ids.includes(id) ? id : (next.ids.at(-1) ?? null)
-    collapsedId = browseMode === 'list' ? null : selectedId
+    collapsedId = selectedId
     explicitEditorId = null
   }
   /** 导出当前列表里的例句（跟着当前语言与搜索走） */
@@ -1719,15 +1717,13 @@
                         selectionAnchor = s.id
                       }
                       selectedId = s.id
-                      if (browseMode !== 'list') {
-                        collapsedId = s.id
-                        explicitEditorId = null
-                      }
+                      collapsedId = s.id
+                      explicitEditorId = null
                     },
                     remove: () => remove(s)
                   }}
                   class:sel={selectedId === s.id || selectedVisibleSet.has(s.id)}
-                  aria-pressed={selectedVisibleSet.has(s.id)}
+                  aria-pressed={selectedId === s.id || selectedVisibleSet.has(s.id)}
                   data-corpus-selected={selectedVisibleSet.has(s.id)}
                   class:flash={flashId === s.id}
                   use:flashOn={justConfirmed === s.id}
@@ -1741,7 +1737,12 @@
                     }
                   }}
                   onclick={(e) => pick(s.id, e)}
-                  onkeydown={(e) => e.key === 'Enter' && pick(s.id, e)}
+                  onkeydown={(e) => {
+                    if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault()
+                      pick(s.id, e)
+                    }
+                  }}
                 >
                   <ExpandableRecord collapsible={browseMode !== 'gallery'}>
                     {#each scriptScope.visible(s) as sc (sc.id)}
@@ -1830,8 +1831,9 @@
                         </div>{/if}
                     {/if}
                   </ExpandableRecord>
-                  {#if browseMode !== 'list' && !projectState.readOnly}<div
-                      class="row gallery-actions"
+                  {#if !projectState.readOnly}<div
+                      class="row record-actions"
+                      class:gallery-actions={browseMode === 'gallery'}
                     >
                       <button
                         type="button"
@@ -2232,6 +2234,7 @@
     font-weight: 500;
   }
   .item {
+    position: relative;
     padding: 8px 12px;
     cursor: pointer;
     display: flex;
@@ -2258,6 +2261,36 @@
     justify-content: flex-end;
     margin-block-start: auto;
     padding-block-start: 8px;
+  }
+  .record-actions:not(.gallery-actions) {
+    position: absolute;
+    inset-inline-end: 8px;
+    bottom: 4px;
+    opacity: 0;
+    pointer-events: none;
+    border-radius: var(--radius-sm);
+    background: var(--bg-elev);
+  }
+  .item:has(:global([data-record-overflow='true'])) .record-actions:not(.gallery-actions) {
+    inset-inline-end: 48px;
+  }
+  .item:hover .record-actions,
+  .item:focus-visible .record-actions,
+  .item:has(:focus-visible) .record-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  @media (hover: none), (pointer: coarse) {
+    .record-actions:not(.gallery-actions) {
+      position: static;
+      opacity: 1;
+      pointer-events: auto;
+      align-self: flex-end;
+    }
+    .record-actions button {
+      min-height: 44px;
+      min-width: 44px;
+    }
   }
   .neighbor-preview {
     height: 100%;

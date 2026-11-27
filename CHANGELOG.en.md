@@ -1,15 +1,14 @@
 # Changelog
 
-## 1.1.2 · unreleased
+## 1.1.2 · 2026-11-27
 
-- Fixed the automatic treatment of the class name `N` as a nucleus class. Nasals can remain in onsets and codas while explicitly syllabic consonants still form nuclei. Phonology and sound changes share nucleus classification, and allowed-nucleus checks recognize equivalent Unicode spellings.
-- The lexicon toolbar stays on one row. Use the inspector to switch between viewing and editing. The up and down arrows select adjacent entries in filtered and sorted lexicon or morpheme lists.
-- Compound creation supports ordered join adjustments with previews for deletion, sound insertion and separators. The corpus gallery centers the complete sentence and shows faded previews of its neighbors. In gallery and masonry views, use the edit control to open interlinear editing.
-
-- Click the inspector headword to locate and highlight its exact entry in the lexicon. Sorting and compatible filters are preserved, including for homographs.
-- Use Add compound in the Add entry menu to combine two existing entries. Adjust the join or final spelling before saving their references in the etymology. Existing compound entries can use suggested combinations of entries and morphemes in their language or accept manually chosen sources.
-- Import or paste sentences with one record per nonempty line. Windows, Unix, classic Mac and Unicode line breaks are recognized. CSV and TSV preserve embedded line breaks in quoted fields. Pasting multiple lines into a sentence offers a preview of new entries or an ordinary paste into the current sentence.
-- Long corpus cards can be expanded or collapsed with a triangle in their lower-right corner. Corpus and Phrasebook offer list, single-card gallery and masonry views and remember their choices independently.
+- Create a compound from two existing entries in the Add entry menu. Preview the spelling and save links to both sources. For an existing word, choose a two- or three-part etymology from entries and morphemes in the same language.
+- Click Add step, then choose and configure its operation inside the new row. Alongside deletion, insertion and separators, custom adjustments support the paradigm tweak syntax on either source, including word-final metathesis. Help tips now stay beside the question mark in the compound dialog.
+- Click the inspector headword to locate its exact entry, including homographs. The lexicon toolbar stays on one row. Use the up and down arrows to select entries in sorted and filtered lexicon and morpheme lists.
+- Preview and import one sentence per line from pasted text or files with Windows, Unix, classic Mac or Unicode line breaks. Quoted CSV and TSV fields retain embedded newlines. Multiline text pasted into a sentence can be previewed as new records or kept in that sentence.
+- Corpus and Phrasebook remember their list, gallery and masonry views independently. The corpus gallery centers the full sentence with adjacent card previews. Long sentences in the list and masonry can be expanded or collapsed.
+- Click a corpus card to select it in any view. Choose Edit to open the interlinear editor. The list and masonry reveal Edit on hover or keyboard focus. The gallery keeps Edit in the lower-right corner.
+- Fixed syllabification and misplaced stress when nasals in the ordinary class N were treated as nuclei. Explicitly syllabic consonants still form nuclei. Phonology, sound changes and allowed-nucleus checks recognize equivalent Unicode spellings.
 
 ## 1.1.1 · 2026-11-26
 

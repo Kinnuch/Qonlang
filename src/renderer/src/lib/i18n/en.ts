@@ -29,6 +29,18 @@ const en: Dict = {
     collapse: 'Collapse long content'
   },
   compoundJoin: {
+    chooseType: 'Choose a step type',
+    adjust: 'Custom tweak',
+    scope: 'Apply tweak to',
+    targetLeft: 'Current left form',
+    targetRight: 'Current right form',
+    adjustRules: 'Tweak rules',
+    adjustHint:
+      'Use the morphology pipeline’s tweak syntax, one instruction per line, on the current form of the selected side only. Example: ab > ba / _# changes final ab in cab to ba. Use one _ in the environment and > for the arrow. You can also use -x, +x, ^-x and ^+x, and declare sound classes above the rules. If any line is invalid, the entire tweak is not applied; correct it before creating the compound.',
+    adjustPlaceholder: 'ab > ba / _#',
+    invalidAdjust:
+      'This tweak has errors and was not applied. Correct or remove the step before creating the compound.',
+    unknownAdjust: 'Unrecognized instruction. Use a rule containing >, or -x, +x, ^-x or ^+x.',
     title: 'Joining adjustments',
     hint: 'Count complete units using the project’s multi-character sounds, letters and intact graphemes, keeping the original spelling. Inserted text belongs to its chosen side and may be removed by a later step. Steps run in order; a hand-edited final form is kept.',
     boundaryHint:
@@ -483,7 +495,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again. Try drawing components, a grid preset, and shared folders for corpus examples, phrases and documents. Try tag and part-of-speech colors, and inspect descendant counts in the project root. Try inserting a sound between two words, then browse the corpus gallery with the arrow keys.',
+        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again. Try drawing components, a grid preset, and shared folders for corpus examples, phrases and documents. Try tag and part-of-speech colors, and inspect descendant counts in the project root. Try a custom tweak at the join of a compound, or choose Edit on a sentence card to open its interlinear gloss.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font. Temporary classes map multi-character tone numbers to complete tone-letter sequences. An optional paradigm uses per-entry morpheme slots to reproduce corpus particle combinations. Try tag and part-of-speech colors, and inspect descendant counts in the project root.'
     },
@@ -1443,7 +1455,7 @@ const en: Dict = {
       corpus: [
         'Add an example sentence.',
         'Sentence cards: hover a word to see its entry; words with several indistinguishable candidates are marked in the warning colour — pick one on hover to lock it in.',
-        'With a sentence selected, this bar splits it into words and glosses them automatically; where a word has several candidates, hover it and pick the right one in the card.',
+        'Click Edit on a sentence card to open this bar for word analysis and glossing. If a word has several candidates, hover it and choose the correct one in its popup.',
         'Sentences / statistics / abbreviations.',
         'This is the abbreviation table: the abbreviations used in glosses are registered here and spelled out on export.',
         'Click Root directory to browse folders. Right-click a folder or its background to create a folder, import or export.'

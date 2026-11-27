@@ -765,17 +765,25 @@ export interface Generated {
   ipa?: string
 }
 
+export interface AdjustIssue {
+  kind: 'rule' | 'unknown'
+  line: string
+  message?: string
+}
+
 /**
  * 微调：每行一条。`-x` 去词尾 x，`+x` 追加，`^-x` 去词首，`^+x` 前置；含 > 的行是规则。
  * 音类定义（`V=aeiou`、`{名}=a b c`）、特征（`[+名] = …`）、多合字母（`th|θ`）是声明，
  * 对这一步里的每条规则都生效（跟规则语言里「一段文本」的规矩一样）。
+ * 可选 issues 只收集诊断，不改变旧调用逐行执行的行为；严格提交方自行回退整条草稿。
  */
 export function applyAdjust(
   ctx: MorphContext,
   surface: string,
   text: string | undefined,
   trace: string[],
-  label: string
+  label: string,
+  issues?: AdjustIssue[]
 ): string {
   if (!text || !text.trim()) return surface
   let s = surface
@@ -783,6 +791,12 @@ export function applyAdjust(
   // 规则还是一行一行单独跑，编译时把这一步里的声明带上
   const decls = lines.filter((l) => l && !l.startsWith(';') && isDeclaration(l))
   const prefix = decls.length ? decls.join('\n') + '\n' : ''
+  // 需要阻止提交的临时编辑器也检查只有声明、还未写规则的草稿；旧构形调用保持原行为。
+  if (issues && prefix) {
+    for (const diagnostic of ruleOf(ctx, prefix).diagnostics)
+      if (diagnostic.severity === 'error')
+        issues.push({ kind: 'rule', line: decls.join('\n'), message: diagnostic.message })
+  }
   for (const line of lines) {
     if (!line || line.startsWith(';') || isDeclaration(line)) continue
     const before = s
@@ -790,6 +804,7 @@ export function applyAdjust(
       const prog = ruleOf(ctx, prefix + line)
       const err = prog.diagnostics.find((d) => d.severity === 'error')
       if (err) {
+        issues?.push({ kind: 'rule', line, message: err.message })
         trace.push(`${label} ✗ ${line}: ${err.message}`)
         continue
       }
@@ -805,6 +820,7 @@ export function applyAdjust(
     } else if (line.startsWith('+')) {
       s = s + line.slice(1)
     } else {
+      issues?.push({ kind: 'unknown', line })
       trace.push(`${label} ? ${line}`)
       continue
     }

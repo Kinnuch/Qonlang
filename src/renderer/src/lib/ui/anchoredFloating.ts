@@ -1,8 +1,13 @@
 /** 将弹层移出检视器或手写板的滚动容器，定位到触发控件。 */
+import { floatingGeometry } from './floatingGeometry'
+
 interface FloatingOptions {
   anchor: HTMLElement | null | undefined
   matchWidth?: boolean
-  align?: 'start' | 'end'
+  align?: 'start' | 'end' | 'center'
+  placement?: 'auto' | 'above' | 'below'
+  /** 提示打开期间跟踪 transform 动画；普通菜单仍只按事件更新。 */
+  track?: boolean
   width?: number
   gap?: number
   onAnchorHidden?: () => void
@@ -18,7 +23,6 @@ export function anchoredFloating(
   let options = initial,
     frame = 0,
     disposed = false
-  const margin = 8
   node.style.position = 'fixed'
   node.style.boxSizing = 'border-box'
   document.body.appendChild(node)
@@ -26,36 +30,48 @@ export function anchoredFloating(
   function position(): void {
     if (disposed) return
     const anchor = options.anchor
-    if (!anchor || !anchor.isConnected) return
+    if (!anchor || !anchor.isConnected) {
+      options.onAnchorHidden?.()
+      return
+    }
     const rect = anchor.getBoundingClientRect()
     const vp = window.visualViewport
-    const leftEdge = vp?.offsetLeft ?? 0,
-      topEdge = vp?.offsetTop ?? 0
-    const width = vp?.width ?? document.documentElement.clientWidth
-    const height = vp?.height ?? document.documentElement.clientHeight
-    const limitX = leftEdge + width - margin,
-      limitY = topEdge + height - margin
+    const viewport = {
+      left: vp?.offsetLeft ?? 0,
+      top: vp?.offsetTop ?? 0,
+      width: vp?.width ?? document.documentElement.clientWidth,
+      height: vp?.height ?? document.documentElement.clientHeight
+    }
     const desiredWidth =
       options.width ?? (options.matchWidth === false ? node.offsetWidth : rect.width)
-    const panelWidth = Math.min(desiredWidth, Math.max(1, width - margin * 2))
-    node.style.width = panelWidth + 'px'
-    const gap = options.gap ?? 4
-    const above = Math.max(0, rect.top - gap - topEdge - margin)
-    const below = Math.max(0, limitY - rect.bottom - gap)
-    const needed = node.scrollHeight + node.offsetHeight - node.clientHeight
-    const up = below < needed && above > below
-    node.style.maxHeight = (up ? above : below) + 'px'
-    const top = up ? rect.top - gap - node.offsetHeight : rect.bottom + gap
     const alignRight = (getComputedStyle(anchor).direction === 'rtl') !== (options.align === 'end')
-    const left = alignRight ? rect.right - panelWidth : rect.left
-    node.style.left = Math.max(leftEdge + margin, Math.min(left, limitX - panelWidth)) + 'px'
-    node.style.top = Math.max(topEdge + margin, Math.min(top, limitY - node.offsetHeight)) + 'px'
+    const geometry = {
+      anchor: rect,
+      viewport,
+      width: desiredWidth,
+      gap: options.gap,
+      align:
+        options.align === 'center'
+          ? ('center' as const)
+          : alignRight
+            ? ('right' as const)
+            : ('left' as const),
+      placement: options.placement
+    }
+    const panelWidth = floatingGeometry({ ...geometry, height: 0 }).width
+    if (node.style.width !== panelWidth + 'px') node.style.width = panelWidth + 'px'
+    const needed = node.scrollHeight + node.offsetHeight - node.clientHeight
+    const at = floatingGeometry({ ...geometry, height: needed })
+    node.style.maxHeight = at.maxHeight + 'px'
+    node.style.left = at.left + 'px'
+    node.style.top = at.top + 'px'
   }
   function schedule(): void {
     if (frame || disposed) return
     frame = requestAnimationFrame(() => {
       frame = 0
       position()
+      if (options.track) schedule()
     })
   }
   const size = new ResizeObserver(schedule)
@@ -80,6 +96,7 @@ export function anchoredFloating(
   viewport?.addEventListener('resize', schedule)
   viewport?.addEventListener('scroll', schedule)
   position()
+  if (options.track) schedule()
   return {
     update(next) {
       if (next.anchor !== options.anchor) {

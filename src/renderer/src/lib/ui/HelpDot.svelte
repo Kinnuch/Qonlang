@@ -5,40 +5,108 @@
    */
   import { ui } from '$lib/state/ui.svelte'
   import { t } from '$lib/i18n/index.svelte'
+  import { onDestroy } from 'svelte'
+  import { anchoredFloating } from './anchoredFloating'
+  import { helpTooltipDismiss } from './helpTooltip'
 
   let { tip, key = '' }: { tip?: string; key?: string } = $props()
   const text = $derived(tip ?? (key ? t(`tips.${key}`) : ''))
+  const eligible = $derived(ui.prefs.showHelpDots && !!text && text !== `tips.${key}`)
 
   let dot = $state<HTMLElement | null>(null)
   let open = $state(false)
-  let style = $state('')
-
-  const W = 280
-  function place(): void {
-    if (!dot) return
-    const r = dot.getBoundingClientRect()
-    const left = Math.min(Math.max(8, r.left + r.width / 2 - W / 2), window.innerWidth - W - 8)
-    // 上方放不下就翻到下面
-    const above = r.top > 130
-    const vert = above ? `bottom:${window.innerHeight - r.top + 6}px` : `top:${r.bottom + 6}px`
-    style = `left:${left}px;${vert};width:${W}px`
+  let focused = false
+  let hovered = false
+  let hideTimer: ReturnType<typeof setTimeout> | undefined
+  const id = $props.id()
+  function show(): void {
+    clearTimeout(hideTimer)
     open = true
   }
+  function hideSoon(): void {
+    clearTimeout(hideTimer)
+    if (!focused && !hovered) hideTimer = setTimeout(() => (open = false), 100)
+  }
+  function enter(): void {
+    hovered = true
+    show()
+  }
+  function leave(): void {
+    hovered = false
+    hideSoon()
+  }
+  $effect(() => {
+    if (!eligible) {
+      clearTimeout(hideTimer)
+      focused = false
+      hovered = false
+      open = false
+      return
+    }
+    if (!open) return
+    const escape = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      clearTimeout(hideTimer)
+      hovered = false
+      open = false
+    }
+    window.addEventListener('keydown', escape, true)
+    return () => window.removeEventListener('keydown', escape, true)
+  })
+  onDestroy(() => clearTimeout(hideTimer))
 </script>
 
-{#if ui.prefs.showHelpDots && text && text !== `tips.${key}`}
-  <span
+{#if eligible}
+  <button
+    type="button"
     class="help"
     bind:this={dot}
-    role="note"
+    data-help-dot
     aria-label={text}
-    onmouseenter={place}
-    onmouseleave={() => (open = false)}
+    aria-describedby={open ? id : undefined}
+    onmouseenter={enter}
+    onmouseleave={leave}
+    onfocus={() => {
+      focused = true
+      show()
+    }}
+    onblur={() => {
+      focused = false
+      hideSoon()
+    }}
+    onclick={(event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      show()
+    }}
   >
     ?
-  </span>
+  </button>
   {#if open}
-    <span class="bubble" {style}>{text}</span>
+    <span
+      class="bubble"
+      {id}
+      role="tooltip"
+      data-help-tooltip
+      use:helpTooltipDismiss={() => {
+        clearTimeout(hideTimer)
+        hovered = false
+        open = false
+      }}
+      use:anchoredFloating={{
+        anchor: dot,
+        width: 280,
+        align: 'center',
+        placement: 'above',
+        gap: 6,
+        track: true,
+        onAnchorHidden: () => (open = false)
+      }}
+      onmouseenter={enter}
+      onmouseleave={leave}>{text}</span
+    >
   {/if}
 {/if}
 
@@ -51,6 +119,10 @@
     width: 14px;
     height: 14px;
     flex: none;
+    padding: 0;
+    background: transparent;
+    font-family: inherit;
+    vertical-align: middle;
     border-radius: 50%;
     border: 1px solid var(--border);
     color: var(--text-3);
@@ -59,7 +131,8 @@
     cursor: help;
     user-select: none;
   }
-  .help:hover {
+  .help:hover,
+  .help:focus-visible {
     color: var(--accent);
     border-color: var(--accent);
   }
@@ -75,7 +148,8 @@
     line-height: 1.6;
     text-align: start;
     white-space: pre-line;
-    pointer-events: none;
-    z-index: 90;
+    overflow-wrap: anywhere;
+    overflow: auto;
+    z-index: 1600;
   }
 </style>

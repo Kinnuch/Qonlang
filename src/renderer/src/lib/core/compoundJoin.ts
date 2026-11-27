@@ -1,13 +1,16 @@
 /** 复合词连接处的临时流水线。只处理草稿字串，不回写来源，也不作IPA往返转换。 */
-import type { Language } from './model'
+import type { Language, Project } from './model'
 import { canonicalG } from '$lib/ipa/equivalence'
 import { segment, spellingUnits } from '$lib/engine/phon'
+import { applyAdjust, makeContext, type AdjustIssue } from '$lib/engine/morph'
 
 export type CompoundJoinStep =
+  | { id: string; kind: 'none' }
   | { id: string; kind: 'drop-left' | 'drop-right'; count: number; times: number }
-  | { id: string; kind: 'insert'; side: 'left' | 'right'; text: string }
+  | { id: string; kind: 'insert' | 'adjust'; side: 'left' | 'right'; text: string }
   | { id: string; kind: 'separator'; text: string }
-export type CompoundJoinIssue = 'invalidCount' | 'invalidText' | 'invalidStep' | 'tooMany'
+export type CompoundJoinIssue =
+  'invalidCount' | 'invalidText' | 'invalidStep' | 'invalidAdjust' | 'tooMany'
 export interface CompoundJoinState {
   left: string
   right: string
@@ -20,6 +23,8 @@ export interface CompoundJoinTrace {
   before: CompoundJoinState
   after: CompoundJoinState
   removed: string[]
+  adjustments?: string[]
+  diagnostics?: AdjustIssue[]
   issue?: CompoundJoinIssue
 }
 export interface CompoundJoinResult extends CompoundJoinState {
@@ -32,6 +37,7 @@ const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 
 /** 沿用构形的拼写单位，另用完整字素边界兜底未知组合，保留原始大小写和Unicode写法。 */
 export function prepareCompoundJoin(
+  project: Project,
   language: Language
 ): (left: string, right: string, steps: readonly CompoundJoinStep[]) => CompoundJoinResult {
   const primary =
@@ -45,6 +51,7 @@ export function prepareCompoundJoin(
       )
     ],
     known = new Set(inventory)
+  const context = makeContext(project, language)
   function split(text: string): string[] {
     const boundaries = new Map<number, number>([[0, 0]])
     let folded = '',
@@ -116,8 +123,12 @@ export function prepareCompoundJoin(
     for (const step of steps.slice(0, 100)) {
       const before = { ...state }
       let removed: string[] = []
+      const adjustments: string[] = [],
+        diagnostics: AdjustIssue[] = []
       let local: CompoundJoinIssue | undefined
-      if (step.kind === 'drop-left' || step.kind === 'drop-right') {
+      if (step.kind === 'none') {
+        // 刚添加但尚未选类型的步骤不改变来源，也不打开词缀边界。
+      } else if (step.kind === 'drop-left' || step.kind === 'drop-right') {
         if (
           !Number.isSafeInteger(step.count) ||
           step.count < 1 ||
@@ -155,6 +166,27 @@ export function prepareCompoundJoin(
           openJunction()
           state.separator = step.text
         }
+      } else if (step.kind === 'adjust') {
+        if (typeof step.text !== 'string' || !['left', 'right'].includes(step.side))
+          local = 'invalidText'
+        else if (step.text.trim()) {
+          const wasOpened = opened
+          openJunction()
+          const adjusted = applyAdjust(
+            context,
+            state[step.side],
+            step.text,
+            adjustments,
+            '微调',
+            diagnostics
+          )
+          if (diagnostics.length) {
+            // 一条微调是一次提交单位，不能把报错前的半条结果当成可创建的词形。
+            local = 'invalidAdjust'
+            state = { ...before }
+            opened = wasOpened
+          } else state[step.side] = adjusted
+        }
       } else local = 'invalidStep'
       state = { ...state, surface: state.left + state.separator + state.right }
       if (local) issue ??= local
@@ -164,6 +196,8 @@ export function prepareCompoundJoin(
         before,
         after: { ...state },
         removed,
+        ...(adjustments.length ? { adjustments } : {}),
+        ...(diagnostics.length ? { diagnostics } : {}),
         ...(local ? { issue: local } : {})
       })
     }

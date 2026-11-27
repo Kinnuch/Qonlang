@@ -37,7 +37,7 @@
     second = $derived(
       project.lexemes.find((word) => word.id === secondId && word.languageId === languageId)
     )
-  const joiner = $derived(language ? prepareCompoundJoin(language) : null)
+  const joiner = $derived(language ? prepareCompoundJoin(project, language) : null)
   const joining = $derived(
     joiner ? joiner(first?.lemma ?? '', second?.lemma ?? '', joinSteps) : null
   )
