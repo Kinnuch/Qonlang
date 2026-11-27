@@ -5,16 +5,23 @@
    * 分隔符默认自动：不是每行都有同一个分隔符时，当成一行一条、不分列（句子里的逗号不会把句子切开）。
    * 记录怎么变成条目由调用方的 onimport（JSON 是 json.run）决定。
    */
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import { platform } from '$lib/platform'
   import { t } from '$lib/i18n/index.svelte'
-  import { detectDelimiter, parseCsv, type Delimiter } from '$lib/core/csv'
+  import {
+    parseTableText,
+    splitForTableFile,
+    looksLikeJson,
+    type TableTextSplit,
+    type TableTextChoice
+  } from '$lib/importers/tableText'
   import { guessColumns, rowsToRecords, type ImportField } from '$lib/importers/corpusIO'
   import { normalizeSentence } from '$lib/core/sentenceDedup'
   import { PREVIEW_LIMIT, type PreviewData } from '$lib/importers/preview'
   import { ioFieldLabel } from '$lib/ui/ioLabels'
   import Portal from './Portal.svelte'
   import ImportPreview from './ImportPreview.svelte'
+  import HelpDot from './HelpDot.svelte'
   import { FileDown, X, BookOpenText } from '@lucide/svelte'
 
   let {
@@ -24,6 +31,9 @@
     exists = () => false,
     json = undefined,
     startWithJson = false,
+    initialText = '',
+    initialSplit = 'auto',
+    sentenceLines = false,
     onimport,
     onclose
   }: {
@@ -40,11 +50,14 @@
     }
     /** 一打开就去选 JSON 文件（菜单里点的是「从 JSON 导入」） */
     startWithJson?: boolean
+    initialText?: string
+    initialSplit?: TableTextChoice
+    sentenceLines?: boolean
     onimport: (records: Record<string, string>[]) => void
     onclose: () => void
   } = $props()
 
-  type Split = Delimiter | 'line'
+  type Split = TableTextSplit
   const SPLITS: { value: Split | 'auto'; key: string }[] = [
     { value: 'auto', key: 'auto' },
     { value: 'line', key: 'line' },
@@ -54,28 +67,20 @@
     { value: '|', key: 'pipe' }
   ]
 
-  let raw = $state('')
+  let raw = $state(untrack(() => initialText))
   let fileName = $state('')
-  let split = $state<Split | 'auto'>('auto')
+  let split = $state<Split | 'auto'>(untrack(() => initialSplit))
   /** 选的是 JSON 文件时它的内容（这时不分列、不挑字段） */
   let jsonText = $state('')
-  const jsonRecords = $derived(jsonText && json ? json.preview(jsonText) : null)
-
-  const lines = $derived(raw.split(/\r?\n/).filter((l) => l.trim()))
-  /** 自动：大多数行都有同一个分隔符才分列 */
-  function autoSplit(text: string, ls: string[]): Split {
-    if (!ls.length) return 'line'
-    const d = detectDelimiter(text)
-    return ls.filter((l) => l.includes(d)).length / ls.length >= 0.8 ? d : 'line'
-  }
-  const resolved = $derived(split !== 'auto' ? split : autoSplit(raw, lines))
-  const table = $derived(
-    !raw.trim()
-      ? []
-      : resolved === 'line'
-        ? lines.map((l) => [l.trim()])
-        : parseCsv(raw, resolved).rows
+  // 粘贴JSON也走结构化通路；明确选「按行」时才把JSON外形的文字当普通文本。
+  const activeJson = $derived(
+    jsonText || (json && split === 'auto' && looksLikeJson(raw) ? raw : '')
   )
+  const jsonRecords = $derived(activeJson && json ? json.preview(activeJson) : null)
+
+  const parsed = $derived(parseTableText(raw, split))
+  const resolved = $derived(parsed.split)
+  const table = $derived(parsed.rows)
   const colCount = $derived(table.reduce((n, r) => Math.max(n, r.length), 0))
   // 分了列才默认有表头；手动勾过的在换分隔符之前一直算数
   let hasHeader = $derived(resolved !== 'line')
@@ -93,8 +98,12 @@
   function setColumn(i: number, key: string): void {
     columns = columns.map((c, j) => (j === i ? key : c))
   }
+  function pastedSource(event: ClipboardEvent): void {
+    const text = event.clipboardData?.getData('text/plain') ?? ''
+    if (json && looksLikeJson(text) && json.preview(text) !== null) split = 'auto'
+  }
 
-  const total = $derived(jsonText ? (jsonRecords?.length ?? 0) : records.length)
+  const total = $derived(activeJson ? (jsonRecords?.length ?? 0) : records.length)
   /** 标出会跳过的：原文为空、已经有了、跟前面重复 */
   function withSkips(
     recs: Record<string, string>[]
@@ -115,18 +124,16 @@
     })
   }
   /** 样例：前几条 */
-  const sample = $derived(withSkips(jsonText ? (jsonRecords ?? []) : records))
+  const sample = $derived(withSkips(activeJson ? (jsonRecords ?? []) : records))
   /** 测试台：敲的几行按现在的分隔符切开、按选好的那套列映射认（表头不用再敲一遍） */
   function testRows(text: string): PreviewData | null {
     // 选的是 JSON 时就按 JSON 读，跟真导入同一条路
-    if (jsonText && json) {
+    if (activeJson && json) {
       const recs = json.preview(text)
       return recs?.length ? { records: withSkips(recs) } : null
     }
     // 还没选文件时，分隔符与每列的字段就按这段输入自己猜一遍（跟选了文件时同一套猜法）
-    const ls = text.split(/\r?\n/).filter((l) => l.trim())
-    const sp = split !== 'auto' ? split : colCount ? resolved : autoSplit(text, ls)
-    const rows = sp === 'line' ? ls.map((l) => [l.trim()]) : parseCsv(text, sp).rows
+    const { rows } = parseTableText(text, split === 'auto' && colCount ? resolved : split)
     if (!rows.length) return null
     const guessed = !columns.length
     const cols = guessed ? guessColumns(null, fields, rows[0].length) : columns
@@ -144,13 +151,14 @@
     const isJson = !!json && /\.json$/i.test(f.name)
     jsonText = isJson ? f.content : ''
     raw = isJson ? '' : f.content
+    if (!isJson) split = splitForTableFile(f.name, f.content)
   }
   onMount(() => {
     if (startWithJson) void pickFile(true)
   })
   function run(): void {
-    if (jsonText) {
-      if (json && jsonRecords?.length) json.run(jsonText)
+    if (activeJson) {
+      if (json && jsonRecords?.length) json.run(activeJson)
       return
     }
     if (!records.some((r) => r.text)) return
@@ -158,7 +166,7 @@
   }
 </script>
 
-<div class="panel card">
+<div class="panel card" data-table-import>
   <div class="row">
     <strong class="grow">{title}</strong>
     {#if guide}
@@ -174,25 +182,33 @@
     >
   </div>
   <div class="row opts">
-    <button class="btn sm" onclick={() => pickFile()}
+    <button class="btn sm" data-import-pick onclick={() => pickFile()}
       ><FileDown size={14} />{t('io.pickFile')}</button
     >
     <span class="small muted grow">{fileName || t('io.orPaste')}</span>
     {#if !jsonText}
+      {#if sentenceLines}<button
+          type="button"
+          class="btn sm"
+          class:active={split === 'line'}
+          data-corpus-text-lines
+          onclick={() => (split = 'line')}>{t('corpusTextImport.lines')}</button
+        ><HelpDot tip={t('corpusTextImport.linesHint')} />{/if}
       <label class="row small"
         >{t('io.split')}
-        <select class="select" bind:value={split}>
+        <select class="select" data-import-split bind:value={split}>
           {#each SPLITS as s (s.key)}<option value={s.value}>{t(`io.splits.${s.key}`)}</option
             >{/each}
         </select></label
       >
-      <label class="row check small"
-        ><input
-          type="checkbox"
-          checked={hasHeader}
-          onchange={(e) => (hasHeader = (e.currentTarget as HTMLInputElement).checked)}
-        />{t('io.hasHeader')}</label
-      >
+      {#if !activeJson}<label class="row check small"
+          ><input
+            type="checkbox"
+            data-import-header
+            checked={hasHeader}
+            onchange={(e) => (hasHeader = (e.currentTarget as HTMLInputElement).checked)}
+          />{t('io.hasHeader')}</label
+        >{/if}
     {/if}
   </div>
   {#if jsonText}
@@ -200,9 +216,18 @@
       {jsonRecords ? t('io.jsonFile') : t('io.badJson')}
     </p>
   {:else}
-    <textarea class="textarea data" rows="4" placeholder={t('io.pastePlaceholder')} bind:value={raw}
+    <textarea
+      class="textarea data"
+      data-import-raw
+      rows="4"
+      placeholder={t('io.pastePlaceholder')}
+      bind:value={raw}
+      onpaste={pastedSource}
     ></textarea>
-    {#if colCount}
+    {#if activeJson}<p class="small" class:warn={!jsonRecords}>
+        {jsonRecords ? t('io.jsonFile') : t('io.badJson')}
+      </p>{/if}
+    {#if !activeJson && colCount}
       <div class="map">
         <table class="table">
           <thead>
@@ -240,7 +265,8 @@
     <button class="btn" onclick={onclose}>{t('common.cancel')}</button>
     <button
       class="btn primary"
-      disabled={jsonText ? !jsonRecords?.length : !records.some((r) => r.text)}
+      data-import-confirm
+      disabled={activeJson ? !jsonRecords?.length : !records.some((r) => r.text)}
       onclick={run}>{t('io.import')}</button
     >
   </div>

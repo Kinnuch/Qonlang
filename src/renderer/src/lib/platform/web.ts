@@ -6,6 +6,7 @@
 import type { OpenResult, PlatformAPI, Prefs, RecentEntry, SaveTarget } from './types'
 import { DEFAULT_PREFS } from './types'
 import { pickLocale } from '$lib/i18n/systemLocale'
+import { decodeTextFile } from '../../../../shared/text-file'
 
 const DB_NAME = 'qianyuji'
 const STORE = 'kv'
@@ -251,7 +252,12 @@ export const webPlatform: PlatformAPI = {
       input.oncancel = () => resolve([])
       input.click()
     })
-    return Promise.all(files.map(async (f) => ({ name: f.name, content: await f.text() })))
+    return Promise.all(
+      files.map(async (f) => ({
+        name: f.name,
+        content: decodeTextFile(new Uint8Array(await f.arrayBuffer()))
+      }))
+    )
   },
   async readBinaryFiles(opts) {
     const files = await new Promise<File[]>((resolve) => {

@@ -3,6 +3,59 @@ import type zh from './zh'
 type Dict = typeof zh
 
 const en: Dict = {
+  corpusTextImport: {
+    open: 'Import lines',
+    lines: 'One sentence per line',
+    linesHint:
+      'Import each nonblank line as a sentence, with line endings from different systems. For CSV/TSV, select its delimiter to keep quoted line breaks within the same field.',
+    promptTitle: 'Paste multiple sentences',
+    promptBody:
+      'Found {n} nonblank records. Preview and import them as new sentences while keeping the current text and analysis unchanged.',
+    destination: 'New sentences will go into “{folder}” ({language}).',
+    preview: 'Preview as new sentences',
+    pasteHere: 'Paste into the current sentence',
+    scopeChanged:
+      'Import cancelled because the current project, language or destination folder changed.'
+  },
+  recordViews: {
+    label: 'Browse layout',
+    list: 'List',
+    gallery: 'Single-card gallery',
+    masonry: 'Masonry',
+    previous: 'Previous record',
+    next: 'Next record',
+    position: '{n} / {total}',
+    expand: 'Show full content',
+    collapse: 'Collapse long content'
+  },
+  compoundBuilder: {
+    title: 'Combine two existing entries',
+    more: 'More ways to add',
+    menu: 'Add compound',
+    language: 'Target language',
+    first: 'First entry',
+    second: 'Second entry',
+    separator: 'Separator',
+    searchFirst: 'Search and choose the first entry',
+    searchSecond: 'Search and choose the second entry',
+    sourceHint:
+      'Choose two entries from the same language explicitly. Their records become the compound’s etymology sources. Adjust the final form and enter its part of speech and definitions.',
+    form: 'Final form',
+    resetForm: 'Use the combined form again',
+    pos: 'Part of speech (optional)',
+    definitions: 'Definitions',
+    definitionPlaceholder: 'Enter the new word’s definition',
+    duplicate:
+      'This language already has the same form. You may create a separate record if it is a different word.',
+    create: 'Confirm and create',
+    created: 'Created compound “{word}”',
+    suggestions: 'Possible source combinations',
+    suggestionsHint:
+      'Find two- or three-part combinations of entries and morphemes in this language that match the current form. Choose one to replace the sources; intermediate forms and notes are kept. You can still select other sources manually below.',
+    useSources: 'Use these sources',
+    noMatches: 'No matching combination found. Choose sources manually below.',
+    limited: 'Only some combinations are shown. Choose sources manually below if yours is missing.'
+  },
   badgeColors: {
     newTag: 'New tag color (shared by this tag name)',
     tag: 'Color for “{name}” (shared by this tag name)',
@@ -396,7 +449,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again. Try drawing components, a grid preset, and shared folders for corpus examples, phrases and documents. Try tag and part-of-speech colors, and inspect descendant counts in the project root.',
+        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again. Try drawing components, a grid preset, and shared folders for corpus examples, phrases and documents. Try tag and part-of-speech colors, and inspect descendant counts in the project root. Try combining two entries and browsing sentences in gallery or masonry view.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font. Temporary classes map multi-character tone numbers to complete tone-letter sequences. An optional paradigm uses per-entry morpheme slots to reproduce corpus particle combinations. Try tag and part-of-speech colors, and inspect descendant counts in the project root.'
     },
@@ -1431,6 +1484,7 @@ const en: Dict = {
     dialects: 'Dialects only affect tagging and filtering; they do not create a separate language.'
   },
   lexicon: {
+    locateHeadword: 'Locate “{word}” in the lexicon',
     sortFromEnd: 'Sort from the end',
     jumpToLetter: 'Jump to group “{value}”',
     filterLetter: 'Filter group “{value}”',
@@ -3043,6 +3097,9 @@ const en: Dict = {
     importBad: 'Not an interface translation file',
     untitled: 'Untitled translation',
     groups: {
+      corpusTextImport: 'Corpus text import',
+      recordViews: 'Record browsing',
+      compoundBuilder: 'Build a compound',
       badgeColors: 'Tag and part-of-speech colors',
       scriptScope: 'Corpus folder scope',
       sharedFolders: 'Root directory',

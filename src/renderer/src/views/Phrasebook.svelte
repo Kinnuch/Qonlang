@@ -72,6 +72,9 @@
   import { sortable, type SortableProps } from '$lib/ui/sortable.svelte'
   import { moveById } from '$lib/core/move'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
+  import RecordBrowser from '$lib/ui/RecordBrowser.svelte'
+  import RecordViewSwitcher from '$lib/ui/RecordViewSwitcher.svelte'
+  import { recordViewMode, type RecordViewMode } from '$lib/ui/recordViews'
 
   let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
 
@@ -105,6 +108,11 @@
   let folderView = $state(memo.folderView ?? false)
   let directoryRoot = $state(memo.directoryRoot ?? false)
   let sidebarOpen = $state(memo.sidebarOpen ?? false)
+  const browseMode = $derived(recordViewMode(ui.prefs.recordViews?.phrasebook))
+  function setBrowseMode(value: RecordViewMode): void {
+    ui.prefs.recordViews = { ...ui.prefs.recordViews, phrasebook: value }
+    ui.savePrefsSoon()
+  }
   let importTarget = $state<{ projectId: Id; languageId: Id; folderId: Id } | null>(null)
   function openFolder(id: Id): void {
     if (!validProjectFolder(project, id)) return
@@ -848,6 +856,10 @@
     <h1>{t('phrasebook.title')}</h1>
     <GuideLink section="phrasebook" />
     <span class="grow"></span>
+    {#if !folderView && !bench && !importOpen}<RecordViewSwitcher
+        value={browseMode}
+        onchange={setBrowseMode}
+      />{/if}
     {#if language && !folderView}
       <Menu label={t('lexicon.import')} icon={Download} tour="phrasebook-io">
         <button onclick={() => openImport(false)}>{t('io.importTable')}</button>
@@ -1016,8 +1028,14 @@
           {#if list.length === 0}
             <p class="muted">{t('phrasebook.empty')}</p>
           {:else}
-            <div class="list">
-              {#each list.slice(0, lz.shown) as p, pi (p.id)}
+            <RecordBrowser
+              items={list}
+              mode={browseMode}
+              activeId={selectedId}
+              onactive={(id) => (selectedId = id)}
+              lazy={lz}
+            >
+              {#snippet children(p: Phrase, pi: number)}
                 {@const view = phraseView(p)}
                 <div
                   class="card item"
@@ -1078,9 +1096,8 @@
                       {p.variants.map((v) => v.text).join(' · ')}
                     </div>{/if}
                 </div>
-              {/each}
-              {#if list.length > lz.shown}<div class="more-mark" use:lazyMore={lz}></div>{/if}
-            </div>
+              {/snippet}
+            </RecordBrowser>
           {/if}
         </div>
       {/if}
@@ -1330,11 +1347,6 @@
     min-width: 0;
     overflow: auto;
     padding-inline-end: 4px;
-  }
-  .list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
   }
   .more-mark {
     height: 1px;

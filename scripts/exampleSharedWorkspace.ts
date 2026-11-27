@@ -60,4 +60,21 @@ export function addSharedWorkspaceExample(p: Project): void {
   if (about)
     about.markdown +=
       '\n\n在三个模块中打开共享的「摘录 · Excerpts」目录，可练习剪切、复制和粘贴。查看其中的「共享目录 · Shared folder」说明，或在手写板导入「节点 · Nodes」试画平滑笔画。词库中可在单词漏斗里只看带记号的词；在词类或标签的编辑位置可修改徽章颜色。'
+  const compound = p.lexemes.find(
+    (entry) =>
+      entry.languageId === lang.id &&
+      entry.etymology.type === 'compound' &&
+      entry.etymology.sources.length === 2 &&
+      entry.etymology.sources.every((s) => s.kind === 'lexeme')
+  )
+  if (about && compound) {
+    const [first, second] = compound.etymology.sources.map((source) =>
+      source.kind === 'lexeme'
+        ? p.lexemes.find((entry) => entry.id === source.id)?.lemma
+        : undefined
+    )
+    if (first && second) {
+      about.markdown += `\n\n在词库检视器里点击「${compound.lemma}」这个词头，即可在列表中找到它。试着在「新增词条」右侧的小三角里选「新增复合词」，依次选择 ${first} 和 ${second}。可在草稿里调整拼写。若要查看已有词的构词成分，可打开 ${compound.lemma} 的「词源 → 复合」。在语料或短语页切换「单卡画廊」和「瀑布流」，看看同一组记录的不同排法。`
+    }
+  }
 }

@@ -100,6 +100,7 @@
   import { prepareImage } from '$lib/core/images'
   import { newId } from '$lib/core/factory'
   import ReferencePicker from '$lib/ui/ReferencePicker.svelte'
+  import CompoundBuilderDialog from '$lib/ui/CompoundBuilderDialog.svelte'
   import EtymologyEditor from '$lib/ui/EtymologyEditor.svelte'
   import LexemeCard from '$lib/ui/LexemeCard.svelte'
   import LexemeGraph from '$lib/ui/LexemeGraph.svelte'
@@ -141,7 +142,10 @@
   import { fiveRows } from '$lib/ui/fiveRows'
   import StressSettingsEditor from '$lib/ui/StressSettingsEditor.svelte'
 
-  let { inspectorTitle = $bindable('') }: { inspectorTitle?: string } = $props()
+  let {
+    inspectorTitle = $bindable(''),
+    locateHeadword = $bindable(null)
+  }: { inspectorTitle?: string; locateHeadword?: (() => void) | null } = $props()
 
   const project = $derived(projectState.project!)
   const langId = $derived(projectState.currentLanguageId)
@@ -730,6 +734,13 @@
   )
 
   $effect(() => {
+    locateHeadword = mode === 'entries' && selected?.lemma ? locateSelected : null
+    return () => {
+      locateHeadword = null
+    }
+  })
+
+  $effect(() => {
     inspectorTitle =
       mode === 'csv' || mode === 'lexc'
         ? t('importPreview.title')
@@ -1290,6 +1301,27 @@
     selectedId = id
     mainView = 'graph'
   }
+  /** 点击检视器的词头时，只解除挡住这个词的筛选，保留原来的排序。 */
+  function locateSelected(): void {
+    const word = selected
+    if (!word || mode !== 'entries') return
+    if (langId !== word.languageId) projectState.currentLanguageId = word.languageId
+    if (favOnly && !word.favorite) favOnly = false
+    if (markedOnly && !word.marked) markedOnly = false
+    for (const [key, allowed] of activeFilters) {
+      if (filterValues(word, key).some((value) => allowed.has(value))) continue
+      if (key === 'lemma' && sortFromEnd) endingFilter = null
+      else setFilter(key, null)
+    }
+    const parsed = parseQuery(query, searchFields)
+    if (parsed.terms.length && !matchQuery(parsed, (field) => lexemeFieldValues(word, field))) {
+      ui.search = ''
+    }
+    listReturnRequest = null
+    mainView = 'list'
+    scrollToLexemeRow(word.id)
+  }
+
   /** 选中并把左侧列表滚到该词，短暂高亮；过滤条件会挡住目标，所以先清掉 */
   function reveal(id: Id): void {
     const l = project.lexemes.find((x) => x.id === id)
@@ -1300,13 +1332,19 @@
     colFilters = {}
     endingFilter = null
     markedOnly = false
+    if (favOnly && !l.favorite) favOnly = false
     mode = 'entries'
     mainView = 'list'
     selectedId = id
     multiIds = []
-    void scrollToItem('lexicon', `tr[data-id="${id}"]`, () => {
+    scrollToLexemeRow(id)
+  }
+  function scrollToLexemeRow(id: Id): void {
+    void scrollToItem('lexicon', `tr[data-id="${CSS.escape(id)}"]`, () => {
       rows.scrollToIndex(list.findIndex((x) => x.id === id))
-    }).then(() => flash(id))
+    }).then((row) => {
+      if (row?.isConnected && selectedId === id) flash(id)
+    })
   }
   /** 滚到了再闪：高亮从头到尾都看得见 */
   function flash(id: Id): void {
@@ -1460,6 +1498,52 @@
       run: () => void pasteClipboard()
     }
   ])
+  let compoundMenuOpen = $state(false),
+    compoundMenuRoot = $state<HTMLElement | null>(null)
+  let compoundDialog = $state.raw<{ project: Project; languageId: Id } | null>(null)
+  $effect(() => {
+    if (!compoundMenuOpen) return
+    const down = (event: PointerEvent): void => {
+      if (compoundMenuRoot && !compoundMenuRoot.contains(event.target as Node))
+        compoundMenuOpen = false
+    }
+    const key = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        compoundMenuOpen = false
+        compoundMenuRoot?.querySelector<HTMLButtonElement>('[data-add-entry-more]')?.focus()
+      }
+    }
+    window.addEventListener('pointerdown', down, true)
+    window.addEventListener('keydown', key)
+    return () => {
+      window.removeEventListener('pointerdown', down, true)
+      window.removeEventListener('keydown', key)
+    }
+  })
+  function openCompoundBuilder(): void {
+    compoundMenuOpen = false
+    const id = langId ?? project.settings.defaultLanguageId ?? project.languages[0]?.id
+    if (projectState.readOnly || !id || !project.languages.some((lang) => lang.id === id)) return
+    compoundDialog = { project, languageId: id }
+  }
+  function compoundCreated(word: Lexeme): void {
+    const owner = compoundDialog?.project
+    if (
+      !owner ||
+      projectState.project !== owner ||
+      projectState.readOnly ||
+      owner.lexemes.some((item) => item.id === word.id)
+    )
+      return
+    owner.lexemes.push(word)
+    compoundDialog = null
+    mode = 'entries'
+    editMode = true
+    favOnly = false
+    touch(word)
+    reveal(word.id)
+    ui.toast(t('compoundBuilder.created', { word: word.lemma }))
+  }
 </script>
 
 <div class="page">
@@ -1537,8 +1621,34 @@
           <button onclick={() => void runPluginExport(ex.item)}>{ex.item.name}</button>
         {/each}
       </Menu>
-      <button class="btn primary" onclick={() => add()}><Plus size={16} />{t('lexicon.add')}</button
-      >
+      <div class="new-entry-split" bind:this={compoundMenuRoot}>
+        <button
+          class="btn primary"
+          disabled={projectState.readOnly}
+          data-add-entry
+          onclick={() => {
+            compoundMenuOpen = false
+            add()
+          }}><Plus size={16} />{t('lexicon.add')}</button
+        >
+        <button
+          class="btn primary"
+          disabled={projectState.readOnly}
+          data-add-entry-more
+          aria-label={t('compoundBuilder.more')}
+          aria-haspopup="menu"
+          aria-expanded={compoundMenuOpen}
+          onclick={() => (compoundMenuOpen = !compoundMenuOpen)}><ChevronDown size={14} /></button
+        >
+        {#if compoundMenuOpen}<div class="compound-create-menu card" role="menu">
+            <button
+              class="btn ghost"
+              role="menuitem"
+              data-create-compound
+              onclick={openCompoundBuilder}>{t('compoundBuilder.menu')}</button
+            >
+          </div>{/if}
+      </div>
     {/if}
   </div>
   <Hint id="lexicon" text={t('lexicon.hint')} />
@@ -2074,6 +2184,13 @@
     />
   </Portal>
 {/if}
+
+{#if compoundDialog}<CompoundBuilderDialog
+    project={compoundDialog.project}
+    initialLanguageId={compoundDialog.languageId}
+    onclose={() => (compoundDialog = null)}
+    oncreate={compoundCreated}
+  />{/if}
 
 {#if selected && mode === 'entries' && !editMode}
   {@const l = selected}
@@ -2917,6 +3034,37 @@
 {/if}
 
 <style>
+  .new-entry-split {
+    display: inline-flex;
+    position: relative;
+    flex: none;
+  }
+  .new-entry-split > button:first-child {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+  }
+  .new-entry-split > button:nth-child(2) {
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+    margin-inline-start: -1px;
+    min-inline-size: 34px;
+    padding-inline: 8px;
+  }
+  .compound-create-menu {
+    position: absolute;
+    inset-inline-end: 0;
+    top: calc(100% + 4px);
+    z-index: 40;
+    min-inline-size: 220px;
+    max-inline-size: calc(100vw - 16px);
+    padding: 5px;
+    box-shadow: var(--shadow-lg);
+  }
+  .compound-create-menu button {
+    inline-size: 100%;
+    text-align: start;
+    white-space: normal;
+  }
   .kv-spacer {
     width: 28px;
     flex: none;

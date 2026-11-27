@@ -3,7 +3,16 @@
    * 词源编辑器：词条与语素共用。
    * 链条读作「来源 > 中间态… > 本身」，选定类别后来源框会给出对应的选择器。
    */
-  import { t } from '$lib/i18n/index.svelte'
+  import { t, pickText } from '$lib/i18n/index.svelte'
+  import {
+    prepareCompoundIndex,
+    findCompoundCombinations,
+    compoundSourcesValid,
+    type CompoundCombination,
+    type CompoundRef
+  } from '$lib/core/compoundBuilder'
+  import { projectState } from '$lib/state/project.svelte'
+  import HelpDot from './HelpDot.svelte'
   import { morphemeLabel } from '$lib/core/etymology'
   import { newId } from '$lib/core/factory'
   import {
@@ -37,6 +46,62 @@
   const isCustomType = $derived(!(ETYMOLOGY_TYPES as readonly string[]).includes(etymology.type))
   /** 词根来源按惯例加星号 */
   const star = $derived(etymology.type === 'root' ? '*' : '')
+  const compoundIndex = $derived(
+    etymology.type === 'compound'
+      ? prepareCompoundIndex(project, languageId, { excludeId: ownerId })
+      : null
+  )
+  const combinations = $derived(
+    compoundIndex
+      ? findCompoundCombinations(compoundIndex, ownerForm)
+      : { combinations: [], truncated: false }
+  )
+  const compoundPos = $derived(
+    compoundIndex ? new Map(project.posList.map((pos) => [pos.id, pos])) : new Map()
+  )
+  function partInfo(ref: CompoundRef): { form: string; detail: string } {
+    const source = compoundIndex?.records.get(ref.kind + ':' + ref.id)
+    if (source?.kind === 'lexeme') {
+      const word = source.record,
+        pos = compoundPos.get(word.posId ?? '')
+      return {
+        form: word?.lemma ?? '',
+        detail: [
+          pos?.abbr || pickText(pos?.name ?? {}, glossLangs),
+          pickText(word?.senses[0]?.definition ?? {}, glossLangs)
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      }
+    }
+    const morpheme = source?.kind === 'morpheme' ? source.record : undefined
+    return {
+      form: morphemeLabel(morpheme),
+      detail: [
+        morpheme ? t(`morphemes.types.${morpheme.type}`) : '',
+        morpheme?.gloss || pickText(morpheme?.meaning ?? {}, glossLangs)
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    }
+  }
+  function applyCombination(combination: CompoundCombination): void {
+    const owner =
+      project.lexemes.find((word) => word.id === ownerId) ??
+      project.morphemes.find((morpheme) => morpheme.id === ownerId)
+    if (
+      projectState.project !== project ||
+      projectState.readOnly ||
+      !owner ||
+      owner.etymology !== etymology ||
+      owner.languageId !== languageId ||
+      !compoundSourcesValid(project, languageId, combination.parts, ownerId)
+    )
+      return
+    etymology.sources = combination.parts.map((part) => ({ ...part }))
+    syncRelations()
+    onchange()
+  }
 
   function sourceText(s: EtymologySource): string {
     if (s.kind === 'morpheme') {
@@ -80,6 +145,8 @@
   }
   /** 词条来源自动进入关系图，关系种类就用词源类别 */
   function syncRelations(): void {
+    // 复合词来源本身会生成正反向图谱，不另写编辑来源后可能悬挂的手工关系。
+    if (etymology.type === 'compound') return
     const owner = project.lexemes.find((l) => l.id === ownerId)
     if (!owner) return
     const kind = etymology.type || 'unknown'
@@ -100,6 +167,7 @@
   <div class="row two">
     <select
       class="select"
+      data-etymology-type
       value={isCustomType ? '__custom__' : etymology.type}
       onchange={(e) => onTypeChange((e.currentTarget as HTMLSelectElement).value)}
     >
@@ -128,8 +196,36 @@
     {/each}
   </div>
 
+  {#if etymology.type === 'compound'}
+    <section class="compound-options" data-compound-options>
+      <div class="row small">
+        <strong>{t('compoundBuilder.suggestions')}</strong><HelpDot
+          tip={t('compoundBuilder.suggestionsHint')}
+        />
+      </div>
+      {#if combinations.combinations.length}<div class="compound-pairs">
+          {#each combinations.combinations as combination (JSON.stringify( [combination.parts, combination.separators] ))}
+            {@const parts = combination.parts.map(partInfo)}
+            <button
+              type="button"
+              class="compound-pair"
+              data-compound-pair={JSON.stringify(combination.parts)}
+              disabled={projectState.readOnly || projectState.project !== project}
+              onclick={() => applyCombination(combination)}
+            >
+              <span class="data">{parts.map((part) => part.form).join(' + ')}</span><span
+                class="small muted">{parts.map((part) => part.detail).join(' / ')}</span
+              ><span class="small">{t('compoundBuilder.useSources')}</span>
+            </button>
+          {/each}
+        </div>{:else}<span class="small muted">{t('compoundBuilder.noMatches')}</span>{/if}
+      {#if combinations.truncated}<span class="small muted">{t('compoundBuilder.limited')}</span
+        >{/if}
+    </section>
+  {/if}
+
   {#each etymology.sources as s, i (i)}
-    <div class="row src">
+    <div class="row src" data-source-index={i}>
       {#if s.kind === 'external'}
         <span class="badge">{t('lexicon.sourceKinds.external')}</span>
         <input
@@ -219,6 +315,41 @@
 </div>
 
 <style>
+  .compound-options {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px;
+  }
+  .compound-pairs {
+    max-block-size: 240px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .compound-pair {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: start;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--bg-elev);
+    color: var(--text);
+    padding: 6px;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+  }
+  .compound-pair:hover {
+    background: var(--bg-hover);
+  }
+  .compound-pair:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
   .ety {
     display: flex;
     flex-direction: column;

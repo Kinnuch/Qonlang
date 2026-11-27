@@ -1,4 +1,57 @@
 export default {
+  corpusTextImport: {
+    open: 'Importer des lignes',
+    lines: 'Une phrase par ligne',
+    linesHint:
+      'Chaque ligne non vide devient une phrase, quels que soient les retours de ligne du système. Pour CSV/TSV, choisissez le séparateur afin de conserver les sauts de ligne entre guillemets dans le même champ.',
+    promptTitle: 'Coller plusieurs phrases',
+    promptBody:
+      '{n} éléments non vides détectés. Prévisualisez et importez de nouvelles phrases sans modifier le texte ni l’analyse actuels.',
+    destination: 'Les nouvelles phrases iront dans « {folder} » ({language}).',
+    preview: 'Prévisualiser de nouvelles phrases',
+    pasteHere: 'Coller dans la phrase actuelle',
+    scopeChanged: 'Import annulé car le projet, la langue ou le dossier cible a changé.'
+  },
+  recordViews: {
+    label: 'Mode d’affichage',
+    list: 'Liste',
+    gallery: 'Galerie à carte unique',
+    masonry: 'Colonnes compactes',
+    previous: 'Élément précédent',
+    next: 'Élément suivant',
+    position: '{n} / {total}',
+    expand: 'Afficher tout le contenu',
+    collapse: 'Replier le contenu long'
+  },
+  compoundBuilder: {
+    title: 'Combiner deux entrées existantes',
+    more: 'Autres façons d’ajouter',
+    menu: 'Créer un composé',
+    language: 'Langue cible',
+    first: 'Première entrée',
+    second: 'Deuxième entrée',
+    separator: 'Séparateur',
+    searchFirst: 'Rechercher et choisir la première entrée',
+    searchSecond: 'Rechercher et choisir la deuxième entrée',
+    sourceHint:
+      'Choisissez explicitement deux entrées de la même langue. Leurs fiches deviennent les sources étymologiques du composé. Ajustez la forme finale et saisissez sa catégorie grammaticale et ses définitions.',
+    form: 'Forme finale',
+    resetForm: 'Réutiliser la forme combinée',
+    pos: 'Catégorie grammaticale (facultative)',
+    definitions: 'Définitions',
+    definitionPlaceholder: 'Saisissez la définition du nouveau mot',
+    duplicate:
+      'Cette langue contient déjà cette forme. Vous pouvez créer une fiche distincte s’il s’agit d’un autre mot.',
+    create: 'Confirmer et créer',
+    created: 'Composé « {word} » créé',
+    suggestions: 'Combinaisons de sources possibles',
+    suggestionsHint:
+      'Recherchez les combinaisons de deux ou trois entrées ou morphèmes de cette langue correspondant à la forme actuelle. Un choix remplace les sources ; les formes intermédiaires et notes sont conservées. Vous pouvez aussi choisir d’autres sources manuellement ci-dessous.',
+    useSources: 'Utiliser ces sources',
+    noMatches: 'Aucune combinaison correspondante. Choisissez les sources manuellement ci-dessous.',
+    limited:
+      'Seule une partie des combinaisons est affichée. Choisissez les sources manuellement si la vôtre manque.'
+  },
   badgeColors: {
     newTag: 'Couleur du nouveau tag (partagée par son nom)',
     tag: 'Couleur de « {name} » (partagée par son nom)',
@@ -404,7 +457,7 @@ export default {
     galleryNext: 'Suivante',
     exampleDesc: {
       aelith:
-        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète. Le graphe propose un parcours à quatre niveaux, des nœuds fixés par déplacement et des réglages indépendants de forces et de couleurs. Essayez les sauts par lettre et le tri depuis la fin des mots. L’atelier range les alternatives d’un même emplacement dans la traduction ; glissez-les à nouveau pour changer de choix. Essayez les composants dessinés, la grille prédéfinie et les dossiers partagés entre corpus, locutions et documents. Essayez les couleurs des étiquettes et des catégories grammaticales, puis consultez les totaux incluant les sous-dossiers à la racine du projet.',
+        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète. Le graphe propose un parcours à quatre niveaux, des nœuds fixés par déplacement et des réglages indépendants de forces et de couleurs. Essayez les sauts par lettre et le tri depuis la fin des mots. L’atelier range les alternatives d’un même emplacement dans la traduction ; glissez-les à nouveau pour changer de choix. Essayez les composants dessinés, la grille prédéfinie et les dossiers partagés entre corpus, locutions et documents. Essayez les couleurs des étiquettes et des catégories grammaticales, puis consultez les totaux incluant les sous-dossiers à la racine du projet. Essayez de composer un mot à partir de deux entrées, puis de parcourir les phrases en galerie ou en mosaïque.',
       tsahun:
         'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation suivant la graphie et correspondances graphème–phonème modifiables), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture. Les classes temporaires associent les numéros de ton à plusieurs chiffres à des séquences complètes de lettres de ton. Un paradigme facultatif utilise les emplacements de morphèmes de chaque entrée pour reproduire des combinaisons de particules du corpus. Essayez les couleurs des étiquettes et des catégories grammaticales, puis consultez les totaux incluant les sous-dossiers à la racine du projet.'
     },
@@ -1454,6 +1507,7 @@ export default {
       'Les dialectes n’agissent que sur l’étiquetage et le filtrage : ils ne créent pas une langue à part.'
   },
   lexicon: {
+    locateHeadword: 'Localiser « {word} » dans le lexique',
     sortFromEnd: 'Trier depuis la fin',
     jumpToLetter: 'Aller au groupe « {value} »',
     filterLetter: 'Filtrer le groupe « {value} »',
@@ -3090,6 +3144,9 @@ export default {
     importBad: 'Ce n’est pas un fichier de traduction de l’interface',
     untitled: 'Traduction sans titre',
     groups: {
+      corpusTextImport: 'Import de texte du corpus',
+      recordViews: 'Affichage des éléments',
+      compoundBuilder: 'Créer un composé',
       badgeColors: 'Couleurs des tags et catégories grammaticales',
       scriptScope: 'Dossiers du corpus',
       sharedFolders: 'Répertoire racine',

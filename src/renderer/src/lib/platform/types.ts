@@ -16,6 +16,7 @@ export type {
 import type { Skin, UserSkinPreset } from '$lib/skin/presets'
 import type { CustomLocale } from '$lib/i18n/index.svelte'
 import type { GraphSettings } from '$lib/ui/graphSettings'
+import type { RecordViewMode, RecordViewPage } from '$lib/ui/recordViews'
 import type { ContextMenuRequest } from '../../../../shared/context-menu'
 export type { ContextMenuItem, ContextMenuRequest } from '../../../../shared/context-menu'
 
@@ -100,6 +101,8 @@ export interface Prefs {
   examplesShowScript: boolean
   /** 语料例句与词条附例的文字大小（百分比，100 为原来的字号） */
   corpusTextScale: number
+  /** 语料与短语分别记住本机浏览方式；旧配置沿用列表。 */
+  recordViews?: Partial<Record<RecordViewPage, RecordViewMode>>
   /** 各类可拖动面板的尺寸记忆：键 → 像素 */
   panelSizes: Record<string, number>
   /** 自动检查新版本（启动后一次，之后按 updateCheckMinutes 的间隔一直查，默认 20 分钟） */

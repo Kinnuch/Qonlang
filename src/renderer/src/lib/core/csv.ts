@@ -2,6 +2,8 @@
  * CSV / TSV 解析（RFC 4180：引号、转义引号、引号内换行），自动识别分隔符与 BOM。
  */
 
+import { isTextLineBreak, stripTextBom } from './textLines'
+
 export type Delimiter = ',' | ';' | '\t' | '|'
 
 export interface CsvTable {
@@ -10,12 +12,11 @@ export interface CsvTable {
 }
 
 export function detectDelimiter(text: string): Delimiter {
-  const sample = text.split(/\r?\n/, 20)
   const candidates: Delimiter[] = [',', '\t', ';', '|']
   let best: Delimiter = ','
   let bestScore = -1
   for (const d of candidates) {
-    const counts = sample.filter((l) => l.trim()).map((l) => countOutsideQuotes(l, d))
+    const counts = scanRows(stripTextBom(text), d, 20).map((row) => row.length - 1)
     if (!counts.length) continue
     const min = Math.min(...counts)
     const max = Math.max(...counts)
@@ -29,19 +30,7 @@ export function detectDelimiter(text: string): Delimiter {
   return best
 }
 
-function countOutsideQuotes(line: string, d: string): number {
-  let n = 0
-  let q = false
-  for (const c of line) {
-    if (c === '"') q = !q
-    else if (c === d && !q) n++
-  }
-  return n
-}
-
-export function parseCsv(text: string, delimiter?: Delimiter): CsvTable {
-  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1)
-  const d = delimiter ?? detectDelimiter(text)
+function scanRows(text: string, d: Delimiter, limit = Infinity): string[][] {
   const rows: string[][] = []
   let row: string[] = []
   let field = ''
@@ -76,16 +65,13 @@ export function parseCsv(text: string, delimiter?: Delimiter): CsvTable {
       i++
       continue
     }
-    if (c === '\r') {
-      i++
-      continue
-    }
-    if (c === '\n') {
+    if (isTextLineBreak(c)) {
       row.push(field)
-      rows.push(row)
+      if (row.some((cell) => cell.trim() !== '')) rows.push(row)
       row = []
       field = ''
-      i++
+      i += c === '\r' && text[i + 1] === '\n' ? 2 : 1
+      if (rows.length >= limit) return rows
       continue
     }
     field += c
@@ -96,11 +82,19 @@ export function parseCsv(text: string, delimiter?: Delimiter): CsvTable {
     rows.push(row)
   }
   // 去掉全空行
-  return { rows: rows.filter((r) => r.some((c) => c.trim() !== '')), delimiter: d }
+  return rows.filter((r) => r.some((c) => c.trim() !== ''))
+}
+
+export function parseCsv(text: string, delimiter?: Delimiter): CsvTable {
+  text = stripTextBom(text)
+  const d = delimiter ?? detectDelimiter(text)
+  return { rows: scanRows(text, d), delimiter: d }
 }
 
 export function toCsv(rows: string[][], delimiter: Delimiter = ','): string {
   const esc = (s: string): string =>
-    /[",\n\r\t;|]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+    // 与读取端一致：包含VT/FF等行界的字段必须带引号。
+    // eslint-disable-next-line no-control-regex
+    /[",\n\r\u000B\u000C\u0085\u2028\u2029\t;|]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
   return rows.map((r) => r.map(esc).join(delimiter)).join('\n') + '\n'
 }

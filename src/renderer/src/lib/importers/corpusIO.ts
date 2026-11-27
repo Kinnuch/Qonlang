@@ -7,6 +7,7 @@
 import type { Analysis, Id, Language, Phrase, Project, Sentence, Token } from '$lib/core/model'
 import { createPhrase, createSentence } from '$lib/core/factory'
 import { normalizeSentence } from '$lib/core/sentenceDedup'
+import { stripTextBom } from '$lib/core/textLines'
 import { createProjectScriptScopes } from '$lib/core/scriptScope'
 import { interlinear, toHtml, toLatex, toLeipzig, toMarkdown } from '$lib/engine/gloss'
 
@@ -361,7 +362,7 @@ function cleanTokens(v: unknown): Token[] {
 
 function parseBundle(text: string, format: string, key: string): Loose[] | null {
   try {
-    const data = JSON.parse(text) as unknown
+    const data = JSON.parse(stripTextBom(text)) as unknown
     if (!isObj(data) || data.format !== format || !Array.isArray(data[key])) return null
     return (data[key] as unknown[]).filter(isObj)
   } catch {

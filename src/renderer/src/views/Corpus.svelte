@@ -5,7 +5,11 @@
   import { copyProjectRecords, pasteProjectRecords } from '$lib/state/recordClipboard.svelte'
   import { navScroll } from '$lib/ui/navScroll'
   import { morphJoiner } from '$lib/engine/gloss'
-  import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
+  import { lazy } from '$lib/ui/lazy.svelte'
+  import RecordBrowser from '$lib/ui/RecordBrowser.svelte'
+  import RecordViewSwitcher from '$lib/ui/RecordViewSwitcher.svelte'
+  import ExpandableRecord from '$lib/ui/ExpandableRecord.svelte'
+  import { recordViewMode, type RecordViewMode } from '$lib/ui/recordViews'
   import { scrollToItem } from '$lib/ui/reveal'
   import type { PageView } from '$lib/state/ui.svelte'
   import { tick, untrack } from 'svelte'
@@ -14,10 +18,13 @@
   import { guideUrl } from '$lib/core/guide'
   import { toCsv } from '$lib/core/csv'
   import { normalizeSentence } from '$lib/core/sentenceDedup'
+  import { splitTextLines } from '$lib/core/textLines'
+  import { parseTableText, looksLikeJson, type TableTextChoice } from '$lib/importers/tableText'
   import {
     importSentenceRecords,
     importSentencesJson,
     previewSentencesJson,
+    guessColumns,
     sentenceFields,
     sentencesToJson,
     sentencesToRows,
@@ -32,7 +39,7 @@
   import { createScriptScopeResolver, setSentenceScriptVisible } from '$lib/core/scriptScope'
   import { createSentence, createLexeme, newId } from '$lib/core/factory'
   import { buildSentenceDocReferences } from '$lib/core/docReferences'
-  import type { Analysis, Id, Sentence, Token } from '$lib/core/model'
+  import type { Analysis, Id, Sentence, Token, Project } from '$lib/core/model'
   import { collectEvidence, type SurfaceEvidence } from '$lib/engine/gloss/candidates'
   import { WordResolver } from '$lib/engine/gloss/resolve'
   import {
@@ -158,6 +165,9 @@
     if (langId && !validCorpusFolder(project, langId, folderId)) folderId = ''
   })
   let importTarget = $state<{ projectId: Id; languageId: Id; folderId: Id } | null>(null)
+  let importOwner = $state.raw<Project | null>(null)
+  let importText = $state('')
+  let importSplit = $state<TableTextChoice>('auto')
   const query = $derived(ui.search)
   let exportFormat = $state<'leipzig' | 'markdown' | 'html' | 'latex' | 'template'>(
     memo.exportFormat ?? 'leipzig'
@@ -175,7 +185,33 @@
   /** 导入面板一打开先去选 JSON（菜单里点的是「从 JSON 导入」）；每点一次菜单都重开一次面板 */
   let importJson = $state(false)
   let importNonce = $state(0)
+  $effect(() => {
+    if (
+      importOpen &&
+      (!importTarget ||
+        importOwner !== projectState.project ||
+        projectState.readOnly ||
+        langId !== importTarget.languageId ||
+        !validCorpusFolder(project, importTarget.languageId, importTarget.folderId))
+    ) {
+      importOpen = false
+      importTarget = null
+      importOwner = null
+      ui.toast(t('corpusTextImport.scopeChanged'))
+    }
+  })
   const textSize = $derived(corpusTextSize(ui.prefs.corpusTextScale))
+  const browseMode = $derived(recordViewMode(ui.prefs.recordViews?.corpus))
+  function setBrowseMode(value: RecordViewMode): void {
+    ui.prefs.recordViews = { ...ui.prefs.recordViews, corpus: value }
+    ui.savePrefsSoon()
+  }
+  function gallerySelect(id: string): void {
+    selectedId = id
+    collapsedId = id
+    multiIds = []
+    selectionAnchor = null
+  }
 
   const list = $derived.by(() => {
     const pq = parseQuery(query, SEARCH_FIELDS.corpus)
@@ -427,7 +463,12 @@
   }
   // 选中尚未分析的句子时自动分析
   $effect(() => {
-    if (selected && selected.tokens.length === 0 && selected.text.trim()) {
+    if (
+      !projectState.readOnly &&
+      selected &&
+      selected.tokens.length === 0 &&
+      selected.text.trim()
+    ) {
       analyzeSentence(project, selected)
       projectState.touch()
     }
@@ -716,9 +757,17 @@
       )
     }
   }
-  function openImport(jsonFirst: boolean, target: Id = folderId): void {
+  function openImport(
+    jsonFirst: boolean,
+    target: Id = folderId,
+    initialText = '',
+    initialSplit: TableTextChoice = 'auto'
+  ): void {
     if (projectState.readOnly || !langId || !validCorpusFolder(project, langId, target)) return
     importTarget = { projectId: project.meta.id, languageId: langId, folderId: target }
+    importOwner = project
+    importText = initialText
+    importSplit = initialSplit
     folderId = target
     folderView = false
     directoryRoot = false
@@ -726,11 +775,82 @@
     importNonce++
     importOpen = true
   }
+  /** 多行粘贴先选用途，不把一批新句子直接写进已分析的当前条目。 */
+  async function pasteSentenceText(event: ClipboardEvent, sentence: Sentence): Promise<void> {
+    if (projectState.readOnly) {
+      event.preventDefault()
+      return
+    }
+    const text = event.clipboardData?.getData('text/plain') ?? '',
+      lines = splitTextLines(text)
+    if (lines.length < 2 || !langId || sentence.languageId !== langId) return
+    const input = event.currentTarget
+    if (!(input instanceof HTMLTextAreaElement)) return
+    event.preventDefault()
+    const owner = project,
+      languageId = langId,
+      target = corpusFolderOf(owner, sentence),
+      original = sentence.text,
+      start = input.selectionStart,
+      end = input.selectionEnd,
+      jsonRecords = previewSentencesJson(owner, languageId, text),
+      automatic = parseTableText(text),
+      fields = sentenceFields(glossLangs, language ?? undefined),
+      tableHeader = automatic.rows[0],
+      hasTableHeader =
+        !!tableHeader && guessColumns(tableHeader, fields, tableHeader.length).includes('text'),
+      initialSplit: TableTextChoice =
+        jsonRecords !== null || looksLikeJson(text)
+          ? 'auto'
+          : hasTableHeader
+            ? automatic.split === 'line'
+              ? ','
+              : 'auto'
+            : 'line',
+      count =
+        jsonRecords?.length ??
+        (hasTableHeader
+          ? Math.max(0, parseTableText(text, initialSplit).rows.length - 1)
+          : lines.length),
+      folder =
+        corpusFoldersFor(owner, languageId).find((item) => item.id === target)?.path ?? 'Default',
+      languageName = owner.languages.find((item) => item.id === languageId)?.name ?? ''
+    const choice = await ui.choose(
+      t('corpusTextImport.promptTitle'),
+      t('corpusTextImport.promptBody', { n: count }) +
+        '\n' +
+        t('corpusTextImport.destination', { folder, language: languageName }),
+      [
+        { value: 'import', label: t('corpusTextImport.preview'), primary: true },
+        { value: 'paste', label: t('corpusTextImport.pasteHere') },
+        { value: 'cancel', label: t('common.cancel') }
+      ]
+    )
+    if (
+      owner !== projectState.project ||
+      projectState.readOnly ||
+      langId !== languageId ||
+      !owner.sentences.includes(sentence) ||
+      sentence.text !== original ||
+      !validCorpusFolder(owner, languageId, target)
+    )
+      return
+    if (choice === 'import') {
+      wordHover.hide(true)
+      openImport(false, target, text, initialSplit)
+    } else if (choice === 'paste' && input.isConnected && input.value === original) {
+      input.focus()
+      input.setRangeText(text, start, end, 'end')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    }
+  }
   /** 导入面板里选了千语集导出的 JSON */
   function runSentencesJson(content: string): void {
     const target = importTarget
     if (
       !target ||
+      importOwner !== project ||
       projectState.readOnly ||
       project.meta.id !== target.projectId ||
       langId !== target.languageId ||
@@ -758,6 +878,7 @@
     const target = importTarget
     if (
       !target ||
+      importOwner !== project ||
       projectState.readOnly ||
       project.meta.id !== target.projectId ||
       langId !== target.languageId ||
@@ -1136,6 +1257,10 @@
     </div>
     <span class="grow"></span>
     {#if mode === 'entries' && !folderView}
+      {#if !bench && !importOpen}<RecordViewSwitcher
+          value={browseMode}
+          onchange={setBrowseMode}
+        />{/if}
       <button class="btn ghost" title={t('corpus.dedup.hintBtn')} onclick={runDedup}
         ><Merge size={16} />{t('corpus.dedup.button')}</button
       >
@@ -1239,6 +1364,9 @@
                 run: runSentencesJson
               }}
               startWithJson={importJson}
+              initialText={importText}
+              initialSplit={importSplit}
+              sentenceLines
               onimport={importSentenceTable}
               onclose={() => (importOpen = false)}
             />
@@ -1530,8 +1658,14 @@
           {#if list.length === 0}
             <p class="muted">{t('corpus.empty')}</p>
           {:else}
-            <div class="list">
-              {#each list.slice(0, lz.shown) as s, si (s.id)}
+            <RecordBrowser
+              items={list}
+              mode={browseMode}
+              activeId={selectedId}
+              onactive={gallerySelect}
+              lazy={lz}
+            >
+              {#snippet children(s: Sentence, si: number)}
                 {#if selectedId === s.id && collapsedId !== s.id}{@render editorPanel(s)}{/if}
                 {@const c = coverage(s)}
                 {@const done = fullyConfirmed(s)}
@@ -1576,30 +1710,45 @@
                   onclick={(e) => pick(s.id, e)}
                   onkeydown={(e) => e.key === 'Enter' && pick(s.id, e)}
                 >
-                  {#each scriptScope.visible(s) as sc (sc.id)}
-                    {@const st = sentenceScriptText(
-                      project,
-                      language,
-                      sc,
-                      s,
-                      lookupWord,
-                      scriptScope
-                    )}
-                    {#if st}<div
-                        class="scr"
-                        style={fontCss(sc)}
-                        dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'}
-                        title={sc.name}
-                      >
-                        {st}
-                      </div>{/if}
-                  {/each}
-                  <div class="row">
-                    {#if spans}
-                      <!-- 按原文画：词之间的空格、逗号句号这些标点原样留着，词才能悬浮 -->
-                      <span class="data text grow"
-                        >{#each spans as sp, k (k)}{#if sp.at >= 0}{@const tk =
-                              s.tokens[sp.at]}<span
+                  <ExpandableRecord>
+                    {#each scriptScope.visible(s) as sc (sc.id)}
+                      {@const st = sentenceScriptText(
+                        project,
+                        language,
+                        sc,
+                        s,
+                        lookupWord,
+                        scriptScope
+                      )}
+                      {#if st}<div
+                          class="scr"
+                          style={fontCss(sc)}
+                          dir={sc.direction === 'rtl' ? 'rtl' : 'ltr'}
+                          title={sc.name}
+                        >
+                          {st}
+                        </div>{/if}
+                    {/each}
+                    <div class="row">
+                      {#if spans}
+                        <!-- 按原文画：词之间的空格、逗号句号这些标点原样留着，词才能悬浮 -->
+                        <span class="data text grow"
+                          >{#each spans as sp, k (k)}{#if sp.at >= 0}{@const tk =
+                                s.tokens[sp.at]}<span
+                                class="w"
+                                class:link={linkable(tk)}
+                                class:ambiguous={ambiguous(tk, s)}
+                                role="link"
+                                tabindex="-1"
+                                onmouseenter={(e) => hoverWord(e, tk, s)}
+                                onmouseleave={() => wordHover.hide()}
+                                onclick={(e) => clickWord(e, tk, s)}
+                                onkeydown={() => {}}>{sp.text}</span
+                              >{:else}{sp.text}{/if}{/each}</span
+                        >
+                      {:else if s.tokens.length}
+                        <span class="data text grow words">
+                          {#each s.tokens as tk, i (i)}<span
                               class="w"
                               class:link={linkable(tk)}
                               class:ambiguous={ambiguous(tk, s)}
@@ -1608,51 +1757,37 @@
                               onmouseenter={(e) => hoverWord(e, tk, s)}
                               onmouseleave={() => wordHover.hide()}
                               onclick={(e) => clickWord(e, tk, s)}
-                              onkeydown={() => {}}>{sp.text}</span
-                            >{:else}{sp.text}{/if}{/each}</span
-                      >
-                    {:else if s.tokens.length}
-                      <span class="data text grow words">
-                        {#each s.tokens as tk, i (i)}<span
-                            class="w"
-                            class:link={linkable(tk)}
-                            class:ambiguous={ambiguous(tk, s)}
-                            role="link"
-                            tabindex="-1"
-                            onmouseenter={(e) => hoverWord(e, tk, s)}
-                            onmouseleave={() => wordHover.hide()}
-                            onclick={(e) => clickWord(e, tk, s)}
-                            onkeydown={() => {}}>{tk.surface}</span
-                          >{/each}
-                      </span>
-                    {:else}
-                      <span class="data text grow">{s.text || '—'}</span>
-                    {/if}
-                    <span class="badge" class:accent={done}>{c.confirmed}/{c.total}</span>
-                  </div>
-                  {#if done}
-                    {@const il = interlinear(project, s, i18n.locale, scriptScope)}
-                    <div class="gl" class:slide-in={justConfirmed === s.id}>
-                      {#each il.words as w, i (i)}<span class="gw"
-                          ><span class="data m">{w.morphs}</span><span class="g">{w.gloss}</span
-                          ></span
-                        >{/each}
+                              onkeydown={() => {}}>{tk.surface}</span
+                            >{/each}
+                        </span>
+                      {:else}
+                        <span class="data text grow">{s.text || '—'}</span>
+                      {/if}
+                      <span class="badge" class:accent={done}>{c.confirmed}/{c.total}</span>
                     </div>
-                  {/if}
-                  {#each displayTextRows(s.translation, project.settings.translationDisplay, translationOrder) as row (row.language)}<div
-                      class="tr-line"
-                      lang={row.language}
-                      data-corpus-translation={row.language}
-                    >
-                      {row.text}
-                    </div>{/each}
-                  {#if s.tags.length || s.source}<div class="small muted">
-                      {[s.source, ...s.tags].filter(Boolean).join(' · ')}
-                    </div>{/if}
+                    {#if done}
+                      {@const il = interlinear(project, s, i18n.locale, scriptScope)}
+                      <div class="gl" class:slide-in={justConfirmed === s.id}>
+                        {#each il.words as w, i (i)}<span class="gw"
+                            ><span class="data m">{w.morphs}</span><span class="g">{w.gloss}</span
+                            ></span
+                          >{/each}
+                      </div>
+                    {/if}
+                    {#each displayTextRows(s.translation, project.settings.translationDisplay, translationOrder) as row (row.language)}<div
+                        class="tr-line"
+                        lang={row.language}
+                        data-corpus-translation={row.language}
+                      >
+                        {row.text}
+                      </div>{/each}
+                    {#if s.tags.length || s.source}<div class="small muted">
+                        {[s.source, ...s.tags].filter(Boolean).join(' · ')}
+                      </div>{/if}
+                  </ExpandableRecord>
                 </div>
-              {/each}
-              {#if list.length > lz.shown}<div class="more-mark" use:lazyMore={lz}></div>{/if}
-            </div>
+              {/snippet}
+            </RecordBrowser>
           {/if}
         </div>
       {/if}
@@ -1689,12 +1824,24 @@
       </div>
     {/if}
     <div class="field">
-      <label for="st-text">{t('corpus.text')}</label>
+      <div class="row">
+        <label class="grow" for="st-text">{t('corpus.text')}</label><button
+          type="button"
+          class="btn ghost sm"
+          data-corpus-import-lines
+          disabled={projectState.readOnly}
+          title={t('corpusTextImport.linesHint')}
+          onclick={() => openImport(false, corpusFolderOf(project, s), '', 'line')}
+          >{t('corpusTextImport.open')}</button
+        >
+      </div>
       <textarea
         id="st-text"
         class="textarea data"
         rows="2"
+        readonly={projectState.readOnly}
         bind:value={s.text}
+        onpaste={(event) => void pasteSentenceText(event, s)}
         onchange={() => {
           analyzeSentence(project, s)
           touch()
@@ -2020,14 +2167,6 @@
     font-style: italic;
     font-size: calc(15px * var(--corpus-text-scale, 1));
     font-weight: 500;
-  }
-  .more-mark {
-    height: 1px;
-  }
-  .list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
   }
   .item {
     padding: 8px 12px;

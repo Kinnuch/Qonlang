@@ -89,6 +89,7 @@
   }
 
   let inspectorTitle = $state('')
+  let locateHeadword = $state<(() => void) | null>(null)
   /** 检视器标题的额外样式（文字页显示字形时要换成那套文字的字体） */
   let inspectorTitleStyle = $state('')
   $effect(() => {
@@ -478,7 +479,7 @@
         {:else if ui.section === 'morphemes'}
           <Morphemes bind:inspectorTitle />
         {:else if ui.section === 'lexicon'}
-          <Lexicon bind:inspectorTitle />
+          <Lexicon bind:inspectorTitle bind:locateHeadword />
         {:else if ui.section === 'skin'}
           <Skin bind:inspectorTitle />
         {:else if ui.section === 'settings'}
@@ -512,6 +513,17 @@
           title={t('common.close')}
           onclick={() => (ui.syntaxOpen = false)}><X size={14} /></button
         >
+      {:else if ui.section === 'lexicon' && !ui.pluginPage && locateHeadword}
+        <h3>
+          <button
+            type="button"
+            class="headword-link"
+            data-locate-headword
+            title={t('lexicon.locateHeadword', { word: inspectorTitle })}
+            aria-label={t('lexicon.locateHeadword', { word: inspectorTitle })}
+            onclick={locateHeadword}>{inspectorTitle}</button
+          >
+        </h3>
       {:else}
         <h3 style={inspectorTitleStyle}>{inspectorTitle || t('nav.inspector')}</h3>
       {/if}
@@ -800,6 +812,24 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .headword-link {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .headword-link:hover,
+  .headword-link:focus-visible {
+    color: var(--accent-text);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
   .inspector-body {
     flex: 1;

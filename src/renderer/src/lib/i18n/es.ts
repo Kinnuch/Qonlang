@@ -1,4 +1,58 @@
 export default {
+  corpusTextImport: {
+    open: 'Importar líneas',
+    lines: 'Una oración por línea',
+    linesHint:
+      'Cada línea no vacía se importa como una oración con saltos de línea de distintos sistemas. En CSV/TSV, seleccione el separador para conservar los saltos entre comillas dentro del mismo campo.',
+    promptTitle: 'Pegar varias oraciones',
+    promptBody:
+      'Se encontraron {n} registros no vacíos. Previsualice e importe oraciones nuevas sin cambiar el texto ni el análisis actuales.',
+    destination: 'Las oraciones nuevas irán a «{folder}» ({language}).',
+    preview: 'Previsualizar oraciones nuevas',
+    pasteHere: 'Pegar en la oración actual',
+    scopeChanged:
+      'Se canceló la importación porque cambió el proyecto, el idioma o la carpeta de destino.'
+  },
+  recordViews: {
+    label: 'Modo de vista',
+    list: 'Lista',
+    gallery: 'Galería de una tarjeta',
+    masonry: 'Columnas compactas',
+    previous: 'Registro anterior',
+    next: 'Registro siguiente',
+    position: '{n} / {total}',
+    expand: 'Mostrar todo el contenido',
+    collapse: 'Contraer el contenido largo'
+  },
+  compoundBuilder: {
+    title: 'Combinar dos entradas existentes',
+    more: 'Otras formas de añadir',
+    menu: 'Crear un compuesto',
+    language: 'Idioma de destino',
+    first: 'Primera entrada',
+    second: 'Segunda entrada',
+    separator: 'Separador',
+    searchFirst: 'Buscar y elegir la primera entrada',
+    searchSecond: 'Buscar y elegir la segunda entrada',
+    sourceHint:
+      'Elige explícitamente dos entradas del mismo idioma. Sus registros serán las fuentes etimológicas del compuesto. Ajusta la forma final e introduce su clase de palabra y sus definiciones.',
+    form: 'Forma final',
+    resetForm: 'Volver a usar la forma combinada',
+    pos: 'Clase de palabra (opcional)',
+    definitions: 'Definiciones',
+    definitionPlaceholder: 'Introduce la definición de la palabra nueva',
+    duplicate:
+      'Este idioma ya tiene la misma forma. Puedes crear un registro separado si es otra palabra.',
+    create: 'Confirmar y crear',
+    created: 'Compuesto «{word}» creado',
+    suggestions: 'Posibles combinaciones de fuentes',
+    suggestionsHint:
+      'Busca combinaciones de dos o tres entradas o morfemas de este idioma que coincidan con la forma actual. Al elegir una se sustituyen las fuentes; se conservan las formas intermedias y las notas. También puedes elegir otras fuentes manualmente abajo.',
+    useSources: 'Usar estas fuentes',
+    noMatches: 'No hay una combinación coincidente. Elige las fuentes manualmente abajo.',
+    limited:
+      'Solo se muestran algunas combinaciones. Elige las fuentes manualmente si falta la tuya.'
+  },
   badgeColors: {
     newTag: 'Color de la etiqueta nueva (compartido por nombre)',
     tag: 'Color de «{name}» (compartido por nombre)',
@@ -400,7 +454,7 @@ export default {
     galleryNext: 'Siguiente',
     exampleDesc: {
       aelith:
-        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura. El taller reconoce una expresión con un hueco y la palabra que lo ocupa. El grafo incluye un recorrido de cuatro niveles, nodos fijados al arrastrar y controles independientes de fuerzas y colores. Pruebe los saltos por letras y el orden desde el final de las palabras. El banco de traducción guarda alternativas de la misma posición; arrástrelas de vuelta para elegir de nuevo. Prueba los componentes dibujados, la cuadrícula predefinida y las carpetas compartidas para el corpus, las frases y los documentos. Pruebe los colores de las etiquetas y las clases de palabra y consulte los totales que incluyen subcarpetas en la raíz del proyecto.',
+        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura. El taller reconoce una expresión con un hueco y la palabra que lo ocupa. El grafo incluye un recorrido de cuatro niveles, nodos fijados al arrastrar y controles independientes de fuerzas y colores. Pruebe los saltos por letras y el orden desde el final de las palabras. El banco de traducción guarda alternativas de la misma posición; arrástrelas de vuelta para elegir de nuevo. Prueba los componentes dibujados, la cuadrícula predefinida y las carpetas compartidas para el corpus, las frases y los documentos. Pruebe los colores de las etiquetas y las clases de palabra y consulte los totales que incluyen subcarpetas en la raíz del proyecto. Prueba a combinar dos entradas y a explorar las oraciones en galería o mosaico.',
       tsahun:
         'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura. Las clases temporales relacionan los números de tono de varias cifras con secuencias completas de letras tonales. Un paradigma opcional usa las ranuras de morfemas de cada entrada para reproducir combinaciones de partículas del corpus. Pruebe los colores de las etiquetas y las clases de palabra y consulte los totales que incluyen subcarpetas en la raíz del proyecto.'
     },
@@ -1444,6 +1498,7 @@ export default {
     dialects: 'Los dialectos solo afectan al etiquetado y al filtrado; no crean una lengua aparte.'
   },
   lexicon: {
+    locateHeadword: 'Localizar «{word}» en el léxico',
     sortFromEnd: 'Ordenar desde el final',
     jumpToLetter: 'Ir al grupo «{value}»',
     filterLetter: 'Filtrar el grupo «{value}»',
@@ -3081,6 +3136,9 @@ export default {
     importBad: 'Esto no es un archivo de traducción de la interfaz',
     untitled: 'Traducción sin título',
     groups: {
+      corpusTextImport: 'Importación de texto del corpus',
+      recordViews: 'Vista de registros',
+      compoundBuilder: 'Crear un compuesto',
       badgeColors: 'Colores de etiquetas y clases de palabra',
       scriptScope: 'Carpetas del corpus',
       sharedFolders: 'Directorio raíz',

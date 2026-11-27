@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.2 · unreleased
+
+- Click the inspector headword to locate and highlight its exact entry in the lexicon. Sorting and compatible filters are preserved, including for homographs.
+- Use Add compound in the Add entry menu to combine two existing entries. Adjust the join or final spelling before saving their references in the etymology. Existing compound entries can use suggested combinations of entries and morphemes in their language or accept manually chosen sources.
+- Import or paste sentences with one record per nonempty line. Windows, Unix, classic Mac and Unicode line breaks are recognized. CSV and TSV preserve embedded line breaks in quoted fields. Pasting multiple lines into a sentence offers a preview of new entries or an ordinary paste into the current sentence.
+- Long corpus cards can be expanded or collapsed with a triangle in their lower-right corner. Corpus and Phrasebook offer list, single-card gallery and masonry views and remember their choices independently.
+
 ## 1.1.1 · 2026-11-26
 
 - Corpus, Phrasebook and Documents share project folders. Thin folder icons follow the theme, and Root directory is distinct from Default for unfiled records. Use the triangle to the left of Root directory to show or hide the sidebar. Select a folder name to browse its contents. Switch between icon and details views; Settings control metadata such as tags, creation time and size.

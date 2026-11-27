@@ -19,6 +19,7 @@ import { AccountClient } from './account'
 import { atomicWrite, projectContentHash, writeProjectFile } from './project-files'
 import { SUPPORT_PAYMENT_MODE } from '../shared/support-mode'
 import { validContextMenu } from '../shared/context-menu'
+import { decodeTextFile } from '../shared/text-file'
 import { pathToFileURL } from 'node:url'
 import {
   guardIpcHandlers,
@@ -1188,7 +1189,7 @@ function registerIpc(): void {
     if (r.canceled) return []
     const out: { name: string; content: string }[] = []
     for (const p of r.filePaths)
-      out.push({ name: basename(p), content: await fs.readFile(p, 'utf8') })
+      out.push({ name: basename(p), content: decodeTextFile(await fs.readFile(p)) })
     return out
   })
 
