@@ -88,7 +88,8 @@
     Check,
     Sparkles,
     Merge,
-    PencilRuler
+    PencilRuler,
+    Pencil
   } from '@lucide/svelte'
   import GuideLink from '$lib/ui/GuideLink.svelte'
   import HelpDot from '$lib/ui/HelpDot.svelte'
@@ -202,15 +203,30 @@
   })
   const textSize = $derived(corpusTextSize(ui.prefs.corpusTextScale))
   const browseMode = $derived(recordViewMode(ui.prefs.recordViews?.corpus))
+  let explicitEditorId = $state<Id | null>(null)
   function setBrowseMode(value: RecordViewMode): void {
+    if (value !== 'list') collapsedId = selectedId
+    explicitEditorId = null
     ui.prefs.recordViews = { ...ui.prefs.recordViews, corpus: value }
     ui.savePrefsSoon()
   }
   function gallerySelect(id: string): void {
+    explicitEditorId = null
     selectedId = id
     collapsedId = id
     multiIds = []
     selectionAnchor = null
+  }
+  function openAnalysis(id: Id): void {
+    if (projectState.readOnly) return
+    selectedId = id
+    collapsedId = null
+    explicitEditorId = id
+  }
+  function analysisOpen(id: Id): boolean {
+    return (
+      selectedId === id && collapsedId !== id && (browseMode === 'list' || explicitEditorId === id)
+    )
   }
 
   const list = $derived.by(() => {
@@ -430,6 +446,7 @@
     mode = 'entries'
     collapsedId = null
     selectedId = id
+    explicitEditorId = ui.pendingWordEdit?.sentenceId === id ? id : null
     void scrollToItem('corpus', `.item[data-id="${id}"]`, () => {
       const i = list.findIndex((x) => x.id === id)
       if (i >= 0) lz.ensure(i + 1)
@@ -702,6 +719,7 @@
   }
   /** 点例句卡片：选中它；已经选中但编辑器收起了，就重新展开 */
   function closeAnalysis(id: Id): void {
+    if (explicitEditorId === id) explicitEditorId = null
     collapsedId = id
     wordHover.hide(true)
     void tick().then(() => {
@@ -724,8 +742,9 @@
     )
     multiIds = next.ids
     selectionAnchor = next.anchor
-    collapsedId = null
     selectedId = next.ids.includes(id) ? id : (next.ids.at(-1) ?? null)
+    collapsedId = browseMode === 'list' ? null : selectedId
+    explicitEditorId = null
   }
   /** 导出当前列表里的例句（跟着当前语言与搜索走） */
   async function exportSentences(
@@ -1651,7 +1670,7 @@
             </div>
           {/snippet}
 
-          {#if selected && collapsedId !== selected.id && !list.some((x) => x.id === selected.id)}
+          {#if selected && analysisOpen(selected.id) && !list.some((x) => x.id === selected.id)}
             {@render editorPanel(selected)}
           {/if}
 
@@ -1665,13 +1684,23 @@
               onactive={gallerySelect}
               lazy={lz}
             >
+              {#snippet preview(s: Sentence)}
+                <div class="card neighbor-preview">
+                  <div class="data text">{s.text.slice(0, 320)}</div>
+                  <div class="tr-line">
+                    {pickText(s.translation, translationOrder).slice(0, 320)}
+                  </div>
+                  {#if s.source}<div class="small muted">{s.source}</div>{/if}
+                </div>
+              {/snippet}
               {#snippet children(s: Sentence, si: number)}
-                {#if selectedId === s.id && collapsedId !== s.id}{@render editorPanel(s)}{/if}
+                {#if analysisOpen(s.id)}{@render editorPanel(s)}{/if}
                 {@const c = coverage(s)}
                 {@const done = fullyConfirmed(s)}
                 {@const spans = textSpans(s)}
                 <div
                   class="card item"
+                  class:gallery-item={browseMode === 'gallery'}
                   data-id={s.id}
                   use:deletable={{
                     identity: JSON.stringify([project.meta.id, langId, folderId, s.id]),
@@ -1690,6 +1719,10 @@
                         selectionAnchor = s.id
                       }
                       selectedId = s.id
+                      if (browseMode !== 'list') {
+                        collapsedId = s.id
+                        explicitEditorId = null
+                      }
                     },
                     remove: () => remove(s)
                   }}
@@ -1710,7 +1743,7 @@
                   onclick={(e) => pick(s.id, e)}
                   onkeydown={(e) => e.key === 'Enter' && pick(s.id, e)}
                 >
-                  <ExpandableRecord>
+                  <ExpandableRecord collapsible={browseMode !== 'gallery'}>
                     {#each scriptScope.visible(s) as sc (sc.id)}
                       {@const st = sentenceScriptText(
                         project,
@@ -1784,7 +1817,37 @@
                     {#if s.tags.length || s.source}<div class="small muted">
                         {[s.source, ...s.tags].filter(Boolean).join(' · ')}
                       </div>{/if}
+                    {#if browseMode === 'gallery'}
+                      {#each s.extraLines as line, i (i)}
+                        {#if line.text}<div class="gallery-detail">
+                            <span class="small muted">{line.label}</span>
+                            <div>{line.text}</div>
+                          </div>{/if}
+                      {/each}
+                      {#if s.notes}<div class="gallery-detail">
+                          <span class="small muted">{t('common.notes')}</span>
+                          <div>{s.notes}</div>
+                        </div>{/if}
+                    {/if}
                   </ExpandableRecord>
+                  {#if browseMode !== 'list' && !projectState.readOnly}<div
+                      class="row gallery-actions"
+                    >
+                      <button
+                        type="button"
+                        class="btn ghost sm"
+                        data-record-edit
+                        onclick={(e) => {
+                          e.stopPropagation()
+                          openAnalysis(s.id)
+                        }}
+                        onkeydown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') e.stopPropagation()
+                        }}
+                      >
+                        <Pencil size={14} />{t('common.edit')}
+                      </button>
+                    </div>{/if}
                 </div>
               {/snippet}
             </RecordBrowser>
@@ -2177,6 +2240,31 @@
   }
   .item:hover {
     border-color: var(--border-strong);
+  }
+  .gallery-item :global(.record-content) {
+    gap: 14px;
+  }
+  .gallery-item .scr {
+    font-size: calc(28px * var(--corpus-text-scale, 1));
+  }
+  .gallery-item .text {
+    font-size: calc(21px * var(--corpus-text-scale, 1));
+  }
+  .gallery-detail {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .gallery-actions {
+    justify-content: flex-end;
+    margin-block-start: auto;
+    padding-block-start: 8px;
+  }
+  .neighbor-preview {
+    height: 100%;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
   .item.sel {
     border-color: var(--accent);

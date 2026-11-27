@@ -12,7 +12,8 @@
     activeId,
     onactive,
     lazy,
-    children
+    children,
+    preview
   }: {
     items: T[]
     mode: RecordViewMode
@@ -20,6 +21,7 @@
     onactive: (id: string) => void
     lazy: Lazy
     children: Snippet<[T, number]>
+    preview?: Snippet<[T]>
   } = $props()
   let width = $state(1)
   let container: HTMLElement | undefined
@@ -158,6 +160,24 @@
   role={mode === 'gallery' ? 'region' : undefined}
   aria-label={mode === 'gallery' ? t('recordViews.gallery') : undefined}
 >
+  {#if mode === 'gallery' && preview}
+    {#if index > 0}<div
+        class="gallery-neighbor previous"
+        data-record-neighbor="previous"
+        aria-hidden="true"
+        inert
+      >
+        {@render preview(items[index - 1])}
+      </div>{/if}
+    {#if index >= 0 && index < items.length - 1}<div
+        class="gallery-neighbor next"
+        data-record-neighbor="next"
+        aria-hidden="true"
+        inert
+      >
+        {@render preview(items[index + 1])}
+      </div>{/if}
+  {/if}
   {#each visible as item, i (item.id)}
     <div
       class="record-cell"
@@ -202,8 +222,48 @@
     margin-bottom: 8px;
   }
   .gallery {
+    position: relative;
     max-width: 100%;
+    flex: 1 0 auto;
+    min-height: min(420px, 60vh);
+    overflow-x: clip;
     outline-offset: 3px;
+  }
+  .gallery .record-cell {
+    position: relative;
+    z-index: 1;
+    width: 82%;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  .gallery .record-cell > :global(.item) {
+    flex: 1;
+    padding: clamp(12px, 2vw, 28px);
+  }
+  .gallery-neighbor {
+    position: absolute;
+    inset-block: 24px;
+    width: 82%;
+    overflow: clip;
+    border-radius: var(--radius);
+    filter: blur(2px);
+    opacity: 0.3;
+    pointer-events: none;
+    user-select: none;
+  }
+  .gallery-neighbor.previous {
+    left: -76%;
+  }
+  .gallery-neighbor.next {
+    left: 94%;
+  }
+  .gallery-neighbor > :global(*) {
+    min-height: 100%;
+  }
+  .gallery-neighbor.previous > :global(*) {
+    text-align: end;
   }
   .more-mark {
     height: 1px;

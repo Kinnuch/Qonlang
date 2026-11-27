@@ -6,6 +6,8 @@ import type { Language, Phoneme, Phonotactics, Project, StressPosition } from '$
 import type { ParseOptions, SyllableScheme } from '../sca/parse'
 import { inferFeatures } from '$lib/ipa/features'
 import { canonicalG, gEquivalent, hasEquivalentG } from '$lib/ipa/equivalence'
+import { NUCLEUS_CLASS, CONSONANT_CLASS, createNucleusMatcher, prepareUnitMatcher } from './nuclei'
+export { stripMarks, syllableNucleusMatch, isSyllableNucleus } from './nuclei'
 import {
   activePhonemeRules,
   hasPhonemeRules,
@@ -83,9 +85,13 @@ export interface WordToken {
  * 按单位表最长匹配切词：重音记号、分隔符、空白、标点各自成块；
  * 组合附标与 ː ʰ ʲ 这类修饰字母附着在前一个音段上（表里没有 aː 也认成一个音段）。
  */
-export function tokenizeWord(text: string, units: ReadonlySet<string>): WordToken[] {
+export function tokenizeWord(
+  text: string,
+  units: ReadonlySet<string>,
+  matches: (s: string) => boolean = (s) => hasEquivalentG(units, s)
+): WordToken[] {
   let maxLen = 1
-  for (const u of units) maxLen = Math.max(maxLen, Array.from(u).length)
+  for (const u of units) maxLen = Math.max(maxLen, Array.from(u.normalize('NFD')).length)
   const chars = Array.from(text)
   const out: WordToken[] = []
   let i = 0
@@ -98,14 +104,9 @@ export function tokenizeWord(text: string, units: ReadonlySet<string>): WordToke
     else if (SKIPPED.has(c) || /\p{P}/u.test(c)) out.push({ text: c, kind: 'skip' })
     else {
       let len = Math.min(maxLen, chars.length - i)
-      for (; len > 1; len--) if (hasEquivalentG(units, chars.slice(i, i + len).join(''))) break
+      for (; len > 1; len--) if (matches(chars.slice(i, i + len).join(''))) break
       const piece = chars.slice(i, i + len).join('')
-      if (
-        len === 1 &&
-        !hasEquivalentG(units, piece) &&
-        prev?.kind === 'seg' &&
-        /[\p{M}\p{Lm}]/u.test(piece)
-      )
+      if (len === 1 && !matches(piece) && prev?.kind === 'seg' && /[\p{M}\p{Lm}]/u.test(piece))
         prev.text += piece
       else out.push({ text: piece, kind: 'seg' })
       i += len
@@ -120,7 +121,10 @@ export function tokenizeWord(text: string, units: ReadonlySet<string>): WordToke
 
 export interface SyllableOptions {
   /** 可作音节核的音段（元音音类成员，或带 syllabic 特征的音位） */
-  nuclei: Set<string>
+  nuclei: ReadonlySet<string>
+  /** 仅供已准备好索引的调用方，保持原成员用于长度上界。 */
+  matchesNucleus?: (s: string) => boolean
+  matchesOnset?: (s: string) => boolean
   /** 明确声明的非核单位优先，不把其附标变体擅自折回另一个元音。 */
   consonants?: ReadonlySet<string>
   /** 允许的起首 / 尾音（空集合表示不限制） */
@@ -166,7 +170,10 @@ export interface SyllableSpan {
 export function syllableSpans(
   segs: string[],
   isNucleus: (s: string) => boolean,
-  opts: Pick<SyllableOptions, 'onsets' | 'maxOnset' | 'maxCoda' | 'respectOnsetLimits'> & {
+  opts: Pick<
+    SyllableOptions,
+    'onsets' | 'maxOnset' | 'maxCoda' | 'respectOnsetLimits' | 'matchesNucleus' | 'matchesOnset'
+  > & {
     nuclei?: ReadonlySet<string>
   } = {}
 ): SyllableSpan[] {
@@ -179,7 +186,7 @@ export function syllableSpans(
   const groups: [number, number][] = []
   let maxNucleusLength = 1
   for (const nucleus of opts.nuclei ?? [])
-    maxNucleusLength = Math.max(maxNucleusLength, nucleus.length)
+    maxNucleusLength = Math.max(maxNucleusLength, nucleus.normalize('NFD').length)
   for (let at = 0; at < nucleusIdx.length;) {
     const start = nucleusIdx[at]
     let end = at,
@@ -188,7 +195,8 @@ export function syllableSpans(
       if (nucleusIdx[next] !== nucleusIdx[next - 1] + 1) break
       text += segs[nucleusIdx[next]]
       if (text.length > maxNucleusLength) break
-      if (opts.nuclei && hasEquivalentG(opts.nuclei, text)) end = next
+      if (opts.matchesNucleus?.(text) ?? (opts.nuclei && hasEquivalentG(opts.nuclei, text)))
+        end = next
     }
     groups.push([start, nucleusIdx[end]])
     at = end + 1
@@ -204,7 +212,10 @@ export function syllableSpans(
       if (opts.onsets && opts.onsets.size) {
         while (
           onsetLen > 0 &&
-          !hasEquivalentG(opts.onsets, segs.slice(start - onsetLen, start).join(''))
+          !(
+            opts.matchesOnset?.(segs.slice(start - onsetLen, start).join('')) ??
+            hasEquivalentG(opts.onsets, segs.slice(start - onsetLen, start).join(''))
+          )
         )
           onsetLen--
       }
@@ -228,41 +239,14 @@ export function syllableSpans(
 }
 
 export function syllabify(segments: string[], opts: SyllableOptions): Syllable[] {
-  const isN = (s: string): boolean => syllableNucleusMatch(s, opts.nuclei, opts.consonants) === true
+  const isN = createNucleusMatcher(opts.nuclei, opts.consonants).isNucleus
+  const matchesNucleus = prepareUnitMatcher(opts.nuclei).has
   const segs = segments.filter((s) => !opts.ignore?.has(s))
-  return syllableSpans(segs, isN, opts).map((sp) => ({
+  return syllableSpans(segs, isN, { ...opts, matchesNucleus }).map((sp) => ({
     onset: segs.slice(sp.start, sp.nucleusStart),
     nucleus: segs.slice(sp.nucleusStart, sp.nucleusEnd),
     coda: segs.slice(sp.nucleusEnd, sp.end)
   }))
-}
-
-export function stripMarks(s: string): string {
-  return s.normalize('NFD').replace(/\p{M}/gu, '')
-}
-
-/** 只供音节核分类比较，原音段不改；仅忽略尾部 IPA 长度符，不折叠任意修饰字母。 */
-export function syllableNucleusMatch(
-  segment: string,
-  nuclei: ReadonlySet<string>,
-  consonants?: ReadonlySet<string>
-): boolean | undefined {
-  const suffix = /[ːˑ\p{M}]+$/u.exec(segment)
-  const withoutLength =
-    suffix && /[ːˑ]/u.test(suffix[0])
-      ? segment.slice(0, suffix.index) + suffix[0].replace(/[ːˑ]/gu, '')
-      : segment
-  for (const form of new Set([
-    segment,
-    withoutLength,
-    stripMarks(segment),
-    stripMarks(withoutLength)
-  ])) {
-    if (!form) continue
-    if (hasEquivalentG(nuclei, form)) return true
-    if (consonants && hasEquivalentG(consonants, form)) return false
-  }
-  return undefined
 }
 
 export function syllableText(s: Syllable): string {
@@ -278,6 +262,14 @@ export function isHeavy(s: Syllable): boolean {
 
 /** 返回主重音所在音节的下标；manual、custom（按重音规则另外标）或无音节返回 -1 */
 export function stressIndex(sylls: Syllable[], position: StressPosition): number {
+  const eligible = sylls.map((s, i) => (s.nucleus.length ? i : -1)).filter((i) => i >= 0)
+  if (eligible.length !== sylls.length) {
+    const i = stressIndex(
+      eligible.map((i) => sylls[i]),
+      position
+    )
+    return i < 0 ? -1 : eligible[i]
+  }
   const n = sylls.length
   if (n === 0 || position === 'manual' || position === 'custom') return -1
   switch (position) {
@@ -329,10 +321,12 @@ export function checkWord(segments: string[], sylls: Syllable[], pt: Phonotactic
     for (const s of sylls)
       if (s.coda.length && !pt.codas.some((v) => gEquivalent(v, s.coda.join(''))))
         out.push({ kind: 'coda', detail: s.coda.join('') })
-  if (pt.nuclei.length)
+  if (pt.nuclei.length) {
+    const legalNucleus = prepareUnitMatcher(pt.nuclei).has
     for (const s of sylls)
-      if (s.nucleus.length && !pt.nuclei.some((v) => gEquivalent(v, s.nucleus.join(''))))
+      if (s.nucleus.length && !legalNucleus(s.nucleus.join('')))
         out.push({ kind: 'nucleus', detail: s.nucleus.join('') })
+  }
   if (sylls.length && sylls[0].nucleus.length === 0) out.push({ kind: 'nucleus', detail: '∅' })
   if (pt.minSyllables && sylls.length < pt.minSyllables)
     out.push({ kind: 'syllables', detail: String(sylls.length) })
@@ -533,17 +527,13 @@ export function spellingUnits(lang: Language): {
   }
 }
 
-const VOWEL_CLASS = /^(V|Vowel|Vowels|元音|N|Nucleus)$/i
-const CONSONANT_CLASS = /^(C|Consonant|Consonants|辅音)$/i
-
 /** 音位表里可作音节核的音段：syllabic 特征为 yes，或属于名为 V / Vowel / 元音 的音类 */
 export function nucleusSet(lang: Language): Set<string> {
   const s = new Set<string>()
   for (const p of lang.phonemes) {
-    const f = phonemeFeatures(p)
-    if (f.syllabic === 'yes' || f.type === 'vowel') s.add(p.symbol)
+    if (phonemeKind(lang, p) === 'vowel') s.add(p.symbol)
   }
-  for (const c of lang.classes) if (VOWEL_CLASS.test(c.name)) for (const m of c.members) s.add(m)
+  for (const c of lang.classes) if (NUCLEUS_CLASS.test(c.name)) for (const m of c.members) s.add(m)
   for (const n of lang.phonotactics.nuclei) s.add(n)
   return s
 }
@@ -559,7 +549,13 @@ export function consonantSet(lang: Language): Set<string> {
 }
 
 const kindOf = (f: Record<string, string>): 'vowel' | 'consonant' | null =>
-  f.syllabic === 'yes' || f.type === 'vowel' ? 'vowel' : f.type === 'consonant' ? 'consonant' : null
+  f.syllabic === 'yes'
+    ? 'vowel'
+    : f.syllabic === 'no' || f.type === 'consonant'
+      ? 'consonant'
+      : f.type === 'vowel'
+        ? 'vowel'
+        : null
 
 /**
  * 一个音位算元音（能作音节核）还是辅音：手填的特征 > 名为 V / C 的音类 > 按 IPA 表推断 >
@@ -570,7 +566,7 @@ export function phonemeKind(lang: Language, p: Phoneme): 'vowel' | 'consonant' |
   if (own) return own
   for (const c of lang.classes) {
     if (!c.members.some((member) => gEquivalent(member, p.symbol))) continue
-    if (VOWEL_CLASS.test(c.name)) return 'vowel'
+    if (NUCLEUS_CLASS.test(c.name)) return 'vowel'
     if (CONSONANT_CLASS.test(c.name)) return 'consonant'
   }
   const inferred = kindOf(inferFeatures(p.symbol))
@@ -612,13 +608,15 @@ export function analyzeWord(
   const nuclei = nucleusSet(lang)
   const inventory = new Set([...lang.phonemes.map((p) => p.symbol), ...nuclei])
   const consonants = consonantSet(lang)
-  const isN = (s: string): boolean => syllableNucleusMatch(s, nuclei, consonants) === true
+  const isN = createNucleusMatcher(nuclei, consonants).isNucleus
+  const units = prepareUnitMatcher(inventory)
   const tpl =
     lang.syllable.strategy === 'template' && lang.syllable.template
       ? parseTemplate(lang.syllable.template)
       : { maxOnset: Infinity, maxCoda: Infinity }
   const opts = {
     nuclei,
+    matchesNucleus: prepareUnitMatcher(nuclei).has,
     onsets: syllableOnsets(lang).length ? new Set(syllableOnsets(lang)) : undefined,
     maxOnset: tpl.maxOnset,
     maxCoda: tpl.maxCoda,
@@ -656,7 +654,7 @@ export function analyzeWord(
     segs = []
     marks = []
   }
-  for (const tk of tokenizeWord(ipa, inventory)) {
+  for (const tk of tokenizeWord(ipa, inventory, units.has)) {
     if (tk.kind === 'seg') segs.push(tk.text)
     else if (tk.kind === 'mark') marks.push([segs.length, tk.text])
     else if (tk.kind === 'sep' || tk.kind === 'space') flush(tk.text)

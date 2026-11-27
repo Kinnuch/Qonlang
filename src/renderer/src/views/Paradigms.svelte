@@ -343,7 +343,28 @@
   ])
   /** 每门语言一个推导上下文（音类、多合字母、音节核、规则集缓存） */
   const ctxCache = new Map<Id, ReturnType<typeof makeContext>>()
+  // 成员、特征或合法核编辑不会改变数组长度；按批次失效，不在每个词上重建快照。
+  const ctxStamp = $derived(
+    JSON.stringify([
+      project.ruleSets.map((r) => r.text),
+      project.languages.map((l) => [
+        l.classes,
+        l.digraphs,
+        l.phonemes,
+        l.phonotactics,
+        l.syllable,
+        l.orthographies
+      ])
+    ])
+  )
+  let cachedCtxStamp = ''
+  let cachedCtxProject: typeof project | null = null
   function ctxFor(languageId: Id): ReturnType<typeof makeContext> | null {
+    if (cachedCtxProject !== project || cachedCtxStamp !== ctxStamp) {
+      ctxCache.clear()
+      cachedCtxStamp = ctxStamp
+      cachedCtxProject = project
+    }
     const lg = project.languages.find((l) => l.id === languageId)
     if (!lg) return null
     let c = ctxCache.get(languageId)
@@ -353,12 +374,6 @@
     }
     return c
   }
-  // 项目内容变化时清缓存
-  $effect(() => {
-    void project.ruleSets.map((r) => r.text)
-    void project.languages.map((l) => l.classes.length + l.digraphs.length + l.phonemes.length)
-    ctxCache.clear()
-  })
   /** 测试台选中的词；没选就拿第一个绑定本构形的词 */
   let testLexemeId = $state<Id | null>(memo.testLexemeId ?? null)
   const testLexeme = $derived(

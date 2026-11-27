@@ -3,7 +3,7 @@
   import { ChevronDown, ChevronUp } from '@lucide/svelte'
   import { t } from '$lib/i18n/index.svelte'
 
-  let { children }: { children: Snippet } = $props()
+  let { children, collapsible = true }: { children: Snippet; collapsible?: boolean } = $props()
   let expanded = $state(false)
   let overflowing = $state(false)
   let content: HTMLDivElement
@@ -11,6 +11,10 @@
   const id = $props.id()
 
   $effect(() => {
+    if (!collapsible) {
+      overflowing = false
+      return
+    }
     const el = content,
       meter = cap
     if (!el || !meter) return
@@ -28,7 +32,7 @@
 <div class="record-excerpt" class:expanded class:overflowing data-record-overflow={overflowing}>
   <div class="cap-meter" aria-hidden="true" bind:this={cap}></div>
   <div class="record-content" bind:this={content} {id}>{@render children()}</div>
-  {#if overflowing}
+  {#if collapsible && overflowing}
     {#if !expanded}<div class="omission" aria-hidden="true">…</div>{/if}
     <button
       type="button"
@@ -42,7 +46,9 @@
         e.stopPropagation()
         expanded = !expanded
       }}
-      onkeydown={(e) => e.stopPropagation()}
+      onkeydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') e.stopPropagation()
+      }}
       onmousedown={(e) => e.stopPropagation()}
     >
       {#if expanded}<ChevronUp size={14} />{:else}<ChevronDown size={14} />{/if}
@@ -105,24 +111,40 @@
     position: absolute;
     inset-inline-end: 0;
     bottom: 0;
-    width: 24px;
-    height: 22px;
+    width: 28px;
+    height: 28px;
     padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-2);
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 4px;
     cursor: pointer;
   }
   .fold:hover {
     color: var(--accent);
     border-color: var(--accent);
+    background: var(--bg-elev);
   }
   .fold:focus-visible {
+    background: var(--bg-elev);
+    border-color: var(--border-strong);
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+  }
+  @media (pointer: coarse) {
+    .fold {
+      width: 44px;
+      height: 44px;
+    }
+    .overflowing:not(.expanded),
+    .overflowing.expanded {
+      padding-bottom: 44px;
+    }
+    .omission {
+      height: 48px;
+    }
   }
 </style>

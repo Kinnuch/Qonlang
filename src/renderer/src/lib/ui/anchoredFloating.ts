@@ -2,6 +2,7 @@
 interface FloatingOptions {
   anchor: HTMLElement | null | undefined
   matchWidth?: boolean
+  align?: 'start' | 'end'
   width?: number
   gap?: number
   onAnchorHidden?: () => void
@@ -45,7 +46,8 @@ export function anchoredFloating(
     const up = below < needed && above > below
     node.style.maxHeight = (up ? above : below) + 'px'
     const top = up ? rect.top - gap - node.offsetHeight : rect.bottom + gap
-    const left = getComputedStyle(anchor).direction === 'rtl' ? rect.right - panelWidth : rect.left
+    const alignRight = (getComputedStyle(anchor).direction === 'rtl') !== (options.align === 'end')
+    const left = alignRight ? rect.right - panelWidth : rect.left
     node.style.left = Math.max(leftEdge + margin, Math.min(left, limitX - panelWidth)) + 'px'
     node.style.top = Math.max(topEdge + margin, Math.min(top, limitY - node.offsetHeight)) + 'px'
   }

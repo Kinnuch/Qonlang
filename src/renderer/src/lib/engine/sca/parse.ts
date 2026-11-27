@@ -13,6 +13,7 @@
  */
 
 import { gLiteralPattern, gEquivalent } from '$lib/ipa/equivalence'
+import { NUCLEUS_CLASS, CONSONANT_CLASS } from '../phon/nuclei'
 
 interface ClassAlias {
   alias: string
@@ -440,8 +441,6 @@ const STRESS_LINE = /^([ˈˌ'])\s*=(.*)$/su
 const FEATURE_LINE = /^\[\s*([+-])\s*(\p{L}[^\]\s]*)\s*\]\s*=(.*)$/su
 /** 方括号里是特征引用（[+送气]、[-浊 +塞]），而不是临时音类 */
 const FEATURE_REF = /^\s*[+-]\s*\p{L}[^\s\]]*(?:\s+[+-]\s*\p{L}[^\s\]]*)*\s*$/u
-const VOWEL_CLASS = /^(V|Vowel|Vowels|元音|N|Nucleus)$/i
-const CONSONANT_CLASS = /^(C|Consonant|Consonants|辅音)$/i
 
 /** 音节边界：规则里写 σ，匹配时临时插在词里各音节之间（Unicode 非字符，任何文字里都不会有） */
 export const BOUNDARY = '\uFDD0'
@@ -1396,7 +1395,7 @@ export function parseRuleText(text: string, options: ParseOptions = {}): RulePro
     const name = k.replace(/^\{|\}$/g, '')
     for (const m of v) {
       if (Array.from(m).length > 1) units.add(m)
-      if (VOWEL_CLASS.test(name)) nuclei.add(m)
+      if (NUCLEUS_CLASS.test(name)) nuclei.add(m)
       else if (CONSONANT_CLASS.test(name)) consonants.add(m)
     }
   }

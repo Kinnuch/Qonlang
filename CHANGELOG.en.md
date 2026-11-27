@@ -2,6 +2,10 @@
 
 ## 1.1.2 · unreleased
 
+- Fixed the automatic treatment of the class name `N` as a nucleus class. Nasals can remain in onsets and codas while explicitly syllabic consonants still form nuclei. Phonology and sound changes share nucleus classification, and allowed-nucleus checks recognize equivalent Unicode spellings.
+- The lexicon toolbar stays on one row. Use the inspector to switch between viewing and editing. The up and down arrows select adjacent entries in filtered and sorted lexicon or morpheme lists.
+- Compound creation supports ordered join adjustments with previews for deletion, sound insertion and separators. The corpus gallery centers the complete sentence and shows faded previews of its neighbors. In gallery and masonry views, use the edit control to open interlinear editing.
+
 - Click the inspector headword to locate and highlight its exact entry in the lexicon. Sorting and compatible filters are preserved, including for homographs.
 - Use Add compound in the Add entry menu to combine two existing entries. Adjust the join or final spelling before saving their references in the etymology. Existing compound entries can use suggested combinations of entries and morphemes in their language or accept manually chosen sources.
 - Import or paste sentences with one record per nonempty line. Windows, Unix, classic Mac and Unicode line breaks are recognized. CSV and TSV preserve embedded line breaks in quoted fields. Pasting multiple lines into a sentence offers a preview of new entries or an ordinary paste into the current sentence.

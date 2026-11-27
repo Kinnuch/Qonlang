@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte'
+  import { onDestroy, tick } from 'svelte'
   import { canonicalG, gEquivalent } from '$lib/ipa/equivalence'
   import RecordClipboardTools from '$lib/ui/RecordClipboardTools.svelte'
   import { copyRecords, pasteRecords } from '$lib/state/recordClipboard.svelte'
@@ -7,6 +7,8 @@
   import MorphemeBindingsEditor from '$lib/ui/MorphemeBindingsEditor.svelte'
   import { traceLine } from '$lib/ui/engineText'
   import { navScroll } from '$lib/ui/navScroll'
+  import { recordRowKeys } from '$lib/ui/recordRowKeys'
+  import { anchoredFloating } from '$lib/ui/anchoredFloating'
   import {
     captureListViewPosition,
     restoreListViewPosition,
@@ -1500,11 +1502,18 @@
   ])
   let compoundMenuOpen = $state(false),
     compoundMenuRoot = $state<HTMLElement | null>(null)
+  let compoundMenuPanel = $state<HTMLElement | null>(null)
+  let toolbarWidth = $state(1000)
+  const compactTools = $derived(toolbarWidth < 880)
   let compoundDialog = $state.raw<{ project: Project; languageId: Id } | null>(null)
   $effect(() => {
     if (!compoundMenuOpen) return
     const down = (event: PointerEvent): void => {
-      if (compoundMenuRoot && !compoundMenuRoot.contains(event.target as Node))
+      if (
+        compoundMenuRoot &&
+        !compoundMenuRoot.contains(event.target as Node) &&
+        !compoundMenuPanel?.contains(event.target as Node)
+      )
         compoundMenuOpen = false
     }
     const key = (event: KeyboardEvent): void => {
@@ -1547,31 +1556,36 @@
 </script>
 
 <div class="page">
-  <div class="page-head row">
+  <div
+    class="page-head row"
+    data-lexicon-toolbar
+    bind:clientWidth={toolbarWidth}
+    class:compact={compactTools}
+  >
     <h1>{t('lexicon.title')}</h1>
     <GuideLink section="lexicon" />
-    <div class="seg" data-tour="lexicon-tabs">
-      <button class:active={mode === 'entries'} onclick={() => (mode = 'entries')}
-        >{t('lexicon.entries')}</button
+    {#if toolbarWidth < 530}
+      <select
+        class="select section-select"
+        data-tour="lexicon-tabs"
+        aria-label={t('lexicon.title')}
+        value={mode}
+        onchange={(e) => (mode = e.currentTarget.value as 'entries' | 'taxonomy' | 'stats')}
       >
-      <button class:active={mode === 'taxonomy'} onclick={() => (mode = 'taxonomy')}
-        >{t('lexicon.taxonomy')}</button
-      >
-      <button class:active={mode === 'stats'} onclick={() => (mode = 'stats')}
-        >{t('stats.title')}</button
-      >
-    </div>
-    {#if mode === 'entries'}
-      <div class="seg" data-tour="lexicon-mode">
-        <button
-          class:active={!editMode}
-          title={t('lexicon.modeView')}
-          onclick={() => (editMode = false)}><Eye size={14} />{t('lexicon.modeView')}</button
+        <option value="entries">{t('lexicon.entries')}</option>
+        <option value="taxonomy">{t('lexicon.taxonomy')}</option>
+        <option value="stats">{t('stats.title')}</option>
+      </select>
+    {:else}
+      <div class="seg" data-tour="lexicon-tabs">
+        <button class:active={mode === 'entries'} onclick={() => (mode = 'entries')}
+          >{t('lexicon.entries')}</button
         >
-        <button
-          class:active={editMode}
-          title={t('lexicon.modeEdit')}
-          onclick={() => (editMode = true)}><Pencil size={14} />{t('lexicon.modeEdit')}</button
+        <button class:active={mode === 'taxonomy'} onclick={() => (mode = 'taxonomy')}
+          >{t('lexicon.taxonomy')}</button
+        >
+        <button class:active={mode === 'stats'} onclick={() => (mode = 'stats')}
+          >{t('stats.title')}</button
         >
       </div>
     {/if}
@@ -1589,7 +1603,7 @@
         aria-pressed={favOnly}
         onclick={() => (favOnly = !favOnly)}><Star size={16} /></button
       >
-      <Menu label={t('lexicon.columns')} icon={Columns3} wide>
+      <Menu label={t('lexicon.columns')} icon={Columns3} wide floating iconOnly={compactTools}>
         {#each availableColumns as c (c.key)}
           <label data-keep-open
             ><input
@@ -1605,7 +1619,13 @@
         {/each}
         <button onclick={resetWidths}>{t('lexicon.resetWidths')}</button>
       </Menu>
-      <Menu label={t('lexicon.import')} icon={Download} tour="lexicon-io">
+      <Menu
+        label={t('lexicon.import')}
+        icon={Download}
+        tour="lexicon-io"
+        floating
+        iconOnly={compactTools}
+      >
         <button onclick={() => (mode = 'csv')}>{t('lexicon.importCsv')}</button>
         <button onclick={importLexicanter}>{t('csv.lexicanterProject')}</button>
         <!-- 插件注册的导入格式 -->
@@ -1613,7 +1633,13 @@
           <button onclick={() => void runPluginImport(im.item)}>{im.item.name}</button>
         {/each}
       </Menu>
-      <Menu label={t('common.export')} icon={Upload} tour="lexicon-io">
+      <Menu
+        label={t('common.export')}
+        icon={Upload}
+        tour="lexicon-io"
+        floating
+        iconOnly={compactTools}
+      >
         <button onclick={() => exportCsv('lexemes')}>{t('lexicon.exportCsv')}</button>
         <button onclick={() => exportCsv('morphemes')}>{t('lexicon.exportMorphemesCsv')}</button>
         {#if language}<button onclick={() => (mode = 'export')}>{t('dict.menu')}</button>{/if}
@@ -1626,10 +1652,13 @@
           class="btn primary"
           disabled={projectState.readOnly}
           data-add-entry
+          aria-label={t('lexicon.add')}
+          title={t('lexicon.add')}
           onclick={() => {
             compoundMenuOpen = false
             add()
-          }}><Plus size={16} />{t('lexicon.add')}</button
+          }}
+          ><Plus size={16} />{#if toolbarWidth >= 395}{t('lexicon.add')}{/if}</button
         >
         <button
           class="btn primary"
@@ -1638,9 +1667,25 @@
           aria-label={t('compoundBuilder.more')}
           aria-haspopup="menu"
           aria-expanded={compoundMenuOpen}
-          onclick={() => (compoundMenuOpen = !compoundMenuOpen)}><ChevronDown size={14} /></button
+          onclick={async (event) => {
+            compoundMenuOpen = !compoundMenuOpen
+            if (compoundMenuOpen && event.detail === 0) {
+              await tick()
+              compoundMenuPanel?.querySelector('button')?.focus()
+            }
+          }}><ChevronDown size={14} /></button
         >
-        {#if compoundMenuOpen}<div class="compound-create-menu card" role="menu">
+        {#if compoundMenuOpen}<div
+            class="compound-create-menu card"
+            role="menu"
+            bind:this={compoundMenuPanel}
+            use:anchoredFloating={{
+              anchor: compoundMenuRoot,
+              width: 200,
+              align: 'end',
+              onAnchorHidden: () => (compoundMenuOpen = false)
+            }}
+          >
             <button
               class="btn ghost"
               role="menuitem"
@@ -1932,9 +1977,26 @@
         </div>
       {/if}
     {/if}
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex (键盘用户可将焦点留在滚动区，虚拟行换出后仍能逐条导航) -->
     <div
       class="scroll"
       bind:this={listScroller}
+      tabindex="0"
+      role="region"
+      aria-label={t('lexicon.entries')}
+      aria-keyshortcuts="ArrowUp ArrowDown"
+      use:recordRowKeys={{
+        section: 'lexicon',
+        items: list,
+        selected: selectedId,
+        select: (id, index) => {
+          listReturnRequest = null
+          multiIds = []
+          lastIndex = index
+          selectedId = id
+        },
+        ensure: (index) => rows.scrollToIndex(index)
+      }}
       use:navScroll={'lexicon'}
       use:innerWidth={(w) => (scrollW = w)}
       use:rows.box
@@ -2201,7 +2263,7 @@
           ? t('lexicon.backToList')
           : t('lexicon.graph')}</button
       >
-      <button class="btn ghost sm" onclick={() => (editMode = true)}
+      <button class="btn ghost sm" data-tour="lexicon-mode" onclick={() => (editMode = true)}
         ><Pencil size={14} />{t('lexicon.modeEdit')}</button
       >
     </div>
@@ -2253,7 +2315,7 @@
           ? t('lexicon.backToList')
           : t('lexicon.graph')}</button
       >
-      <button class="btn ghost sm" onclick={() => (editMode = false)}
+      <button class="btn ghost sm" data-tour="lexicon-mode" onclick={() => (editMode = false)}
         ><Eye size={14} />{t('lexicon.modeView')}</button
       >
     </div>
@@ -3051,12 +3113,8 @@
     padding-inline: 8px;
   }
   .compound-create-menu {
-    position: absolute;
-    inset-inline-end: 0;
-    top: calc(100% + 4px);
-    z-index: 40;
-    min-inline-size: 220px;
-    max-inline-size: calc(100vw - 16px);
+    z-index: 400;
+    overflow: auto;
     padding: 5px;
     box-shadow: var(--shadow-lg);
   }
@@ -3277,7 +3335,30 @@
   }
   .page-head {
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    flex: none;
+    padding-block: 2px;
+  }
+  .page-head.compact {
+    gap: 4px;
+  }
+  .page-head.compact :global(.guide span) {
+    display: none;
+  }
+  .page-head.compact :global(.guide) {
+    margin-inline-start: 0;
+    padding: 6px;
+  }
+  .page-head .seg {
+    flex: none;
+    white-space: nowrap;
+  }
+  .section-select {
+    max-width: 9em;
+    width: auto;
+    flex-shrink: 1;
+    min-width: 4em;
   }
   .scroll {
     flex: 1;

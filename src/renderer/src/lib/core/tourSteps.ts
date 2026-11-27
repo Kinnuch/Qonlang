@@ -108,7 +108,13 @@ export const TOUR_STEPS: Record<string, TourStep[]> = {
     { selector: 'table.tbl thead', go: 'lexicon', view: { mode: 'entries' } },
     { selector: '[data-tour="lexicon-tabs"]', go: 'lexicon', view: { mode: 'entries' } },
     { selector: '[data-tour="lexicon-taxonomy"]', go: 'lexicon', view: { mode: 'taxonomy' } },
-    { selector: '[data-tour="lexicon-mode"]', go: 'lexicon', view: { mode: 'entries' } },
+    {
+      selector: '[data-tour="lexicon-mode"]',
+      go: 'lexicon',
+      view: { mode: 'entries' },
+      click: 'table.tbl tbody tr[data-id]',
+      inspector: true
+    },
     {
       selector: '.inspector',
       go: 'lexicon',

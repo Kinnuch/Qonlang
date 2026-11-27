@@ -3,8 +3,9 @@
    * 点击展开的下拉菜单：点外部 / Esc 关闭；自动靠左或靠右对齐以免超出窗口。
    * 用法：<Menu label="导出" icon={Download}> <button onclick=…>…</button> </Menu>
    */
-  import type { Component, Snippet } from 'svelte'
+  import { tick, type Component, type Snippet } from 'svelte'
   import { ChevronDown } from '@lucide/svelte'
+  import { anchoredFloating } from './anchoredFloating'
 
   let {
     label,
@@ -13,7 +14,9 @@
     primary = false,
     small = false,
     wide = false,
-    tour = ''
+    tour = '',
+    iconOnly = false,
+    floating = false
   }: {
     label: string
     icon?: Component<{ size?: number }>
@@ -23,27 +26,48 @@
     wide?: boolean
     /** 图文引导要圈这个菜单时给它一个记号（落成 data-tour） */
     tour?: string
+    iconOnly?: boolean
+    floating?: boolean
   } = $props()
 
   let open = $state(false)
   let alignLeft = $state(false)
   let root = $state<HTMLDivElement | null>(null)
+  let panel = $state<HTMLDivElement | null>(null)
+  function placeMenu(node: HTMLElement): ReturnType<typeof anchoredFloating> | undefined {
+    return floating
+      ? anchoredFloating(node, {
+          anchor: root,
+          width: wide ? 280 : 220,
+          align: 'end',
+          onAnchorHidden: () => (open = false)
+        })
+      : undefined
+  }
 
-  function toggle(): void {
+  async function toggle(event: MouseEvent): Promise<void> {
     open = !open
     if (open && root) {
       const r = root.getBoundingClientRect()
       // 菜单默认右对齐；若按钮靠左（右对齐会伸出左边），改为左对齐
       alignLeft = r.left < 260
+      if (floating && event.detail === 0) {
+        await tick()
+        panel?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)')?.focus()
+      }
     }
   }
   $effect(() => {
     if (!open) return
     const onDown = (e: PointerEvent): void => {
-      if (root && !root.contains(e.target as Node)) open = false
+      if (root && !root.contains(e.target as Node) && !panel?.contains(e.target as Node))
+        open = false
     }
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') open = false
+      if (e.key === 'Escape') {
+        open = false
+        if (floating) root?.querySelector('button')?.focus()
+      }
     }
     window.addEventListener('pointerdown', onDown, true)
     window.addEventListener('keydown', onKey)
@@ -60,12 +84,29 @@
 </script>
 
 <div class="menu" bind:this={root} data-tour={tour || null}>
-  <button class="btn" class:primary class:sm={small} class:active={open} onclick={toggle}>
-    {#if Icon}<Icon size={small ? 14 : 16} />{/if}{label}<ChevronDown size={12} class="chev" />
+  <button
+    class="btn"
+    class:primary
+    class:sm={small}
+    class:active={open}
+    class:icon={iconOnly}
+    title={iconOnly ? label : undefined}
+    aria-label={label}
+    aria-expanded={open}
+    aria-haspopup="menu"
+    onclick={toggle}
+  >
+    {#if Icon}<Icon size={small ? 14 : 16} />{/if}{#if !iconOnly}{label}<ChevronDown
+        size={12}
+        class="chev"
+      />{/if}
   </button>
   {#if open}
     <div
       class="menu-list card"
+      class:floating
+      bind:this={panel}
+      use:placeMenu
       class:left={alignLeft}
       class:wide
       role="menu"
@@ -101,6 +142,12 @@
   .menu-list.wide {
     min-width: 280px;
     max-height: 400px;
+    overflow: auto;
+  }
+  .menu-list.floating {
+    right: auto;
+    min-width: 0;
+    z-index: 400;
     overflow: auto;
   }
   @keyframes rise {

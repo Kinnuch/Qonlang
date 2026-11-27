@@ -28,6 +28,40 @@ const en: Dict = {
     expand: 'Show full content',
     collapse: 'Collapse long content'
   },
+  compoundJoin: {
+    title: 'Joining adjustments',
+    hint: 'Count complete units using the project’s multi-character sounds, letters and intact graphemes, keeping the original spelling. Inserted text belongs to its chosen side and may be removed by a later step. Steps run in order; a hand-edited final form is kept.',
+    boundaryHint:
+      'A dictionary affix hyphen at the junction is not counted as a sound. Adjustments handle it separately: an empty separator removes that notation; “-” joins it once. Explicitly registered spelling units and internal hyphens remain literal.',
+    resetHint: 'Clear all joining steps and keep a hand-edited final form.',
+    reset: 'Reset adjustments',
+    units: 'Left: {left} units · Right: {right} units',
+    noSteps: 'No adjustments: join the original forms directly.',
+    operation: 'Adjustment',
+    dropLeft: 'Remove from left end',
+    dropRight: 'Remove from right start',
+    insert: 'Insert at the junction',
+    separator: 'Set separator',
+    count: 'Units',
+    times: 'Times',
+    location: 'Insertion position',
+    left: 'End of left part',
+    right: 'Start of right part',
+    text: 'Text to insert',
+    separatorText: 'Separator (empty means none)',
+    none: 'No separator',
+    preview: 'After this step',
+    removed: 'Removed: {units}',
+    result: 'Generated form',
+    invalidCount: 'Units and times must be positive integers.',
+    invalidText: 'Enter valid insertion or separator text.',
+    invalidStep: 'This step is unavailable. Remove it and choose another.',
+    tooMany: 'Use at most 100 steps. Remove some to continue.',
+    addStep: 'Add step',
+    manual: 'Final form edited by hand',
+    manualHint:
+      'Steps still update the preview above. Choose “Use the combined form again” to follow it again.'
+  },
   compoundBuilder: {
     title: 'Combine two existing entries',
     more: 'More ways to add',
@@ -449,7 +483,7 @@ const en: Dict = {
     galleryNext: 'Next',
     exampleDesc: {
       aelith:
-        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again. Try drawing components, a grid preset, and shared folders for corpus examples, phrases and documents. Try tag and part-of-speech colors, and inspect descendant counts in the project root. Try combining two entries and browsing sentences in gallery or masonry view.',
+        'Agglutinative a priori language: a language family node with group statistics, historical stages inside a language with each entry’s history chain, proto-to-modern family with a sister language (compare cognates’ sound changes and meanings in the relation graph), inside/outside if-else sound changes, features and stress rules, the syllable boundary σ, a custom stress rule, vowel harmony, all nine pipeline steps (including paradigms inside paradigms), variants and inheritance, slots based on other slots and slots that affect pronunciation, several paradigms per part of speech and per entry, letters that change by gender, sandhi undone in the corpus, run-together compounds split automatically, compound parts of speech, inspector modules, etymology chains, an entry created from a paradigm form, glossed corpus, runic script with a hand-drawn glyph, favourites and marked words, sound classes written inside a tweak step, two sounds merging into one, sentences with punctuation. Temporary classes map by position, and rule examples use lexicon entries that actually change. You can add comments between rules. Corpus sentences link back to the HTML pages that cite them. Open the vowel-sign and Rime tutorial from Script. The workbench matches a frame and the word inside it. The relation graph includes a four-level walkthrough, draggable pins and independent force and color controls. Try letter-group jumps and sorting from word endings. The workbench collects alternatives for the same translation position; drag them back to choose again. Try drawing components, a grid preset, and shared folders for corpus examples, phrases and documents. Try tag and part-of-speech colors, and inspect descendant counts in the project root. Try inserting a sound between two words, then browse the corpus gallery with the arrow keys.',
       tsahun:
         'Isolating tone language: five tones and tone sandhi, Latin and Cyrillic orthographies (spelling-based syllables and editable phoneme mappings), syllabary packing and vertical layout, a logographic script written word by word from glyph codes, reduplication paradigms, inflected forms with spaces, homograph candidates, a variant-character module shown in the syllabary font. Temporary classes map multi-character tone numbers to complete tone-letter sequences. An optional paradigm uses per-entry morpheme slots to reproduce corpus particle combinations. Try tag and part-of-speech colors, and inspect descendant counts in the project root.'
     },
@@ -3099,6 +3133,7 @@ const en: Dict = {
     groups: {
       corpusTextImport: 'Corpus text import',
       recordViews: 'Record browsing',
+      compoundJoin: 'Joining adjustments',
       compoundBuilder: 'Build a compound',
       badgeColors: 'Tag and part-of-speech colors',
       scriptScope: 'Corpus folder scope',

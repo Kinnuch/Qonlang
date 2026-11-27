@@ -3,9 +3,9 @@
  * 切音段、认音节核用语言的音系设置（ParseOptions.syllables）加上规则文本里的音类：先看音节核与名为 V 的音类，
  * 再看确定是辅音的音，都没有的按 IPA 表推断——拼写里的 a、é 这类也认得出元音，th 这类多合字母换成内部符号后是一个音。
  */
-import { inferFeatures } from '$lib/ipa/features'
 import { canonicalG } from '$lib/ipa/equivalence'
-import { stripMarks, syllableNucleusMatch, syllableSpans, tokenizeWord } from '../phon'
+import { syllableSpans, tokenizeWord } from '../phon'
+import { createNucleusMatcher, inferredNucleus, prepareUnitMatcher } from '../phon/nuclei'
 import {
   BOUNDARY,
   matchingRegex,
@@ -19,7 +19,10 @@ import type { WordStress } from './apply'
 
 interface Syllabifier {
   units: Set<string>
+  matchesUnit: (s: string) => boolean
   nuclei: ReadonlySet<string>
+  matchesNucleus: (s: string) => boolean
+  matchesOnset: (s: string) => boolean
   isNucleus: (s: string) => boolean
   onsets: Set<string> | undefined
   maxOnset: number
@@ -29,54 +32,33 @@ interface Syllabifier {
 
 const cache = new WeakMap<RuleProgram, Map<boolean, Syllabifier>>()
 
-/** 仅本次分类器的比较键折叠 g 字形及可选的大小写；原程序不改，仍可序列化。 */
-function matchingSet(values: Iterable<string>, caseInsensitive: boolean): Set<string> {
-  const set = new Set(values)
-  const folded = new Set([...set].map(canonicalG))
-  const exact = set.has.bind(set)
-  set.has = (value: string): boolean =>
-    exact(value) ||
-    folded.has(canonicalG(value)) ||
-    (caseInsensitive &&
-      [...folded].some((member) => sameCaseInsensitive(member, canonicalG(value))))
-  return set
-}
-
 function syllabifierOf(program: RuleProgram, caseInsensitive = false): Syllabifier {
   const hit = cache.get(program)?.get(caseInsensitive)
   if (hit) return hit
   const sc = program.syllables
-  const nuclei = matchingSet(sc.nuclei, false)
-  const consonants = matchingSet(sc.consonants, false)
-  const foldedNuclei = matchingSet(sc.nuclei, caseInsensitive)
-  const foldedConsonants = matchingSet(sc.consonants, caseInsensitive)
+  const strict = createNucleusMatcher(sc.nuclei, sc.consonants)
+  const equivalent = caseInsensitive ? sameCaseInsensitive : undefined
+  const folded = caseInsensitive
+    ? createNucleusMatcher(sc.nuclei, sc.consonants, equivalent)
+    : strict
   const known = new Map<string, boolean>()
   const isNucleus = (s: string): boolean => {
     let v = known.get(s)
     if (v === undefined) {
-      const declared =
-        syllableNucleusMatch(s, nuclei, consonants) ??
-        (caseInsensitive ? syllableNucleusMatch(s, foldedNuclei, foldedConsonants) : undefined)
-      if (declared !== undefined) v = declared
-      else {
-        // 表里没有的多字母单位（aa、ai）逐个字母看，全是元音才算
-        const letters = Array.from(stripMarks(s)).filter((ch) => !/\p{Lm}/u.test(ch))
-        v =
-          letters.length > 0 &&
-          letters.every((ch) => {
-            const f = inferFeatures(caseInsensitive ? ch.toLowerCase() : ch)
-            return f.type === 'vowel' || f.syllabic === 'yes'
-          })
-      }
+      const declared = strict.declared(s) ?? (caseInsensitive ? folded.declared(s) : undefined)
+      v = declared ?? inferredNucleus(caseInsensitive ? s.toLowerCase() : s)
       known.set(s, v)
     }
     return v
   }
   const sy: Syllabifier = {
-    units: matchingSet([...sc.units, ...sc.nuclei], caseInsensitive),
-    nuclei: foldedNuclei,
+    units: new Set([...sc.units, ...sc.nuclei]),
+    matchesUnit: prepareUnitMatcher([...sc.units, ...sc.nuclei], equivalent).has,
+    nuclei: new Set(sc.nuclei),
+    matchesNucleus: prepareUnitMatcher(sc.nuclei, equivalent).has,
+    matchesOnset: prepareUnitMatcher(sc.onsets, equivalent).has,
     isNucleus,
-    onsets: sc.onsets.length ? matchingSet(sc.onsets, caseInsensitive) : undefined,
+    onsets: sc.onsets.length ? new Set(sc.onsets) : undefined,
     maxOnset: sc.maxOnset ?? Infinity,
     maxCoda: sc.maxCoda ?? Infinity,
     ...(sc.respectOnsetLimits ? { respectOnsetLimits: true } : {})
@@ -118,7 +100,7 @@ export function plainAnnotated(word: string): Annotated {
  */
 export function annotate(word: string, program: RuleProgram, caseInsensitive = false): Annotated {
   const sy = syllabifierOf(program, caseInsensitive)
-  const tokens = tokenizeWord(word, sy.units)
+  const tokens = tokenizeWord(word, sy.units, sy.matchesUnit)
   const boundaryBefore = new Set<number>()
   interface TokSyllable {
     first: number
@@ -278,7 +260,9 @@ export function assignStress(
   // 词条自己的特殊重音：整个词按它，第几个音节数的是整个词的（0 不重读）
   if (special !== null) {
     for (const w of ann.words) {
-      const sylls = w.chunks.flatMap((ch) => ch.syllables)
+      const sylls = w.chunks
+        .flatMap((ch) => ch.syllables)
+        .filter((s) => s.nucleusStart < s.nucleusEnd)
       if (!special || !sylls.length) continue
       const i = Math.max(
         0,
@@ -294,7 +278,7 @@ export function assignStress(
   for (const w of ann.words) {
     const parts: AnnotatedSyllable[][] = [[]]
     w.chunks.forEach((ch, i) => {
-      parts[parts.length - 1].push(...ch.syllables)
+      parts[parts.length - 1].push(...ch.syllables.filter((s) => s.nucleusStart < s.nucleusEnd))
       if (i < w.chunks.length - 1 && ch.sep && step.split.includes(ch.sep)) parts.push([])
     })
     const chosen = parts.map((p) =>

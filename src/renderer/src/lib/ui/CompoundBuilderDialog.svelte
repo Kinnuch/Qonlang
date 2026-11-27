@@ -2,12 +2,14 @@
   import { untrack } from 'svelte'
   import type { Id, Lexeme, Project } from '$lib/core/model'
   import { createCompoundLexeme } from '$lib/core/compoundBuilder'
+  import { prepareCompoundJoin, type CompoundJoinStep } from '$lib/core/compoundJoin'
   import { projectState } from '$lib/state/project.svelte'
   import { t, pickText } from '$lib/i18n/index.svelte'
   import { gEquivalent } from '$lib/ipa/equivalence'
   import ReferencePicker from './ReferencePicker.svelte'
   import LocalizedInput from './LocalizedInput.svelte'
   import HelpDot from './HelpDot.svelte'
+  import CompoundJoinEditor from './CompoundJoinEditor.svelte'
   import { X, Combine } from '@lucide/svelte'
   let {
     project,
@@ -23,7 +25,7 @@
   let languageId = $state(untrack(() => initialLanguageId)),
     firstId = $state(''),
     secondId = $state(''),
-    separator = $state(''),
+    joinSteps = $state<CompoundJoinStep[]>([]),
     lemma = $state(''),
     customForm = $state(false),
     posId = $state(''),
@@ -35,12 +37,17 @@
     second = $derived(
       project.lexemes.find((word) => word.id === secondId && word.languageId === languageId)
     )
-  const combined = $derived((first?.lemma ?? '') + separator + (second?.lemma ?? ''))
+  const joiner = $derived(language ? prepareCompoundJoin(language) : null)
+  const joining = $derived(
+    joiner ? joiner(first?.lemma ?? '', second?.lemma ?? '', joinSteps) : null
+  )
+  const combined = $derived(joining?.surface ?? '')
   const editable = $derived(
     projectState.project === project && !projectState.readOnly && !!language
   )
   const valid = $derived(
     editable &&
+      !!joining?.valid &&
       !!first?.lemma.trim() &&
       !!second?.lemma.trim() &&
       !!lemma.trim() &&
@@ -71,6 +78,7 @@
     languageId = value
     firstId = ''
     secondId = ''
+    joinSteps = []
     customForm = false
     lemma = ''
   }
@@ -121,8 +129,8 @@
         >{/each}</select
     ></label
   >
-  <div class="parts">
-    <div class="field" data-compound-first>
+  <div class="compound-parts">
+    <div class="field compound-part" data-compound-first>
       <span>{t('compoundBuilder.first')}</span><ReferencePicker
         {project}
         {languageId}
@@ -136,15 +144,7 @@
         onpick={(id) => (firstId = id)}
       />
     </div>
-    <label class="field joiner"
-      >{t('compoundBuilder.separator')}<input
-        class="input data"
-        data-compound-separator
-        bind:value={separator}
-        disabled={!editable}
-      /></label
-    >
-    <div class="field" data-compound-second>
+    <div class="field compound-part" data-compound-second>
       <span>{t('compoundBuilder.second')}</span><ReferencePicker
         {project}
         {languageId}
@@ -159,12 +159,21 @@
       />
     </div>
   </div>
+  {#if joining}<CompoundJoinEditor
+      bind:steps={joinSteps}
+      result={joining}
+      readOnly={!editable}
+    />{/if}
   <div class="sources small" data-compound-sources>
     {first?.lemma || '…'} + {second?.lemma || '…'} →
     <strong class="data">{lemma || '…'}</strong><HelpDot tip={t('compoundBuilder.sourceHint')} />
   </div>
   <label class="field"
-    >{t('compoundBuilder.form')}<input
+    ><span class="row"
+      >{t('compoundBuilder.form')}{#if customForm}<span class="small muted"
+          >{t('compoundJoin.manual')}</span
+        ><HelpDot tip={t('compoundJoin.manualHint')} />{/if}</span
+    ><input
       class="input data"
       data-compound-form
       bind:value={lemma}
@@ -234,15 +243,24 @@
   }
   .field {
     display: flex;
+    margin: 0;
     flex-direction: column;
     gap: 4px;
     font-size: 12px;
     min-inline-size: 0;
   }
-  .parts {
+  .compound-parts {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 75px minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+    align-items: start;
+    flex: none;
+  }
+  /* 搜索框的行内flex-basis不能在纵向field里变成11em高度。浮层仍由原组件定位。 */
+  .compound-part :global(.ref-picker) {
+    flex: 0 0 auto;
+    inline-size: 100%;
+    min-inline-size: 0;
   }
   .sources {
     padding: 8px;
@@ -261,11 +279,8 @@
     margin: 0;
   }
   @media (max-width: 600px) {
-    .parts {
+    .compound-parts {
       grid-template-columns: 1fr;
-    }
-    .joiner {
-      max-inline-size: 120px;
     }
   }
 </style>

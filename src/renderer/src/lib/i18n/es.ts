@@ -24,6 +24,40 @@ export default {
     expand: 'Mostrar todo el contenido',
     collapse: 'Contraer el contenido largo'
   },
+  compoundJoin: {
+    title: 'Ajustes de unión',
+    hint: 'Cuenta los sonidos y letras de varios caracteres del proyecto y los grafemas completos, conservando la escritura original. El texto insertado pertenece al lado elegido y puede eliminarse en un paso posterior. Los pasos siguen su orden; se conserva la forma final escrita a mano.',
+    boundaryHint:
+      'El guion de notación de afijo en la unión no cuenta como sonido. Un separador vacío elimina esa notación; «-» añade uno solo. Se conservan las unidades de escritura declaradas y los guiones internos.',
+    resetHint: 'Borrar todos los pasos de unión y conservar la forma final manual.',
+    reset: 'Restablecer ajustes',
+    units: 'Izquierda: {left} unidades · Derecha: {right} unidades',
+    noSteps: 'Sin ajustes: unir directamente las formas originales.',
+    operation: 'Ajuste',
+    dropLeft: 'Eliminar del final izquierdo',
+    dropRight: 'Eliminar del inicio derecho',
+    insert: 'Insertar en la unión',
+    separator: 'Definir separador',
+    count: 'Unidades',
+    times: 'Veces',
+    location: 'Posición de inserción',
+    left: 'Final de la parte izquierda',
+    right: 'Inicio de la parte derecha',
+    text: 'Texto que insertar',
+    separatorText: 'Separador (vacío = ninguno)',
+    none: 'Sin separador',
+    preview: 'Resultado de este paso',
+    removed: 'Eliminado: {units}',
+    result: 'Forma generada',
+    invalidCount: 'Las unidades y repeticiones deben ser enteros positivos.',
+    invalidText: 'Introduce un texto de inserción o separador válido.',
+    invalidStep: 'Este paso no está disponible. Elimínalo y elige otro.',
+    tooMany: 'El límite es de 100 pasos. Elimina algunos para continuar.',
+    addStep: 'Añadir paso',
+    manual: 'Forma final escrita a mano',
+    manualHint:
+      'Los pasos siguen actualizando la vista previa. Elige « Volver a usar la forma combinada » para seguirla de nuevo.'
+  },
   compoundBuilder: {
     title: 'Combinar dos entradas existentes',
     more: 'Otras formas de añadir',
@@ -454,7 +488,7 @@ export default {
     galleryNext: 'Siguiente',
     exampleDesc: {
       aelith:
-        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura. El taller reconoce una expresión con un hueco y la palabra que lo ocupa. El grafo incluye un recorrido de cuatro niveles, nodos fijados al arrastrar y controles independientes de fuerzas y colores. Pruebe los saltos por letras y el orden desde el final de las palabras. El banco de traducción guarda alternativas de la misma posición; arrástrelas de vuelta para elegir de nuevo. Prueba los componentes dibujados, la cuadrícula predefinida y las carpetas compartidas para el corpus, las frases y los documentos. Pruebe los colores de las etiquetas y las clases de palabra y consulte los totales que incluyen subcarpetas en la raíz del proyecto. Prueba a combinar dos entradas y a explorar las oraciones en galería o mosaico.',
+        'Lengua a priori aglutinante: nodo de familia con estadísticas por grupo, etapas históricas dentro de una lengua y cadena de formas históricas de cada entrada, familia de la protolengua a la lengua moderna con una lengua hermana (en el grafo de relaciones se comparan los cambios fonéticos y los significados de los cognados), reglas de cambio fonético con dos vías según se cumpla o no el entorno, rasgos y reglas de acento, el límite silábico σ, acento personalizado, armonía vocálica, los nueve tipos de paso de los paradigmas en cadena (incluidos paradigmas dentro de paradigmas), variantes y herencia, ranuras heredadas y ranuras que afectan a la pronunciación, elección de alomorfos según los valores de las categorías, varios paradigmas para una misma clase de palabra, varios paradigmas para una misma entrada, letras que cambian según el género, sonorización de la lectura seguida deshecha, separación automática de los compuestos escritos juntos, clases de palabra compuestas, módulos del inspector, cadenas etimológicas, entradas generadas a partir de un paradigma, corpus ya glosado, inscripciones rúnicas con glifos dibujados a mano, favoritos y marcas, clases de sonidos escritas dentro de un paso de ajuste, dos sonidos que se funden en uno, oraciones con puntuación. Las clases temporales se corresponden por posición y los ejemplos de reglas usan entradas del léxico que cambian realmente. Se pueden añadir comentarios entre las reglas. Las frases del corpus enlazan con las páginas HTML que las citan. La guía de signos vocálicos y diccionarios Rime se abre desde Escritura. El taller reconoce una expresión con un hueco y la palabra que lo ocupa. El grafo incluye un recorrido de cuatro niveles, nodos fijados al arrastrar y controles independientes de fuerzas y colores. Pruebe los saltos por letras y el orden desde el final de las palabras. El banco de traducción guarda alternativas de la misma posición; arrástrelas de vuelta para elegir de nuevo. Prueba los componentes dibujados, la cuadrícula predefinida y las carpetas compartidas para el corpus, las frases y los documentos. Pruebe los colores de las etiquetas y las clases de palabra y consulte los totales que incluyen subcarpetas en la raíz del proyecto. Prueba a insertar un sonido entre dos palabras y a recorrer la galería con las flechas.',
       tsahun:
         'Lengua tonal aislante: cinco tonos y sandhi tonal, doble ortografía romanizada y cirílica (división silábica según la grafía y correspondencias editables entre grafías y fonemas), composición y disposición vertical de una escritura silábica, escritura logográfica escrita palabra por palabra a partir de los códigos de los glifos, paradigmas de reduplicación, formas flexivas con espacios, candidatos homógrafos y un módulo de variantes gráficas mostrado con la fuente de la escritura. Las clases temporales relacionan los números de tono de varias cifras con secuencias completas de letras tonales. Un paradigma opcional usa las ranuras de morfemas de cada entrada para reproducir combinaciones de partículas del corpus. Pruebe los colores de las etiquetas y las clases de palabra y consulte los totales que incluyen subcarpetas en la raíz del proyecto.'
     },
@@ -3138,6 +3172,7 @@ export default {
     groups: {
       corpusTextImport: 'Importación de texto del corpus',
       recordViews: 'Vista de registros',
+      compoundJoin: 'Ajustes de unión',
       compoundBuilder: 'Crear un compuesto',
       badgeColors: 'Colores de etiquetas y clases de palabra',
       scriptScope: 'Carpetas del corpus',

@@ -101,6 +101,7 @@ export function diacriticFeatures(symbol: string): Record<string, string> {
   if (/ʷ/.test(symbol)) f.labialized = 'yes'
   if (/̥/.test(symbol.normalize('NFD'))) f.voice = 'voiceless'
   if (/̩/.test(symbol.normalize('NFD'))) f.syllabic = 'yes'
+  if (/̯/.test(symbol.normalize('NFD'))) f.syllabic = 'no'
   return f
 }
 

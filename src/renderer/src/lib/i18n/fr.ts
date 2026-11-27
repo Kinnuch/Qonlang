@@ -23,6 +23,40 @@ export default {
     expand: 'Afficher tout le contenu',
     collapse: 'Replier le contenu long'
   },
+  compoundJoin: {
+    title: 'Ajustements de jonction',
+    hint: 'Comptez les sons et lettres multicaractères du projet ainsi que les graphèmes entiers, sans changer leur graphie. Le texte inséré appartient au côté choisi et peut être retiré par une étape suivante. Les étapes suivent leur ordre ; la forme finale saisie à la main est conservée.',
+    boundaryHint:
+      'Le trait d’union de notation affixale à la jonction ne compte pas comme un son. Un séparateur vide retire cette notation ; « - » n’en insère qu’un. Les unités d’écriture explicitement déclarées et les traits d’union internes restent littéraux.',
+    resetHint: 'Effacer toutes les étapes de jonction en conservant la forme finale manuelle.',
+    reset: 'Réinitialiser',
+    units: 'Gauche : {left} unités · Droite : {right} unités',
+    noSteps: 'Sans ajustement : joindre directement les formes originales.',
+    operation: 'Ajustement',
+    dropLeft: 'Retirer à la fin gauche',
+    dropRight: 'Retirer au début droit',
+    insert: 'Insérer à la jonction',
+    separator: 'Définir le séparateur',
+    count: 'Unités',
+    times: 'Répétitions',
+    location: 'Position d’insertion',
+    left: 'Fin de la partie gauche',
+    right: 'Début de la partie droite',
+    text: 'Texte à insérer',
+    separatorText: 'Séparateur (vide = aucun)',
+    none: 'Aucun séparateur',
+    preview: 'Résultat de cette étape',
+    removed: 'Retiré : {units}',
+    result: 'Forme générée',
+    invalidCount: 'Les unités et répétitions doivent être des entiers positifs.',
+    invalidText: 'Saisissez un texte d’insertion ou un séparateur valide.',
+    invalidStep: 'Cette étape est indisponible. Supprimez-la puis choisissez-en une autre.',
+    tooMany: 'Limite de 100 étapes. Supprimez-en pour continuer.',
+    addStep: 'Ajouter une étape',
+    manual: 'Forme finale manuelle',
+    manualHint:
+      'Les étapes continuent de modifier l’aperçu. Choisissez « Réutiliser la forme combinée » pour rétablir le suivi automatique.'
+  },
   compoundBuilder: {
     title: 'Combiner deux entrées existantes',
     more: 'Autres façons d’ajouter',
@@ -457,7 +491,7 @@ export default {
     galleryNext: 'Suivante',
     exampleDesc: {
       aelith:
-        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète. Le graphe propose un parcours à quatre niveaux, des nœuds fixés par déplacement et des réglages indépendants de forces et de couleurs. Essayez les sauts par lettre et le tri depuis la fin des mots. L’atelier range les alternatives d’un même emplacement dans la traduction ; glissez-les à nouveau pour changer de choix. Essayez les composants dessinés, la grille prédéfinie et les dossiers partagés entre corpus, locutions et documents. Essayez les couleurs des étiquettes et des catégories grammaticales, puis consultez les totaux incluant les sous-dossiers à la racine du projet. Essayez de composer un mot à partir de deux entrées, puis de parcourir les phrases en galerie ou en mosaïque.',
+        'Langue a priori agglutinante : nœud de famille et statistiques par groupe, stades historiques internes à une langue et chaîne des formes anciennes de chaque entrée, famille allant de la proto-langue à la langue moderne avec une langue sœur (le graphe de relations compare les changements phonétiques et les sens des cognats), règles de changement phonétique à deux voies selon que l’environnement est rempli ou non, traits et règles d’accentuation, frontière de syllabe σ, accent personnalisé, harmonie vocalique, les neuf étapes du paradigme en pipeline (y compris un paradigme dans un paradigme), variantes et héritage, emplacements hérités et emplacements qui modifient la prononciation, choix des allomorphes selon les valeurs des catégories, plusieurs paradigmes pour une même classe de mots, plusieurs paradigmes pour une même entrée, lettres qui changent selon le genre, sonorisation de liaison reconstituée à rebours, composés écrits d’un seul tenant et segmentés automatiquement, classes de mots composées, modules de l’inspecteur, chaînes étymologiques, entrée créée à partir d’un paradigme, corpus glosé, inscriptions runiques et glyphe tracé à la main, favoris et marques, classes de sons écrites dans une étape d’ajustement, fusion de deux sons en un seul, phrases ponctuées. Les classes temporaires se correspondent par position, et les exemples de règles utilisent des entrées du lexique qui changent réellement. Des commentaires peuvent être ajoutés entre les règles. Les phrases du corpus renvoient aux pages HTML qui les citent. Le tutoriel sur les signes vocaliques et les dictionnaires Rime est accessible depuis Écriture. L’atelier reconnaît une expression à trou et le mot qui la complète. Le graphe propose un parcours à quatre niveaux, des nœuds fixés par déplacement et des réglages indépendants de forces et de couleurs. Essayez les sauts par lettre et le tri depuis la fin des mots. L’atelier range les alternatives d’un même emplacement dans la traduction ; glissez-les à nouveau pour changer de choix. Essayez les composants dessinés, la grille prédéfinie et les dossiers partagés entre corpus, locutions et documents. Essayez les couleurs des étiquettes et des catégories grammaticales, puis consultez les totaux incluant les sous-dossiers à la racine du projet. Essayez d’insérer un son entre deux mots, puis parcourez la galerie du corpus avec les flèches.',
       tsahun:
         'Langue isolante à tons : cinq tons et sandhi tonal, double orthographe latine et cyrillique (syllabation suivant la graphie et correspondances graphème–phonème modifiables), composition et disposition verticale d’un syllabaire, écriture logographique écrite mot à mot d’après les codes de glyphes, paradigmes de redoublement, formes fléchies contenant des espaces, candidats homographes, module des variantes graphiques affiché dans la police de l’écriture. Les classes temporaires associent les numéros de ton à plusieurs chiffres à des séquences complètes de lettres de ton. Un paradigme facultatif utilise les emplacements de morphèmes de chaque entrée pour reproduire des combinaisons de particules du corpus. Essayez les couleurs des étiquettes et des catégories grammaticales, puis consultez les totaux incluant les sous-dossiers à la racine du projet.'
     },
@@ -3146,6 +3180,7 @@ export default {
     groups: {
       corpusTextImport: 'Import de texte du corpus',
       recordViews: 'Affichage des éléments',
+      compoundJoin: 'Ajustements de jonction',
       compoundBuilder: 'Créer un composé',
       badgeColors: 'Couleurs des tags et catégories grammaticales',
       scriptScope: 'Dossiers du corpus',

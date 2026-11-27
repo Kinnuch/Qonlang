@@ -81,11 +81,13 @@ describe.skipIf(!existsSync(join(dir, 'Aelith.laim.json')))('example projects', 
       expect(shared.markdown).toContain('根目录下「练习」的数量包含「摘录」')
       const about = p.docs.find((doc) => doc.title === '关于这个示例')!
       expect(about.markdown).toContain('新增复合词')
+      expect(about.markdown).toContain('连接调整')
       expect(about.markdown).toContain(name === 'Aelith' ? 'teli 和 kaso' : 'tsa55 和 wa55')
       const en = JSON.parse(readFileSync(join(dir, 'docs-en.json'), 'utf8')) as ExampleDocsEn
       localizeExampleDocs(p, name === 'Aelith' ? 'aelith' : 'tsahun', en, 'en')
       expect(shared.markdown).toContain('root directory')
       expect(about.markdown).toContain('Add compound')
+      expect(about.markdown).toContain('join adjustments')
       expect(p.docs.find((doc) => doc.title === 'About this example')!.markdown).toContain(
         'badge colour'
       )

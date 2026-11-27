@@ -4,6 +4,7 @@
   import { copyRecords, pasteRecords } from '$lib/state/recordClipboard.svelte'
   import { deletable } from '$lib/ui/deletable'
   import { navScroll } from '$lib/ui/navScroll'
+  import { recordRowKeys } from '$lib/ui/recordRowKeys'
   import { lazy, lazyMore } from '$lib/ui/lazy.svelte'
   import { scrollToItem } from '$lib/ui/reveal'
   import type { PageView } from '$lib/state/ui.svelte'
@@ -596,7 +597,26 @@
         >
       </div>
     {/if}
-    <div class="table-wrap" use:navScroll={'morphemes'}>
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex (滚动表格用一个稳定的焦点接收上下键) -->
+    <div
+      class="table-wrap"
+      use:navScroll={'morphemes'}
+      tabindex="0"
+      role="region"
+      aria-label={t('nav.morphemes')}
+      aria-keyshortcuts="ArrowUp ArrowDown"
+      use:recordRowKeys={{
+        section: 'morphemes',
+        items: list,
+        selected: selectedId,
+        select: (id) => {
+          multiIds = []
+          anchorId = id
+          selectedId = id
+        },
+        ensure: (index) => lz.ensure(index + 1)
+      }}
+    >
       <table class="tbl">
         <thead>
           <tr>

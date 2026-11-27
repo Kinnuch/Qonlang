@@ -1024,7 +1024,11 @@
           />
         </div>
       {:else}
-        <div class="scroll" use:navScroll={'phrasebook'}>
+        <div
+          class="scroll"
+          class:gallery-scroll={browseMode === 'gallery'}
+          use:navScroll={'phrasebook'}
+        >
           {#if list.length === 0}
             <p class="muted">{t('phrasebook.empty')}</p>
           {:else}
@@ -1035,6 +1039,15 @@
               onactive={(id) => (selectedId = id)}
               lazy={lz}
             >
+              {#snippet preview(p: Phrase)}
+                <div class="card neighbor-preview">
+                  <div class="data text">{p.text.slice(0, 320)}</div>
+                  <div class="small tr">
+                    {pickText(p.translation, [i18n.locale, ...glossLangs]).slice(0, 320)}
+                  </div>
+                  {#if p.category}<span class="small muted">{p.category}</span>{/if}
+                </div>
+              {/snippet}
               {#snippet children(p: Phrase, pi: number)}
                 {@const view = phraseView(p)}
                 <div
@@ -1347,6 +1360,18 @@
     min-width: 0;
     overflow: auto;
     padding-inline-end: 4px;
+  }
+  .gallery-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .neighbor-preview {
+    height: 100%;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
   .more-mark {
     height: 1px;

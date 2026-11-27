@@ -19,13 +19,7 @@ import type {
 } from '$lib/core/model'
 import { parseRuleText, runRules, stripStress, type RuleProgram, type WordStress } from '../sca'
 import { lexemeStress, morphemeStress, posNames } from '$lib/core/stressInfo'
-import {
-  languageParseOptions,
-  segment,
-  spellingUnits,
-  syllableNucleusMatch,
-  syllableSpans
-} from '../phon'
+import { languageParseOptions, segment, spellingUnits, syllableSpans } from '../phon'
 import { transcribe, hasOrthographyRules, orthographySignature } from '$lib/core/pronounce'
 import { posParadigmId } from '$lib/core/pos'
 import { activeValues, conditionVariants, resolveConditions } from './conditions'
@@ -33,6 +27,7 @@ import { activeValueIds, alloValues, valueLabel, valueMatch } from './allomorph'
 import type { LayoutDim } from './layout'
 import { canonicalG } from '$lib/ipa/equivalence'
 import { boundMorpheme } from '$lib/core/morphemeSlots'
+import { createNucleusMatcher, prepareUnitMatcher } from '../phon/nuclei'
 
 export interface SlotDef {
   key: string
@@ -474,11 +469,10 @@ function resolveSlotAffix(
 function syllableCount(text: string, units: string[], isVowel: (s: string) => boolean): number {
   const nuclei = new Set(units.filter(isVowel)),
     consonants = new Set(units.filter((unit) => !isVowel(unit)))
-  return syllableSpans(
-    segment(text, units),
-    (s) => syllableNucleusMatch(s, nuclei, consonants) === true,
-    { nuclei }
-  ).filter((span) => span.nucleusEnd > span.nucleusStart).length
+  return syllableSpans(segment(text, units), createNucleusMatcher(nuclei, consonants).isNucleus, {
+    nuclei,
+    matchesNucleus: prepareUnitMatcher(nuclei).has
+  }).filter((span) => span.nucleusEnd > span.nucleusStart).length
 }
 
 /**
